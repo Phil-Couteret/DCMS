@@ -10,7 +10,7 @@ import {
   Tab,
   Chip
 } from '@mui/material';
-import { LocationOn as LocationIcon, AccessTime as TimeIcon, Depth as DepthIcon } from '@mui/icons-material';
+import { LocationOn as LocationIcon, AccessTime as TimeIcon, Water as DepthIcon } from '@mui/icons-material';
 
 const DiveSites = () => {
   const [tabValue, setTabValue] = React.useState(0);
