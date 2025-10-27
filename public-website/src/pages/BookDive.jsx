@@ -13,9 +13,7 @@ import {
   Paper,
   Stepper,
   Step,
-  StepLabel,
-  FormControlLabel,
-  Switch
+  StepLabel
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 

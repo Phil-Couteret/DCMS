@@ -6,8 +6,7 @@ import {
   Button,
   Grid,
   Card,
-  CardContent,
-  CardMedia
+  CardContent
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { ScubaDiving as DiveIcon, BeachAccess as LocationIcon, Groups as GroupIcon } from '@mui/icons-material';

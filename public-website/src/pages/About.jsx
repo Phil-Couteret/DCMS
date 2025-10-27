@@ -6,7 +6,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardMedia,
   Avatar
 } from '@mui/material';
 import { Settings as EquipmentIcon, Stars as AwardIcon, Groups as CrewIcon } from '@mui/icons-material';
