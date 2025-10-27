@@ -14,6 +14,9 @@ import Settings from './pages/Settings';
 // Components
 import Navigation from './components/Common/Navigation';
 
+// Language support
+import { LanguageProvider } from './utils/languageContext';
+
 // Create theme
 const theme = createTheme({
   palette: {
@@ -28,9 +31,10 @@ const theme = createTheme({
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
+    <LanguageProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
           <Navigation />
           <Box 
@@ -53,7 +57,8 @@ function App() {
           </Box>
         </Box>
       </Router>
-    </ThemeProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 

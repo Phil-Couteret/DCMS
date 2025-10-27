@@ -20,6 +20,7 @@ import {
   Settings as SettingsIcon,
   Add as AddIcon
 } from '@mui/icons-material';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const drawerWidth = 240;
 
@@ -43,9 +44,10 @@ const Navigation = () => {
         sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
       >
         <Toolbar>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             DCMS - Deep Blue Diving
           </Typography>
+          <LanguageSwitcher />
         </Toolbar>
       </AppBar>
       
