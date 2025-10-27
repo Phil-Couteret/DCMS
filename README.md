@@ -84,36 +84,6 @@ DCMS/
     ├── backend/            # Backend tests
     └── frontend/           # Frontend tests
 ```
-
----
-
-## 🎯 **Package Options**
-
-### **Budget Option (€25,000)**
-- **Timeline:** 11 weeks (81 days with senior developer)
-- **Features:** 23 MUST HAVE features
-- **Includes:** All essential features + offline mode
-- **Annual Cost:** €1,200
-
-### **Standard Option (€41,430)**
-- **Timeline:** 14-15 weeks
-- **Features:** 34 features (23 must + 11 should)
-- **Annual Cost:** €6,048
-
-### **Premium Option (€50,000+)**
-- **Timeline:** 24 weeks
-- **Features:** 51 features (all)
-- **Annual Cost:** €7,200
-
----
-
-## 📊 **Key Metrics**
-
-- **Annual Revenue:** €708,100 (Caleta de Fuste operations)
-- **Annual Benefits:** €182,620-218,025
-- **Break-even:** 2-3 months
-- **5-Year ROI:** 1030-1250% (Budget) / 840-1060% (Standard)
-
 ---
 
 ## 🛠️ **Tech Stack**
@@ -211,14 +181,7 @@ This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) 
 
 ## 👥 **Authors**
 
-- **Philippe Couteret** - Project Owner & Planning
-
----
-
-## 🙏 **Acknowledgments**
-
-- Deep Blue Diving, Fuerteventura
-- All dive center staff and management
+- **Phil Couteret** - Project Owner & Planning
 
 ---
 
