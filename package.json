@@ -1,0 +1,47 @@
+{
+  "name": "dcms",
+  "version": "0.1.0",
+  "description": "Dive Center Management System for Deep Blue Diving, Fuerteventura",
+  "private": true,
+  "license": "GPL-3.0",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "db:migrate": "cd backend && npm run migrate",
+    "db:seed": "cd backend && npm run seed",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Phil-Couteret/DCMS.git"
+  },
+  "keywords": [
+    "dive-center",
+    "management-system",
+    "booking",
+    "multilingual",
+    "pwa",
+    "postgresql",
+    "react",
+    "express"
+  ],
+  "author": "Philippe Couteret",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
+
