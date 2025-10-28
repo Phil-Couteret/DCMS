@@ -18,18 +18,18 @@ import {
 const Pricing = () => {
   const pricingData = {
     caleta: [
-      { dives: 1, tourist: 46, resident: 'TBD' },
-      { dives: 2, tourist: 44, resident: 'TBD' },
-      { dives: 3, tourist: 42, resident: 'TBD' },
-      { dives: 4, tourist: 38, resident: 'TBD' },
-      { dives: '5+', tourist: 36, resident: 'TBD' }
+      { dives: '1-2', tourist: 46, resident: 'TBD' },
+      { dives: '3-5', tourist: 44, resident: 'TBD' },
+      { dives: '6-8', tourist: 42, resident: 'TBD' },
+      { dives: '9-12', tourist: 40, resident: 'TBD' },
+      { dives: '13+', tourist: 38, resident: 'TBD' }
     ],
     playitas: [
-      { dives: 1, tourist: 46, resident: 'TBD' },
-      { dives: 2, tourist: 44, resident: 'TBD' },
-      { dives: 3, tourist: 42, resident: 'TBD' },
-      { dives: 4, tourist: 38, resident: 'TBD' },
-      { dives: '5+', tourist: 36, resident: 'TBD' }
+      { dives: '1-2', tourist: 46, resident: 'TBD' },
+      { dives: '3-5', tourist: 44, resident: 'TBD' },
+      { dives: '6-8', tourist: 42, resident: 'TBD' },
+      { dives: '9-12', tourist: 40, resident: 'TBD' },
+      { dives: '13+', tourist: 38, resident: 'TBD' }
     ]
   };
 
@@ -61,7 +61,7 @@ const Pricing = () => {
                   <TableBody>
                     {pricingData.caleta.map((row, index) => (
                       <TableRow key={index}>
-                        <TableCell>{row.dives} {row.dives === 1 ? 'dive' : 'dives'}</TableCell>
+                        <TableCell>{row.dives} dives</TableCell>
                         <TableCell align="right">€{row.tourist}</TableCell>
                       </TableRow>
                     ))}
@@ -93,7 +93,7 @@ const Pricing = () => {
                   <TableBody>
                     {pricingData.playitas.map((row, index) => (
                       <TableRow key={index}>
-                        <TableCell>{row.dives} {row.dives === 1 ? 'dive' : 'dives'}</TableCell>
+                        <TableCell>{row.dives} dives</TableCell>
                         <TableCell align="right">€{row.tourist}</TableCell>
                       </TableRow>
                     ))}
@@ -129,13 +129,31 @@ const Pricing = () => {
 
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>
+          Other Activities
+        </Typography>
+        <Typography variant="body2" paragraph>
+          <strong>Snorkeling:</strong> €38 (includes boat trip, suit, mask, snorkel, fins)
+        </Typography>
+        <Typography variant="body2" paragraph>
+          <strong>Discover Scuba:</strong> €100 (includes equipment and instructor)
+        </Typography>
+        <Typography variant="body2" paragraph>
+          <strong>Orientation Dive:</strong> €32 (for certified divers, includes tank, weights, boat trip)
+        </Typography>
+        <Typography variant="body2" paragraph>
+          <strong>Night Dive:</strong> +€20 add-on (includes torch)
+        </Typography>
+      </Box>
+
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" gutterBottom>
           Equipment Rental
         </Typography>
         <Typography variant="body2" paragraph>
-          Full equipment set: €15 per dive
+          <strong>Complete Equipment:</strong> €13 (first 8 dives only)
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Individual items available upon request
+        <Typography variant="body2" paragraph>
+          Individual items: Suit €5, BCD €5, Regulator €5, Torch €5, Computer €3
         </Typography>
       </Box>
     </Container>

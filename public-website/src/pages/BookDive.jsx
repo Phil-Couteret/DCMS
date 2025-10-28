@@ -123,17 +123,28 @@ const BookDive = () => {
 
   const calculatePrice = () => {
     if (formData.activityType === 'snorkeling') {
-      // Snorkeling pricing: €25 per session
-      return 25 * formData.numberOfDives;
+      // Snorkeling pricing: €38 per session (includes boat trip, suit, mask, snorkel, fins)
+      return 38 * formData.numberOfDives;
     } else if (formData.activityType === 'discover') {
-      // Discover Scuba pricing: €65 per session (includes equipment and instructor)
-      return 65 * formData.numberOfDives;
+      // Discover Scuba pricing: €100 per session (includes equipment and instructor)
+      return 100 * formData.numberOfDives;
     } else if (formData.activityType === 'orientation') {
-      // Orientation Dives pricing: €55 per session (for certified divers)
-      return 55 * formData.numberOfDives;
+      // Orientation Dives pricing: €32 per session (for certified divers)
+      return 32 * formData.numberOfDives;
     } else {
-      // Diving pricing with volume discounts
-      const basePrice = formData.numberOfDives === 1 ? 46 : formData.numberOfDives === 2 ? 44 : 42;
+      // Diving pricing with volume discounts (from official 2025 pricelist)
+      let basePrice;
+      if (formData.numberOfDives <= 2) {
+        basePrice = 46;
+      } else if (formData.numberOfDives <= 5) {
+        basePrice = 44;
+      } else if (formData.numberOfDives <= 8) {
+        basePrice = 42;
+      } else if (formData.numberOfDives <= 12) {
+        basePrice = 40;
+      } else {
+        basePrice = 38;
+      }
       return basePrice * formData.numberOfDives;
     }
   };
@@ -238,12 +249,12 @@ const BookDive = () => {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {formData.activityType === 'diving' 
-                  ? 'Volume discounts apply automatically for multiple dives'
+                  ? 'Volume discounts apply automatically for multiple dives (includes tank, weights, boat trip)'
                   : formData.activityType === 'snorkeling'
-                  ? 'Snorkeling equipment included'
+                  ? 'Includes boat trip, suit, mask, snorkel, fins'
                   : formData.activityType === 'discover'
                   ? 'Discover Scuba includes equipment and instructor'
-                  : 'Orientation dive for certified divers'
+                  : 'Orientation dive for certified divers (includes tank, weights, boat trip)'
                 }
               </Typography>
             </Grid>
