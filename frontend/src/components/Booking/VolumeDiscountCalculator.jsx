@@ -142,7 +142,7 @@ const VolumeDiscountCalculator = ({ numberOfDives, addons, bono }) => {
             Current Calculation:
           </Typography>
           <Typography variant="body2">
-            <strong>{numberOfDives} dives</strong> × <strong>€{currentTier.price.toFixed(2)}</strong> = <strong>€{(currentTier.price * numberOfDives).toFixed(2))}</strong>
+            <strong>{numberOfDives} dives</strong> × <strong>€{currentTier.price.toFixed(2)}</strong> = <strong>€{(currentTier.price * numberOfDives).toFixed(2)}</strong>
           </Typography>
           {addonTotal > 0 && (
             <Typography variant="body2" sx={{ mt: 1 }}>

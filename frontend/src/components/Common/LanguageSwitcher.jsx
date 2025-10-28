@@ -1,6 +1,6 @@
 import React from 'react';
 import { Select, MenuItem, FormControl } from '@mui/material';
-import { useTranslation } from '../../utils/translations';
+import { useTranslation } from '../../utils/languageContext';
 
 const languages = [
   { code: 'es', name: 'Español' },
