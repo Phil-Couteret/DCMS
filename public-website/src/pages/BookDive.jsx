@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
 
-const steps = ['Select Dive', 'Enter Details', 'Review & Confirm'];
+const steps = ['Select Activity', 'Enter Details', 'Review & Confirm'];
 
 const BookDive = () => {
   const [activeStep, setActiveStep] = useState(0);
@@ -25,6 +25,7 @@ const BookDive = () => {
     location: 'caleta',
     date: '',
     time: '09:00',
+    activityType: 'diving',
     numberOfDives: 1,
     experienceLevel: 'intermediate',
     firstName: '',
@@ -53,14 +54,20 @@ const BookDive = () => {
   };
 
   const calculatePrice = () => {
-    const basePrice = formData.numberOfDives === 1 ? 46 : formData.numberOfDives === 2 ? 44 : 42;
-    return basePrice * formData.numberOfDives;
+    if (formData.activityType === 'snorkeling') {
+      // Snorkeling pricing: €25 per session
+      return 25 * formData.numberOfDives;
+    } else {
+      // Diving pricing with volume discounts
+      const basePrice = formData.numberOfDives === 1 ? 46 : formData.numberOfDives === 2 ? 44 : 42;
+      return basePrice * formData.numberOfDives;
+    }
   };
 
   return (
     <Container sx={{ py: 6 }}>
       <Typography variant="h3" gutterBottom>
-        Book Your Dive
+        Book Your Activity
       </Typography>
 
       <Stepper activeStep={activeStep} sx={{ mb: 4, mt: 4 }}>
@@ -74,6 +81,18 @@ const BookDive = () => {
       <Paper sx={{ p: 4 }}>
         {activeStep === 0 && (
           <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Activity Type</InputLabel>
+                <Select
+                  value={formData.activityType}
+                  onChange={(e) => handleChange('activityType', e.target.value)}
+                >
+                  <MenuItem value="diving">Scuba Diving</MenuItem>
+                  <MenuItem value="snorkeling">Snorkeling</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Location</InputLabel>
@@ -98,18 +117,20 @@ const BookDive = () => {
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Time"
-                type="time"
-                fullWidth
-                value={formData.time}
-                onChange={(e) => handleChange('time', e.target.value)}
-                select
-              />
+              <FormControl fullWidth>
+                <InputLabel>Time</InputLabel>
+                <Select
+                  value={formData.time}
+                  onChange={(e) => handleChange('time', e.target.value)}
+                >
+                  <MenuItem value="09:00">9:00 AM</MenuItem>
+                  <MenuItem value="12:00">12:00 PM</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Number of Dives"
+                label={formData.activityType === 'diving' ? 'Number of Dives' : 'Number of Sessions'}
                 type="number"
                 fullWidth
                 value={formData.numberOfDives}
@@ -137,7 +158,10 @@ const BookDive = () => {
                 Estimated Price: €{calculatePrice().toFixed(2)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Volume discounts apply automatically for multiple dives
+                {formData.activityType === 'diving' 
+                  ? 'Volume discounts apply automatically for multiple dives'
+                  : 'Snorkeling equipment included'
+                }
               </Typography>
             </Grid>
           </Grid>
@@ -202,13 +226,16 @@ const BookDive = () => {
                 Booking Summary
               </Typography>
               <Typography variant="body2" gutterBottom>
+                <strong>Activity:</strong> {formData.activityType === 'diving' ? 'Scuba Diving' : 'Snorkeling'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
                 <strong>Location:</strong> {formData.location === 'caleta' ? 'Caleta de Fuste' : 'Las Playitas'}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Date:</strong> {formData.date}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Number of Dives:</strong> {formData.numberOfDives}
+                <strong>Number of {formData.activityType === 'diving' ? 'Dives' : 'Sessions'}:</strong> {formData.numberOfDives}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Name:</strong> {formData.firstName} {formData.lastName}
