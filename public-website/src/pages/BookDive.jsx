@@ -35,8 +35,74 @@ const BookDive = () => {
     specialRequirements: ''
   });
 
+  // Get available times based on activity type
+  const getAvailableTimes = () => {
+    switch (formData.activityType) {
+      case 'diving':
+        return [
+          { value: '09:00', label: '9:00 AM' },
+          { value: '12:00', label: '12:00 PM' }
+        ];
+      case 'snorkeling':
+        return [
+          { value: '10:00', label: '10:00 AM' },
+          { value: '11:00', label: '11:00 AM' },
+          { value: '13:00', label: '1:00 PM' },
+          { value: '14:00', label: '2:00 PM' }
+        ];
+      case 'discover':
+        return [
+          { value: '10:00', label: '10:00 AM' },
+          { value: '11:00', label: '11:00 AM' },
+          { value: '12:00', label: '12:00 PM' },
+          { value: '13:00', label: '1:00 PM' },
+          { value: '14:00', label: '2:00 PM' }
+        ];
+      default:
+        return [];
+    }
+  };
+
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Reset time when activity type changes
+      if (field === 'activityType') {
+        const availableTimes = getAvailableTimesForActivity(value);
+        newData.time = availableTimes[0]?.value || '09:00';
+      }
+      
+      return newData;
+    });
+  };
+
+  // Get available times for a specific activity type
+  const getAvailableTimesForActivity = (activityType) => {
+    switch (activityType) {
+      case 'diving':
+        return [
+          { value: '09:00', label: '9:00 AM' },
+          { value: '12:00', label: '12:00 PM' }
+        ];
+      case 'snorkeling':
+        return [
+          { value: '10:00', label: '10:00 AM' },
+          { value: '11:00', label: '11:00 AM' },
+          { value: '13:00', label: '1:00 PM' },
+          { value: '14:00', label: '2:00 PM' }
+        ];
+      case 'discover':
+        return [
+          { value: '10:00', label: '10:00 AM' },
+          { value: '11:00', label: '11:00 AM' },
+          { value: '12:00', label: '12:00 PM' },
+          { value: '13:00', label: '1:00 PM' },
+          { value: '14:00', label: '2:00 PM' }
+        ];
+      default:
+        return [];
+    }
   };
 
   const handleNext = () => {
@@ -57,6 +123,9 @@ const BookDive = () => {
     if (formData.activityType === 'snorkeling') {
       // Snorkeling pricing: €25 per session
       return 25 * formData.numberOfDives;
+    } else if (formData.activityType === 'discover') {
+      // Discover Scuba pricing: €65 per session (includes equipment and instructor)
+      return 65 * formData.numberOfDives;
     } else {
       // Diving pricing with volume discounts
       const basePrice = formData.numberOfDives === 1 ? 46 : formData.numberOfDives === 2 ? 44 : 42;
@@ -90,6 +159,7 @@ const BookDive = () => {
                 >
                   <MenuItem value="diving">Scuba Diving</MenuItem>
                   <MenuItem value="snorkeling">Snorkeling</MenuItem>
+                  <MenuItem value="discover">Discover Scuba</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -123,8 +193,11 @@ const BookDive = () => {
                   value={formData.time}
                   onChange={(e) => handleChange('time', e.target.value)}
                 >
-                  <MenuItem value="09:00">9:00 AM</MenuItem>
-                  <MenuItem value="12:00">12:00 PM</MenuItem>
+                  {getAvailableTimes().map((time) => (
+                    <MenuItem key={time.value} value={time.value}>
+                      {time.label}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -160,7 +233,9 @@ const BookDive = () => {
               <Typography variant="body2" color="text.secondary">
                 {formData.activityType === 'diving' 
                   ? 'Volume discounts apply automatically for multiple dives'
-                  : 'Snorkeling equipment included'
+                  : formData.activityType === 'snorkeling'
+                  ? 'Snorkeling equipment included'
+                  : 'Discover Scuba includes equipment and instructor'
                 }
               </Typography>
             </Grid>
@@ -226,7 +301,11 @@ const BookDive = () => {
                 Booking Summary
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Activity:</strong> {formData.activityType === 'diving' ? 'Scuba Diving' : 'Snorkeling'}
+                <strong>Activity:</strong> {
+                  formData.activityType === 'diving' ? 'Scuba Diving' : 
+                  formData.activityType === 'snorkeling' ? 'Snorkeling' : 
+                  'Discover Scuba'
+                }
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Location:</strong> {formData.location === 'caleta' ? 'Caleta de Fuste' : 'Las Playitas'}
