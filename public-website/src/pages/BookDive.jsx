@@ -35,12 +35,13 @@ const BookDive = () => {
     specialRequirements: ''
   });
 
-  // Get available times based on activity type
+  // Get available times based on activity type (from official Deep Blue Diving website)
   const getAvailableTimes = () => {
     switch (formData.activityType) {
       case 'diving':
         return [
           { value: '09:00', label: '9:00 AM' },
+          { value: '10:15', label: '10:15 AM (Additional)' },
           { value: '12:00', label: '12:00 PM' }
         ];
       case 'snorkeling':
@@ -52,11 +53,11 @@ const BookDive = () => {
         ];
       case 'discover':
         return [
-          { value: '10:00', label: '10:00 AM' },
-          { value: '11:00', label: '11:00 AM' },
-          { value: '12:00', label: '12:00 PM' },
-          { value: '13:00', label: '1:00 PM' },
-          { value: '14:00', label: '2:00 PM' }
+          { value: '10:00', label: '10:00 AM' }
+        ];
+      case 'orientation':
+        return [
+          { value: '10:00', label: '10:00 AM' }
         ];
       default:
         return [];
@@ -77,12 +78,13 @@ const BookDive = () => {
     });
   };
 
-  // Get available times for a specific activity type
+  // Get available times for a specific activity type (from official Deep Blue Diving website)
   const getAvailableTimesForActivity = (activityType) => {
     switch (activityType) {
       case 'diving':
         return [
           { value: '09:00', label: '9:00 AM' },
+          { value: '10:15', label: '10:15 AM (Additional)' },
           { value: '12:00', label: '12:00 PM' }
         ];
       case 'snorkeling':
@@ -94,11 +96,11 @@ const BookDive = () => {
         ];
       case 'discover':
         return [
-          { value: '10:00', label: '10:00 AM' },
-          { value: '11:00', label: '11:00 AM' },
-          { value: '12:00', label: '12:00 PM' },
-          { value: '13:00', label: '1:00 PM' },
-          { value: '14:00', label: '2:00 PM' }
+          { value: '10:00', label: '10:00 AM' }
+        ];
+      case 'orientation':
+        return [
+          { value: '10:00', label: '10:00 AM' }
         ];
       default:
         return [];
@@ -126,6 +128,9 @@ const BookDive = () => {
     } else if (formData.activityType === 'discover') {
       // Discover Scuba pricing: €65 per session (includes equipment and instructor)
       return 65 * formData.numberOfDives;
+    } else if (formData.activityType === 'orientation') {
+      // Orientation Dives pricing: €55 per session (for certified divers)
+      return 55 * formData.numberOfDives;
     } else {
       // Diving pricing with volume discounts
       const basePrice = formData.numberOfDives === 1 ? 46 : formData.numberOfDives === 2 ? 44 : 42;
@@ -160,6 +165,7 @@ const BookDive = () => {
                   <MenuItem value="diving">Scuba Diving</MenuItem>
                   <MenuItem value="snorkeling">Snorkeling</MenuItem>
                   <MenuItem value="discover">Discover Scuba</MenuItem>
+                  <MenuItem value="orientation">Orientation Dives</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -235,7 +241,9 @@ const BookDive = () => {
                   ? 'Volume discounts apply automatically for multiple dives'
                   : formData.activityType === 'snorkeling'
                   ? 'Snorkeling equipment included'
-                  : 'Discover Scuba includes equipment and instructor'
+                  : formData.activityType === 'discover'
+                  ? 'Discover Scuba includes equipment and instructor'
+                  : 'Orientation dive for certified divers'
                 }
               </Typography>
             </Grid>
@@ -304,7 +312,8 @@ const BookDive = () => {
                 <strong>Activity:</strong> {
                   formData.activityType === 'diving' ? 'Scuba Diving' : 
                   formData.activityType === 'snorkeling' ? 'Snorkeling' : 
-                  'Discover Scuba'
+                  formData.activityType === 'discover' ? 'Discover Scuba' :
+                  'Orientation Dives'
                 }
               </Typography>
               <Typography variant="body2" gutterBottom>
