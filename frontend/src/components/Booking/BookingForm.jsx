@@ -41,6 +41,20 @@ const BookingForm = ({ bookingId = null }) => {
     customerPayment: 0,
     equipmentNeeded: [],
     specialRequirements: '',
+    ownEquipment: false,
+    rentedEquipment: {
+      completeEquipment: false, // €13 for first 8 dives only
+      Suit: false, // €5
+      BCD: false, // €5
+      Regulator: false, // €5
+      Torch: false, // €5
+      Computer: false, // €3
+      UWCamera: false, // €20
+      // Fins, Boots, Masks are free (included in dive price) - but can still be tracked
+      Mask: false, // Free
+      Fins: false, // Free
+      Boots: false // Free
+    },
     addons: {
       nightDive: false,
       personalInstructor: false
@@ -52,8 +66,11 @@ const BookingForm = ({ bookingId = null }) => {
   const [diveSites, setDiveSites] = useState([]);
   const [bonos, setBonos] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('BookingForm mounted, bookingId:', bookingId);
+    console.log('localStorage keys:', Object.keys(localStorage).filter(key => key.startsWith('dcms_')));
     loadData();
     if (bookingId) {
       loadBooking();
@@ -62,13 +79,31 @@ const BookingForm = ({ bookingId = null }) => {
 
   useEffect(() => {
     calculatePrice();
-  }, [formData.numberOfDives, formData.addons, formData.bonoId]);
+  }, [formData.numberOfDives, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment]);
 
   const loadData = () => {
-    setCustomers(dataService.getAll('customers'));
-    setBoats(dataService.getAll('boats'));
-    setDiveSites(dataService.getAll('diveSites'));
-    setBonos(dataService.getAll('governmentBonos'));
+    try {
+      const customersData = dataService.getAll('customers');
+      const boatsData = dataService.getAll('boats');
+      const diveSitesData = dataService.getAll('diveSites');
+      const bonosData = dataService.getAll('governmentBonos');
+      
+      console.log('Loaded data:', {
+        customers: customersData.length,
+        boats: boatsData.length,
+        diveSites: diveSitesData.length,
+        bonos: bonosData.length
+      });
+      
+      setCustomers(customersData);
+      setBoats(boatsData);
+      setDiveSites(diveSitesData);
+      setBonos(bonosData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setLoading(false);
+    }
   };
 
   const loadBooking = () => {
@@ -80,12 +115,63 @@ const BookingForm = ({ bookingId = null }) => {
 
   const calculatePrice = () => {
     const addons = {
-      nightDive: formData.addons.nightDive ? 1 : 0,
-      personalInstructor: formData.addons.personalInstructor ? 1 : 0
+      nightDive: formData.addons?.nightDive ? 1 : 0,
+      personalInstructor: formData.addons?.personalInstructor ? 1 : 0
     };
     
     const price = dataService.calculatePrice(formData.numberOfDives, addons);
-    let totalPrice = price;
+    
+    // Calculate equipment rental cost
+    let equipmentRental = 0;
+    
+    if (!formData.ownEquipment && formData.rentedEquipment) {
+      // Check if customer has already used 8 dives worth of complete equipment
+      let previousCompleteEquipmentDives = 0;
+      if (formData.customerId) {
+        const customerBookings = dataService.getCustomerBookings(formData.customerId);
+        customerBookings.forEach(booking => {
+          if (booking.rentedEquipment?.completeEquipment) {
+            previousCompleteEquipmentDives += booking.numberOfDives || 0;
+          }
+        });
+      }
+      
+      const remainingCompleteEquipmentDives = Math.max(0, 8 - previousCompleteEquipmentDives);
+      
+      // Complete Equipment: €13 for first 8 dives only
+      if (formData.rentedEquipment.completeEquipment) {
+        const completeEquipmentDives = Math.min(formData.numberOfDives, remainingCompleteEquipmentDives);
+        equipmentRental += completeEquipmentDives * 13;
+      }
+      
+      // Individual equipment pricing (Fins, Boots, Masks are free - included in dive price)
+      // Note: Individual equipment is only charged if complete equipment is NOT selected
+      // UW Camera can be added regardless
+      const equipmentPrices = {
+        Suit: 5,
+        BCD: 5,
+        Regulator: 5,
+        Torch: 5,
+        Computer: 3,
+        UWCamera: 20
+      };
+      
+      Object.entries(formData.rentedEquipment).forEach(([equipment, isRented]) => {
+        // Skip completeEquipment and free items (Mask, Fins, Boots)
+        if (equipment === 'completeEquipment' || equipment === 'Mask' || equipment === 'Fins' || equipment === 'Boots') {
+          return;
+        }
+        // If complete equipment is selected, skip individual equipment (except UW Camera)
+        if (formData.rentedEquipment.completeEquipment && equipment !== 'UWCamera') {
+          return;
+        }
+        if (isRented && equipmentPrices[equipment]) {
+          equipmentRental += equipmentPrices[equipment] * formData.numberOfDives;
+        }
+      });
+    }
+    
+    let totalPrice = price + equipmentRental;
     let discount = 0;
     let governmentPayment = 0;
     let customerPayment = totalPrice;
@@ -123,8 +209,18 @@ const BookingForm = ({ bookingId = null }) => {
     setFormData(prev => ({
       ...prev,
       addons: {
-        ...prev.addons,
+        ...(prev.addons || {}),
         [addon]: checked
+      }
+    }));
+  };
+
+  const handleEquipmentChange = (equipmentType, checked) => {
+    setFormData(prev => ({
+      ...prev,
+      rentedEquipment: {
+        ...(prev.rentedEquipment || {}),
+        [equipmentType]: checked
       }
     }));
   };
@@ -156,8 +252,13 @@ const BookingForm = ({ bookingId = null }) => {
         </Alert>
       )}
 
-      <Paper sx={{ p: 3, mt: 2 }}>
-        <form onSubmit={handleSubmit}>
+      {loading ? (
+        <Paper sx={{ p: 3, mt: 2, textAlign: 'center' }}>
+          <Typography>Loading booking form...</Typography>
+        </Paper>
+      ) : (
+        <Paper sx={{ p: 3, mt: 2 }}>
+          <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
             {/* Customer Selection */}
             <Grid item xs={12} md={6}>
@@ -191,41 +292,7 @@ const BookingForm = ({ bookingId = null }) => {
               />
             </Grid>
 
-            {/* Boat Selection */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Boat</InputLabel>
-                <Select
-                  value={formData.boatId}
-                  onChange={(e) => handleChange('boatId', e.target.value)}
-                >
-                  <MenuItem value="">Select Boat</MenuItem>
-                  {boats.map(boat => (
-                    <MenuItem key={boat.id} value={boat.id}>
-                      {boat.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Dive Site */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Dive Site</InputLabel>
-                <Select
-                  value={formData.diveSiteId}
-                  onChange={(e) => handleChange('diveSiteId', e.target.value)}
-                >
-                  <MenuItem value="">Select Dive Site</MenuItem>
-                  {diveSites.map(site => (
-                    <MenuItem key={site.id} value={site.id}>
-                      {site.name} - {site.difficultyLevel}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+            {/* Boat and Dive Site will be selected after the dive for Spanish regulation compliance */}
 
             {/* Number of Dives */}
             <Grid item xs={12} md={6}>
@@ -267,7 +334,7 @@ const BookingForm = ({ bookingId = null }) => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={formData.addons.nightDive}
+                    checked={formData.addons?.nightDive || false}
                     onChange={(e) => handleAddonChange('nightDive', e.target.checked)}
                   />
                 }
@@ -276,7 +343,7 @@ const BookingForm = ({ bookingId = null }) => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={formData.addons.personalInstructor}
+                    checked={formData.addons?.personalInstructor || false}
                     onChange={(e) => handleAddonChange('personalInstructor', e.target.checked)}
                   />
                 }
@@ -323,13 +390,176 @@ const BookingForm = ({ bookingId = null }) => {
               </FormControl>
             </Grid>
 
+            {/* Own Equipment */}
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.ownEquipment}
+                    onChange={(e) => handleChange('ownEquipment', e.target.checked)}
+                  />
+                }
+                label="Customer brings own equipment (no equipment rental fee)"
+              />
+            </Grid>
+
+            {/* Individual Equipment Rental */}
+            {!formData.ownEquipment && (
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom>
+                  Equipment Rental Selection
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Complete equipment: €13 per dive for first 8 dives only, then free. Or select individual equipment.
+                </Typography>
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  {/* Complete Equipment */}
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.completeEquipment || false}
+                          onChange={(e) => handleEquipmentChange('completeEquipment', e.target.checked)}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body1" fontWeight="bold">
+                            Complete Equipment - €13 per dive (first 8 dives only, then free)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Includes: Suit, BCD, Regulator, Torch, Computer, Mask, Fins, Boots
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Divider />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="body2" fontWeight="medium" gutterBottom>
+                      Or select individual equipment:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.BCD || false}
+                          onChange={(e) => handleEquipmentChange('BCD', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="BCD (€5)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.Regulator || false}
+                          onChange={(e) => handleEquipmentChange('Regulator', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="Regulator (€5)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.Mask || false}
+                          onChange={(e) => handleEquipmentChange('Mask', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="Mask (Free)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.Fins || false}
+                          onChange={(e) => handleEquipmentChange('Fins', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="Fins (Free)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.Boots || false}
+                          onChange={(e) => handleEquipmentChange('Boots', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="Boots (Free)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.Suit || false}
+                          onChange={(e) => handleEquipmentChange('Suit', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="Suit (€5)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.Computer || false}
+                          onChange={(e) => handleEquipmentChange('Computer', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="Computer (€3)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.Torch || false}
+                          onChange={(e) => handleEquipmentChange('Torch', e.target.checked)}
+                          disabled={formData.rentedEquipment?.completeEquipment}
+                        />
+                      }
+                      label="Torch (€5)"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.rentedEquipment?.UWCamera || false}
+                          onChange={(e) => handleEquipmentChange('UWCamera', e.target.checked)}
+                        />
+                      }
+                      label="UW Camera (€20)"
+                    />
+                  </Grid>
+                </Grid>
+              </Grid>
+            )}
+
             <Divider sx={{ my: 2, width: '100%' }} />
 
             {/* Volume Discount Calculator */}
             <Grid item xs={12}>
               <VolumeDiscountCalculator 
                 numberOfDives={formData.numberOfDives}
-                addons={formData.addons}
+                addons={formData.addons || {}}
                 bono={bonos.find(b => b.id === formData.bonoId)}
               />
             </Grid>
@@ -390,6 +620,7 @@ const BookingForm = ({ bookingId = null }) => {
           </Grid>
         </form>
       </Paper>
+      )}
     </Box>
   );
 };

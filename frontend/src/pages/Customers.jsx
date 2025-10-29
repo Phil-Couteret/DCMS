@@ -5,23 +5,33 @@ import {
   Button,
   TextField,
   InputAdornment,
-  Card,
-  CardContent,
   Grid,
+  Chip,
+  Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Paper,
   IconButton
 } from '@mui/material';
 import {
   Add as AddIcon,
   People as PeopleIcon,
   Search as SearchIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  CheckCircle as VerifiedIcon,
+  Pending as PendingIcon,
+  Error as ErrorIcon,
+  ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerForm from '../components/Customer/CustomerForm';
 import dataService from '../services/dataService';
+import { useAuth } from '../utils/authContext';
 
 const Customers = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode');
   const customerId = searchParams.get('id');
@@ -37,6 +47,11 @@ const Customers = () => {
 
   const loadCustomers = () => {
     const allCustomers = dataService.getAll('customers');
+    console.log('Loaded customers:', allCustomers.length, allCustomers);
+    // Debug: Check if customers have certifications
+    allCustomers.forEach(customer => {
+      console.log(`${customer.firstName} ${customer.lastName}:`, customer.certifications);
+    });
     setCustomers(allCustomers);
   };
 
@@ -60,13 +75,15 @@ const Customers = () => {
         <Typography variant="h4">
           Customers
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/customers?mode=new')}
-        >
-          New Customer
-        </Button>
+        {isAdmin() && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/customers?mode=new')}
+          >
+            New Customer
+          </Button>
+        )}
       </Box>
 
       <Box sx={{ mb: 3 }}>
@@ -107,22 +124,46 @@ const Customers = () => {
           )}
         </Box>
       ) : (
-        <Grid container spacing={3}>
-          {customers.map((customer) => (
-            <Grid item xs={12} md={6} lg={4} key={customer.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6">
+        <Paper sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {customers.map((customer) => (
+              <Accordion key={customer.id}>
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: 'action.hover'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 2 }}>
+                    <Typography variant="body1" fontWeight="medium">
                       {customer.firstName} {customer.lastName}
                     </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => navigate(`/customers?id=${customer.id}`)}
-                    >
-                      <EditIcon />
-                    </IconButton>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Chip 
+                        label={customer.customerType || 'tourist'} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        {customer.email}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/customers?id=${customer.id}`);
+                        }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Box>
                   </Box>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     {customer.email}
                   </Typography>
@@ -134,14 +175,177 @@ const Customers = () => {
                       Nationality: {customer.nationality}
                     </Typography>
                   )}
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
                     Type: {customer.customerType || 'tourist'}
                   </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                  
+                  {/* Medical Certificate Status */}
+                  {customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        Medical Certificate:
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        p: 1,
+                        border: `1px solid ${customer.medicalCertificate.verified ? '#4caf50' : '#f44336'}`,
+                        borderRadius: 1,
+                        backgroundColor: customer.medicalCertificate.verified ? '#e8f5e9' : '#ffebee'
+                      }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                          #{customer.medicalCertificate.certificateNumber} 
+                          {customer.medicalCertificate.expiryDate && ` (Expires: ${customer.medicalCertificate.expiryDate})`}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {customer.medicalCertificate.verified ? (
+                            <>
+                              <VerifiedIcon sx={{ color: 'success.main', fontSize: 18 }} />
+                              <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'medium' }}>
+                                Verified
+                              </Typography>
+                            </>
+                          ) : (
+                            <>
+                              <ErrorIcon sx={{ color: 'error.main', fontSize: 18 }} />
+                              <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 'medium' }}>
+                                Not Verified
+                              </Typography>
+                            </>
+                          )}
+                        </Box>
+                      </Box>
+                    </Box>
+                      )}
+
+                      {/* Diving Insurance Status */}
+                      {customer.divingInsurance && customer.divingInsurance.hasInsurance && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        Diving Insurance:
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        p: 1,
+                        border: `1px solid ${customer.divingInsurance.verified ? '#4caf50' : '#f44336'}`,
+                        borderRadius: 1,
+                        backgroundColor: customer.divingInsurance.verified ? '#e8f5e9' : '#ffebee'
+                      }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                          {customer.divingInsurance.insuranceProvider} - #{customer.divingInsurance.policyNumber}
+                          {customer.divingInsurance.expiryDate && ` (Expires: ${customer.divingInsurance.expiryDate})`}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {customer.divingInsurance.verified ? (
+                            <>
+                              <VerifiedIcon sx={{ color: 'success.main', fontSize: 18 }} />
+                              <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'medium' }}>
+                                Verified
+                              </Typography>
+                            </>
+                          ) : (
+                            <>
+                              <ErrorIcon sx={{ color: 'error.main', fontSize: 18 }} />
+                              <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 'medium' }}>
+                                Not Verified
+                              </Typography>
+                            </>
+                          )}
+                        </Box>
+                      </Box>
+                    </Box>
+                      )}
+                      
+                      {/* Certifications */}
+                      {customer.certifications && customer.certifications.length > 0 && (
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
+                            Certifications:
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            {customer.certifications.map((cert, index) => {
+                          // Determine verification status
+                          let StatusIcon;
+                          let statusColor;
+                          let statusText;
+                          let tooltipText;
+                          
+                          if (cert.verified) {
+                            StatusIcon = VerifiedIcon;
+                            statusColor = 'success.main';
+                            statusText = 'Verified';
+                            tooltipText = `Verified on ${cert.verifiedDate || 'N/A'}`;
+                          } else if (cert.verified === false) {
+                            StatusIcon = PendingIcon;
+                            statusColor = 'warning.main';
+                            statusText = 'Pending Verification';
+                            tooltipText = 'Needs verification';
+                          } else {
+                            StatusIcon = ErrorIcon;
+                            statusColor = 'error.main';
+                            statusText = 'Not Verified';
+                            tooltipText = 'Verification required';
+                          }
+
+                          return (
+                            <Box 
+                              key={index} 
+                              sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 1,
+                                p: 1,
+                                border: `1px solid ${cert.verified ? '#4caf50' : cert.verified === false ? '#ff9800' : '#f44336'}`,
+                                borderRadius: 1,
+                                backgroundColor: cert.verified ? '#e8f5e9' : cert.verified === false ? '#fff3e0' : '#ffebee',
+                                '&:hover': {
+                                  opacity: 0.8
+                                }
+                              }}
+                            >
+                              <Chip
+                                label={`${cert.agency} ${cert.level}`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                              <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                                #{cert.certificationNumber}
+                              </Typography>
+                              <Tooltip title={tooltipText}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <StatusIcon sx={{ color: statusColor, fontSize: 18 }} />
+                                  <Typography variant="caption" sx={{ color: statusColor, fontWeight: 'medium' }}>
+                                    {statusText}
+                                  </Typography>
+                                </Box>
+                              </Tooltip>
+                            </Box>
+                          );
+                          })}
+                          </Box>
+                        </Box>
+                      )}
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<EditIcon />}
+                        onClick={() => navigate(`/customers?id=${customer.id}`)}
+                      >
+                        Edit Customer
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+          </Box>
+        </Paper>
       )}
     </Box>
   );

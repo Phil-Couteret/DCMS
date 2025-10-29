@@ -6,19 +6,46 @@ import {
   Typography, 
   Card, 
   CardContent,
-  Button
+  Button,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip,
+  Tabs,
+  Tab,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import { 
   Event as EventIcon,
   Euro as EuroIcon,
   TrendingUp as TrendingUpIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  ExpandMore as ExpandMoreIcon,
+  Edit as EditIcon,
+  BarChart as BarChartIcon,
+  CalendarMonth as CalendarIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import dataService from '../services/dataService';
+import RevenueChart from '../components/Dashboard/RevenueChart';
+import BookingTrendsChart from '../components/Dashboard/BookingTrendsChart';
+import RevenueByActivityChart from '../components/Dashboard/RevenueByActivityChart';
+import BookingCalendar from '../components/Dashboard/BookingCalendar';
+import TopCustomersList from '../components/Dashboard/TopCustomersList';
+import {
+  getRevenueData,
+  getBookingTrends,
+  getRevenueByActivity,
+  getTopCustomers
+} from '../utils/chartData';
+import { useAuth } from '../utils/authContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [stats, setStats] = useState({
     totalBookings: 0,
     todaysBookings: 0,
@@ -28,21 +55,49 @@ const Dashboard = () => {
     confirmedBookings: 0
   });
   
-  const [todaysBookings, setTodaysBookings] = useState([]);
+  const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [daysToShow, setDaysToShow] = useState(3);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
+  const [revenuePeriod, setRevenuePeriod] = useState(7); // 7, 14, 30 days
+  const [trendsPeriod, setTrendsPeriod] = useState(14); // 7, 14, 30 days
 
   useEffect(() => {
     const loadStats = () => {
       const statistics = dataService.getStatistics();
       setStats(statistics);
       
-      const bookings = dataService.getTodaysBookings();
-      setTodaysBookings(bookings);
+      const bookings = dataService.getUpcomingBookings(daysToShow);
+      setUpcomingBookings(bookings);
+      
+      const allBookingsData = dataService.getAll('bookings');
+      setAllBookings(allBookingsData);
+      
+      const allCustomers = dataService.getAll('customers');
+      setCustomers(allCustomers);
     };
     
     loadStats();
     const interval = setInterval(loadStats, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [daysToShow]);
+
+  const getCustomerName = (customerId) => {
+    const customer = customers.find(c => c.id === customerId);
+    return customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer';
+  };
+
+  const groupBookingsByDate = (bookings) => {
+    return bookings.reduce((acc, booking) => {
+      const date = booking.bookingDate;
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(booking);
+      return acc;
+    }, {});
+  };
 
   const StatCard = ({ title, value, icon, color = 'primary' }) => (
     <Card>
@@ -60,12 +115,19 @@ const Dashboard = () => {
     </Card>
   );
 
+  // Calculate chart data
+  const revenueData = getRevenueData(allBookings, revenuePeriod);
+  const bookingTrendsData = getBookingTrends(allBookings, trendsPeriod);
+  const revenueByActivity = getRevenueByActivity(allBookings);
+  const topCustomers = getTopCustomers(allBookings, customers, 5);
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         Dashboard
       </Typography>
       
+      {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard 
@@ -75,14 +137,16 @@ const Dashboard = () => {
             color="primary"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="Today's Revenue" 
-            value={`€${stats.todaysRevenue.toFixed(2)}`}
-            icon={<EuroIcon />}
-            color="success"
-          />
-        </Grid>
+        {isAdmin() && (
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard 
+              title="Today's Revenue" 
+              value={`€${stats.todaysRevenue.toFixed(2)}`}
+              icon={<EuroIcon />}
+              color="success"
+            />
+          </Grid>
+        )}
         <Grid item xs={12} sm={6} md={3}>
           <StatCard 
             title="Total Bookings" 
@@ -91,55 +155,269 @@ const Dashboard = () => {
             color="info"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="Total Revenue" 
-            value={`€${stats.totalRevenue.toFixed(2)}`}
-            icon={<EuroIcon />}
-            color="warning"
-          />
+        {isAdmin() && (
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard 
+              title="Total Revenue" 
+              value={`€${stats.totalRevenue.toFixed(2)}`}
+              icon={<EuroIcon />}
+              color="warning"
+            />
+          </Grid>
+        )}
+
+        {/* Revenue Chart - Admin only */}
+        {isAdmin() && (
+          <Grid item xs={12} md={8}>
+            <Box sx={{ position: 'relative' }}>
+              <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
+                <FormControl size="small" sx={{ minWidth: 120, bgcolor: 'background.paper' }}>
+                  <Select
+                    value={revenuePeriod}
+                    onChange={(e) => setRevenuePeriod(e.target.value)}
+                  >
+                    <MenuItem value={7}>Last 7 days</MenuItem>
+                    <MenuItem value={14}>Last 14 days</MenuItem>
+                    <MenuItem value={30}>Last 30 days</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+              <RevenueChart data={revenueData} title={`Revenue Trend (Last ${revenuePeriod} Days)`} />
+            </Box>
+          </Grid>
+        )}
+
+        {/* Revenue by Activity - Admin only */}
+        {isAdmin() && (
+          <Grid item xs={12} md={4}>
+            <RevenueByActivityChart data={revenueByActivity} />
+          </Grid>
+        )}
+
+        {/* Booking Trends */}
+        <Grid item xs={12} md={isAdmin() ? 8 : 12}>
+          <Box sx={{ position: 'relative' }}>
+            <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
+              <FormControl size="small" sx={{ minWidth: 120, bgcolor: 'background.paper' }}>
+                <Select
+                  value={trendsPeriod}
+                  onChange={(e) => setTrendsPeriod(e.target.value)}
+                >
+                  <MenuItem value={7}>Last 7 days</MenuItem>
+                  <MenuItem value={14}>Last 14 days</MenuItem>
+                  <MenuItem value={30}>Last 30 days</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            <BookingTrendsChart data={bookingTrendsData} title={`Booking Trends (Last ${trendsPeriod} Days)`} />
+          </Box>
         </Grid>
+
+        {/* Top Customers - Admin only (contains financial info) */}
+        {isAdmin() && (
+          <Grid item xs={12} md={4}>
+            <TopCustomersList customers={topCustomers} />
+          </Grid>
+        )}
         
+        {/* Upcoming Bookings Section */}
         <Grid item xs={12}>
-          <Paper sx={{ p: 3, mt: 3 }}>
+          <Paper sx={{ p: 3, mt: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">
-                Today's Bookings
-              </Typography>
-              <Button 
-                variant="contained" 
-                onClick={() => navigate('/bookings/new')}
-                startIcon={<EventIcon />}
-              >
-                New Booking
-              </Button>
+              <Box>
+                <Typography variant="h6">
+                  Upcoming Bookings (Next {daysToShow} Days)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Showing bookings from today through {new Date(Date.now() + daysToShow * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <Button
+                  variant={viewMode === 'list' ? 'contained' : 'outlined'}
+                  startIcon={<BarChartIcon />}
+                  onClick={() => setViewMode('list')}
+                  size="small"
+                >
+                  List
+                </Button>
+                <Button
+                  variant={viewMode === 'calendar' ? 'contained' : 'outlined'}
+                  startIcon={<CalendarIcon />}
+                  onClick={() => setViewMode('calendar')}
+                  size="small"
+                >
+                  Calendar
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setDaysToShow(prev => Math.max(1, prev - 1))}
+                  disabled={daysToShow <= 1}
+                >
+                  -
+                </Button>
+                <Typography variant="body2">{daysToShow} days</Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setDaysToShow(prev => Math.min(7, prev + 1))}
+                  disabled={daysToShow >= 7}
+                >
+                  +
+                </Button>
+                <Button 
+                  variant="contained" 
+                  onClick={() => navigate('/bookings/new')}
+                  startIcon={<EventIcon />}
+                >
+                  New Booking
+                </Button>
+              </Box>
             </Box>
             
-            {todaysBookings.length === 0 ? (
-              <Typography color="text.secondary">
-                No bookings for today
-              </Typography>
+            {viewMode === 'calendar' ? (
+              <BookingCalendar
+                bookings={upcomingBookings}
+                customers={customers}
+                onBookingClick={(booking) => navigate(`/bookings/${booking.id}`)}
+              />
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {todaysBookings.map((booking) => (
-                  <Box 
-                    key={booking.id}
-                    sx={{ 
-                      p: 2, 
-                      border: '1px solid', 
-                      borderColor: 'divider',
-                      borderRadius: 1
-                    }}
-                  >
-                    <Typography variant="body1">
-                      Booking #{booking.id.substring(0, 8)} - {booking.activityType}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Status: {booking.status} | Price: €{booking.totalPrice?.toFixed(2)}
-                    </Typography>
+              <>
+                {upcomingBookings.length === 0 ? (
+                  <Typography color="text.secondary">
+                    No upcoming bookings for the next {daysToShow} days
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {Object.entries(groupBookingsByDate(upcomingBookings)).map(([date, bookings]) => (
+                      <Box key={date}>
+                        <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>
+                          {new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, ml: 2 }}>
+                          {bookings.map((booking) => {
+                            return (
+                              <Accordion key={booking.id}>
+                                <AccordionSummary
+                                  expandIcon={<ExpandMoreIcon />}
+                                  sx={{
+                                    '&:hover': {
+                                      backgroundColor: 'action.hover'
+                                    }
+                                  }}
+                                >
+                                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                      <Typography variant="body1" fontWeight="medium">
+                                        {getCustomerName(booking.customerId)}
+                                      </Typography>
+                                      <Chip 
+                                        label={booking.status} 
+                                        size="small" 
+                                        color={
+                                          booking.status === 'confirmed' ? 'success' :
+                                          booking.status === 'pending' ? 'warning' :
+                                          booking.status === 'completed' ? 'info' :
+                                          booking.status === 'cancelled' ? 'error' : 'default'
+                                        }
+                                      />
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                      <Typography variant="body2" color="text.secondary">
+                                        {booking.activityType}
+                                      </Typography>
+                                      <Typography variant="body2" fontWeight="bold" color="primary">
+                                        €{booking.totalPrice?.toFixed(2) || '0.00'}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                  <Grid container spacing={2}>
+                                    <Grid item xs={12} md={6}>
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <strong>Booking ID:</strong> {booking.id.substring(0, 8)}...
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <strong>Date:</strong> {booking.bookingDate}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <strong>Activity:</strong> {booking.activityType}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <strong>Number of Dives:</strong> {booking.numberOfDives || 1}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <strong>Status:</strong> {booking.status}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <strong>Payment Method:</strong> {booking.paymentMethod || 'N/A'}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <strong>Payment Status:</strong> {booking.paymentStatus || 'pending'}
+                                      </Typography>
+                                    </Grid>
+                                    <Grid item xs={12} md={6}>
+                                      <Typography variant="h6" gutterBottom>
+                                        €{booking.totalPrice?.toFixed(2) || '0.00'}
+                                      </Typography>
+                                      {booking.ownEquipment && (
+                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                          <strong>Own Equipment:</strong> Yes
+                                        </Typography>
+                                      )}
+                                      {booking.rentedEquipment && Object.values(booking.rentedEquipment).some(v => v) && (
+                                        <Box>
+                                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                                            <strong>Rented Equipment:</strong>
+                                          </Typography>
+                                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
+                                            {Object.entries(booking.rentedEquipment).map(([eq, rented]) => 
+                                              rented && (
+                                                <Chip 
+                                                  key={eq} 
+                                                  label={eq} 
+                                                  size="small" 
+                                                  variant="outlined" 
+                                                />
+                                              )
+                                            )}
+                                          </Box>
+                                        </Box>
+                                      )}
+                                      {booking.specialRequirements && (
+                                        <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
+                                          <strong>Special Requirements:</strong> {booking.specialRequirements}
+                                        </Typography>
+                                      )}
+                                      {booking.notes && (
+                                        <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
+                                          <strong>Notes:</strong> {booking.notes}
+                                        </Typography>
+                                      )}
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<EditIcon />}
+                                        onClick={() => navigate(`/bookings/${booking.id}`)}
+                                      >
+                                        Edit Booking
+                                      </Button>
+                                    </Grid>
+                                  </Grid>
+                                </AccordionDetails>
+                              </Accordion>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    ))}
                   </Box>
-                ))}
-              </Box>
+                )}
+              </>
             )}
           </Paper>
         </Grid>
@@ -149,4 +427,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

@@ -1,136 +1,138 @@
-// Data Service Layer - Simulates API calls using localStorage
-// All data persists in browser localStorage
+// Data Service Layer - Backward compatibility wrapper
+// Maintains synchronous interface for mock mode (current behavior)
+// When switching to API mode, components will need to use async/await
 
+import { isMockMode } from '../config/apiConfig';
+import * as mockDataService from './api/mockDataService';
+import apiService from './apiService';
 import { initializeMockData } from '../data/mockData';
 
-// Initialize data on first load
+// Initialize mock data on first load (only needed for mock mode)
 initializeMockData();
 
-// Generic CRUD operations
-export const create = (resource, data) => {
-  const items = getAll(resource);
-  const newItem = { ...data, id: generateId() };
-  items.push(newItem);
-  saveAll(resource, items);
-  return newItem;
-};
+// Export functions - synchronous for mock mode, async for API mode
+// Components currently expect synchronous behavior, so we maintain that for mock mode
 
 export const getAll = (resource) => {
-  const key = `dcms_${resource}`;
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
+  if (isMockMode()) {
+    // Synchronous call for mock mode (current behavior)
+    return mockDataService.getAll(resource);
+  } else {
+    // For API mode, return Promise (components will need async/await)
+    return apiService.getAll(resource);
+  }
 };
 
 export const getById = (resource, id) => {
-  const items = getAll(resource);
-  return items.find(item => item.id === id);
+  if (isMockMode()) {
+    return mockDataService.getById(resource, id);
+  } else {
+    return apiService.getById(resource, id);
+  }
+};
+
+export const create = (resource, data) => {
+  if (isMockMode()) {
+    return mockDataService.create(resource, data);
+  } else {
+    return apiService.create(resource, data);
+  }
 };
 
 export const update = (resource, id, data) => {
-  const items = getAll(resource);
-  const index = items.findIndex(item => item.id === id);
-  if (index !== -1) {
-    items[index] = { ...items[index], ...data };
-    saveAll(resource, items);
-    return items[index];
+  if (isMockMode()) {
+    return mockDataService.update(resource, id, data);
+  } else {
+    return apiService.update(resource, id, data);
   }
-  return null;
 };
 
 export const remove = (resource, id) => {
-  const items = getAll(resource);
-  const filtered = items.filter(item => item.id !== id);
-  saveAll(resource, filtered);
-  return true;
-};
-
-// Helper functions
-const saveAll = (resource, data) => {
-  const key = `dcms_${resource}`;
-  localStorage.setItem(key, JSON.stringify(data));
-};
-
-const generateId = () => {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  if (isMockMode()) {
+    return mockDataService.remove(resource, id);
+  } else {
+    return apiService.remove(resource, id);
+  }
 };
 
 // Booking specific operations
 export const getBookingsByDate = (date) => {
-  const bookings = getAll('bookings');
-  return bookings.filter(booking => booking.bookingDate === date);
+  if (isMockMode()) {
+    return mockDataService.getBookingsByDate(date);
+  } else {
+    return apiService.getBookingsByDate(date);
+  }
 };
 
 export const getTodaysBookings = () => {
-  const today = new Date().toISOString().split('T')[0];
-  return getBookingsByDate(today);
+  if (isMockMode()) {
+    return mockDataService.getTodaysBookings();
+  } else {
+    return apiService.getTodaysBookings();
+  }
+};
+
+export const getUpcomingBookings = (days = 3) => {
+  if (isMockMode()) {
+    return mockDataService.getUpcomingBookings(days);
+  } else {
+    return apiService.getUpcomingBookings(days);
+  }
 };
 
 export const getCustomerBookings = (customerId) => {
-  const bookings = getAll('bookings');
-  return bookings.filter(booking => booking.customerId === customerId);
+  if (isMockMode()) {
+    return mockDataService.getCustomerBookings(customerId);
+  } else {
+    return apiService.getCustomerBookings(customerId);
+  }
 };
 
 // Customer specific operations
 export const searchCustomers = (query) => {
-  const customers = getAll('customers');
-  const lowerQuery = query.toLowerCase();
-  return customers.filter(customer => 
-    customer.firstName.toLowerCase().includes(lowerQuery) ||
-    customer.lastName.toLowerCase().includes(lowerQuery) ||
-    customer.email?.toLowerCase().includes(lowerQuery) ||
-    customer.phone?.includes(query)
-  );
+  if (isMockMode()) {
+    return mockDataService.searchCustomers(query);
+  } else {
+    return apiService.searchCustomers(query);
+  }
 };
 
 // Equipment specific operations
 export const getAvailableEquipment = (category) => {
-  const equipment = getAll('equipment');
-  let filtered = equipment.filter(eq => eq.isAvailable);
-  if (category) {
-    filtered = filtered.filter(eq => eq.category === category);
+  if (isMockMode()) {
+    return mockDataService.getAvailableEquipment(category);
+  } else {
+    return apiService.getAvailableEquipment(category);
   }
-  return filtered;
 };
 
 // Pricing operations
 export const calculatePrice = (numberOfDives, addons = {}) => {
-  const config = getAll('pricingConfig')[0];
-  const tier = config.tiers.find(t => t.dives >= numberOfDives) || config.tiers[config.tiers.length - 1];
-  const basePrice = tier.price * numberOfDives;
-  
-  let addonPrice = 0;
-  if (addons.nightDive) {
-    addonPrice += config.addons.nightDive;
+  if (isMockMode()) {
+    return mockDataService.calculatePrice(numberOfDives, addons);
+  } else {
+    return apiService.calculatePrice(numberOfDives, addons);
   }
-  if (addons.personalInstructor) {
-    addonPrice += config.addons.personalInstructor;
-  }
-  
-  return basePrice + addonPrice;
 };
 
 export const getVolumeDiscountPrice = (cumulativeDives) => {
-  const config = getAll('pricingConfig')[0];
-  const tier = config.tiers.find(t => t.dives >= cumulativeDives) || config.tiers[config.tiers.length - 1];
-  return tier.price;
+  if (isMockMode()) {
+    return mockDataService.getVolumeDiscountPrice(cumulativeDives);
+  } else {
+    return apiService.getVolumeDiscountPrice(cumulativeDives);
+  }
 };
 
 // Statistics
 export const getStatistics = () => {
-  const bookings = getAll('bookings');
-  const today = new Date().toISOString().split('T')[0];
-  const todaysBookings = bookings.filter(b => b.bookingDate === today);
-  
-  return {
-    totalBookings: bookings.length,
-    todaysBookings: todaysBookings.length,
-    totalRevenue: bookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0),
-    todaysRevenue: todaysBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0),
-    pendingBookings: bookings.filter(b => b.status === 'pending').length,
-    confirmedBookings: bookings.filter(b => b.status === 'confirmed').length
-  };
+  if (isMockMode()) {
+    return mockDataService.getStatistics();
+  } else {
+    return apiService.getStatistics();
+  }
 };
 
+// Default export for backward compatibility
 export default {
   create,
   getAll,
@@ -138,6 +140,7 @@ export default {
   update,
   remove,
   getTodaysBookings,
+  getUpcomingBookings,
   getCustomerBookings,
   searchCustomers,
   getAvailableEquipment,
@@ -145,4 +148,3 @@ export default {
   getVolumeDiscountPrice,
   getStatistics
 };
-

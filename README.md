@@ -11,7 +11,8 @@
 The Dive Center Management System (DCMS) is a comprehensive, cloud-based management system designed for multi-site dive center operations. This system handles bookings, customers, equipment, certifications, compliance, and more.
 
 **Key Features:**
-- ✅ Volume discount pricing (1-2, 3-5, 6-8, 9+ dives)
+- ✅ **Flexible Equipment Rental** (individual equipment selection - BCD, Regulator, Mask, Fins, Boots, Wetsuit, Computer, Torch)
+- ✅ Volume discount pricing (1 dive: €46, 2-3 dives: €44, 4-6 dives: €42, 7-8 dives: €40, 9+ dives: €38)
 - ✅ Multilingual support (Spanish, English, German, French, Italian)
 - ✅ Multi-currency support (EUR, GBP, USD)
 - ✅ Government bono system (Canary Islands resident discounts)
@@ -20,6 +21,7 @@ The Dive Center Management System (DCMS) is a comprehensive, cloud-based managem
 - ✅ Regulatory compliance (Spanish maritime, GDPR, insurance)
 - ✅ Cross-period stay pricing
 - ✅ Advanced customer profiles
+- ✅ **Equipment Management** (60 pieces with detailed specifications)
 
 ---
 
@@ -51,6 +53,19 @@ npm run db:seed
 npm run dev
 ```
 
+### **Frontend Development:**
+```bash
+# Start frontend (PWA Admin)
+cd frontend
+npm install
+npm start
+
+# Start public website
+cd public-website
+npm install
+npm start
+```
+
 ---
 
 ## 📁 **Project Structure**
@@ -61,51 +76,80 @@ DCMS/
 │   ├── planning/            # Project planning documents
 │   ├── schema/              # Database schema
 │   └── api/                 # API documentation
-├── backend/                 # Backend (Express.js + PostgreSQL)
+├── frontend/                # PWA Admin Frontend (React + Material-UI)
 │   ├── src/
-│   │   ├── controllers/    # Route controllers
-│   │   ├── models/          # Database models
-│   │   ├── routes/         # API routes
-│   │   ├── middleware/    # Custom middleware
-│   │   └── utils/         # Utility functions
-│   └── migrations/         # Database migrations
-├── frontend/                # Frontend (React + PWA)
+│   │   ├── components/      # React components
+│   │   │   ├── Booking/     # Booking management
+│   │   │   ├── Customer/    # Customer management
+│   │   │   └── Common/      # Shared components
+│   │   ├── pages/           # Page components
+│   │   ├── services/        # Data services
+│   │   └── utils/           # Utility functions
+│   └── public/              # Static files
+├── public-website/          # Customer-facing website (React)
 │   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── pages/         # Page components
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── services/      # API services
-│   │   └── utils/         # Utility functions
-│   └── public/            # Static files
+│   │   ├── components/      # Website components
+│   │   ├── pages/           # Website pages
+│   │   └── services/        # API services
+│   └── public/              # Static files
 ├── database/                # Database scripts
-│   ├── schema/             # SQL schema files
-│   └── seeds/              # Sample data
-└── tests/                  # Test files
-    ├── backend/            # Backend tests
-    └── frontend/           # Frontend tests
+│   ├── schema/              # SQL schema files
+│   └── seeds/               # Sample data
+└── tests/                   # Test files
+    ├── backend/             # Backend tests
+    └── frontend/            # Frontend tests
 ```
+
 ---
 
 ## 🛠️ **Tech Stack**
 
-**Backend:**
+**Frontend (PWA Admin):**
+- React 18
+- Material-UI (MUI)
+- PWA (Progressive Web App)
+- Service Worker (offline mode)
+- LocalStorage (mock data)
+
+**Public Website:**
+- React 18
+- Material-UI (MUI)
+- React Router DOM
+- Responsive design
+
+**Backend (Planned):**
 - Node.js + Express.js
 - PostgreSQL
 - Prisma ORM
 - JWT Authentication
 - Swagger API Documentation
 
-**Frontend:**
-- React 18
-- Material-UI
-- PWA (Progressive Web App)
-- Service Worker (offline mode)
-- React Query (data fetching)
-
 **DevOps:**
 - Docker
 - GitHub Actions (CI/CD)
 - OVH Cloud hosting
+
+---
+
+## 🏊‍♂️ **Equipment System**
+
+### **Flexible Equipment Rental (60 pieces)**
+- **Individual Selection:** Choose specific equipment to rent
+- **Equipment Types:** BCD, Regulator, Mask, Fins, Boots, Wetsuit, Computer, Torch
+- **Own Equipment:** Customer preference option
+- **Mixed Approach:** Combine own and rented equipment
+- **Detailed Specifications:** Brand, model, thickness, style, hood
+
+### **Equipment Inventory:**
+- **BCDs:** 6 pieces (XS to XXL)
+- **Regulators:** 5 pieces
+- **Masks:** 5 pieces
+- **Fins:** 6 pieces (XS to XXL)
+- **Boots:** 6 pieces (XS to XXL)
+- **Wetsuits:** 20 pieces (various types/thicknesses)
+- **Semi-Dry Suits:** 4 pieces
+- **Dive Computers:** 5 pieces
+- **Dive Torches:** 6 pieces
 
 ---
 
@@ -119,33 +163,31 @@ All planning and documentation is in the `/docs` folder:
 
 **Key Documents:**
 - [Features Breakdown](./docs/planning/dcms-features-breakdown.md)
-- [Cost Breakdown](./docs/planning/dcms-cost-breakdown.md)
-- [Database Schema](./docs/schema/dcms-database-schema.md)
-- [Options Comparison](./docs/planning/dcms-options-comparison.md)
+- [Database Schema](./docs/planning/dcms-database-schema.md)
+- [Flexible Equipment System](./FLEXIBLE-EQUIPMENT-RENTAL-SYSTEM.md)
+- [Equipment Management](./EQUIPMENT-MANAGEMENT-COMPLETE.md)
 
 ---
 
-## 🚀 **Development Roadmap**
+## 🚀 **Current Status**
 
-### **Phase 1: Setup (Week 1)**
-- ✅ Project structure
-- ✅ Database schema
-- ✅ Basic server setup
-- ✅ Authentication system
+### **✅ COMPLETED**
+- **PWA Admin Frontend:** Complete with booking, customer, equipment management
+- **Public Website:** Complete with booking, dive sites, pricing
+- **Equipment System:** 60 pieces with flexible rental options
+- **Database Schema:** Complete PostgreSQL schema
+- **Documentation:** Comprehensive planning and technical docs
 
-### **Phase 2: Core Features (Weeks 2-8)**
-- Booking system
-- Customer management
-- Equipment tracking
-- Pricing system
-- Regulatory compliance
+### **🔄 IN DEVELOPMENT**
+- **Backend API:** Express.js server with PostgreSQL
+- **Authentication:** JWT-based user authentication
+- **Payment Integration:** Stripe/PayPal integration
+- **Email System:** Automated notifications
 
-### **Phase 3: Advanced Features (Weeks 9-11)**
-- Offline mode (PWA)
-- Multilingual support
-- Multi-currency
-- Integration & testing
-- Deployment
+### **📋 PLANNED**
+- **Mobile App:** React Native mobile application
+- **Advanced Analytics:** Business intelligence dashboard
+- **Third-party Integrations:** Weather, certification APIs
 
 ---
 
@@ -155,11 +197,11 @@ All planning and documentation is in the `/docs` folder:
 # Run all tests
 npm test
 
-# Backend tests only
-npm run test:backend
-
 # Frontend tests only
-npm run test:frontend
+cd frontend && npm test
+
+# Public website tests
+cd public-website && npm test
 
 # E2E tests
 npm run test:e2e
@@ -185,6 +227,6 @@ This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) 
 
 ---
 
-**Status:** In Development  
-**Last Updated:** October 2025
-
+**Status:** Frontend Complete, Backend In Development  
+**Last Updated:** October 2025  
+**Equipment:** 60 pieces with flexible rental system

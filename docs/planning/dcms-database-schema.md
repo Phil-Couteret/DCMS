@@ -294,7 +294,7 @@ CREATE TABLE equipment (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    type ENUM('diving', 'snorkeling', 'bike', 'clothing', 'own_equipment') NOT NULL,
+    type ENUM('BCD', 'Regulator', 'Mask', 'Fins', 'Boots', 'Wetsuit', 'Semi-Dry', 'Dry Suit', 'Tank', 'Computer', 'Torch', 'Accessory') NOT NULL,
     category VARCHAR(50) NOT NULL,
     size VARCHAR(20),
     condition ENUM('excellent', 'good', 'fair', 'poor', 'maintenance') DEFAULT 'good',
@@ -351,9 +351,7 @@ INSERT INTO equipment (location_id, name, type, category, size, barcode) VALUES
 ('550e8400-e29b-41d4-a716-446655440001', 'Fins', 'diving', 'fins', 'L', 'FINS003'),
 
 -- Own Equipment (OE) cases for divers bringing their own equipment
-('550e8400-e29b-41d4-a716-446655440001', 'Own Equipment - Complete Set', 'diving', 'own_equipment', 'Complete', 'OE001'),
-('550e8400-e29b-41d4-a716-446655440001', 'Own Equipment - Partial Set', 'diving', 'own_equipment', 'Partial', 'OE002'),
-('550e8400-e29b-41d4-a716-446655440001', 'Own Equipment - No Equipment', 'diving', 'own_equipment', 'None', 'OE003');
+-- Note: Own equipment is now handled as a customer preference, not as inventory items
 ```
 
 ---
@@ -1532,7 +1530,7 @@ bookings (1) ←→ (many) dive_logs
 - **pricing_tiers:** 4 records
 - **activity_addons:** 2 records
 - **special_pricing:** 1 record (weekend special only - resident pricing TBD)
-- **equipment:** 283+ records (120 wetsuits, 80 BCDs, 80 regulators, 150 steel tanks, plus accessories, plus 3 OE cases)
+- **equipment:** 60+ records (6 BCDs, 5 regulators, 5 masks, 6 fins, 6 boots, 20 wetsuits, 4 semi-dry suits, 5 computers, 6 torches)
 - **customers:** 3 records (sample data)
 - **staff:** 8-12 records
 - **bookings:** 0 records (will grow)

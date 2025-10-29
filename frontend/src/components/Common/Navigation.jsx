@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   AppBar, 
@@ -10,7 +10,10 @@ import {
   ListItemIcon, 
   ListItemText, 
   Box,
-  Divider 
+  Divider,
+  Chip,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -18,24 +21,49 @@ import {
   People as CustomersIcon,
   ScubaDiving as EquipmentIcon,
   Settings as SettingsIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
+import { useAuth, USER_ROLES } from '../../utils/authContext';
 
 const drawerWidth = 240;
-
-const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  { text: 'Bookings', icon: <BookingsIcon />, path: '/bookings' },
-  { text: 'New Booking', icon: <AddIcon />, path: '/bookings/new' },
-  { text: 'Customers', icon: <CustomersIcon />, path: '/customers' },
-  { text: 'Equipment', icon: <EquipmentIcon />, path: '/equipment' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings' }
-];
 
 const Navigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { currentUser, logout, canAccess } = useAuth();
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  // Define menu items with required permissions
+  const allMenuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
+    { text: 'Bookings', icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
+    { text: 'New Booking', icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
+    { text: 'Customers', icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
+    { text: 'Equipment', icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
+  ];
+
+  // Filter menu items based on user permissions
+  const menuItems = allMenuItems.filter(item => 
+    currentUser && canAccess(item.permission)
+  );
+
+  const handleUserMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleUserMenuClose();
+    window.location.href = '/'; // Force reload to show login screen
+  };
 
   return (
     <>
@@ -48,6 +76,41 @@ const Navigation = () => {
             DCMS - Deep Blue Diving
           </Typography>
           <LanguageSwitcher />
+          {currentUser && (
+            <>
+              <Chip
+                icon={<PersonIcon />}
+                label={currentUser.name}
+                color={
+                  currentUser.role === USER_ROLES.ADMIN ? 'primary' :
+                  currentUser.role === USER_ROLES.BOAT_PILOT ? 'info' :
+                  currentUser.role === USER_ROLES.GUIDE ? 'secondary' :
+                  currentUser.role === USER_ROLES.TRAINER ? 'success' :
+                  currentUser.role === USER_ROLES.INTERN ? 'warning' :
+                  'default'
+                }
+                onClick={handleUserMenuOpen}
+                sx={{ ml: 2, cursor: 'pointer' }}
+              />
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleUserMenuClose}
+              >
+                <MenuItem disabled>
+                  <Typography variant="body2">
+                    {currentUser.name} ({currentUser.role})
+                  </Typography>
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  Logout
+                </MenuItem>
+              </Menu>
+            </>
+          )}
         </Toolbar>
       </AppBar>
       
@@ -69,7 +132,7 @@ const Navigation = () => {
               <ListItem 
                 button 
                 key={item.text}
-                selected={location.pathname === item.path}
+                selected={location.pathname === item.path || (item.path === '/bookings' && (location.pathname.startsWith('/bookings/new') || (location.pathname.startsWith('/bookings/') && location.pathname !== '/bookings')))}
                 onClick={() => navigate(item.path)}
               >
                 <ListItemIcon>
@@ -92,4 +155,3 @@ const Navigation = () => {
 };
 
 export default Navigation;
-

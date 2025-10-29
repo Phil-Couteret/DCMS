@@ -13,9 +13,11 @@ import Settings from './pages/Settings';
 
 // Components
 import Navigation from './components/Common/Navigation';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
 
-// Language support
+// Context Providers
 import { LanguageProvider } from './utils/languageContext';
+import { AuthProvider } from './utils/authContext';
 
 // Create theme
 const theme = createTheme({
@@ -31,36 +33,41 @@ const theme = createTheme({
 
 function App() {
   return (
-    <LanguageProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Router>
-        <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-          <Navigation />
-          <Box 
-            component="main" 
-            sx={{ 
-              flexGrow: 1, 
-              bgcolor: '#f5f5f5',
-              minHeight: '100vh',
-              p: 3,
-              mt: 8 // Space for top nav
-            }}
-          >
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/bookings" element={<Bookings />} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/equipment" element={<Equipment />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Box>
-        </Box>
-      </Router>
-      </ThemeProvider>
-    </LanguageProvider>
+    <AuthProvider>
+      <LanguageProvider>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <Router>
+            <ProtectedRoute>
+              <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+                <Navigation />
+                <Box 
+                  component="main" 
+                  sx={{ 
+                    flexGrow: 1, 
+                    bgcolor: '#f5f5f5',
+                    minHeight: '100vh',
+                    p: 3,
+                    mt: 8 // Space for top nav
+                  }}
+                >
+                  <Routes>
+                    <Route path="/" element={<ProtectedRoute requiredPermission="dashboard"><Dashboard /></ProtectedRoute>} />
+                    <Route path="/bookings" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
+                    <Route path="/bookings/new" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
+                    <Route path="/bookings/:id" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
+                    <Route path="/customers" element={<ProtectedRoute requiredPermission="customers"><Customers /></ProtectedRoute>} />
+                    <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
+                  </Routes>
+                </Box>
+              </Box>
+            </ProtectedRoute>
+          </Router>
+        </ThemeProvider>
+      </LanguageProvider>
+    </AuthProvider>
   );
 }
 
 export default App;
-

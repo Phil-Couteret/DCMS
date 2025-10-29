@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { TrendingDown as TrendingDownIcon } from '@mui/icons-material';
 
-const VolumeDiscountCalculator = ({ numberOfDives, addons, bono }) => {
+const VolumeDiscountCalculator = ({ numberOfDives, addons = {}, bono }) => {
   const [tiers, setTiers] = useState([]);
   const [currentTier, setCurrentTier] = useState(null);
   const [addonTotal, setAddonTotal] = useState(0);
@@ -67,8 +67,8 @@ const VolumeDiscountCalculator = ({ numberOfDives, addons, bono }) => {
 
   const calculateAddons = () => {
     let total = 0;
-    if (addons?.nightDive) total += 20;
-    if (addons?.personalInstructor) total += 100;
+    if (addons && addons.nightDive) total += 20;
+    if (addons && addons.personalInstructor) total += 100;
     setAddonTotal(total);
   };
 
