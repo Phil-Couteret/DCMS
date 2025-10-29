@@ -14,8 +14,10 @@ import {
   TableRow,
   Paper
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const Pricing = () => {
+  const { t } = useTranslation();
   const pricingData = {
     caleta: [
       { dives: '1-2', tourist: 46, resident: 'TBD' },
@@ -36,10 +38,10 @@ const Pricing = () => {
   return (
     <Container sx={{ py: 6 }}>
       <Typography variant="h3" gutterBottom>
-        Pricing
+        {t('pricing.title')}
       </Typography>
       <Typography variant="body1" paragraph color="text.secondary">
-        Volume discounts apply automatically. The more you dive, the more you save!
+        {t('pricing.subtitle')}
       </Typography>
 
       <Grid container spacing={4} sx={{ mt: 2 }}>
@@ -48,20 +50,20 @@ const Pricing = () => {
           <Card>
             <CardContent>
               <Typography variant="h5" color="primary" gutterBottom>
-                Caleta de Fuste
+                {t('pricing.caletaTitle')}
               </Typography>
               <TableContainer component={Paper} variant="outlined">
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell><strong>Number of Dives</strong></TableCell>
-                      <TableCell align="right"><strong>Tourist (€/dive)</strong></TableCell>
+                      <TableCell><strong>{t('pricing.numberOfDives')}</strong></TableCell>
+                      <TableCell align="right"><strong>{t('pricing.touristPrice')}</strong></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {pricingData.caleta.map((row, index) => (
                       <TableRow key={index}>
-                        <TableCell>{row.dives} dives</TableCell>
+                        <TableCell>{row.dives} {t('pricing.dives')}</TableCell>
                         <TableCell align="right">€{row.tourist}</TableCell>
                       </TableRow>
                     ))}
@@ -69,7 +71,7 @@ const Pricing = () => {
                 </Table>
               </TableContainer>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Example: 3 dives = 3 × €42 = €126 total
+                {t('pricing.example')}
               </Typography>
             </CardContent>
           </Card>
@@ -80,20 +82,20 @@ const Pricing = () => {
           <Card>
             <CardContent>
               <Typography variant="h5" color="primary" gutterBottom>
-                Las Playitas
+                {t('pricing.playitasTitle')}
               </Typography>
               <TableContainer component={Paper} variant="outlined">
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell><strong>Number of Dives</strong></TableCell>
-                      <TableCell align="right"><strong>Tourist (€/dive)</strong></TableCell>
+                      <TableCell><strong>{t('pricing.numberOfDives')}</strong></TableCell>
+                      <TableCell align="right"><strong>{t('pricing.touristPrice')}</strong></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {pricingData.playitas.map((row, index) => (
                       <TableRow key={index}>
-                        <TableCell>{row.dives} dives</TableCell>
+                        <TableCell>{row.dives} {t('pricing.dives')}</TableCell>
                         <TableCell align="right">€{row.tourist}</TableCell>
                       </TableRow>
                     ))}
@@ -101,7 +103,7 @@ const Pricing = () => {
                 </Table>
               </TableContainer>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Example: 3 dives = 3 × €42 = €126 total
+                {t('pricing.example')}
               </Typography>
             </CardContent>
           </Card>
@@ -111,49 +113,49 @@ const Pricing = () => {
       {/* Additional Information */}
       <Box sx={{ mt: 6, bgcolor: '#f5f5f5', p: 4, borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>
-          What's Included
+          {t('pricing.includedTitle')}
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
-            <Typography variant="body2" gutterBottom>✓ Professional guide/instructor</Typography>
-            <Typography variant="body2" gutterBottom>✓ Tanks and weights</Typography>
-            <Typography variant="body2" gutterBottom>✓ Boat trip</Typography>
+            <Typography variant="body2" gutterBottom>✓ {t('pricing.included1')}</Typography>
+            <Typography variant="body2" gutterBottom>✓ {t('pricing.included2')}</Typography>
+            <Typography variant="body2" gutterBottom>✓ {t('pricing.included3')}</Typography>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Typography variant="body2" gutterBottom>✓ Dive briefing</Typography>
-            <Typography variant="body2" gutterBottom>✓ Insurance coverage</Typography>
-            <Typography variant="body2" gutterBottom>✓ Equipment rental available (extra)</Typography>
+            <Typography variant="body2" gutterBottom>✓ {t('pricing.included4')}</Typography>
+            <Typography variant="body2" gutterBottom>✓ {t('pricing.included5')}</Typography>
+            <Typography variant="body2" gutterBottom>✓ {t('pricing.included6')}</Typography>
           </Grid>
         </Grid>
       </Box>
 
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>
-          Other Activities
+          {t('pricing.otherActivitiesTitle')}
         </Typography>
         <Typography variant="body2" paragraph>
-          <strong>Snorkeling:</strong> €38 (includes boat trip, suit, mask, snorkel, fins)
+          <strong>{t('pricing.snorkeling').split(':')[0]}:</strong> {t('pricing.snorkeling').split(':')[1].trim()}
         </Typography>
         <Typography variant="body2" paragraph>
-          <strong>Discover Scuba:</strong> €100 (includes equipment and instructor)
+          <strong>{t('pricing.discover').split(':')[0]}:</strong> {t('pricing.discover').split(':')[1].trim()}
         </Typography>
         <Typography variant="body2" paragraph>
-          <strong>Orientation Dive:</strong> €32 (for certified divers, includes tank, weights, boat trip)
+          <strong>{t('pricing.orientation').split(':')[0]}:</strong> {t('pricing.orientation').split(':')[1].trim()}
         </Typography>
         <Typography variant="body2" paragraph>
-          <strong>Night Dive:</strong> +€20 add-on (includes torch)
+          <strong>{t('pricing.nightDive').split(':')[0]}:</strong> {t('pricing.nightDive').split(':')[1].trim()}
         </Typography>
       </Box>
 
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>
-          Equipment Rental
+          {t('pricing.equipmentTitle')}
         </Typography>
         <Typography variant="body2" paragraph>
-          <strong>Complete Equipment:</strong> €13 (first 8 dives only)
+          <strong>{t('pricing.completeEquipment').split(':')[0]}:</strong> {t('pricing.completeEquipment').split(':')[1].trim()}
         </Typography>
         <Typography variant="body2" paragraph>
-          Individual items: Suit €5, BCD €5, Regulator €5, Torch €5, Computer €3
+          {t('pricing.individualItems')}
         </Typography>
       </Box>
     </Container>

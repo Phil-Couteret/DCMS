@@ -16,11 +16,13 @@ import {
   StepLabel
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
-
-const steps = ['Select Activity', 'Enter Details', 'Review & Confirm'];
+import { useTranslation } from 'react-i18next';
 
 const BookDive = () => {
+  const { t } = useTranslation();
   const [activeStep, setActiveStep] = useState(0);
+  
+  const steps = [t('booking.step1'), t('booking.step2'), t('booking.step3')];
   const [formData, setFormData] = useState({
     location: 'caleta',
     date: '',
@@ -152,7 +154,7 @@ const BookDive = () => {
   return (
     <Container sx={{ py: 6 }}>
       <Typography variant="h3" gutterBottom>
-        Book Your Activity
+        {t('booking.title')}
       </Typography>
 
       <Stepper activeStep={activeStep} sx={{ mb: 4, mt: 4 }}>
@@ -168,33 +170,33 @@ const BookDive = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Activity Type</InputLabel>
+                <InputLabel>{t('booking.activityType')}</InputLabel>
                 <Select
                   value={formData.activityType}
                   onChange={(e) => handleChange('activityType', e.target.value)}
                 >
-                  <MenuItem value="diving">Scuba Diving</MenuItem>
-                  <MenuItem value="snorkeling">Snorkeling</MenuItem>
-                  <MenuItem value="discover">Discover Scuba</MenuItem>
-                  <MenuItem value="orientation">Orientation Dives</MenuItem>
+                  <MenuItem value="diving">{t('booking.activities.diving')}</MenuItem>
+                  <MenuItem value="snorkeling">{t('booking.activities.snorkeling')}</MenuItem>
+                  <MenuItem value="discover">{t('booking.activities.discover')}</MenuItem>
+                  <MenuItem value="orientation">{t('booking.activities.orientation')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Location</InputLabel>
+                <InputLabel>{t('booking.location')}</InputLabel>
                 <Select
                   value={formData.location}
                   onChange={(e) => handleChange('location', e.target.value)}
                 >
-                  <MenuItem value="caleta">Caleta de Fuste</MenuItem>
-                  <MenuItem value="playitas">Las Playitas</MenuItem>
+                  <MenuItem value="caleta">{t('booking.locations.caleta')}</MenuItem>
+                  <MenuItem value="playitas">{t('booking.locations.playitas')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Date"
+                label={t('booking.date')}
                 type="date"
                 fullWidth
                 value={formData.date}
@@ -205,7 +207,7 @@ const BookDive = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Time</InputLabel>
+                <InputLabel>{t('booking.time')}</InputLabel>
                 <Select
                   value={formData.time}
                   onChange={(e) => handleChange('time', e.target.value)}
@@ -220,7 +222,7 @@ const BookDive = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label={formData.activityType === 'diving' ? 'Number of Dives' : 'Number of Sessions'}
+                label={formData.activityType === 'diving' ? t('booking.numberOfDives') : t('booking.numberOfSessions')}
                 type="number"
                 fullWidth
                 value={formData.numberOfDives}
@@ -231,30 +233,29 @@ const BookDive = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Experience Level</InputLabel>
+                <InputLabel>{t('booking.experienceLevel')}</InputLabel>
                 <Select
                   value={formData.experienceLevel}
                   onChange={(e) => handleChange('experienceLevel', e.target.value)}
                 >
-                  <MenuItem value="beginner">Beginner</MenuItem>
-                  <MenuItem value="intermediate">Intermediate</MenuItem>
-                  <MenuItem value="advanced">Advanced</MenuItem>
-                  <MenuItem value="expert">Expert</MenuItem>
+                  <MenuItem value="beginner">{t('booking.experienceLevels.beginner')}</MenuItem>
+                  <MenuItem value="intermediate">{t('booking.experienceLevels.intermediate')}</MenuItem>
+                  <MenuItem value="advanced">{t('booking.experienceLevels.advanced')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
-                Estimated Price: €{calculatePrice().toFixed(2)}
+                {t('booking.estimatedPrice')} €{calculatePrice().toFixed(2)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {formData.activityType === 'diving' 
-                  ? 'Volume discounts apply automatically for multiple dives (includes tank, weights, boat trip)'
+                  ? t('booking.includesDiving')
                   : formData.activityType === 'snorkeling'
-                  ? 'Includes boat trip, suit, mask, snorkel, fins'
+                  ? t('booking.includesSnorkeling')
                   : formData.activityType === 'discover'
-                  ? 'Discover Scuba includes equipment and instructor'
-                  : 'Orientation dive for certified divers (includes tank, weights, boat trip)'
+                  ? t('booking.includesDiscover')
+                  : t('booking.includesOrientation')
                 }
               </Typography>
             </Grid>
@@ -265,7 +266,7 @@ const BookDive = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <TextField
-                label="First Name"
+                label={t('booking.firstName')}
                 fullWidth
                 value={formData.firstName}
                 onChange={(e) => handleChange('firstName', e.target.value)}
@@ -274,7 +275,7 @@ const BookDive = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Last Name"
+                label={t('booking.lastName')}
                 fullWidth
                 value={formData.lastName}
                 onChange={(e) => handleChange('lastName', e.target.value)}
@@ -283,7 +284,7 @@ const BookDive = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Email"
+                label={t('booking.email')}
                 type="email"
                 fullWidth
                 value={formData.email}
@@ -302,7 +303,7 @@ const BookDive = () => {
             </Grid>
             <Grid item xs={12}>
               <TextField
-                label="Special Requirements or Medical Conditions"
+                label={t('booking.specialRequirementsLabel')}
                 multiline
                 rows={4}
                 fullWidth
@@ -317,33 +318,33 @@ const BookDive = () => {
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
-                Booking Summary
+                {t('booking.bookingSummary')}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Activity:</strong> {
-                  formData.activityType === 'diving' ? 'Scuba Diving' : 
-                  formData.activityType === 'snorkeling' ? 'Snorkeling' : 
-                  formData.activityType === 'discover' ? 'Discover Scuba' :
-                  'Orientation Dives'
+                <strong>{t('booking.activity')}</strong> {
+                  formData.activityType === 'diving' ? t('booking.activities.diving') : 
+                  formData.activityType === 'snorkeling' ? t('booking.activities.snorkeling') : 
+                  formData.activityType === 'discover' ? t('booking.activities.discover') :
+                  t('booking.activities.orientation')
                 }
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Location:</strong> {formData.location === 'caleta' ? 'Caleta de Fuste' : 'Las Playitas'}
+                <strong>{t('booking.location')}:</strong> {formData.location === 'caleta' ? t('booking.locations.caleta') : t('booking.locations.playitas')}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Date:</strong> {formData.date}
+                <strong>{t('booking.date')}:</strong> {formData.date}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Number of {formData.activityType === 'diving' ? 'Dives' : 'Sessions'}:</strong> {formData.numberOfDives}
+                <strong>{formData.activityType === 'diving' ? t('booking.numberOfDives') : t('booking.numberOfSessions')}:</strong> {formData.numberOfDives}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Name:</strong> {formData.firstName} {formData.lastName}
+                <strong>{t('booking.name')}:</strong> {formData.firstName} {formData.lastName}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Email:</strong> {formData.email}
+                <strong>{t('booking.email')}:</strong> {formData.email}
               </Typography>
               <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
-                Total Price: €{calculatePrice().toFixed(2)}
+                {t('common.totalPrice')} €{calculatePrice().toFixed(2)}
               </Typography>
             </Grid>
           </Grid>
@@ -354,7 +355,7 @@ const BookDive = () => {
             disabled={activeStep === 0}
             onClick={handleBack}
           >
-            Back
+            {t('common.back')}
           </Button>
           {activeStep === steps.length - 1 ? (
             <Button
@@ -362,14 +363,14 @@ const BookDive = () => {
               onClick={handleSubmit}
               startIcon={<SaveIcon />}
             >
-              Confirm Booking
+              {t('booking.confirmBooking')}
             </Button>
           ) : (
             <Button
               variant="contained"
               onClick={handleNext}
             >
-              Next
+              {t('common.next')}
             </Button>
           )}
         </Box>

@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "home": "Home",
+    "bookDive": "Prenota un'Immersione",
+    "diveSites": "Siti di Immersione",
+    "about": "Chi Siamo",
+    "pricing": "Prezzi",
+    "contact": "Contatti",
+    "myAccount": "Il Mio Account",
+    "login": "Accedi",
+    "logout": "Esci"
+  },
+  "common": {
+    "bookNow": "Prenota Ora",
+    "bookYourDive": "Prenota la Tua Immersione Ora",
+    "viewDetails": "Visualizza Dettagli",
+    "viewDiveSites": "Visualizza Siti di Immersione",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "next": "Avanti",
+    "back": "Indietro",
+    "confirm": "Conferma",
+    "submit": "Invia",
+    "send": "Invia",
+    "close": "Chiudi",
+    "loading": "Caricamento...",
+    "error": "Errore",
+    "success": "Successo"
+  },
+  "home": {
+    "title": "Benvenuto a\nDeep Blue Fuerteventura",
+    "tagline": "L'Atlantico è il Safari!",
+    "subtitle": "Anni di esperienza subacquea nell'Atlantico - Uno dei centri sub più affermati di Fuerteventura",
+    "feature1Title": "Immersione Professionale",
+    "feature1Desc": "Anni di esperienza nelle acque dell'Atlantico. Istruttori certificati SSI e PADI.",
+    "feature2Title": "Due Sedi",
+    "feature2Desc": "Caleta de Fuste e Las Playitas. Scegli il tuo sito di immersione perfetto.",
+    "feature3Title": "Tutti i Livelli",
+    "feature3Desc": "Dai principianti ai subacquei avanzati. Battesimo, Open Water, Advanced e altro ancora.",
+    "locationsTitle": "I Nostri Siti di Immersione",
+    "caletaTitle": "Caleta de Fuste",
+    "caletaDesc": "Il porto turistico, che è anche la sede del nostro centro sub, ha un fascino tutto suo. Barche a vela transatlantiche e altri yacht vi approdano regolarmente.",
+    "caletaAddress": "Muelle Deportivo / Calle Teneriffe\nE - 35610 Caleta de Fuste - Fuerteventura",
+    "playitasTitle": "Las Playitas",
+    "playitasDesc": "L'hotel e la base sub sono progettati per persone amanti dello sport. Las Playitas Resort è noto nel mondo sportivo come destinazione di allenamento per atleti professionisti.",
+    "playitasAddress": "Hotel Gran Resort Las Playitas\nLas Playitas - Fuerteventura",
+    "ctaTitle": "Pronto per un'Avventura?",
+    "ctaSubtitle": "Prenota la tua immersione oggi e scopri le acque dell'Atlantico di Fuerteventura"
+  },
+  "booking": {
+    "title": "Prenota la Tua Immersione",
+    "step1": "Seleziona Attività",
+    "step2": "Inserisci Dettagli",
+    "step3": "Rivedi e Conferma",
+    "location": "Sede",
+    "date": "Data",
+    "time": "Ora",
+    "activityType": "Tipo di Attività",
+    "numberOfDives": "Numero di Immersioni",
+    "experienceLevel": "Livello di Esperienza",
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "email": "Email",
+    "phone": "Telefono",
+    "specialRequirements": "Requisiti Speciali",
+    "activities": {
+      "diving": "Immersione con Bombola",
+      "snorkeling": "Snorkeling",
+      "discover": "Battesimo",
+      "orientation": "Immersione di Orientamento"
+    },
+    "experienceLevels": {
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzato"
+    },
+    "locations": {
+      "caleta": "Caleta de Fuste",
+      "playitas": "Las Playitas"
+    }
+  },
+  "diveSites": {
+    "title": "I Nostri Siti di Immersione",
+    "caletaTitle": "Siti di Immersione di Caleta de Fuste",
+    "caletaDesc": "Scopri le fantastiche barriere coralline e la diversa vita marina di Caleta de Fuste. Dai siti adatti ai principianti alle sfide avanzate, c'è qualcosa per tutti.",
+    "playitasTitle": "Siti di Immersione di Las Playitas",
+    "playitasDesc": "La sede di Las Playitas offre eccellenti condizioni di immersione con acque cristalline e abbondante vita marina.",
+    "types": {
+      "reef": "Barriera",
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzato"
+    },
+    "details": {
+      "depth": "Profondità",
+      "current": "Corrente",
+      "waves": "Onde",
+      "travel": "Viaggio"
+    }
+  },
+  "about": {
+    "title": "Chi Siamo",
+    "philosophyTitle": "La Nostra Filosofia",
+    "philosophyQuote": "Il Mar Rosso è lo zoo, l'Atlantico il safari!",
+    "philosophyDesc": "Con anni di esperienza subacquea nell'Atlantico e innumerevoli ospiti soddisfatti, siamo uno dei centri sub più affermati e conosciuti di Fuerteventura. Siamo appassionati di condividere l'unico mondo sottomarino delle Isole Canarie.",
+    "crewTitle": "Equipaggio Professionale",
+    "crewDesc": "Istruttori certificati SSI e PADI con anni di esperienza nelle acque dell'Atlantico",
+    "equipmentTitle": "Attrezzatura Moderna",
+    "equipmentDesc": "Attrezzature e barche ben mantenute. Noleggio attrezzatura completa disponibile.",
+    "awardsTitle": "Premi e Certificazioni",
+    "awardsDesc": "Riconosciuti per l'eccellenza nella sicurezza subacquea e nel servizio clienti"
+  },
+  "pricing": {
+    "title": "Prezzi",
+    "subtitle": "Gli sconti per volume si applicano automaticamente. Più immergi, più risparmi!",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "numberOfDives": "Numero di Immersioni",
+    "touristPrice": "Turista (€/immersione)",
+    "dives": "immersioni",
+    "example": "Esempio: 3 immersioni = 3 × €42 = €126 totale",
+    "includedTitle": "Cosa è Incluso",
+    "included1": "Guida/istruttore professionale",
+    "included2": "Bombole e zavorre",
+    "included3": "Gita in barca",
+    "included4": "Briefing di immersione",
+    "included5": "Copertura assicurativa",
+    "included6": "Noleggio attrezzatura disponibile (extra)",
+    "otherActivitiesTitle": "Altre Attività",
+    "snorkeling": "Snorkeling: €38 (include gita in barca, muta, maschera, boccaglio, pinne)",
+    "discover": "Battesimo: €100 (include attrezzatura e istruttore)",
+    "orientation": "Immersione di Orientamento: €32 (per subacquei certificati, include bombola, zavorre, gita in barca)",
+    "nightDive": "Immersione Notturna: +€20 supplemento (include torcia)",
+    "equipmentTitle": "Noleggio Attrezzatura",
+    "completeEquipment": "Attrezzatura Completa: €13 (prime 8 immersioni only)",
+    "individualItems": "Articoli singoli: Muta €5, BCD €5, Erogatore €5, Torcia €5, Computer €3"
+  },
+  "contact": {
+    "title": "Contattaci",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "phone": "Telefono:",
+    "email": "Email:",
+    "sendMessage": "Inviaci un Messaggio",
+    "yourName": "Il Tuo Nome",
+    "subject": "Oggetto",
+    "message": "Messaggio",
+    "sendMessageButton": "Invia Messaggio"
+  }
+}
+

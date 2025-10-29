@@ -18,8 +18,11 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { AccountCircle } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const Navigation = () => {
+  const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
@@ -28,12 +31,12 @@ const Navigation = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const menuItems = [
-    { label: 'Home', path: '/' },
-    { label: 'Book a Dive', path: '/book-dive' },
-    { label: 'Dive Sites', path: '/dive-sites' },
-    { label: 'About', path: '/about' },
-    { label: 'Pricing', path: '/pricing' },
-    { label: 'Contact', path: '/contact' }
+    { label: t('nav.home'), path: '/' },
+    { label: t('nav.bookDive'), path: '/book-dive' },
+    { label: t('nav.diveSites'), path: '/dive-sites' },
+    { label: t('nav.about'), path: '/about' },
+    { label: t('nav.pricing'), path: '/pricing' },
+    { label: t('nav.contact'), path: '/contact' }
   ];
 
   const handleDrawerToggle = () => {
@@ -91,7 +94,8 @@ const Navigation = () => {
             </Box>
           )}
 
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <LanguageSwitcher />
             <IconButton color="inherit" onClick={handleProfileMenuOpen}>
               <AccountCircle />
             </IconButton>
@@ -121,10 +125,10 @@ const Navigation = () => {
         onClose={handleMenuClose}
       >
         <MenuItem onClick={() => { navigate('/my-account'); handleMenuClose(); }}>
-          My Account
+          {t('nav.myAccount')}
         </MenuItem>
         <MenuItem onClick={() => { navigate('/login'); handleMenuClose(); }}>
-          Login
+          {t('nav.login')}
         </MenuItem>
       </Menu>
     </>

@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "bookDive": "Réserver une Plongée",
+    "diveSites": "Sites de Plongée",
+    "about": "À Propos",
+    "pricing": "Tarifs",
+    "contact": "Contact",
+    "myAccount": "Mon Compte",
+    "login": "Connexion",
+    "logout": "Déconnexion"
+  },
+  "common": {
+    "bookNow": "Réserver Maintenant",
+    "bookYourDive": "Réservez Votre Plongée Maintenant",
+    "viewDetails": "Voir les Détails",
+    "viewDiveSites": "Voir les Sites de Plongée",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "next": "Suivant",
+    "back": "Retour",
+    "confirm": "Confirmer",
+    "submit": "Envoyer",
+    "send": "Envoyer",
+    "close": "Fermer",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès"
+  },
+  "home": {
+    "title": "Bienvenue chez\nDeep Blue Fuerteventura",
+    "tagline": "L'Atlantique, c'est le Safari !",
+    "subtitle": "Des années d'expérience en plongée dans l'Atlantique - L'un des centres de plongée les plus établis de Fuerteventura",
+    "feature1Title": "Plongée Professionnelle",
+    "feature1Desc": "Des années d'expérience dans les eaux de l'Atlantique. Instructeurs certifiés SSI et PADI.",
+    "feature2Title": "Deux Emplacements",
+    "feature2Desc": "Caleta de Fuste et Las Playitas. Choisissez votre site de plongée parfait.",
+    "feature3Title": "Tous les Niveaux",
+    "feature3Desc": "Des débutants aux plongeurs avancés. Baptême, Open Water, Advanced et plus encore.",
+    "locationsTitle": "Nos Sites de Plongée",
+    "caletaTitle": "Caleta de Fuste",
+    "caletaDesc": "Le port de plaisance, qui est également l'emplacement de notre centre de plongée, a un charme qui lui est propre. Les voiliers transatlantiques et autres yachts y font régulièrement escale.",
+    "caletaAddress": "Muelle Deportivo / Calle Teneriffe\nE - 35610 Caleta de Fuste - Fuerteventura",
+    "playitasTitle": "Las Playitas",
+    "playitasDesc": "L'hôtel et la base de plongée sont conçus pour les personnes sportives. Las Playitas Resort est connu dans le monde du sport comme une destination d'entraînement pour les athlètes professionnels.",
+    "playitasAddress": "Hotel Gran Resort Las Playitas\nLas Playitas - Fuerteventura",
+    "ctaTitle": "Prêt pour une Aventure ?",
+    "ctaSubtitle": "Réservez votre plongée aujourd'hui et découvrez les eaux de l'Atlantique de Fuerteventura"
+  },
+  "booking": {
+    "title": "Réservez Votre Plongée",
+    "step1": "Sélectionner l'Activité",
+    "step2": "Entrer les Détails",
+    "step3": "Vérifier et Confirmer",
+    "location": "Emplacement",
+    "date": "Date",
+    "time": "Heure",
+    "activityType": "Type d'Activité",
+    "numberOfDives": "Nombre de Plongées",
+    "experienceLevel": "Niveau d'Expérience",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "Email",
+    "phone": "Téléphone",
+    "specialRequirements": "Exigences Spéciales",
+    "activities": {
+      "diving": "Plongée sous-marine",
+      "snorkeling": "Snorkeling",
+      "discover": "Baptême de Plongée",
+      "orientation": "Plongée d'Orientation"
+    },
+    "experienceLevels": {
+      "beginner": "Débutant",
+      "intermediate": "Intermédiaire",
+      "advanced": "Avancé"
+    },
+    "locations": {
+      "caleta": "Caleta de Fuste",
+      "playitas": "Las Playitas"
+    }
+  },
+  "diveSites": {
+    "title": "Nos Sites de Plongée",
+    "caletaTitle": "Sites de Plongée de Caleta de Fuste",
+    "caletaDesc": "Découvrez les récifs époustouflants et la vie marine diverse de Caleta de Fuste. Des sites adaptés aux débutants aux défis avancés, il y en a pour tous.",
+    "playitasTitle": "Sites de Plongée de Las Playitas",
+    "playitasDesc": "L'emplacement de Las Playitas offre d'excellentes conditions de plongée avec des eaux cristallines et une vie marine abondante.",
+    "types": {
+      "reef": "Récif",
+      "beginner": "Débutant",
+      "intermediate": "Intermédiaire",
+      "advanced": "Avancé"
+    },
+    "details": {
+      "depth": "Profondeur",
+      "current": "Courant",
+      "waves": "Vagues",
+      "travel": "Trajet"
+    }
+  },
+  "about": {
+    "title": "À Propos de Nous",
+    "philosophyTitle": "Notre Philosophie",
+    "philosophyQuote": "La Mer Rouge est le zoo, l'Atlantique le safari !",
+    "philosophyDesc": "Avec des années d'expérience en plongée dans l'Atlantique et d'innombrables invités satisfaits, nous comptons parmi les centres de plongée les plus établis et les plus connus de Fuerteventura. Nous sommes passionnés par le partage de l'unique monde sous-marin des îles Canaries.",
+    "crewTitle": "Équipe Professionnelle",
+    "crewDesc": "Instructeurs certifiés SSI et PADI avec des années d'expérience dans les eaux de l'Atlantique",
+    "equipmentTitle": "Équipement Moderne",
+    "equipmentDesc": "Matériel et bateaux bien entretenus. Location d'équipement complet disponible.",
+    "awardsTitle": "Prix et Certifications",
+    "awardsDesc": "Reconnus pour l'excellence en sécurité de plongée et service client"
+  },
+  "pricing": {
+    "title": "Tarifs",
+    "subtitle": "Les remises de volume s'appliquent automatiquement. Plus vous plongez, plus vous économisez !",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "numberOfDives": "Nombre de Plongées",
+    "touristPrice": "Touriste (€/plongée)",
+    "dives": "plongées",
+    "example": "Exemple : 3 plongées = 3 × €42 = €126 total",
+    "includedTitle": "Ce qui est Inclus",
+    "included1": "Guide/instructeur professionnel",
+    "included2": "Bouteilles et plombs",
+    "included3": "Trajet en bateau",
+    "included4": "Briefing de plongée",
+    "included5": "Couverture d'assurance",
+    "included6": "Location d'équipement disponible (supplément)",
+    "otherActivitiesTitle": "Autres Activités",
+    "snorkeling": "Snorkeling : €38 (inclut trajet en bateau, combinaison, masque, tuba, palmes)",
+    "discover": "Baptême de Plongée : €100 (inclut équipement et instructeur)",
+    "orientation": "Plongée d'Orientation : €32 (pour plongeurs certifiés, inclut bouteille, plombs, trajet en bateau)",
+    "nightDive": "Plongée de Nuit : +€20 supplément (inclut lampe)",
+    "equipmentTitle": "Location d'Équipement",
+    "completeEquipment": "Équipement Complet : €13 (premières 8 plongées uniquement)",
+    "individualItems": "Articles individuels : Combinaison €5, BCD €5, Détendeur €5, Lampe €5, Ordinateur €3"
+  },
+  "contact": {
+    "title": "Contactez-nous",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "phone": "Téléphone :",
+    "email": "Email :",
+    "sendMessage": "Envoyez-nous un Message",
+    "yourName": "Votre Nom",
+    "subject": "Sujet",
+    "message": "Message",
+    "sendMessageButton": "Envoyer le Message"
+  }
+}
+

@@ -9,26 +9,26 @@ import {
   Avatar
 } from '@mui/material';
 import { Settings as EquipmentIcon, Stars as AwardIcon, Groups as CrewIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 const About = () => {
+  const { t } = useTranslation();
   return (
     <Container sx={{ py: 6 }}>
       <Typography variant="h3" gutterBottom>
-        About Us
+        {t('about.title')}
       </Typography>
 
       {/* Philosophy Section */}
       <Box sx={{ my: 8, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom color="primary">
-          Our Philosophy
+          {t('about.philosophyTitle')}
         </Typography>
         <Typography variant="h6" sx={{ fontStyle: 'italic', color: 'text.secondary', mb: 4 }}>
-          "The Red Sea is the zoo, the Atlantic the safari!"
+          "{t('about.philosophyQuote')}"
         </Typography>
         <Typography variant="body1" sx={{ maxWidth: '800px', mx: 'auto' }}>
-          With years of diving experience in the Atlantic and countless satisfied guests, 
-          we count as one of the most well-established and best-known dive centers on Fuerteventura.
-          We are passionate about sharing the unique underwater world of the Canary Islands.
+          {t('about.philosophyDesc')}
         </Typography>
       </Box>
 
@@ -39,10 +39,10 @@ const About = () => {
             <CardContent sx={{ p: 4 }}>
               <CrewIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
               <Typography variant="h6" gutterBottom>
-                Professional Crew
+                {t('about.crewTitle')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                SSI and PADI certified instructors with years of experience in Atlantic waters
+                {t('about.crewDesc')}
               </Typography>
             </CardContent>
           </Card>
@@ -53,10 +53,10 @@ const About = () => {
             <CardContent sx={{ p: 4 }}>
               <EquipmentIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
               <Typography variant="h6" gutterBottom>
-                Top Equipment
+                {t('about.equipmentTitle')}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Modern, well-maintained equipment including BCDs, regulators, wetsuits, and more
+              руками<Typography variant="body2" color="text.secondary">
+                {t('about.equipmentDesc')}
               </Typography>
             </CardContent>
           </Card>
@@ -67,10 +67,10 @@ const About = () => {
             <CardContent sx={{ p: 4 }}>
               <AwardIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
               <Typography variant="h6" gutterBottom>
-                Award Winning
+                {t('about.awardsTitle')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Recognized as one of the best dive centers in the Canary Islands
+                {t('about.awardsDesc')}
               </Typography>
             </CardContent>
           </Card>
@@ -80,7 +80,7 @@ const About = () => {
       {/* Crew */}
       <Box sx={{ my: 8 }}>
         <Typography variant="h4" gutterBottom>
-          Meet Our Team
+          {t('about.teamTitle')}
         </Typography>
         <Grid container spacing={4} sx={{ mt: 2 }}>
           <Grid item xs={12} sm={6} md={4}>
@@ -90,10 +90,10 @@ const About = () => {
                 Deep Blue
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Owner & Lead Instructor
+                {t('about.ownerTitle')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                SSI & PADI Certified
+                {t('about.certified')}
               </Typography>
             </Card>
           </Grid>
@@ -103,7 +103,7 @@ const About = () => {
       {/* Awards & Certifications */}
       <Box sx={{ my: 8, bgcolor: '#f5f5f5', p: 4, borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>
-          Certifications & Awards
+          {t('about.certificationsTitle')}
         </Typography>
         <Grid container spacing={2} sx={{ mt: 2 }}>
           <Grid item xs={6} md={3}>

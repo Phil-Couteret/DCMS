@@ -1,0 +1,150 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "bookDive": "Tauchgang buchen",
+    "diveSites": "Tauchplätze",
+    "about": "Über uns",
+    "pricing": "Preise",
+    "contact": "Kontakt",
+    "myAccount": "Mein Konto",
+    "login": "Anmelden",
+    "logout": "Abmelden"
+  },
+  "common": {
+    "bookNow": "Jetzt buchen",
+    "bookYourDive": "Buchen Sie jetzt Ihren Tauchgang",
+    "viewDetails": "Details anzeigen",
+    "viewDiveSites": "Tauchplätze anzeigen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "next": "Weiter",
+    "back": "Zurück",
+    "confirm": "Bestätigen",
+    "submit": "Absenden",
+    "send": "Senden",
+    "close": "Schließen",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg"
+  },
+  "home": {
+    "title": "Willkommen bei\nDeep Blue Fuerteventura",
+    "tagline": "Der Atlantik ist die Safari!",
+    "subtitle": "Jahrelange Taucherfahrung im Atlantik - Eines der etabliertesten Tauchzentren auf Fuerteventura",
+    "feature1Title": "Professionelles Tauchen",
+    "feature1Desc": "Jahrelange Erfahrung in den Gewässern des Atlantiks. SSI und PADI zertifizierte Tauchlehrer.",
+    "feature2Title": "Zwei Standorte",
+    "feature2Desc": "Caleta de Fuste und Las Playitas. Wählen Sie Ihren perfekten Tauchplatz.",
+    "feature3Title": "Alle Erfahrungsstufen",
+    "feature3Desc": "Von Anfängern bis zu fortgeschrittenen Tauchern. Schnuppertauchen, Open Water, Advanced und mehr.",
+    "locationsTitle": "Unsere Tauchstandorte",
+    "caletaTitle": "Caleta de Fuste",
+    "caletaDesc": "Der Yachthafen, der auch der Standort unseres Tauchzentrums ist, hat einen ganz besonderen Charme. Transatlantische Segelboote und andere Yachten legen hier regelmäßig an.",
+    "caletaAddress": "Muelle Deportivo / Calle Teneriffe\nE - 35610 Caleta de Fuste - Fuerteventura",
+    "playitasTitle": "Las Playitas",
+    "playitasDesc": "Das Hotel und die Tauchbasis sind für sportbegeisterte Menschen konzipiert. Las Playitas Resort ist in der Sportwelt als Trainingsziel für Profisportler bekannt.",
+    "playitasAddress": "Hotel Gran Resort Las Playitas\nLas Playitas - Fuerteventura",
+    "ctaTitle": "Bereit für ein Abenteuer?",
+    "ctaSubtitle": "Buchen Sie Ihren Tauchgang heute und entdecken Sie die Gewässer des Atlantiks von Fuerteventura"
+  },
+  "booking": {
+    "title": "Buchen Sie Ihren Tauchgang",
+    "step1": "Aktivität auswählen",
+    "step2": "Details eingeben",
+    "step3": "Überprüfen und bestätigen",
+    "location": "Standort",
+    "date": "Datum",
+    "time": "Uhrzeit",
+    "activityType": "Aktivitätstyp",
+    "numberOfDives": "Anzahl der Tauchgänge",
+    "experienceLevel": "Erfahrungsstufe",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "specialRequirements": "Besondere Anforderungen",
+    "activities": {
+      "diving": "Gerätetauchen",
+      "snorkeling": "Schnorcheln",
+      "discover": "Schnuppertauchen",
+      "orientation": "Orientierungstauchgang"
+    },
+    "experienceLevels": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Experte"
+    },
+    "locations": {
+      "caleta": "Caleta de Fuste",
+      "playitas": "Las Playitas"
+    }
+  },
+  "diveSites": {
+    "title": "Unsere Tauchplätze",
+    "caletaTitle": "Tauchplätze Caleta de Fuste",
+    "caletaDesc": "Entdecken Sie die beeindruckenden Riffe und die vielfältige Meereswelt von Caleta de Fuste. Von anfängerfreundlichen Plätzen bis hin zu fortgeschrittenen Herausforderungen ist für jeden etwas dabei.",
+    "playitasTitle": "Tauchplätze Las Playitas",
+    "playitasDesc": "Der Standort Las Playitas bietet hervorragende Tauchbedingungen mit kristallklarem Wasser und reichlich Meeresleben.",
+    "types": {
+      "reef": "Riff",
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Experte"
+    },
+    "details": {
+      "depth": "Tiefe",
+      "current": "Strömung",
+      "waves": "Wellen",
+      "travel": "Anfahrt"
+    }
+  },
+  "about": {
+    "title": "Über uns",
+    "philosophyTitle": "Unsere Philosophie",
+    "philosophyQuote": "Das Rote Meer ist der Zoo, der Atlantik die Safari!",
+    "philosophyDesc": "Mit jahrelanger Taucherfahrung im Atlantik und unzähligen zufriedenen Gästen zählen wir zu einem der etabliertesten und bekanntesten Tauchzentren auf Fuerteventura. Wir sind leidenschaftlich daran interessiert, die einzigartige Unterwasserwelt der Kanarischen Inseln zu teilen.",
+    "crewTitle": "Professionelle Crew",
+    "crewDesc": "SSI und PADI zertifizierte Tauchlehrer mit jahrelanger Erfahrung in den Gewässern des Atlantiks",
+    "equipmentTitle": "Moderne Ausrüstung",
+    "equipmentDesc": "Gut gepflegte Ausrüstung und Boote. Komplette Ausrüstungsvermietung verfügbar.",
+    "awardsTitle": "Auszeichnungen & Zertifizierungen",
+    "awardsDesc": "Anerkannt für Exzellenz in Tauchsicherheit und Kundenservice"
+  },
+  "pricing": {
+    "title": "Preise",
+    "subtitle": "Mengenrabatte werden automatisch angewendet. Je mehr Sie tauchen, desto mehr sparen Sie!",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "numberOfDives": "Anzahl der Tauchgänge",
+    "touristPrice": "Tourist (€/Tauchgang)",
+    "dives": "Tauchgänge",
+    "example": "Beispiel: 3 Tauchgänge = 3 × €42 = €126 gesamt",
+    "includedTitle": "Was ist enthalten",
+    "included1": "Professioneller Guide/Tauchlehrer",
+    "included2": "Flossen und Gewichte",
+    "included3": "Bootsfahrt",
+    "included4": "Tauchbriefing",
+    "included5": "Versicherungsschutz",
+    "included6": "Ausrüstungsvermietung verfügbar (extra)",
+    "otherActivitiesTitle": "Weitere Aktivitäten",
+    "snorkeling": "Schnorcheln: €38 (inkl. Bootsfahrt, Anzug, Maske, Schnorchel, Flossen)",
+    "discover": "Schnuppertauchen: €100 (inkl. Ausrüstung und Tauchlehrer)",
+    "orientation": "Orientierungstauchgang: €32 (für zertifizierte Taucher, inkl. Flasche, Gewichte, Bootsfahrt)",
+    "nightDive": "Nachttauchgang: +€20 Aufpreis (inkl. Taschenlampe)",
+    "equipmentTitle": "Ausrüstungsvermietung",
+    "completeEquipment": "Komplette Ausrüstung: €13 (nur die ersten 8 Tauchgänge)",
+    "individualItems": "Einzelne Artikel: Anzug €5, BCD €5, Atemregler €5, Taschenlampe €5, Computer €3"
+  },
+  "contact": {
+    "title": "Kontaktieren Sie uns",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "phone": "Telefon:",
+    "email": "E-Mail:",
+    "sendMessage": "Senden Sie uns eine Nachricht",
+    "yourName": "Ihr Name",
+    "subject": "Betreff",
+    "message": "Nachricht",
+    "sendMessageButton": "Nachricht senden"
+  }
+}

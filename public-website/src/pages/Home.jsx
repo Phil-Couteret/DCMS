@@ -9,9 +9,11 @@ import {
   CardContent
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ScubaDiving as DiveIcon, BeachAccess as LocationIcon, Groups as GroupIcon } from '@mui/icons-material';
 
 const Home = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -27,14 +29,18 @@ const Home = () => {
       >
         <Container>
           <Typography variant="h1" sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' }, fontWeight: 'bold', mb: 3 }}>
-            Welcome to<br />
-            Deep Blue Fuerteventura
+            {t('home.title').split('\n').map((line, i, arr) => (
+              <React.Fragment key={i}>
+                {line}
+                {i < arr.length - 1 && <br />}
+              </React.Fragment>
+            ))}
           </Typography>
           <Typography variant="h5" sx={{ mb: 4, color: 'rgba(255,255,255,0.9)' }}>
-            The Atlantic is the Safari!
+            {t('home.tagline')}
           </Typography>
           <Typography variant="h6" sx={{ mb: 6, color: 'rgba(255,255,255,0.8)' }}>
-            Years of diving experience in the Atlantic - One of the most established dive centers on Fuerteventura
+            {t('home.subtitle')}
           </Typography>
           <Button
             variant="contained"
@@ -49,7 +55,7 @@ const Home = () => {
               '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' }
             }}
           >
-            Book Your Dive Now
+            {t('common.bookYourDive')}
           </Button>
         </Container>
       </Box>
@@ -62,10 +68,10 @@ const Home = () => {
               <CardContent sx={{ textAlign: 'center', p: 4 }}>
                 <DiveIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
                 <Typography variant="h5" gutterBottom>
-                  Professional Diving
+                  {t('home.feature1Title')}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  Years of experience in the Atlantic waters. SSI and PADI certified instructors.
+                  {t('home.feature1Desc')}
                 </Typography>
               </CardContent>
             </Card>
@@ -75,10 +81,10 @@ const Home = () => {
               <CardContent sx={{ textAlign: 'center', p: 4 }}>
                 <LocationIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
                 <Typography variant="h5" gutterBottom>
-                  Two Locations
+                  {t('home.feature2Title')}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  Caleta de Fuste and Las Playitas. Choose your perfect dive site.
+                  {t('home.feature2Desc')}
                 </Typography>
               </CardContent>
             </Card>
@@ -88,10 +94,10 @@ const Home = () => {
               <CardContent sx={{ textAlign: 'center', p: 4 }}>
                 <GroupIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
                 <Typography variant="h5" gutterBottom>
-                  All Experience Levels
+                  {t('home.feature3Title')}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  From beginners to advanced divers. Discover, Open Water, Advanced, and more.
+                  {t('home.feature3Desc')}
                 </Typography>
               </CardContent>
             </Card>
@@ -103,25 +109,28 @@ const Home = () => {
       <Box sx={{ bgcolor: '#f5f5f5', py: 8 }}>
         <Container>
           <Typography variant="h3" sx={{ mb: 6, textAlign: 'center' }}>
-            Our Dive Locations
+            {t('home.locationsTitle')}
           </Typography>
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h4" gutterBottom color="primary">
-                    Caleta de Fuste
+                    {t('home.caletaTitle')}
                   </Typography>
                   <Typography variant="body1" paragraph>
-                    The yacht harbour, which is also the location of our dive centre, has a flair that is all its own. 
-                    Transatlantic sailing boats and other yachts regularly make port here.
+                    {t('home.caletaDesc')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" paragraph>
-                    Muelle Deportivo / Calle Teneriffe<br />
-                    E - 35610 Caleta de Fuste - Fuerteventura
+                    {t('home.caletaAddress').split('\n').map((line, i) => (
+                      <React.Fragment key={i}>
+                        {line}
+                        {i < t('home.caletaAddress').split('\n').length - 1 && <br />}
+                      </React.Fragment>
+                    ))}
                   </Typography>
                   <Button variant="outlined" onClick={() => navigate('/dive-sites')}>
-                    View Dive Sites
+                    {t('common.viewDiveSites')}
                   </Button>
                 </CardContent>
               </Card>
@@ -130,18 +139,21 @@ const Home = () => {
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h4" gutterBottom color="primary">
-                    Las Playitas
+                    {t('home.playitasTitle')}
                   </Typography>
                   <Typography variant="body1" paragraph>
-                    The hotel and dive base are designed for sports-minded people. 
-                    Las Playitas Resort is known in the sporting world as a training destination for professional athletes.
+                    {t('home.playitasDesc')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" paragraph>
-                    Hotel Gran Resort Las Playitas<br />
-                    Las Playitas - Fuerteventura
+                    {t('home.playitasAddress').split('\n').map((line, i) => (
+                      <React.Fragment key={i}>
+                        {line}
+                        {i < t('home.playitasAddress').split('\n').length - 1 && <br />}
+                      </React.Fragment>
+                    ))}
                   </Typography>
                   <Button variant="outlined" onClick={() => navigate('/dive-sites')}>
-                    View Dive Sites
+                    {t('common.viewDiveSites')}
                   </Button>
                 </CardContent>
               </Card>
@@ -154,10 +166,10 @@ const Home = () => {
       <Container sx={{ py: 8 }}>
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h3" gutterBottom>
-            Ready for an Adventure?
+            {t('home.ctaTitle')}
           </Typography>
           <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
-            Book your dive today and discover the Atlantic waters of Fuerteventura
+            {t('home.ctaSubtitle')}
           </Typography>
           <Button
             variant="contained"
@@ -165,7 +177,7 @@ const Home = () => {
             onClick={() => navigate('/book-dive')}
             sx={{ px: 6, py: 2, fontSize: '1.2rem' }}
           >
-            Book Now
+            {t('common.bookNow')}
           </Button>
         </Box>
       </Container>

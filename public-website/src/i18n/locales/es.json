@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "bookDive": "Reservar Inmersión",
+    "diveSites": "Lugares de Buceo",
+    "about": "Sobre Nosotros",
+    "pricing": "Precios",
+    "contact": "Contacto",
+    "myAccount": "Mi Cuenta",
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión"
+  },
+  "common": {
+    "bookNow": "Reservar Ahora",
+    "bookYourDive": "Reserva Tu Inmersión Ahora",
+    "viewDetails": "Ver Detalles",
+    "viewDiveSites": "Ver Lugares de Buceo",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "next": "Siguiente",
+    "back": "Atrás",
+    "confirm": "Confirmar",
+    "submit": "Enviar",
+    "send": "Enviar",
+    "close": "Cerrar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito"
+  },
+  "home": {
+    "title": "Bienvenido a\nDeep Blue Fuerteventura",
+    "tagline": "¡El Atlántico es el Safari!",
+    "subtitle": "Años de experiencia en buceo en el Atlántico - Uno de los centros de buceo más consolidados de Fuerteventura",
+    "feature1Title": "Buceo Profesional",
+    "feature1Desc": "Años de experiencia en las aguas del Atlántico. Instructores certificados SSI y PADI.",
+    "feature2Title": "Dos Ubicaciones",
+    "feature2Desc": "Caleta de Fuste y Las Playitas. Elige tu lugar de buceo perfecto.",
+    "feature3Title": "Todos los Niveles",
+    "feature3Desc": "Desde principiantes hasta buceadores avanzados. Bautismo, Open Water, Avanzado y más.",
+    "locationsTitle": "Nuestros Lugares de Buceo",
+    "caletaTitle": "Caleta de Fuste",
+    "caletaDesc": "El puerto deportivo, que también es la ubicación de nuestro centro de buceo, tiene un encanto único. Barcos de vela transatlánticos y otros yates hacen escala regularmente aquí.",
+    "caletaAddress": "Muelle Deportivo / Calle Teneriffe\nE - 35610 Caleta de Fuste - Fuerteventura",
+    "playitasTitle": "Las Playitas",
+    "playitasDesc": "El hotel y la base de buceo están diseñados para personas deportistas. Las Playitas Resort es conocido en el mundo del deporte como un destino de entrenamiento para atletas profesionales.",
+    "playitasAddress": "Hotel Gran Resort Las Playitas\nLas Playitas - Fuerteventura",
+    "ctaTitle": "¿Listo para una Aventura?",
+    "ctaSubtitle": "Reserva tu inmersión hoy y descubre las aguas del Atlántico de Fuerteventura"
+  },
+  "booking": {
+    "title": "Reserva Tu Inmersión",
+    "step1": "Seleccionar Actividad",
+    "step2": "Introducir Detalles",
+    "step3": "Revisar y Confirmar",
+    "location": "Ubicación",
+    "date": "Fecha",
+    "time": "Hora",
+    "activityType": "Tipo de Actividad",
+    "numberOfDives": "Número de Inmersiones",
+    "experienceLevel": "Nivel de Experiencia",
+    "firstName": "Nombre",
+    "lastName": "Apellidos",
+    "email": "Correo Electrónico",
+    "phone": "Teléfono",
+    "specialRequirements": "Requisitos Especiales",
+    "activities": {
+      "diving": "Buceo con Botella",
+      "snorkeling": "Snorkel",
+      "discover": "Bautismo",
+      "orientation": "Inmersión de Orientación"
+    },
+    "experienceLevels": {
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado"
+    },
+    "locations": {
+      "caleta": "Caleta de Fuste",
+      "playitas": "Las Playitas"
+    }
+  },
+  "diveSites": {
+    "title": "Nuestros Lugares de Buceo",
+    "caletaTitle": "Lugares de Buceo de Caleta de Fuste",
+    "caletaDesc": "Descubre los increíbles arrecifes y la diversa vida marina de Caleta de Fuste. Desde lugares para principiantes hasta desafíos avanzados, hay algo para todos.",
+    "playitasTitle": "Lugares de Buceo de Las Playitas",
+    "playitasDesc": "La ubicación de Las Playitas ofrece excelentes condiciones de buceo con aguas cristalinas y abundante vida marina.",
+    "types": {
+      "reef": "Arrecife",
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado"
+    },
+    "details": {
+      "depth": "Profundidad",
+      "current": "Corriente",
+      "waves": "Olas",
+      "travel": "Viaje"
+    }
+  },
+  "about": {
+    "title": "Sobre Nosotros",
+    "philosophyTitle": "Nuestra Filosofía",
+    "philosophyQuote": "¡El Mar Rojo es el zoológico, el Atlántico el safari!",
+    "philosophyDesc": "Con años de experiencia en buceo en el Atlántico e innumerables huéspedes satisfechos, contamos como uno de los centros de buceo más consolidados y reconocidos de Fuerteventura. Nos apasiona compartir el único mundo submarino de las Islas Canarias.",
+    "crewTitle": "Tripulación Profesional",
+    "crewDesc": "Instructores certificados SSI y PADI con años de experiencia en aguas del Atlántico",
+    "equipmentTitle": "Equipamiento Moderno",
+    "equipmentDesc": "Equipos y barcos bien mantenidos. Alquiler de equipo completo disponible.",
+    "awardsTitle": "Premios y Certificaciones",
+    "awardsDesc": "Reconocidos por la excelencia en seguridad de buceo y servicio al cliente"
+  },
+  "pricing": {
+    "title": "Precios",
+    "subtitle": "Los descuentos por volumen se aplican automáticamente. ¡Cuanto más buceas, más ahorras!",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "numberOfDives": "Número de Inmersiones",
+    "touristPrice": "Turista (€/inmersión)",
+    "dives": "inmersiones",
+    "example": "Ejemplo: 3 inmersiones = 3 × €42 = €126 total",
+    "includedTitle": "Qué Está Incluido",
+    "included1": "Guía/instructor profesional",
+    "included2": "Botellas y lastres",
+    "included3": "Viaje en barco",
+    "included4": "Briefing de buceo",
+    "included5": "Cobertura de seguro",
+    "included6": "Alquiler de equipo disponible (extra)",
+    "otherActivitiesTitle": "Otras Actividades",
+    "snorkeling": "Snorkel: €38 (incluye viaje en barco, traje, máscara, tubo, aletas)",
+    "discover": "Bautismo: €100 (incluye equipo e instructor)",
+    "orientation": "Inmersión de Orientación: €32 (para buceadores certificados, incluye botella, lastres, viaje en barco)",
+    "nightDive": "Buceo Nocturno: +€20 suplemento (incluye linterna)",
+    "equipmentTitle": "Alquiler de Equipo",
+    "completeEquipment": "Equipo Completo: €13 (solo las primeras 8 inmersiones)",
+    "individualItems": "Artículos individuales: Traje €5, BCD €5, Regulador €5, Linterna €5, Ordenador €3"
+  },
+  "contact": {
+    "title": "Contáctenos",
+    "caletaTitle": "Caleta de Fuste",
+    "playitasTitle": "Las Playitas",
+    "phone": "Teléfono:",
+    "email": "Correo Electrónico:",
+    "sendMessage": "Envíenos un Mensaje",
+    "yourName": "Su Nombre",
+    "subject": "Asunto",
+    "message": "Mensaje",
+    "sendMessageButton": "Enviar Mensaje"
+  }
+}
+
