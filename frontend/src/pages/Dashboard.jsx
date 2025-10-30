@@ -58,7 +58,8 @@ const Dashboard = () => {
   });
   
   const [upcomingBookings, setUpcomingBookings] = useState([]);
-  const [allBookings, setAllBookings] = useState([]);
+  const [allBookings, setAllBookings] = useState([]); // bookings for current scope
+  const [allBookingsGlobal, setAllBookingsGlobal] = useState([]); // all bookings across all locations
   const [customers, setCustomers] = useState([]);
   const [daysToShow, setDaysToShow] = useState(3);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
@@ -120,6 +121,7 @@ const Dashboard = () => {
       });
 
       setAllBookings(locationFilteredBookings);
+      setAllBookingsGlobal(allBookingsData);
       setUpcomingBookings(upcoming);
       setCustomers(allCustomers);
     };
@@ -173,6 +175,37 @@ const Dashboard = () => {
         {t('dashboard.title')}
       </Typography>
       {/* Scope is controlled by top AppBar: Dashboard (global) vs selected location */}
+      {tabScope === 'all' && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>Per Location Overview</Typography>
+          <Grid container spacing={2}>
+            {locations.map((loc) => {
+              const locBookings = allBookingsGlobal.filter(b => b.locationId === loc.id);
+              const locTodayStr = new Date().toISOString().slice(0,10);
+              const locTodays = locBookings.filter(b => b.bookingDate === locTodayStr);
+              const locRevenue = locBookings.reduce((s,b)=> s + (b.totalPrice || 0), 0);
+              const locTodaysRevenue = locTodays.reduce((s,b)=> s + (b.totalPrice || 0), 0);
+              return (
+                <Grid item xs={12} md={6} key={loc.id}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="subtitle1" sx={{ mb: 1 }}>{loc.name}</Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <StatCard title={t('dashboard.totalBookings')} value={locBookings.length} icon={<TrendingUpIcon />} color={'info'} />
+                        </Grid>
+                        <Grid item xs={6}>
+                          <StatCard title={t('dashboard.totalRevenue')} value={`€${locRevenue.toFixed(2)}`} icon={<EuroIcon />} color={'warning'} />
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        </Box>
+      )}
       
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
