@@ -34,7 +34,7 @@ export const getCustomerStayDiveCount = (customerId, stayStartDate = null) => {
   stayBookings.forEach(booking => {
     if (booking.diveSessions) {
       // New format: count sessions
-      totalDives += (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0);
+      totalDives += (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0);
     } else if (booking.numberOfDives) {
       // Old format: use numberOfDives
       totalDives += booking.numberOfDives;
@@ -71,7 +71,7 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
   // Create breakdown for each booking
   const breakdown = stayBookings.map(booking => {
     const bookingDives = booking.diveSessions ? 
-      (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) :
+      (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
       (booking.numberOfDives || 0);
     
     return {
@@ -104,7 +104,7 @@ export const recalculateCustomerStayPricing = (customerId, stayStartDate = null)
   // Update each booking with the cumulative price per dive
   stayBookings.forEach(booking => {
     const bookingDives = booking.diveSessions ? 
-      (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) :
+      (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
       (booking.numberOfDives || 0);
     
     const newPrice = bookingDives * cumulativePricing.pricePerDive;

@@ -32,7 +32,8 @@ const BookingForm = ({ bookingId = null }) => {
     activityType: 'diving',
     diveSessions: {
       morning: false,  // 9:00 AM dive
-      afternoon: false // 12:00 PM dive
+      afternoon: false, // 12:00 PM dive
+      night: false     // Night dive (+€20)
     },
     price: 46.00,
     discount: 0,
@@ -60,7 +61,6 @@ const BookingForm = ({ bookingId = null }) => {
       Boots: false // Free
     },
     addons: {
-      nightDive: false,
       personalInstructor: false
     }
   });
@@ -119,7 +119,7 @@ const BookingForm = ({ bookingId = null }) => {
 
   const calculatePrice = () => {
     // Calculate number of dives based on selected sessions
-    const numberOfDives = (formData.diveSessions.morning ? 1 : 0) + (formData.diveSessions.afternoon ? 1 : 0);
+    const numberOfDives = (formData.diveSessions.morning ? 1 : 0) + (formData.diveSessions.afternoon ? 1 : 0) + (formData.diveSessions.night ? 1 : 0);
     
     // Get cumulative pricing for this customer's stay
     let cumulativePricing = null;
@@ -133,21 +133,23 @@ const BookingForm = ({ bookingId = null }) => {
     // Calculate base price using cumulative pricing
     const basePrice = numberOfDives * pricePerDive;
     
-    // Calculate addon prices
+    // Calculate night dive surcharge
+    let nightDiveSurcharge = 0;
+    if (formData.diveSessions.night) {
+      nightDiveSurcharge = 20; // Night dive surcharge
+    }
+    
+    // Calculate other addon prices
     const addons = {
-      nightDive: formData.addons?.nightDive ? 1 : 0,
       personalInstructor: formData.addons?.personalInstructor ? 1 : 0
     };
     
     let addonPrice = 0;
-    if (addons.nightDive) {
-      addonPrice += 20; // Night dive addon
-    }
     if (addons.personalInstructor) {
       addonPrice += 100; // Personal instructor addon
     }
     
-    const price = basePrice + addonPrice;
+    const price = basePrice + nightDiveSurcharge + addonPrice;
     
     // Calculate equipment rental cost
     let equipmentRental = 0;
@@ -363,8 +365,17 @@ const BookingForm = ({ bookingId = null }) => {
                   }
                   label="Afternoon Dive (12:00 PM)"
                 />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.diveSessions?.night || false}
+                      onChange={(e) => handleDiveSessionChange('night', e.target.checked)}
+                    />
+                  }
+                  label="Night Dive (+€20)"
+                />
               </Box>
-              {!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && (
+              {!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night && (
                 <Typography variant="caption" color="error">
                   Please select at least one dive session
                 </Typography>
@@ -418,15 +429,6 @@ const BookingForm = ({ bookingId = null }) => {
               <Typography variant="h6" gutterBottom>
                 Addons
               </Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.addons?.nightDive || false}
-                    onChange={(e) => handleAddonChange('nightDive', e.target.checked)}
-                  />
-                }
-                label="Night Dive (+€20)"
-              />
               <FormControlLabel
                 control={
                   <Switch
@@ -645,7 +647,7 @@ const BookingForm = ({ bookingId = null }) => {
             {/* Volume Discount Calculator */}
             <Grid item xs={12}>
               <VolumeDiscountCalculator 
-                numberOfDives={(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0)}
+                numberOfDives={(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0) + (formData.diveSessions?.night ? 1 : 0)}
                 addons={formData.addons || {}}
                 bono={bonos.find(b => b.id === formData.bonoId)}
               />
@@ -658,7 +660,7 @@ const BookingForm = ({ bookingId = null }) => {
                   Total Price Breakdown
                 </Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography>Base Price ({(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0)} dives):</Typography>
+                  <Typography>Base Price ({(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0) + (formData.diveSessions?.night ? 1 : 0)} dives):</Typography>
                   <Typography>€{formData.price.toFixed(2)}</Typography>
                 </Box>
                 {formData.discount > 0 && (

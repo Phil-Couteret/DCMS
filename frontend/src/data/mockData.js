@@ -35,11 +35,12 @@ export const initialMockData = {
       activityType: 'diving',
       diveSessions: {
         morning: true,
-        afternoon: true
+        afternoon: true,
+        night: true
       },
-      price: 88.00,
+      price: 108.00, // 2 dives + night dive surcharge
       discount: 0,
-      totalPrice: 88.00,
+      totalPrice: 108.00,
       status: 'confirmed',
       paymentMethod: 'cash',
       paymentStatus: 'paid',
