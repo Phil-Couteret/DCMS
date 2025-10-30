@@ -18,20 +18,14 @@ import {
   TableRow,
   IconButton,
   Alert,
-  Snackbar,
-  Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
+  Snackbar
 } from '@mui/material';
 import {
   Save as SaveIcon,
   Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon
+  Delete as DeleteIcon
 } from '@mui/icons-material';
-import dataService from '../services/dataService';
+import dataService from '../../services/dataService';
 
 const Prices = () => {
   const [settings, setSettings] = useState(null);
@@ -168,8 +162,8 @@ const Prices = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box>
+      <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
         Price Management
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>

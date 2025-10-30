@@ -10,7 +10,6 @@ import Bookings from './pages/Bookings';
 import Stays from './pages/Stays';
 import Customers from './pages/Customers';
 import Equipment from './pages/Equipment';
-import Prices from './pages/Prices';
 import Settings from './pages/Settings';
 
 // Components
@@ -61,7 +60,6 @@ function App() {
                     <Route path="/stays" element={<ProtectedRoute requiredPermission="bookings"><Stays /></ProtectedRoute>} />
                     <Route path="/customers" element={<ProtectedRoute requiredPermission="customers"><Customers /></ProtectedRoute>} />
                     <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
-                    <Route path="/prices" element={<ProtectedRoute requiredPermission="settings"><Prices /></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
                   </Routes>
                 </Box>

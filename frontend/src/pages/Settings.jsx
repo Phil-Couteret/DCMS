@@ -29,7 +29,12 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
+  CardHeader
 } from '@mui/material';
 import { 
   Save as SaveIcon,
@@ -44,13 +49,16 @@ import {
   DirectionsBoat as BoatIcon,
   PersonPin as GuideIcon,
   School as TrainerIcon,
-  Work as InternIcon
+  Work as InternIcon,
+  AttachMoney as PricesIcon
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES } from '../utils/authContext';
+import Prices from '../components/Settings/Prices';
 
 const Settings = () => {
   const { isAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState(0);
   const [settings, setSettings] = useState({
     certificationUrls: {
       SSI: 'https://www.divessi.com/en/verify-certification',
@@ -329,6 +337,23 @@ const Settings = () => {
           </Typography>
         </Box>
       </Box>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+          <Tab 
+            icon={<SettingsIcon />} 
+            label="General Settings" 
+            iconPosition="start"
+          />
+          <Tab 
+            icon={<PricesIcon />} 
+            label="Prices" 
+            iconPosition="start"
+          />
+        </Tabs>
+      </Box>
+
+      {activeTab === 0 && (
       
       {/* Certification Verification Settings */}
       <Accordion defaultExpanded sx={{ mb: 3 }}>
@@ -611,6 +636,11 @@ const Settings = () => {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         message={snackbar.message}
       />
+      )}
+
+      {activeTab === 1 && (
+        <Prices />
+      )}
     </Box>
   );
 };
