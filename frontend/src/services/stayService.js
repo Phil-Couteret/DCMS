@@ -72,8 +72,23 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
   
   if (customerPricing.tiers) {
     // Tourist pricing - use tiered system
-    const tier = customerPricing.tiers.find(t => t.dives >= totalDives) || 
-                 customerPricing.tiers[customerPricing.tiers.length - 1];
+    // Find the appropriate tier based on total dives
+    let tier = null;
+    for (let i = 0; i < customerPricing.tiers.length; i++) {
+      const currentTier = customerPricing.tiers[i];
+      const nextTier = customerPricing.tiers[i + 1];
+      
+      if (totalDives >= currentTier.dives && (!nextTier || totalDives < nextTier.dives)) {
+        tier = currentTier;
+        break;
+      }
+    }
+    
+    // If no tier found, use the last tier (highest range)
+    if (!tier) {
+      tier = customerPricing.tiers[customerPricing.tiers.length - 1];
+    }
+    
     pricePerDive = tier.price;
   } else {
     // Local/Recurrent pricing - use fixed price

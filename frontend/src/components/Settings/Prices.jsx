@@ -102,8 +102,8 @@ const Prices = () => {
   const addTouristTier = () => {
     const newTier = {
       dives: settings.prices.customerTypes.tourist.diveTiers.length + 1,
-      price: 30.00,
-      description: `${settings.prices.customerTypes.tourist.diveTiers.length + 1} dives`
+      price: 38.00,
+      description: `${settings.prices.customerTypes.tourist.diveTiers.length + 1}+ dives`
     };
     setSettings({
       ...settings,
@@ -232,12 +232,27 @@ const Prices = () => {
                       }
                     />
                     <CardContent>
+                      {/* Orientation Dive Price */}
+                      <Box sx={{ mb: 3 }}>
+                        <TextField
+                          label="Orientation Dive Price"
+                          type="number"
+                          value={settings.prices.customerTypes.tourist.orientationDive || 32.00}
+                          onChange={(e) => handleCustomerTypePriceChange('tourist', 'orientationDive', parseFloat(e.target.value) || 0)}
+                          fullWidth
+                          size="small"
+                          InputProps={{
+                            startAdornment: '€'
+                          }}
+                          helperText="Special price for orientation dive"
+                        />
+                      </Box>
                       <TableContainer>
                         <Table size="small">
                           <TableHead>
                             <TableRow>
-                              <TableCell>Dives</TableCell>
-                              <TableCell>Price</TableCell>
+                              <TableCell>From Dives</TableCell>
+                              <TableCell>Price per Dive</TableCell>
                               <TableCell>Description</TableCell>
                               <TableCell align="center">Actions</TableCell>
                             </TableRow>

@@ -1481,16 +1481,13 @@ export const initialMockData = {
   pricingConfig: [
     {
       customerType: 'tourist',
+      orientationDive: 32.00,
       tiers: [
         { dives: 1, price: 46.00 },
-        { dives: 2, price: 44.00 },
-        { dives: 3, price: 42.00 },
-        { dives: 4, price: 40.00 },
-        { dives: 5, price: 38.00 },
-        { dives: 6, price: 36.00 },
-        { dives: 7, price: 34.00 },
-        { dives: 8, price: 32.00 },
-        { dives: 9, price: 30.00 }
+        { dives: 3, price: 44.00 },
+        { dives: 6, price: 42.00 },
+        { dives: 9, price: 40.00 },
+        { dives: 13, price: 38.00 }
       ],
       addons: {
         nightDive: 20.00,
@@ -1544,16 +1541,13 @@ export const initialMockData = {
             name: "Tourist",
             description: "Visiting divers with volume discounts",
             pricing: "tiered", // Uses volume discounts
+            orientationDive: 32.00, // Special price for orientation dive
             diveTiers: [
-              { dives: 1, price: 46.00, description: "1 dive" },
-              { dives: 2, price: 44.00, description: "2 dives" },
-              { dives: 3, price: 42.00, description: "3 dives" },
-              { dives: 4, price: 40.00, description: "4 dives" },
-              { dives: 5, price: 38.00, description: "5 dives" },
-              { dives: 6, price: 36.00, description: "6 dives" },
-              { dives: 7, price: 34.00, description: "7 dives" },
-              { dives: 8, price: 32.00, description: "8 dives" },
-              { dives: 9, price: 30.00, description: "9+ dives" }
+              { dives: 1, price: 46.00, description: "1-2 dives" },
+              { dives: 3, price: 44.00, description: "3-5 dives" },
+              { dives: 6, price: 42.00, description: "6-8 dives" },
+              { dives: 9, price: 40.00, description: "9-12 dives" },
+              { dives: 13, price: 38.00, description: "13+ dives" }
             ]
           },
           local: {
