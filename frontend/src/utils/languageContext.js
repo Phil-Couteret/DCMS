@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import translationsMap, { t as translate } from './translations';
 
 export const LanguageContext = createContext({
   language: 'en',
@@ -14,11 +15,7 @@ export const LanguageProvider = ({ children }) => {
     localStorage.setItem('dcms_language', lang);
   };
 
-  const t = (key) => {
-    // Simplified translation - just return the key for now
-    // Full implementation would use the translations object
-    return key;
-  };
+  const t = (key) => translate(key, language);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage: changeLanguage, t }}>

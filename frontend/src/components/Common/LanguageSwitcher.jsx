@@ -5,9 +5,7 @@ import { useTranslation } from '../../utils/languageContext';
 const languages = [
   { code: 'es', name: 'Español' },
   { code: 'en', name: 'English' },
-  { code: 'de', name: 'Deutsch' },
-  { code: 'fr', name: 'Français' },
-  { code: 'it', name: 'Italiano' }
+  { code: 'de', name: 'Deutsch' }
 ];
 
 const LanguageSwitcher = () => {
