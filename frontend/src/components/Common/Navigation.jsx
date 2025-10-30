@@ -47,21 +47,21 @@ const Navigation = () => {
   const [locations, setLocations] = useState([]);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
 
-  // Define menu items with required permissions
-  const allMenuItems = [
+  // Build menu items by scope
+  const scope = localStorage.getItem('dcms_dashboard_scope') === 'global' || location.pathname === '/' ? 'global' : 'location';
+  const globalMenu = [
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
+    { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
+  ];
+  const locationMenu = [
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
     { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
     { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
-    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
-    { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
+    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' }
   ];
-
-  // Filter menu items based on user permissions
-  const menuItems = allMenuItems.filter(item => 
-    currentUser && canAccess(item.permission)
-  );
+  const allMenuItems = scope === 'global' ? globalMenu : locationMenu;
+  const menuItems = allMenuItems.filter(item => currentUser && canAccess(item.permission));
 
   // Load locations and initialize selected location
   React.useEffect(() => {
@@ -95,6 +95,9 @@ const Navigation = () => {
     if (newLocationId) {
       localStorage.setItem('dcms_current_location', newLocationId);
       localStorage.setItem('dcms_dashboard_scope', 'location');
+      if (location.pathname === '/') {
+        navigate('/bookings');
+      }
     }
   };
 
@@ -132,7 +135,7 @@ const Navigation = () => {
               sx={{ minHeight: 48 }}
             />
           </Box>
-          {location.pathname === '/' && currentUser && locations.length > 0 && (
+          {currentUser && locations.length > 0 && (
             <FormControl size="small" sx={{ minWidth: 200, mr: 2 }}>
               <Select
                 value={selectedLocationId || ''}
@@ -145,20 +148,8 @@ const Navigation = () => {
               </Select>
             </FormControl>
           )}
-          {/* Location Tabs (visible when user is logged in) */}
-          {currentUser && locations.length > 0 && location.pathname !== '/' && (
-            <Tabs
-              value={selectedLocationId}
-              onChange={handleLocationChange}
-              textColor="inherit"
-              indicatorColor="secondary"
-              sx={{ flexGrow: 1, minHeight: 48 }}
-           >
-              {locations.map(loc => (
-                <Tab key={loc.id} value={loc.id} label={loc.name} sx={{ minHeight: 48 }} />
-              ))}
-            </Tabs>
-          )}
+          {/* Keep some spacing flex */}
+          <Box sx={{ flexGrow: 1 }} />
           <LanguageSwitcher />
           {currentUser && (
             <>
