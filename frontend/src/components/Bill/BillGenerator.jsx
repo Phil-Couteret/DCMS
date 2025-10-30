@@ -147,7 +147,15 @@ const BillGenerator = ({ open, onClose, stay }) => {
       });
     }
 
-    const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal;
+    // Calculate dive insurance (mandatory for all divers)
+    let diveInsuranceTotal = 0;
+    if (settings.prices.diveInsurance) {
+      // For now, we'll use one_day insurance as default
+      // In a real implementation, this would be based on the stay duration
+      diveInsuranceTotal = settings.prices.diveInsurance.one_day || 7.00;
+    }
+
+    const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal + diveInsuranceTotal;
     const tax = subtotal * (settings.prices.tax.iva_rate || 0.21);
     const total = subtotal + tax;
 
@@ -167,6 +175,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
         dives: diveTotal,
         beverages: beverageTotal,
         equipment: equipmentTotal,
+        diveInsurance: diveInsuranceTotal,
         other: otherTotal
       }
     };
@@ -438,6 +447,16 @@ const BillGenerator = ({ open, onClose, stay }) => {
                       <TableCell align="right">-</TableCell>
                       <TableCell align="right">-</TableCell>
                       <TableCell align="right">€{calculatedBill.equipmentTotal.toFixed(2)}</TableCell>
+                    </TableRow>
+                  )}
+
+                  {/* Dive Insurance (Mandatory) */}
+                  {calculatedBill?.breakdown.diveInsurance > 0 && (
+                    <TableRow>
+                      <TableCell>Dive Insurance (Mandatory)</TableCell>
+                      <TableCell align="right">1</TableCell>
+                      <TableCell align="right">€{calculatedBill.breakdown.diveInsurance.toFixed(2)}</TableCell>
+                      <TableCell align="right">€{calculatedBill.breakdown.diveInsurance.toFixed(2)}</TableCell>
                     </TableRow>
                   )}
 

@@ -178,6 +178,19 @@ const Prices = () => {
     });
   };
 
+  const handleDiveInsurancePriceChange = (insuranceType, value) => {
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        diveInsurance: {
+          ...settings.prices.diveInsurance,
+          [insuranceType]: parseFloat(value) || 0
+        }
+      }
+    });
+  };
+
   const handleTaxRateChange = (value) => {
     setSettings({
       ...settings,
@@ -428,6 +441,41 @@ const Prices = () => {
                       InputProps={{
                         startAdornment: '€'
                       }}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Dive Insurance (Mandatory) */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader 
+              title="Dive Insurance Prices" 
+              subheader="Mandatory insurance for all divers"
+            />
+            <CardContent>
+              <Grid container spacing={2}>
+                {Object.entries(settings.prices.diveInsurance).map(([insuranceType, price]) => (
+                  <Grid item xs={12} key={insuranceType}>
+                    <TextField
+                      label={insuranceType.replace(/_/g, ' ').toUpperCase()}
+                      type="number"
+                      value={price}
+                      onChange={(e) => handleDiveInsurancePriceChange(insuranceType, e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputProps={{
+                        startAdornment: '€'
+                      }}
+                      helperText={
+                        insuranceType === 'one_day' ? '1 day insurance' :
+                        insuranceType === 'one_week' ? '1 week insurance' :
+                        insuranceType === 'one_month' ? '1 month insurance' :
+                        insuranceType === 'one_year' ? '1 year insurance' : ''
+                      }
                     />
                   </Grid>
                 ))}

@@ -204,7 +204,15 @@ const BookingForm = ({ bookingId = null }) => {
       });
     }
     
-    let totalPrice = price + equipmentRental;
+    // Calculate dive insurance (mandatory for all divers)
+    let diveInsurance = 0;
+    if (settings.prices.diveInsurance) {
+      // For now, we'll use one_day insurance as default
+      // In a real implementation, this would be based on the stay duration
+      diveInsurance = settings.prices.diveInsurance.one_day || 7.00;
+    }
+    
+    let totalPrice = price + equipmentRental + diveInsurance;
     let discount = 0;
     let governmentPayment = 0;
     let customerPayment = totalPrice;
@@ -228,6 +236,8 @@ const BookingForm = ({ bookingId = null }) => {
       totalPrice,
       governmentPayment,
       customerPayment,
+      equipmentRental,
+      diveInsurance,
       cumulativePricing // Store cumulative pricing info for display
     }));
   };

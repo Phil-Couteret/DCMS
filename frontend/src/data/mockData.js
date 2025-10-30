@@ -1492,6 +1492,12 @@ export const initialMockData = {
       addons: {
         nightDive: 20.00,
         personalInstructor: 100.00
+      },
+      diveInsurance: {
+        one_day: 7.00,
+        one_week: 18.00,
+        one_month: 25.00,
+        one_year: 45.00
       }
     },
     {
@@ -1500,6 +1506,12 @@ export const initialMockData = {
       addons: {
         nightDive: 20.00,
         personalInstructor: 100.00
+      },
+      diveInsurance: {
+        one_day: 7.00,
+        one_week: 18.00,
+        one_month: 25.00,
+        one_year: 45.00
       }
     },
     {
@@ -1508,6 +1520,12 @@ export const initialMockData = {
       addons: {
         nightDive: 20.00,
         personalInstructor: 100.00
+      },
+      diveInsurance: {
+        one_day: 7.00,
+        one_week: 18.00,
+        one_month: 25.00,
+        one_year: 45.00
       }
     }
   ],
@@ -1582,6 +1600,14 @@ export const initialMockData = {
         addons: {
           night_dive: 20.00,          // Night dive surcharge
           personal_instructor: 100.00 // Personal instructor
+        },
+        
+        // Dive insurance (mandatory)
+        diveInsurance: {
+          one_day: 7.00,      // 1 day insurance
+          one_week: 18.00,    // 1 week insurance
+          one_month: 25.00,   // 1 month insurance
+          one_year: 45.00     // 1 year insurance
         },
         
         // Beverages
