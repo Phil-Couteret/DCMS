@@ -135,32 +135,25 @@ const Navigation = () => {
             DCMS - Deep Blue Diving
           </Typography>
           {/* Dashboard shortcut before location tabs */}
-          <Box sx={{ mr: 2 }}>
-            <Tab
-              key="dashboard-shortcut"
-              label={t('nav.global') || t('nav.dashboard')}
-              value="__dashboard__"
-              onClick={() => { localStorage.setItem('dcms_dashboard_scope', 'global'); navigate('/'); }}
-              sx={{ minHeight: 48 }}
-            />
-          </Box>
-          {/* Location Tabs (always visible for quick switching) */}
+          {/* Global + Location Tabs unified */}
           {currentUser && locations.length > 0 && (
             <Tabs
-              value={selectedLocationId}
-              onChange={handleLocationChange}
+              value={location.pathname === '/' ? '__global__' : selectedLocationId}
+              onChange={(_e, val) => {
+                if (val === '__global__') {
+                  localStorage.setItem('dcms_dashboard_scope', 'global');
+                  navigate('/');
+                } else {
+                  handleLocationChange(null, val);
+                }
+              }}
               textColor="inherit"
               indicatorColor="secondary"
               sx={{ flexGrow: 1, minHeight: 48 }}
-           >
+            >
+              <Tab key="__global__" value="__global__" label={t('nav.global') || t('nav.dashboard')} sx={{ minHeight: 48 }} />
               {locations.map(loc => (
-                <Tab
-                  key={loc.id}
-                  value={loc.id}
-                  label={loc.name}
-                  onClick={() => selectLocation(loc.id)}
-                  sx={{ minHeight: 48 }}
-                />
+                <Tab key={loc.id} value={loc.id} label={loc.name} sx={{ minHeight: 48 }} />
               ))}
             </Tabs>
           )}
