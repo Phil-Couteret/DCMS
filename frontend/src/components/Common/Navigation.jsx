@@ -92,6 +92,7 @@ const Navigation = () => {
     setSelectedLocationId(newLocationId);
     if (newLocationId) {
       localStorage.setItem('dcms_current_location', newLocationId);
+      localStorage.setItem('dcms_dashboard_scope', 'location');
     }
   };
 
@@ -125,7 +126,7 @@ const Navigation = () => {
               key="dashboard-shortcut"
               label={t('nav.dashboard')}
               value="__dashboard__"
-              onClick={() => navigate('/')}
+              onClick={() => { localStorage.setItem('dcms_dashboard_scope', 'global'); navigate('/'); }}
               sx={{ minHeight: 48 }}
             />
           </Box>

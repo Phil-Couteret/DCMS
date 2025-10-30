@@ -74,9 +74,10 @@ const Dashboard = () => {
     setLocations(locs);
     const stored = localStorage.getItem('dcms_current_location');
     setSelectedLocationId(stored || (locs[0]?.id || null));
-    // Initialize dashboard tab scope
-    const hasGlobal = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
-    setTabScope(hasGlobal ? 'all' : (stored || locs[0]?.id || 'all'));
+    // Initialize dashboard scope: 'global' => all, else current location
+    const scopeFlag = localStorage.getItem('dcms_dashboard_scope');
+    const wantGlobal = scopeFlag === 'global';
+    setTabScope(wantGlobal ? 'all' : (stored || locs[0]?.id || 'all'));
   }, [currentUser]);
 
   useEffect(() => {
@@ -171,30 +172,7 @@ const Dashboard = () => {
       <Typography variant="h4" gutterBottom>
         {t('dashboard.title')}
       </Typography>
-      {/* Dashboard scope tabs: Global + per-location */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
-        <Tabs
-          value={tabScope}
-          onChange={(_e, value) => setTabScope(value)}
-          textColor="primary"
-          indicatorColor="primary"
-        >
-          {/* Global tab only for global-access users */}
-          {(!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0)) && (
-            <Tab value="all" label="Global" />
-          )}
-          {/* Per-location tabs - show only locations the user has access to (or all for global) */}
-          {locations
-            .filter(loc => {
-              const la = currentUser?.locationAccess;
-              if (!la || (Array.isArray(la) && la.length === 0)) return true; // global
-              return la.includes(loc.id);
-            })
-            .map(loc => (
-              <Tab key={loc.id} value={loc.id} label={loc.name} />
-            ))}
-        </Tabs>
-      </Box>
+      {/* Scope is controlled by top AppBar: Dashboard (global) vs selected location */}
       
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
