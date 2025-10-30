@@ -94,6 +94,11 @@ export const AuthProvider = ({ children }) => {
 
   const canAccess = (route) => {
     if (!currentUser) return false;
+    // Settings are only visible/accessible to global admins (no or empty locationAccess)
+    if (route === 'settings') {
+      const isGlobal = !currentUser.locationAccess || (Array.isArray(currentUser.locationAccess) && currentUser.locationAccess.length === 0);
+      return currentUser.role === USER_ROLES.ADMIN && isGlobal;
+    }
     return hasPermission(currentUser.role, route);
   };
 
