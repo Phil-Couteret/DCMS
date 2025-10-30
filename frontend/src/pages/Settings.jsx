@@ -57,9 +57,11 @@ import {
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES } from '../utils/authContext';
 import Prices from '../components/Settings/Prices';
+import { useTranslation } from '../utils/languageContext';
 
 const Settings = () => {
   const { isAdmin } = useAuth();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(0);
   const [settings, setSettings] = useState({
     certificationUrls: {
@@ -366,14 +368,14 @@ const Settings = () => {
         PaperProps={{ sx: { zIndex: 1300 } }}
       >
         <DialogTitle>
-          {editingUser ? 'Edit User' : 'Add New User'}
+          {editingUser ? (t('settings.users.editTitle') || 'Edit User') : (t('settings.users.addTitle') || 'Add New User')}
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Username"
+                label={t('settings.users.username') || 'Username'}
                 value={userFormData.username}
                 onChange={(e) => setUserFormData({ ...userFormData, username: e.target.value })}
                 required
@@ -382,7 +384,7 @@ const Settings = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Full Name"
+                label={t('settings.users.fullName') || 'Full Name'}
                 value={userFormData.name}
                 onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
                 required
@@ -391,7 +393,7 @@ const Settings = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Email"
+                label={'Email'}
                 type="email"
                 value={userFormData.email}
                 onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
@@ -399,22 +401,22 @@ const Settings = () => {
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel>Role</InputLabel>
+                <InputLabel>{t('settings.users.role') || 'Role'}</InputLabel>
                 <Select
                   value={userFormData.role}
                   onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
-                  label="Role"
+                  label={t('settings.users.role') || 'Role'}
                 >
-                  <MenuItem value={USER_ROLES.ADMIN}>Admin</MenuItem>
-                  <MenuItem value={USER_ROLES.BOAT_PILOT}>Boat Pilot</MenuItem>
-                  <MenuItem value={USER_ROLES.GUIDE}>Guide</MenuItem>
-                  <MenuItem value={USER_ROLES.TRAINER}>Trainer</MenuItem>
-                  <MenuItem value={USER_ROLES.INTERN}>Intern</MenuItem>
+                  <MenuItem value={USER_ROLES.ADMIN}>{t('settings.roles.admin') || 'Admin'}</MenuItem>
+                  <MenuItem value={USER_ROLES.BOAT_PILOT}>{t('settings.roles.boatPilot') || 'Boat Pilot'}</MenuItem>
+                  <MenuItem value={USER_ROLES.GUIDE}>{t('settings.roles.guide') || 'Guide'}</MenuItem>
+                  <MenuItem value={USER_ROLES.TRAINER}>{t('settings.roles.trainer') || 'Trainer'}</MenuItem>
+                  <MenuItem value={USER_ROLES.INTERN}>{t('settings.roles.intern') || 'Intern'}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle2" gutterBottom>Location Access</Typography>
+              <Typography variant="subtitle2" gutterBottom>{t('settings.users.locationAccess') || 'Location Access'}</Typography>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -428,7 +430,7 @@ const Settings = () => {
                     }}
                   />
                 }
-                label="All Locations (Global Access)"
+                label={t('settings.users.allLocations') || 'All Locations (Global Access)'}
               />
               {!userFormData.locationAccess.includes('__ALL__') && locations.map((location) => (
                 <FormControlLabel
@@ -456,10 +458,10 @@ const Settings = () => {
               ))}
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 {userFormData.locationAccess.length === 0 
-                  ? 'Select locations or choose "All Locations" for global access'
+                  ? (t('settings.users.locationHint') || 'Select locations or choose "All Locations" for global access')
                   : userFormData.locationAccess.includes('__ALL__')
-                    ? 'Global access to all current and future locations'
-                    : `Access to ${userFormData.locationAccess.length} specific location(s)`
+                    ? (t('settings.users.globalAccess') || 'Global access to all current and future locations')
+                    : `${t('settings.users.accessTo') || 'Access to'} ${userFormData.locationAccess.length} ${t('settings.users.locations') || 'locations'}`
                 }
               </Typography>
             </Grid>
@@ -471,15 +473,15 @@ const Settings = () => {
                     onChange={(e) => setUserFormData({ ...userFormData, isActive: e.target.checked })}
                   />
                 }
-                label="Active"
+                label={t('settings.users.active') || 'Active'}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setUserDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setUserDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleSaveUser} variant="contained" disabled={!userFormData.username || !userFormData.name}>
-            {editingUser ? 'Update' : 'Create'}
+            {editingUser ? (t('common.update') || 'Update') : (t('settings.users.create') || 'Create')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -489,10 +491,10 @@ const Settings = () => {
         <SettingsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
         <Box>
           <Typography variant="h4" gutterBottom>
-            Settings
+            {t('settings.title') || 'Settings'}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Configure system settings and preferences
+            {t('settings.subtitle') || 'Configure system settings and preferences'}
           </Typography>
         </Box>
       </Box>
@@ -501,17 +503,17 @@ const Settings = () => {
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
           <Tab 
             icon={<VerifiedUserIcon />} 
-            label="Certification Verification" 
+            label={t('settings.tabs.certification') || 'Certification Verification'} 
             iconPosition="start"
           />
           <Tab 
             icon={<PricesIcon />} 
-            label="Prices" 
+            label={t('settings.tabs.prices') || 'Prices'} 
             iconPosition="start"
           />
           <Tab 
             icon={<PeopleIcon />} 
-            label="User Management" 
+            label={t('settings.tabs.users') || 'User Management'} 
             iconPosition="start"
           />
         </Tabs>
@@ -534,9 +536,9 @@ const Settings = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
             <VerifiedUserIcon color="primary" />
             <Box>
-              <Typography variant="h6">Certification Verification</Typography>
+              <Typography variant="h6">{t('settings.cert.title') || 'Certification Verification'}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Configure verification portal URLs for certification agencies
+                {t('settings.cert.subtitle') || 'Configure verification portal URLs for certification agencies'}
               </Typography>
             </Box>
           </Box>
@@ -544,8 +546,7 @@ const Settings = () => {
         <AccordionDetails>
           <Box sx={{ pt: 2 }}>
             <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 3 }}>
-              Configure the verification portal URLs for each certification agency. 
-              These URLs will be opened in popup windows when verifying customer certifications.
+              {t('settings.cert.description') || 'Configure the verification portal URLs for each certification agency. These URLs will be opened in popup windows when verifying customer certifications.'}
             </Typography>
             
             <Grid container spacing={3}>
@@ -553,10 +554,10 @@ const Settings = () => {
                 <Grid item xs={12} md={6} key={agency}>
                   <TextField
                     fullWidth
-                    label={`${agency} Verification URL`}
+                    label={`${agency} ${t('settings.cert.verificationUrl') || 'Verification URL'}`}
                     value={url}
                     onChange={(e) => handleUrlChange(agency, e.target.value)}
-                    placeholder={`Enter ${agency} verification portal URL`}
+                    placeholder={`${t('settings.cert.enterUrl') || 'Enter'} ${agency} ${t('settings.cert.portalUrl') || 'verification portal URL'}`}
                     variant="outlined"
                     size="small"
                   />
@@ -567,7 +568,7 @@ const Settings = () => {
                       onClick={() => handleTestUrl(agency, url)}
                       disabled={!url}
                     >
-                      Test URL
+                      {t('settings.cert.test') || 'Test URL'}
                     </Button>
                   </Box>
                 </Grid>
@@ -582,7 +583,7 @@ const Settings = () => {
                 startIcon={<SaveIcon />}
                 onClick={handleSave}
               >
-                Save Certification Settings
+                {t('settings.cert.save') || 'Save Certification Settings'}
               </Button>
             </Box>
           </Box>
@@ -591,9 +592,7 @@ const Settings = () => {
 
       <Alert severity="info" sx={{ mb: 3 }}>
         <Typography variant="body2">
-          <strong>Tip:</strong> Make sure the URLs are correct and accessible. 
-          You can test each URL using the "Test URL" button. 
-          If a popup is blocked, check your browser's popup blocker settings.
+          <strong>{t('settings.tip') || 'Tip'}:</strong> {t('settings.tipText') || 'Make sure the URLs are correct and accessible. You can test each URL using the "Test URL" button. If a popup is blocked, check your browser\'s popup blocker settings.'}
         </Typography>
       </Alert>
 
@@ -640,14 +639,14 @@ const Settings = () => {
                 <Box sx={{ pt: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Manage system users and their roles. Admins have full access, guides can access bookings, customers, and equipment.
+                      {t('settings.users.manageHelp') || 'Manage system users and their roles. Admins have full access, guides can access bookings, customers, and equipment.'}
                     </Typography>
                     <Button
                       variant="contained"
                       startIcon={<AddIcon />}
                       onClick={handleAddUser}
                     >
-                      Add User
+                      {t('settings.users.addUser') || 'Add User'}
                     </Button>
                   </Box>
 
@@ -655,12 +654,12 @@ const Settings = () => {
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Name</TableCell>
-                          <TableCell>Username</TableCell>
-                          <TableCell>Email</TableCell>
-                          <TableCell>Role</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell align="right">Actions</TableCell>
+                          <TableCell>{t('settings.users.name') || 'Name'}</TableCell>
+                          <TableCell>{t('settings.users.username') || 'Username'}</TableCell>
+                          <TableCell>{'Email'}</TableCell>
+                          <TableCell>{t('settings.users.role') || 'Role'}</TableCell>
+                          <TableCell>{t('settings.users.status') || 'Status'}</TableCell>
+                          <TableCell align="right">{t('settings.users.actions') || 'Actions'}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -688,7 +687,7 @@ const Settings = () => {
                               </TableCell>
                               <TableCell>
                                 <Chip
-                                  label={user.isActive ? 'Active' : 'Inactive'}
+                                  label={user.isActive ? (t('settings.users.active') || 'Active') : (t('settings.users.inactive') || 'Inactive')}
                                   color={user.isActive ? 'success' : 'default'}
                                   size="small"
                                 />
@@ -724,7 +723,7 @@ const Settings = () => {
           {!isAdmin() && (
             <Alert severity="warning" sx={{ mb: 3 }}>
               <Typography variant="body2">
-                You don't have permission to manage users. Only administrators can access this section.
+                {t('settings.users.noPermission') || "You don't have permission to manage users. Only administrators can access this section."}
               </Typography>
             </Alert>
           )}

@@ -26,9 +26,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import stayService from '../services/stayService';
 import BillGenerator from '../components/Bill/BillGenerator';
+import { useTranslation } from '../utils/languageContext';
 
 const Stays = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [activeStays, setActiveStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStay, setSelectedStay] = useState(null);
@@ -53,10 +55,10 @@ const Stays = () => {
   };
 
   const getStatusText = (totalDives) => {
-    if (totalDives >= 9) return 'High Volume';
-    if (totalDives >= 6) return 'Medium Volume';
-    if (totalDives >= 3) return 'Low Volume';
-    return 'New Stay';
+    if (totalDives >= 9) return t('stays.status.high') || 'High Volume';
+    if (totalDives >= 6) return t('stays.status.medium') || 'Medium Volume';
+    if (totalDives >= 3) return t('stays.status.low') || 'Low Volume';
+    return t('stays.status.new') || 'New Stay';
   };
 
   const formatDate = (dateString) => {
@@ -80,15 +82,15 @@ const Stays = () => {
   const getSessionText = (sessions) => {
     if (!sessions) return 'N/A';
     const parts = [];
-    if (sessions.morning) parts.push('Morning (9AM)');
-    if (sessions.afternoon) parts.push('Afternoon (12PM)');
-    return parts.join(', ') || 'No sessions';
+    if (sessions.morning) parts.push(t('bookings.details.morning') || 'Morning (9AM)');
+    if (sessions.afternoon) parts.push(t('bookings.details.afternoon') || 'Afternoon (12PM)');
+    return parts.join(', ') || (t('stays.noSessions') || 'No sessions');
   };
 
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography>Loading stays...</Typography>
+        <Typography>{t('stays.loading') || 'Loading stays...'}</Typography>
       </Box>
     );
   }
@@ -97,7 +99,7 @@ const Stays = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4" gutterBottom>
-          Customer Stays
+          {t('stays.title') || 'Customer Stays'}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
@@ -105,14 +107,14 @@ const Stays = () => {
             startIcon={<RefreshIcon />}
             onClick={loadActiveStays}
           >
-            Refresh
+            {t('stays.refresh') || 'Refresh'}
           </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => navigate('/bookings/new')}
           >
-            New Booking
+            {t('bookings.new')}
           </Button>
         </Box>
       </Box>
@@ -121,17 +123,17 @@ const Stays = () => {
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <ReceiptIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No active stays found
+            {t('stays.empty') || 'No active stays found'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Customers with bookings in the last 30 days will appear here
+            {t('stays.emptyHint') || 'Customers with bookings in the last 30 days will appear here'}
           </Typography>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => navigate('/bookings/new')}
           >
-            Create First Booking
+            {t('bookings.createFirst')}
           </Button>
         </Box>
       ) : (
@@ -156,7 +158,7 @@ const Stays = () => {
                         {stay.customer.email}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Stay started: {formatDate(stay.stayStartDate)}
+                        {(t('stays.started') || 'Stay started') + ': '} {formatDate(stay.stayStartDate)}
                       </Typography>
                     </Box>
                   </Box>
@@ -170,7 +172,7 @@ const Stays = () => {
                         €{stay.totalPrice.toFixed(2)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {stay.totalDives} dives @ €{stay.pricePerDive.toFixed(2)} each
+                        {stay.totalDives} {(t('bookings.details.dives') || 'dives')} @ €{stay.pricePerDive.toFixed(2)} {(t('stays.each') || 'each')}
                       </Typography>
                     </Box>
                   </Box>
@@ -178,19 +180,19 @@ const Stays = () => {
               </AccordionSummary>
               <AccordionDetails>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Stay Breakdown
+                <Typography variant="subtitle1" gutterBottom>
+                  {t('stays.breakdownTitle') || 'Stay Breakdown'}
                   </Typography>
                   
                   <TableContainer component={Paper} variant="outlined">
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell>Date</TableCell>
-                          <TableCell>Sessions</TableCell>
-                          <TableCell>Dives</TableCell>
-                          <TableCell align="right">Price per Dive</TableCell>
-                          <TableCell align="right">Total</TableCell>
+                          <TableCell>{t('stays.table.date') || 'Date'}</TableCell>
+                          <TableCell>{t('stays.table.sessions') || 'Sessions'}</TableCell>
+                          <TableCell>{t('stays.table.dives') || 'Dives'}</TableCell>
+                          <TableCell align="right">{t('stays.table.pricePerDive') || 'Price per Dive'}</TableCell>
+                          <TableCell align="right">{t('stays.table.total') || 'Total'}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -211,9 +213,7 @@ const Stays = () => {
 
                   <Alert severity="info">
                     <Typography variant="body2">
-                      <strong>Cumulative Pricing:</strong> All dives in this stay are priced at €{stay.pricePerDive.toFixed(2)} 
-                      per dive based on the total volume of {stay.totalDives} dives. This ensures customers get the best 
-                      possible rate for their entire stay.
+                      <strong>{t('stays.cumulativeTitle') || 'Cumulative Pricing'}:</strong> {t('stays.cumulativeTextPart1') || 'All dives in this stay are priced at'} €{stay.pricePerDive.toFixed(2)} {t('stays.cumulativeTextPart2') || 'per dive based on the total volume of'} {stay.totalDives} {(t('bookings.details.dives') || 'dives')}. {t('stays.cumulativeTextPart3') || 'This ensures customers get the best possible rate for their entire stay.'}
                     </Typography>
                   </Alert>
 
@@ -223,14 +223,14 @@ const Stays = () => {
                       size="small"
                       onClick={() => navigate(`/bookings/new?customerId=${stay.customer.id}`)}
                     >
-                      Add Booking
+                      {t('stays.addBooking') || 'Add Booking'}
                     </Button>
                     <Button
                       variant="outlined"
                       size="small"
                       onClick={() => navigate(`/customers?id=${stay.customer.id}`)}
                     >
-                      View Customer
+                      {t('stays.viewCustomer') || 'View Customer'}
                     </Button>
                     <Button
                       variant="contained"
@@ -239,7 +239,7 @@ const Stays = () => {
                       startIcon={<EndStayIcon />}
                       onClick={() => handleEndStay(stay)}
                     >
-                      End Stay & Generate Bill
+                      {t('stays.endStay') || 'End Stay & Generate Bill'}
                     </Button>
                   </Box>
                 </Box>

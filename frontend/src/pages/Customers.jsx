@@ -174,18 +174,18 @@ const Customers = () => {
                   </Typography>
                   {customer.nationality && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Nationality: {customer.nationality}
+                      {t('customers.nationality')}: {customer.nationality}
                     </Typography>
                   )}
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Type: {customer.customerType || 'tourist'}
+                    {t('customers.type')}: {customer.customerType || 'tourist'}
                   </Typography>
                   
                   {/* Medical Certificate Status */}
                   {customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
-                        Medical Certificate:
+                        {t('customers.medicalCertificate') || 'Medical Certificate'}:
                       </Typography>
                       <Box sx={{ 
                         display: 'flex', 
@@ -198,21 +198,21 @@ const Customers = () => {
                       }}>
                         <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
                           #{customer.medicalCertificate.certificateNumber} 
-                          {customer.medicalCertificate.expiryDate && ` (Expires: ${customer.medicalCertificate.expiryDate})`}
+                          {customer.medicalCertificate.expiryDate && ` (${t('customers.expires') || 'Expires'}: ${customer.medicalCertificate.expiryDate})`}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           {customer.medicalCertificate.verified ? (
                             <>
                               <VerifiedIcon sx={{ color: 'success.main', fontSize: 18 }} />
                               <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'medium' }}>
-                                Verified
+                                {t('customers.verified') || 'Verified'}
                               </Typography>
                             </>
                           ) : (
                             <>
                               <ErrorIcon sx={{ color: 'error.main', fontSize: 18 }} />
                               <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 'medium' }}>
-                                Not Verified
+                                {t('customers.notVerified') || 'Not Verified'}
                               </Typography>
                             </>
                           )}
@@ -225,7 +225,7 @@ const Customers = () => {
                       {customer.divingInsurance && customer.divingInsurance.hasInsurance && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
-                        Diving Insurance:
+                        {t('customers.divingInsurance') || 'Diving Insurance'}:
                       </Typography>
                       <Box sx={{ 
                         display: 'flex', 
@@ -238,21 +238,21 @@ const Customers = () => {
                       }}>
                         <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
                           {customer.divingInsurance.insuranceProvider} - #{customer.divingInsurance.policyNumber}
-                          {customer.divingInsurance.expiryDate && ` (Expires: ${customer.divingInsurance.expiryDate})`}
+                          {customer.divingInsurance.expiryDate && ` (${t('customers.expires') || 'Expires'}: ${customer.divingInsurance.expiryDate})`}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           {customer.divingInsurance.verified ? (
                             <>
                               <VerifiedIcon sx={{ color: 'success.main', fontSize: 18 }} />
                               <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'medium' }}>
-                                Verified
+                                {t('customers.verified') || 'Verified'}
                               </Typography>
                             </>
                           ) : (
                             <>
                               <ErrorIcon sx={{ color: 'error.main', fontSize: 18 }} />
                               <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 'medium' }}>
-                                Not Verified
+                                {t('customers.notVerified') || 'Not Verified'}
                               </Typography>
                             </>
                           )}
@@ -265,7 +265,7 @@ const Customers = () => {
                       {customer.certifications && customer.certifications.length > 0 && (
                         <Box sx={{ mt: 2 }}>
                           <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
-                            Certifications:
+                            {t('customers.certifications') || 'Certifications'}:
                           </Typography>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             {customer.certifications.map((cert, index) => {
@@ -278,18 +278,18 @@ const Customers = () => {
                           if (cert.verified) {
                             StatusIcon = VerifiedIcon;
                             statusColor = 'success.main';
-                            statusText = 'Verified';
-                            tooltipText = `Verified on ${cert.verifiedDate || 'N/A'}`;
+                            statusText = t('customers.verified') || 'Verified';
+                            tooltipText = `${t('customers.verifiedOn') || 'Verified on'} ${cert.verifiedDate || 'N/A'}`;
                           } else if (cert.verified === false) {
                             StatusIcon = PendingIcon;
                             statusColor = 'warning.main';
-                            statusText = 'Pending Verification';
-                            tooltipText = 'Needs verification';
+                            statusText = t('customers.pendingVerification') || 'Pending Verification';
+                            tooltipText = t('customers.needsVerification') || 'Needs verification';
                           } else {
                             StatusIcon = ErrorIcon;
                             statusColor = 'error.main';
-                            statusText = 'Not Verified';
-                            tooltipText = 'Verification required';
+                            statusText = t('customers.notVerified') || 'Not Verified';
+                            tooltipText = t('customers.verificationRequired') || 'Verification required';
                           }
 
                           return (

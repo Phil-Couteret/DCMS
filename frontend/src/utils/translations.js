@@ -4,6 +4,72 @@
 // Translation strings
 export const translations = {
   es: {
+    settings: {
+      title: 'Configuración',
+      subtitle: 'Configurar opciones y preferencias del sistema',
+      tabs: { certification: 'Verificación de certificación', prices: 'Precios', users: 'Gestión de usuarios' },
+      cert: {
+        title: 'Verificación de certificación',
+        subtitle: 'Configurar URLs de verificación para las agencias',
+        description: 'Configura las URLs del portal de verificación para cada agencia. Estas URLs se abrirán en ventanas emergentes al verificar certificaciones.',
+        verificationUrl: 'URL de verificación',
+        enterUrl: 'Introducir',
+        portalUrl: 'URL del portal de verificación',
+        test: 'Probar URL',
+        save: 'Guardar configuración de certificación'
+      },
+      tip: 'Consejo',
+      tipText: 'Asegúrate de que las URLs sean correctas y accesibles. Puedes probar cada URL con el botón "Probar URL". Si se bloquea un popup, revisa la configuración del bloqueador de ventanas emergentes del navegador.',
+      users: {
+        addTitle: 'Añadir nuevo usuario',
+        editTitle: 'Editar usuario',
+        username: 'Usuario',
+        fullName: 'Nombre completo',
+        role: 'Rol',
+        locationAccess: 'Acceso por ubicación',
+        allLocations: 'Todas las ubicaciones (acceso global)',
+        locationHint: 'Selecciona ubicaciones o elige "Todas las ubicaciones" para acceso global',
+        globalAccess: 'Acceso global a ubicaciones actuales y futuras',
+        accessTo: 'Acceso a',
+        locations: 'ubicaciones',
+        active: 'Activo',
+        create: 'Crear',
+        manageHelp: 'Gestiona usuarios y sus roles. Los administradores tienen acceso total; los guías, acceso a reservas, clientes y equipamiento.',
+        addUser: 'Añadir usuario',
+        name: 'Nombre',
+        status: 'Estado',
+        actions: 'Acciones',
+        inactive: 'Inactivo',
+        noPermission: 'No tienes permisos para gestionar usuarios. Solo los administradores pueden acceder a esta sección.'
+      },
+      roles: { admin: 'Admin', boatPilot: 'Patrón', guide: 'Guía', trainer: 'Instructor', intern: 'Becario' }
+    },
+    stays: {
+      title: 'Estancias de clientes',
+      loading: 'Cargando estancias...',
+      refresh: 'Actualizar',
+      empty: 'No se encontraron estancias activas',
+      emptyHint: 'Los clientes con reservas en los últimos 30 días aparecerán aquí',
+      started: 'Estancia iniciada',
+      each: 'cada uno',
+      breakdownTitle: 'Detalle de la estancia',
+      table: {
+        date: 'Fecha',
+        sessions: 'Sesiones',
+        dives: 'Inmersiones',
+        pricePerDive: 'Precio por inmersión',
+        total: 'Total'
+      },
+      cumulativeTitle: 'Precios acumulativos',
+      cumulativeTextPart1: 'Todas las inmersiones de esta estancia se cobran a',
+      cumulativeTextPart2: 'por inmersión en función del volumen total de',
+      cumulativeTextPart3: 'Esto garantiza la mejor tarifa para toda la estancia.',
+      addBooking: 'Añadir reserva',
+      viewCustomer: 'Ver cliente',
+      endStay: 'Finalizar estancia y generar factura',
+      noSessions: 'Sin sesiones',
+      status: { new: 'Nueva estancia', low: 'Bajo volumen', medium: 'Volumen medio', high: 'Alto volumen' }
+    },
     // Navigation
     nav: {
       dashboard: 'Panel de Control',
@@ -61,7 +127,17 @@ export const translations = {
       edit: 'Editar',
       nationality: 'Nacionalidad',
       type: 'Tipo',
-      unknown: 'Cliente desconocido'
+      unknown: 'Cliente desconocido',
+      medicalCertificate: 'Certificado médico',
+      divingInsurance: 'Seguro de buceo',
+      verified: 'Verificado',
+      notVerified: 'No verificado',
+      pendingVerification: 'Verificación pendiente',
+      needsVerification: 'Necesita verificación',
+      verificationRequired: 'Verificación requerida',
+      verifiedOn: 'Verificado el',
+      expires: 'Caduca',
+      certifications: 'Certificaciones'
     },
     // Equipment
     equipment: {
@@ -135,6 +211,72 @@ export const translations = {
     }
   },
   en: {
+    settings: {
+      title: 'Settings',
+      subtitle: 'Configure system settings and preferences',
+      tabs: { certification: 'Certification Verification', prices: 'Prices', users: 'User Management' },
+      cert: {
+        title: 'Certification Verification',
+        subtitle: 'Configure verification portal URLs for certification agencies',
+        description: 'Configure the verification portal URLs for each certification agency. These URLs will be opened in popup windows when verifying customer certifications.',
+        verificationUrl: 'Verification URL',
+        enterUrl: 'Enter',
+        portalUrl: 'verification portal URL',
+        test: 'Test URL',
+        save: 'Save Certification Settings'
+      },
+      tip: 'Tip',
+      tipText: 'Make sure the URLs are correct and accessible. You can test each URL using the "Test URL" button. If a popup is blocked, check your browser\'s popup blocker settings.',
+      users: {
+        addTitle: 'Add New User',
+        editTitle: 'Edit User',
+        username: 'Username',
+        fullName: 'Full Name',
+        role: 'Role',
+        locationAccess: 'Location Access',
+        allLocations: 'All Locations (Global Access)',
+        locationHint: 'Select locations or choose "All Locations" for global access',
+        globalAccess: 'Global access to all current and future locations',
+        accessTo: 'Access to',
+        locations: 'locations',
+        active: 'Active',
+        create: 'Create',
+        manageHelp: 'Manage system users and their roles. Admins have full access, guides can access bookings, customers, and equipment.',
+        addUser: 'Add User',
+        name: 'Name',
+        status: 'Status',
+        actions: 'Actions',
+        inactive: 'Inactive',
+        noPermission: "You don't have permission to manage users. Only administrators can access this section."
+      },
+      roles: { admin: 'Admin', boatPilot: 'Boat Pilot', guide: 'Guide', trainer: 'Trainer', intern: 'Intern' }
+    },
+    stays: {
+      title: 'Customer Stays',
+      loading: 'Loading stays...',
+      refresh: 'Refresh',
+      empty: 'No active stays found',
+      emptyHint: 'Customers with bookings in the last 30 days will appear here',
+      started: 'Stay started',
+      each: 'each',
+      breakdownTitle: 'Stay Breakdown',
+      table: {
+        date: 'Date',
+        sessions: 'Sessions',
+        dives: 'Dives',
+        pricePerDive: 'Price per Dive',
+        total: 'Total'
+      },
+      cumulativeTitle: 'Cumulative Pricing',
+      cumulativeTextPart1: 'All dives in this stay are priced at',
+      cumulativeTextPart2: 'per dive based on the total volume of',
+      cumulativeTextPart3: 'This ensures customers get the best possible rate for their entire stay.',
+      addBooking: 'Add Booking',
+      viewCustomer: 'View Customer',
+      endStay: 'End Stay & Generate Bill',
+      noSessions: 'No sessions',
+      status: { new: 'New Stay', low: 'Low Volume', medium: 'Medium Volume', high: 'High Volume' }
+    },
     nav: {
       dashboard: 'Dashboard',
       bookings: 'Bookings',
@@ -188,7 +330,17 @@ export const translations = {
       edit: 'Edit',
       nationality: 'Nationality',
       type: 'Type',
-      unknown: 'Unknown Customer'
+      unknown: 'Unknown Customer',
+      medicalCertificate: 'Medical Certificate',
+      divingInsurance: 'Diving Insurance',
+      verified: 'Verified',
+      notVerified: 'Not Verified',
+      pendingVerification: 'Pending Verification',
+      needsVerification: 'Needs verification',
+      verificationRequired: 'Verification required',
+      verifiedOn: 'Verified on',
+      expires: 'Expires',
+      certifications: 'Certifications'
     },
     equipment: {
       title: 'Equipment',
@@ -260,6 +412,72 @@ export const translations = {
     }
   },
   de: {
+    settings: {
+      title: 'Einstellungen',
+      subtitle: 'Systemeinstellungen und Präferenzen konfigurieren',
+      tabs: { certification: 'Zertifikatsprüfung', prices: 'Preise', users: 'Benutzerverwaltung' },
+      cert: {
+        title: 'Zertifikatsprüfung',
+        subtitle: 'Überprüfungs-URLs für Zertifizierungsstellen konfigurieren',
+        description: 'Konfigurieren Sie die Überprüfungsportale für jede Zertifizierungsstelle. Diese URLs werden in Popups geöffnet, wenn Zertifikate geprüft werden.',
+        verificationUrl: 'Prüf-URL',
+        enterUrl: 'URL eingeben',
+        portalUrl: 'Überprüfungsportal-URL',
+        test: 'URL testen',
+        save: 'Zertifikats-Einstellungen speichern'
+      },
+      tip: 'Hinweis',
+      tipText: 'Stellen Sie sicher, dass die URLs korrekt und erreichbar sind. Sie können jede URL mit der Schaltfläche "URL testen" prüfen. Wenn ein Popup blockiert wird, prüfen Sie die Popup-Blocker-Einstellungen Ihres Browsers.',
+      users: {
+        addTitle: 'Neuen Benutzer hinzufügen',
+        editTitle: 'Benutzer bearbeiten',
+        username: 'Benutzername',
+        fullName: 'Vollständiger Name',
+        role: 'Rolle',
+        locationAccess: 'Zugriff nach Standort',
+        allLocations: 'Alle Standorte (globaler Zugriff)',
+        locationHint: 'Wählen Sie Standorte oder "Alle Standorte" für globalen Zugriff',
+        globalAccess: 'Globaler Zugriff auf aktuelle und zukünftige Standorte',
+        accessTo: 'Zugriff auf',
+        locations: 'Standorte',
+        active: 'Aktiv',
+        create: 'Erstellen',
+        manageHelp: 'Verwalten Sie Benutzer und ihre Rollen. Administratoren haben vollen Zugriff; Guides haben Zugriff auf Buchungen, Kunden und Ausrüstung.',
+        addUser: 'Benutzer hinzufügen',
+        name: 'Name',
+        status: 'Status',
+        actions: 'Aktionen',
+        inactive: 'Inaktiv',
+        noPermission: 'Sie haben keine Berechtigung, Benutzer zu verwalten. Nur Administratoren können auf diesen Bereich zugreifen.'
+      },
+      roles: { admin: 'Admin', boatPilot: 'Bootsführer', guide: 'Guide', trainer: 'Trainer', intern: 'Praktikant' }
+    },
+    stays: {
+      title: 'Kundenaufenthalte',
+      loading: 'Aufenthalte werden geladen...',
+      refresh: 'Aktualisieren',
+      empty: 'Keine aktiven Aufenthalte gefunden',
+      emptyHint: 'Kunden mit Buchungen in den letzten 30 Tagen werden hier angezeigt',
+      started: 'Aufenthalt begonnen',
+      each: 'je',
+      breakdownTitle: 'Aufenthaltsübersicht',
+      table: {
+        date: 'Datum',
+        sessions: 'Sitzungen',
+        dives: 'Tauchgänge',
+        pricePerDive: 'Preis pro Tauchgang',
+        total: 'Gesamt'
+      },
+      cumulativeTitle: 'Kumulierte Preisgestaltung',
+      cumulativeTextPart1: 'Alle Tauchgänge in diesem Aufenthalt kosten',
+      cumulativeTextPart2: 'pro Tauchgang basierend auf der Gesamtzahl von',
+      cumulativeTextPart3: 'Dies stellt sicher, dass Kunden den bestmöglichen Preis für den gesamten Aufenthalt erhalten.',
+      addBooking: 'Buchung hinzufügen',
+      viewCustomer: 'Kunden anzeigen',
+      endStay: 'Aufenthalt beenden & Rechnung erzeugen',
+      noSessions: 'Keine Sitzungen',
+      status: { new: 'Neuer Aufenthalt', low: 'Geringes Volumen', medium: 'Mittleres Volumen', high: 'Hohes Volumen' }
+    },
     nav: {
       dashboard: 'Armaturenbrett',
       bookings: 'Buchungen',
@@ -313,7 +531,17 @@ export const translations = {
       edit: 'Bearbeiten',
       nationality: 'Nationalität',
       type: 'Typ',
-      unknown: 'Unbekannter Kunde'
+      unknown: 'Unbekannter Kunde',
+      medicalCertificate: 'Ärztliches Attest',
+      divingInsurance: 'Tauchversicherung',
+      verified: 'Verifiziert',
+      notVerified: 'Nicht verifiziert',
+      pendingVerification: 'Überprüfung ausstehend',
+      needsVerification: 'Überprüfung erforderlich',
+      verificationRequired: 'Überprüfung erforderlich',
+      verifiedOn: 'Verifiziert am',
+      expires: 'Gültig bis',
+      certifications: 'Zertifizierungen'
     },
     equipment: {
       title: 'Ausrüstung',
