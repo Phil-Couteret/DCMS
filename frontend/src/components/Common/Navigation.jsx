@@ -57,6 +57,7 @@ const Navigation = () => {
     { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
   ];
   const locationMenu = [
+    { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
     { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
     { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
