@@ -1474,11 +1474,11 @@ export const initialMockData = {
       },
       prices: {
         beverages: {
-          water: 1.8,
-          soft_drinks: 2.5,
-          beer: 3.0,
-          coffee: 2.0,
-          tea: 1.5
+          water: 1.8,        // All beverages at €1.80 each
+          soft_drinks: 1.8,  // All beverages at €1.80 each
+          beer: 1.8,         // All beverages at €1.80 each
+          coffee: 1.8,       // All beverages at €1.80 each
+          tea: 1.8           // All beverages at €1.80 each
         },
         equipment: {
           complete_equipment: 13,

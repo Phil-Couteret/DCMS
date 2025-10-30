@@ -262,7 +262,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
                     >
                       {Object.keys(settings.prices.beverages).map(type => (
                         <MenuItem key={type} value={type}>
-                          {getBeverageName(type)} (€{settings.prices.beverages[type].toFixed(2)})
+                          {getBeverageName(type)} (€1.80)
                         </MenuItem>
                       ))}
                     </Select>
