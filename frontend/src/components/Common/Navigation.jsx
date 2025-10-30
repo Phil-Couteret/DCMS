@@ -135,21 +135,20 @@ const Navigation = () => {
               sx={{ minHeight: 48 }}
             />
           </Box>
+          {/* Location Tabs (always visible for quick switching) */}
           {currentUser && locations.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: 200, mr: 2 }}>
-              <Select
-                value={selectedLocationId || ''}
-                onChange={(e) => handleLocationChange(null, e.target.value)}
-                displayEmpty
-              >
-                {locations.map(loc => (
-                  <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Tabs
+              value={selectedLocationId}
+              onChange={handleLocationChange}
+              textColor="inherit"
+              indicatorColor="secondary"
+              sx={{ flexGrow: 1, minHeight: 48 }}
+           >
+              {locations.map(loc => (
+                <Tab key={loc.id} value={loc.id} label={loc.name} sx={{ minHeight: 48 }} />
+              ))}
+            </Tabs>
           )}
-          {/* Keep some spacing flex */}
-          <Box sx={{ flexGrow: 1 }} />
           <LanguageSwitcher />
           {currentUser && (
             <>
