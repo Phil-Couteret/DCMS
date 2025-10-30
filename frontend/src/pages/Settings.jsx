@@ -204,13 +204,17 @@ const Settings = () => {
 
   const handleEditUser = (user) => {
     setEditingUser(user);
+    const locationAccess = (user.locationAccess || []).length === 0 ? ['all'] : user.locationAccess;
+    console.log('Editing user:', user);
+    console.log('Original locationAccess:', user.locationAccess);
+    console.log('Converted locationAccess:', locationAccess);
     setUserFormData({
       username: user.username,
       name: user.name,
       email: user.email || '',
       role: user.role,
       isActive: user.isActive,
-      locationAccess: (user.locationAccess || []).length === 0 ? ['all'] : user.locationAccess
+      locationAccess: locationAccess
     });
     setUserDialogOpen(true);
   };
@@ -218,11 +222,16 @@ const Settings = () => {
   const handleSaveUser = () => {
     try {
       // Convert "all" selection to empty array for global access
+      const locationAccess = userFormData.locationAccess.includes('all') 
+        ? [] 
+        : userFormData.locationAccess;
+      
+      console.log('Saving user with locationAccess:', userFormData.locationAccess);
+      console.log('Converted to:', locationAccess);
+      
       const userData = {
         ...userFormData,
-        locationAccess: userFormData.locationAccess.includes('all') 
-          ? [] 
-          : userFormData.locationAccess
+        locationAccess: locationAccess
       };
 
       if (editingUser) {
