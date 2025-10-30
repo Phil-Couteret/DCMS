@@ -42,7 +42,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
     beverages: [],
     otherItems: []
   });
-  const [beverageType, setBeverageType] = useState('water');
   const [beverageQuantity, setBeverageQuantity] = useState(0);
   const [otherItems, setOtherItems] = useState([{ name: '', price: 0 }]);
   const [showBill, setShowBill] = useState(false);
@@ -80,9 +79,9 @@ const BillGenerator = ({ open, onClose, stay }) => {
 
   const addBeverage = () => {
     if (beverageQuantity > 0 && settings) {
-      const beveragePrice = settings.prices.beverages[beverageType] || 0;
+      const beveragePrice = settings.prices.beverages.beverage || 1.8;
       const newBeverage = {
-        type: beverageType,
+        type: 'beverage',
         quantity: beverageQuantity,
         pricePerUnit: beveragePrice,
         total: beverageQuantity * beveragePrice
@@ -184,16 +183,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
     window.print();
   };
 
-  const getBeverageName = (type) => {
-    const names = {
-      water: 'Water',
-      soft_drinks: 'Soft Drinks',
-      beer: 'Beer',
-      coffee: 'Coffee',
-      tea: 'Tea'
-    };
-    return names[type] || type;
-  };
 
   if (!settings) return null;
 
@@ -250,44 +239,31 @@ const BillGenerator = ({ open, onClose, stay }) => {
             {/* Beverages */}
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Beverages
+                Beverages (€1.80 each)
               </Typography>
               <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Beverage Type</InputLabel>
-                    <Select
-                      value={beverageType}
-                      onChange={(e) => setBeverageType(e.target.value)}
-                    >
-                      {Object.keys(settings.prices.beverages).map(type => (
-                        <MenuItem key={type} value={type}>
-                          {getBeverageName(type)} (€1.80)
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={3}>
+                <Grid item xs={6}>
                   <TextField
-                    label="Quantity"
+                    label="Number of Beverages"
                     type="number"
                     size="small"
                     fullWidth
                     value={beverageQuantity}
                     onChange={(e) => setBeverageQuantity(parseInt(e.target.value) || 0)}
                     inputProps={{ min: 0 }}
+                    helperText="€1.80 per beverage"
                   />
                 </Grid>
-                <Grid item xs={3}>
+                <Grid item xs={6}>
                   <Button
                     variant="outlined"
                     startIcon={<AddIcon />}
                     onClick={addBeverage}
                     disabled={beverageQuantity <= 0}
                     fullWidth
+                    sx={{ height: '56px' }}
                   >
-                    Add
+                    Add Beverages
                   </Button>
                 </Grid>
               </Grid>
@@ -295,7 +271,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
               {billData.beverages.map((beverage, index) => (
                 <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                   <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                    {getBeverageName(beverage.type)} x {beverage.quantity} = €{beverage.total.toFixed(2)}
+                    Beverage x {beverage.quantity} = €{beverage.total.toFixed(2)}
                   </Typography>
                   <IconButton size="small" onClick={() => removeBeverage(index)}>
                     <RemoveIcon />
@@ -436,7 +412,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   {/* Beverages */}
                   {calculatedBill?.beverages.map((beverage, index) => (
                     <TableRow key={`beverage-${index}`}>
-                      <TableCell>{getBeverageName(beverage.type)}</TableCell>
+                      <TableCell>Beverage</TableCell>
                       <TableCell align="right">{beverage.quantity}</TableCell>
                       <TableCell align="right">€{beverage.pricePerUnit.toFixed(2)}</TableCell>
                       <TableCell align="right">€{beverage.total.toFixed(2)}</TableCell>
