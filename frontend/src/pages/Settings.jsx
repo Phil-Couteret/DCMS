@@ -183,6 +183,7 @@ const Settings = () => {
   const loadLocations = () => {
     try {
       const allLocations = dataService.getAll('locations');
+      console.log('Loaded locations:', allLocations);
       setLocations(allLocations);
     } catch (error) {
       console.error('Error loading locations:', error);
@@ -413,11 +414,15 @@ const Settings = () => {
                     return selected.map(locId => locations.find(l => l.id === locId)?.name).join(', ');
                   }}
                 >
-                  {locations.map((location) => (
-                    <MenuItem key={location.id} value={location.id}>
-                      {location.name}
-                    </MenuItem>
-                  ))}
+                  {locations.length === 0 ? (
+                    <MenuItem disabled>No locations available</MenuItem>
+                  ) : (
+                    locations.map((location) => (
+                      <MenuItem key={location.id} value={location.id}>
+                        {location.name}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
@@ -425,6 +430,7 @@ const Settings = () => {
                   ? 'No locations selected = Global access to all locations'
                   : `Selected ${userFormData.locationAccess.length} location(s)`
                 }
+                {locations.length === 0 && ' (DEBUG: No locations loaded)'}
               </Typography>
             </Grid>
             <Grid item xs={12}>
