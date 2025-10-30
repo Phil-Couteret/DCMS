@@ -71,6 +71,7 @@ const BookingForm = ({ bookingId = null }) => {
   const [boats, setBoats] = useState([]);
   const [diveSites, setDiveSites] = useState([]);
   const [bonos, setBonos] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -103,6 +104,7 @@ const BookingForm = ({ bookingId = null }) => {
       const boatsData = dataService.getAll('boats');
       const diveSitesData = dataService.getAll('diveSites');
       const bonosData = dataService.getAll('governmentBonos');
+      const locationsData = dataService.getAll('locations');
       
       console.log('Loaded data:', {
         customers: customersData.length,
@@ -115,6 +117,7 @@ const BookingForm = ({ bookingId = null }) => {
       setBoats(boatsData);
       setDiveSites(diveSitesData);
       setBonos(bonosData);
+      setLocations(locationsData);
       setLoading(false);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -398,6 +401,26 @@ const BookingForm = ({ bookingId = null }) => {
         <Paper sx={{ p: 3, mt: 2 }}>
           <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
+            {/* Location Selection */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Location</InputLabel>
+                <Select
+                  value={formData.locationId}
+                  label="Location"
+                  onChange={(e) => {
+                    const newLoc = e.target.value;
+                    setFormData(prev => ({ ...prev, locationId: newLoc, routeType: '' }));
+                    localStorage.setItem('dcms_current_location', newLoc);
+                  }}
+                  required
+                >
+                  {locations.map(loc => (
+                    <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
             {/* Customer Selection */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
@@ -477,21 +500,27 @@ const BookingForm = ({ bookingId = null }) => {
             </Grid>
 
           {/* Route Type for Las Playitas */}
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel>Route</InputLabel>
-              <Select
-                value={formData.routeType}
-                onChange={(e) => handleChange('routeType', e.target.value)}
-                label="Route"
-              >
-                <MenuItem value="">Default</MenuItem>
-                <MenuItem value="playitas_local">Playitas Local Dive (€35)</MenuItem>
-                <MenuItem value="caleta_from_playitas">Caleta Dive from Playitas (tiers + €15 transfer per day)</MenuItem>
-                <MenuItem value="dive_trip">Dive Trip (Gran Tarajal / La Lajita) (€45)</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+          {(() => {
+            const currentLoc = locations.find(l => l.id === formData.locationId);
+            const isPlayitas = currentLoc && currentLoc.name?.toLowerCase().includes('playitas');
+            return isPlayitas ? (
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Route</InputLabel>
+                  <Select
+                    value={formData.routeType}
+                    onChange={(e) => handleChange('routeType', e.target.value)}
+                    label="Route"
+                  >
+                    <MenuItem value="">Select route</MenuItem>
+                    <MenuItem value="playitas_local">Playitas Local Dive (€35)</MenuItem>
+                    <MenuItem value="caleta_from_playitas">Caleta Dive from Playitas (tiers + €15 transfer per day)</MenuItem>
+                    <MenuItem value="dive_trip">Dive Trip (Gran Tarajal / La Lajita) (€45)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            ) : null;
+          })()}
 
             {/* Cumulative Pricing Information */}
             {formData.customerId && formData.cumulativePricing && (
