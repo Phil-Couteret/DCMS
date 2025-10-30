@@ -66,7 +66,10 @@ const Navigation = () => {
       // Determine accessible locations based on user rights
       let accessible = allLocations;
       if (currentUser && Array.isArray(currentUser.locationAccess)) {
-        accessible = allLocations.filter(loc => currentUser.locationAccess.includes(loc.id));
+        // Treat empty array as global access (all locations)
+        if (currentUser.locationAccess.length > 0) {
+          accessible = allLocations.filter(loc => currentUser.locationAccess.includes(loc.id));
+        }
       }
       setLocations(accessible);
 

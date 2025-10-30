@@ -45,7 +45,7 @@ import { useAuth } from '../utils/authContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, currentUser } = useAuth();
   const [stats, setStats] = useState({
     totalBookings: 0,
     todaysBookings: 0,
@@ -62,26 +62,72 @@ const Dashboard = () => {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
   const [revenuePeriod, setRevenuePeriod] = useState(7); // 7, 14, 30 days
   const [trendsPeriod, setTrendsPeriod] = useState(14); // 7, 14, 30 days
+  const [locations, setLocations] = useState([]);
+  const [scope, setScope] = useState('current'); // 'current' | 'all' | locationId
+  const [selectedLocationId, setSelectedLocationId] = useState(null);
+
+  useEffect(() => {
+    // Load locations and initial selection
+    const locs = dataService.getAll('locations') || [];
+    setLocations(locs);
+    const stored = localStorage.getItem('dcms_current_location');
+    setSelectedLocationId(stored || (locs[0]?.id || null));
+    // If user is global (no locationAccess or empty), default scope to 'all'
+    const hasGlobal = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
+    setScope(hasGlobal ? 'all' : 'current');
+  }, [currentUser]);
 
   useEffect(() => {
     const loadStats = () => {
+      // Base datasets
       const statistics = dataService.getStatistics();
-      setStats(statistics);
-      
-      const bookings = dataService.getUpcomingBookings(daysToShow);
-      setUpcomingBookings(bookings);
-      
-      const allBookingsData = dataService.getAll('bookings');
-      setAllBookings(allBookingsData);
-      
-      const allCustomers = dataService.getAll('customers');
+      const allBookingsData = dataService.getAll('bookings') || [];
+      const allCustomers = dataService.getAll('customers') || [];
+
+      // Determine filtering based on scope
+      let locationFilteredBookings = allBookingsData;
+      if (scope === 'current' && selectedLocationId) {
+        locationFilteredBookings = allBookingsData.filter(b => b.locationId === selectedLocationId);
+      } else if (scope !== 'all' && scope) {
+        // Specific location id chosen
+        locationFilteredBookings = allBookingsData.filter(b => b.locationId === scope);
+      }
+
+      // Upcoming bookings with days filter
+      const cutoff = new Date();
+      const end = new Date();
+      end.setDate(end.getDate() + daysToShow);
+      const upcoming = locationFilteredBookings.filter(b => {
+        const d = new Date(b.bookingDate);
+        return d >= cutoff && d <= end;
+      }).sort((a,b)=> new Date(a.bookingDate)-new Date(b.bookingDate));
+
+      // Compute stats from filtered bookings
+      const todayStr = new Date().toISOString().slice(0,10);
+      const todays = locationFilteredBookings.filter(b => b.bookingDate === todayStr);
+      const todaysRevenue = todays.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+      const totalRevenue = locationFilteredBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+      const pending = locationFilteredBookings.filter(b => b.status === 'pending').length;
+      const confirmed = locationFilteredBookings.filter(b => b.status === 'confirmed').length;
+
+      setStats({
+        totalBookings: locationFilteredBookings.length,
+        todaysBookings: todays.length,
+        totalRevenue,
+        todaysRevenue,
+        pendingBookings: pending,
+        confirmedBookings: confirmed
+      });
+
+      setAllBookings(locationFilteredBookings);
+      setUpcomingBookings(upcoming);
       setCustomers(allCustomers);
     };
-    
+
     loadStats();
-    const interval = setInterval(loadStats, 5000); // Refresh every 5 seconds
+    const interval = setInterval(loadStats, 5000);
     return () => clearInterval(interval);
-  }, [daysToShow]);
+  }, [daysToShow, scope, selectedLocationId]);
 
   const getCustomerName = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -126,6 +172,22 @@ const Dashboard = () => {
       <Typography variant="h4" gutterBottom>
         Dashboard
       </Typography>
+      {/* Location scope selector for global users */}
+      {(!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0)) && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Scope</InputLabel>
+            <Select label="Scope" value={scope} onChange={(e)=> setScope(e.target.value)}>
+              <MenuItem value="all">All Locations</MenuItem>
+              <MenuItem value="current">Selected Location</MenuItem>
+              <MenuItem disabled>──────────</MenuItem>
+              {locations.map(loc => (
+                <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
       
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
