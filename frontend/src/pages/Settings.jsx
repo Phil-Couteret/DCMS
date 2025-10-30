@@ -183,7 +183,6 @@ const Settings = () => {
   const loadLocations = () => {
     try {
       const allLocations = dataService.getAll('locations');
-      console.log('Loaded locations:', allLocations);
       setLocations(allLocations);
     } catch (error) {
       console.error('Error loading locations:', error);
@@ -408,6 +407,9 @@ const Settings = () => {
                   value={userFormData.locationAccess}
                   onChange={(e) => setUserFormData({ ...userFormData, locationAccess: e.target.value })}
                   label="Location Access"
+                  MenuProps={{
+                    sx: { zIndex: 9999 }
+                  }}
                   renderValue={(selected) => {
                     if (selected.length === 0) return 'All Locations (Global Access)';
                     if (selected.length === locations.length) return 'All Locations';
@@ -430,7 +432,6 @@ const Settings = () => {
                   ? 'No locations selected = Global access to all locations'
                   : `Selected ${userFormData.locationAccess.length} location(s)`
                 }
-                {locations.length === 0 && ' (DEBUG: No locations loaded)'}
               </Typography>
             </Grid>
             <Grid item xs={12}>
