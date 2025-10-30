@@ -65,41 +65,75 @@ const Prices = () => {
     }
   };
 
-  const handleDiveTierChange = (index, field, value) => {
-    const newTiers = [...settings.prices.diveTiers];
+  const handleCustomerTypePriceChange = (customerType, field, value) => {
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        customerTypes: {
+          ...settings.prices.customerTypes,
+          [customerType]: {
+            ...settings.prices.customerTypes[customerType],
+            [field]: value
+          }
+        }
+      }
+    });
+  };
+
+  const handleTouristTierChange = (index, field, value) => {
+    const newTiers = [...settings.prices.customerTypes.tourist.diveTiers];
     newTiers[index] = { ...newTiers[index], [field]: value };
     setSettings({
       ...settings,
       prices: {
         ...settings.prices,
-        diveTiers: newTiers
+        customerTypes: {
+          ...settings.prices.customerTypes,
+          tourist: {
+            ...settings.prices.customerTypes.tourist,
+            diveTiers: newTiers
+          }
+        }
       }
     });
   };
 
-  const addDiveTier = () => {
+  const addTouristTier = () => {
     const newTier = {
-      dives: settings.prices.diveTiers.length + 1,
+      dives: settings.prices.customerTypes.tourist.diveTiers.length + 1,
       price: 30.00,
-      description: `${settings.prices.diveTiers.length + 1} dives`
+      description: `${settings.prices.customerTypes.tourist.diveTiers.length + 1} dives`
     };
     setSettings({
       ...settings,
       prices: {
         ...settings.prices,
-        diveTiers: [...settings.prices.diveTiers, newTier]
+        customerTypes: {
+          ...settings.prices.customerTypes,
+          tourist: {
+            ...settings.prices.customerTypes.tourist,
+            diveTiers: [...settings.prices.customerTypes.tourist.diveTiers, newTier]
+          }
+        }
       }
     });
   };
 
-  const removeDiveTier = (index) => {
-    if (settings.prices.diveTiers.length > 1) {
-      const newTiers = settings.prices.diveTiers.filter((_, i) => i !== index);
+  const removeTouristTier = (index) => {
+    if (settings.prices.customerTypes.tourist.diveTiers.length > 1) {
+      const newTiers = settings.prices.customerTypes.tourist.diveTiers.filter((_, i) => i !== index);
       setSettings({
         ...settings,
         prices: {
           ...settings.prices,
-          diveTiers: newTiers
+          customerTypes: {
+            ...settings.prices.customerTypes,
+            tourist: {
+              ...settings.prices.customerTypes.tourist,
+              diveTiers: newTiers
+            }
+          }
         }
       });
     }
@@ -171,81 +205,136 @@ const Prices = () => {
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Dive Pricing Tiers */}
+        {/* Customer Type Pricing */}
         <Grid item xs={12}>
           <Card>
             <CardHeader
-              title="Dive Pricing Tiers"
-              subheader="Volume discounts based on total dives in a stay"
-              action={
-                <Button
-                  startIcon={<AddIcon />}
-                  onClick={addDiveTier}
-                  variant="outlined"
-                  size="small"
-                >
-                  Add Tier
-                </Button>
-              }
+              title="Customer Type Pricing"
+              subheader="Different pricing models for different customer types"
             />
             <CardContent>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Dives</TableCell>
-                      <TableCell>Price per Dive</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell align="center">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {settings.prices.diveTiers.map((tier, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
+              <Grid container spacing={3}>
+                {/* Tourist Pricing (Tiered) */}
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined">
+                    <CardHeader
+                      title="Tourist Pricing"
+                      subheader="Volume discounts for visiting divers"
+                      action={
+                        <Button
+                          startIcon={<AddIcon />}
+                          onClick={addTouristTier}
+                          variant="outlined"
+                          size="small"
+                        >
+                          Add Tier
+                        </Button>
+                      }
+                    />
+                    <CardContent>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Dives</TableCell>
+                              <TableCell>Price</TableCell>
+                              <TableCell>Description</TableCell>
+                              <TableCell align="center">Actions</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {settings.prices.customerTypes.tourist.diveTiers.map((tier, index) => (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  <TextField
+                                    type="number"
+                                    value={tier.dives}
+                                    onChange={(e) => handleTouristTierChange(index, 'dives', parseInt(e.target.value) || 0)}
+                                    size="small"
+                                    sx={{ width: 60 }}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <TextField
+                                    type="number"
+                                    value={tier.price}
+                                    onChange={(e) => handleTouristTierChange(index, 'price', parseFloat(e.target.value) || 0)}
+                                    size="small"
+                                    sx={{ width: 80 }}
+                                    InputProps={{
+                                      startAdornment: '€'
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <TextField
+                                    value={tier.description}
+                                    onChange={(e) => handleTouristTierChange(index, 'description', e.target.value)}
+                                    size="small"
+                                    fullWidth
+                                  />
+                                </TableCell>
+                                <TableCell align="center">
+                                  <IconButton
+                                    onClick={() => removeTouristTier(index)}
+                                    disabled={settings.prices.customerTypes.tourist.diveTiers.length === 1}
+                                    color="error"
+                                    size="small"
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                {/* Local & Recurrent Pricing (Fixed) */}
+                <Grid item xs={12} md={6}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Card variant="outlined">
+                        <CardHeader title="Local Pricing" subheader="Fixed price for local residents" />
+                        <CardContent>
                           <TextField
+                            label="Price per Dive"
                             type="number"
-                            value={tier.dives}
-                            onChange={(e) => handleDiveTierChange(index, 'dives', parseInt(e.target.value) || 0)}
+                            value={settings.prices.customerTypes.local.pricePerDive}
+                            onChange={(e) => handleCustomerTypePriceChange('local', 'pricePerDive', parseFloat(e.target.value) || 0)}
+                            fullWidth
                             size="small"
-                            sx={{ width: 80 }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            type="number"
-                            value={tier.price}
-                            onChange={(e) => handleDiveTierChange(index, 'price', parseFloat(e.target.value) || 0)}
-                            size="small"
-                            sx={{ width: 100 }}
                             InputProps={{
                               startAdornment: '€'
                             }}
                           />
-                        </TableCell>
-                        <TableCell>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Card variant="outlined">
+                        <CardHeader title="Recurrent Pricing" subheader="Fixed price for regular customers" />
+                        <CardContent>
                           <TextField
-                            value={tier.description}
-                            onChange={(e) => handleDiveTierChange(index, 'description', e.target.value)}
-                            size="small"
+                            label="Price per Dive"
+                            type="number"
+                            value={settings.prices.customerTypes.recurrent.pricePerDive}
+                            onChange={(e) => handleCustomerTypePriceChange('recurrent', 'pricePerDive', parseFloat(e.target.value) || 0)}
                             fullWidth
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            onClick={() => removeDiveTier(index)}
-                            disabled={settings.prices.diveTiers.length === 1}
-                            color="error"
                             size="small"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                            InputProps={{
+                              startAdornment: '€'
+                            }}
+                          />
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
         </Grid>

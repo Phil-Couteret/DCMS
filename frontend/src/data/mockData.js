@@ -193,6 +193,53 @@ export const initialMockData = {
         verified: false // Not yet verified
       },
       notes: 'Regular customer'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440022',
+      firstName: 'Carlos',
+      lastName: 'Rodriguez',
+      email: 'carlos.rodriguez@example.com',
+      phone: '+34 666 777 888',
+      dob: '1982-12-03',
+      nationality: 'Spanish',
+      customerType: 'recurrent',
+      preferences: {
+        bcdSize: 'L',
+        finsSize: 'L',
+        bootsSize: 'L',
+        wetsuitSize: 'L',
+        ownEquipment: true
+      },
+      medicalConditions: [],
+      certifications: [
+        {
+          agency: 'PADI',
+          level: 'DM',
+          certificationNumber: 'PADI-DM-456789',
+          issueDate: '2018-05-20',
+          expiryDate: null,
+          verified: true,
+          verifiedDate: '2025-01-05'
+        }
+      ],
+      medicalCertificate: {
+        hasCertificate: true,
+        certificateNumber: 'MED-2024-003',
+        issueDate: '2024-01-01',
+        expiryDate: '2025-01-01',
+        verified: true,
+        verifiedDate: '2025-01-05'
+      },
+      divingInsurance: {
+        hasInsurance: true,
+        insuranceProvider: 'DAN Europe',
+        policyNumber: 'DAN-2024-456',
+        issueDate: '2024-01-01',
+        expiryDate: '2025-01-01',
+        verified: true,
+        verifiedDate: '2025-01-05'
+      },
+      notes: 'Frequent diver, comes every month'
     }
   ],
   
@@ -1433,6 +1480,7 @@ export const initialMockData = {
   
   pricingConfig: [
     {
+      customerType: 'tourist',
       tiers: [
         { dives: 1, price: 46.00 },
         { dives: 2, price: 44.00 },
@@ -1444,6 +1492,22 @@ export const initialMockData = {
         { dives: 8, price: 32.00 },
         { dives: 9, price: 30.00 }
       ],
+      addons: {
+        nightDive: 20.00,
+        personalInstructor: 100.00
+      }
+    },
+    {
+      customerType: 'local',
+      pricePerDive: 35.00,
+      addons: {
+        nightDive: 20.00,
+        personalInstructor: 100.00
+      }
+    },
+    {
+      customerType: 'recurrent',
+      pricePerDive: 32.00,
       addons: {
         nightDive: 20.00,
         personalInstructor: 100.00
@@ -1474,18 +1538,37 @@ export const initialMockData = {
         VDST: 'https://www.vdst.de/zertifikatspruefung'
       },
       prices: {
-        // Dive pricing tiers (volume discounts)
-        diveTiers: [
-          { dives: 1, price: 46.00, description: "1 dive" },
-          { dives: 2, price: 44.00, description: "2 dives" },
-          { dives: 3, price: 42.00, description: "3 dives" },
-          { dives: 4, price: 40.00, description: "4 dives" },
-          { dives: 5, price: 38.00, description: "5 dives" },
-          { dives: 6, price: 36.00, description: "6 dives" },
-          { dives: 7, price: 34.00, description: "7 dives" },
-          { dives: 8, price: 32.00, description: "8 dives" },
-          { dives: 9, price: 30.00, description: "9+ dives" }
-        ],
+        // Customer type specific pricing
+        customerTypes: {
+          tourist: {
+            name: "Tourist",
+            description: "Visiting divers with volume discounts",
+            pricing: "tiered", // Uses volume discounts
+            diveTiers: [
+              { dives: 1, price: 46.00, description: "1 dive" },
+              { dives: 2, price: 44.00, description: "2 dives" },
+              { dives: 3, price: 42.00, description: "3 dives" },
+              { dives: 4, price: 40.00, description: "4 dives" },
+              { dives: 5, price: 38.00, description: "5 dives" },
+              { dives: 6, price: 36.00, description: "6 dives" },
+              { dives: 7, price: 34.00, description: "7 dives" },
+              { dives: 8, price: 32.00, description: "8 dives" },
+              { dives: 9, price: 30.00, description: "9+ dives" }
+            ]
+          },
+          local: {
+            name: "Local",
+            description: "Local residents with fixed pricing",
+            pricing: "fixed", // Fixed price per dive
+            pricePerDive: 35.00
+          },
+          recurrent: {
+            name: "Recurrent",
+            description: "Regular customers with fixed pricing",
+            pricing: "fixed", // Fixed price per dive
+            pricePerDive: 32.00
+          }
+        },
         
         // Equipment rental prices
         equipment: {

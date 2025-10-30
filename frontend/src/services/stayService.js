@@ -49,23 +49,37 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
   const stayBookings = getCustomerStayBookings(customerId, stayStartDate);
   const totalDives = getCustomerStayDiveCount(customerId, stayStartDate);
   
-  // Get pricing config
-  const pricingConfig = dataService.getAll('pricingConfig')[0];
-  if (!pricingConfig || !pricingConfig.tiers) {
-    console.warn('Pricing config not loaded, using fallback pricing');
+  // Get customer info to determine customer type
+  const customer = dataService.getById('customers', customerId);
+  const customerType = customer?.customerType || 'tourist';
+  
+  // Get pricing config for customer type
+  const pricingConfigs = dataService.getAll('pricingConfig');
+  const customerPricing = pricingConfigs.find(config => config.customerType === customerType);
+  
+  if (!customerPricing) {
+    console.warn(`Pricing config not found for customer type: ${customerType}, using fallback pricing`);
     return {
       totalDives,
       pricePerDive: 46,
       totalPrice: totalDives * 46,
-      breakdown: []
+      breakdown: [],
+      stayBookings
     };
   }
   
-  // Find the appropriate tier based on total dives
-  const tier = pricingConfig.tiers.find(t => t.dives >= totalDives) || 
-               pricingConfig.tiers[pricingConfig.tiers.length - 1];
+  let pricePerDive;
   
-  const pricePerDive = tier.price;
+  if (customerPricing.tiers) {
+    // Tourist pricing - use tiered system
+    const tier = customerPricing.tiers.find(t => t.dives >= totalDives) || 
+                 customerPricing.tiers[customerPricing.tiers.length - 1];
+    pricePerDive = tier.price;
+  } else {
+    // Local/Recurrent pricing - use fixed price
+    pricePerDive = customerPricing.pricePerDive;
+  }
+  
   const totalPrice = totalDives * pricePerDive;
   
   // Create breakdown for each booking
