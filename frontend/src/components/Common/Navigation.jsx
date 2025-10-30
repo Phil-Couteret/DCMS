@@ -131,7 +131,7 @@ const Navigation = () => {
             />
           </Box>
           {/* Location Tabs (visible when user is logged in) */}
-          {currentUser && locations.length > 0 && (
+          {currentUser && locations.length > 0 && location.pathname !== '/' && (
             <Tabs
               value={selectedLocationId}
               onChange={handleLocationChange}
