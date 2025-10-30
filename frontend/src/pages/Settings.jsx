@@ -204,7 +204,7 @@ const Settings = () => {
 
   const handleEditUser = (user) => {
     setEditingUser(user);
-    const locationAccess = (user.locationAccess || []).length === 0 ? ['all'] : user.locationAccess;
+    const locationAccess = (user.locationAccess || []).length === 0 ? ['__ALL__'] : user.locationAccess;
     console.log('Editing user:', user);
     console.log('Original locationAccess:', user.locationAccess);
     console.log('Converted locationAccess:', locationAccess);
@@ -221,8 +221,8 @@ const Settings = () => {
 
   const handleSaveUser = () => {
     try {
-      // Convert "all" selection to empty array for global access
-      const locationAccess = userFormData.locationAccess.includes('all') 
+      // Convert "__ALL__" selection to empty array for global access
+      const locationAccess = userFormData.locationAccess.includes('__ALL__') 
         ? [] 
         : userFormData.locationAccess;
       
@@ -424,9 +424,9 @@ const Settings = () => {
                   value={userFormData.locationAccess}
                   onChange={(e) => {
                     const selected = e.target.value;
-                    // If "all" is selected, clear other selections
-                    if (selected.includes('all')) {
-                      setUserFormData({ ...userFormData, locationAccess: ['all'] });
+                    // If "__ALL__" is selected, clear other selections
+                    if (selected.includes('__ALL__')) {
+                      setUserFormData({ ...userFormData, locationAccess: ['__ALL__'] });
                     } else {
                       setUserFormData({ ...userFormData, locationAccess: selected });
                     }
@@ -438,10 +438,10 @@ const Settings = () => {
                   }}
                   renderValue={(selected) => {
                     if (selected.length === 0) return 'Select locations...';
-                    if (selected.includes('all')) return 'All Locations (Global Access)';
+                    if (selected.includes('__ALL__')) return 'All Locations (Global Access)';
                     if (selected.length === locations.length) return 'All Locations';
                     return selected.map(locId => {
-                      if (locId === 'all') return 'All Locations (Global Access)';
+                      if (locId === '__ALL__') return 'All Locations (Global Access)';
                       return locations.find(l => l.id === locId)?.name;
                     }).join(', ');
                   }}
@@ -450,7 +450,7 @@ const Settings = () => {
                     <MenuItem disabled>No locations available</MenuItem>
                   ) : (
                     <>
-                      <MenuItem value="all">All Locations (Global Access)</MenuItem>
+                      <MenuItem value="__ALL__">All Locations (Global Access)</MenuItem>
                       {locations.map((location) => (
                         <MenuItem key={location.id} value={location.id}>
                           {location.name}
@@ -463,7 +463,7 @@ const Settings = () => {
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 {userFormData.locationAccess.length === 0 
                   ? 'Select locations or choose "All Locations" for global access'
-                  : userFormData.locationAccess.includes('all')
+                  : userFormData.locationAccess.includes('__ALL__')
                     ? 'Global access to all current and future locations'
                     : `Access to ${userFormData.locationAccess.length} specific location(s)`
                 }
