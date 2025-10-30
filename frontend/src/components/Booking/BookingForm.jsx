@@ -20,9 +20,11 @@ import { useNavigate } from 'react-router-dom';
 import dataService from '../../services/dataService';
 import stayService from '../../services/stayService';
 import VolumeDiscountCalculator from './VolumeDiscountCalculator';
+import { useAuth } from '../../utils/authContext';
 
 const BookingForm = ({ bookingId = null }) => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [settings, setSettings] = useState(null);
   const [formData, setFormData] = useState({
     customerId: '',
@@ -83,7 +85,11 @@ const BookingForm = ({ bookingId = null }) => {
     // Initialize booking location from current selected location tab
     try {
       const storedLocation = localStorage.getItem('dcms_current_location');
-      if (storedLocation) {
+      if (currentUser && Array.isArray(currentUser.locationAccess) && currentUser.locationAccess.length > 0) {
+        const defaultLocId = currentUser.locationAccess[0];
+        setFormData(prev => ({ ...prev, locationId: defaultLocId }));
+        localStorage.setItem('dcms_current_location', defaultLocId);
+      } else if (storedLocation) {
         setFormData(prev => ({ ...prev, locationId: storedLocation }));
       }
     } catch (_) {
@@ -117,7 +123,19 @@ const BookingForm = ({ bookingId = null }) => {
       setBoats(boatsData);
       setDiveSites(diveSitesData);
       setBonos(bonosData);
-      setLocations(locationsData);
+      // Prefer user's accessible location first for local admins
+      let ordered = locationsData;
+      if (currentUser && Array.isArray(currentUser.locationAccess) && currentUser.locationAccess.length > 0) {
+        const accessSet = new Set(currentUser.locationAccess);
+        ordered = [
+          ...locationsData.filter(l => accessSet.has(l.id)),
+          ...locationsData.filter(l => !accessSet.has(l.id))
+        ];
+        const defaultLocId = currentUser.locationAccess[0];
+        setFormData(prev => ({ ...prev, locationId: prev.locationId || defaultLocId }));
+        localStorage.setItem('dcms_current_location', defaultLocId);
+      }
+      setLocations(ordered);
       setLoading(false);
     } catch (error) {
       console.error('Error loading data:', error);
