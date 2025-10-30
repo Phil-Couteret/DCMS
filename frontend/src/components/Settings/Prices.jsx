@@ -198,7 +198,7 @@ const Prices = () => {
         ...settings.prices,
         tax: {
           ...settings.prices.tax,
-          iva_rate: parseFloat(value) || 0
+          igic_rate: (parseFloat(value) || 0) / 100
         }
       }
     });
@@ -492,9 +492,9 @@ const Prices = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <TextField
-                    label="IVA Rate"
+                    label="IGIC Rate"
                     type="number"
-                    value={settings.prices.tax.iva_rate}
+                    value={(settings.prices.tax.igic_rate * 100).toFixed(1)}
                     onChange={(e) => handleTaxRateChange(e.target.value)}
                     fullWidth
                     size="small"
@@ -507,14 +507,14 @@ const Prices = () => {
                 <Grid item xs={12}>
                   <TextField
                     label="Tax Label"
-                    value={settings.prices.tax.iva_label}
+                    value={settings.prices.tax.igic_label}
                     onChange={(e) => setSettings({
                       ...settings,
                       prices: {
                         ...settings.prices,
                         tax: {
                           ...settings.prices.tax,
-                          iva_label: e.target.value
+                          igic_label: e.target.value
                         }
                       }
                     })}

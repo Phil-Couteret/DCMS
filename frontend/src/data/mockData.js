@@ -1627,10 +1627,10 @@ export const initialMockData = {
           tips: 0.00                  // Variable price
         },
         
-        // Tax settings
+        // Tax settings (Canary Islands use IGIC instead of IVA)
         tax: {
-          iva_rate: 0.21,             // 21% IVA (Spanish VAT)
-          iva_label: "IVA (21%)"      // Tax label
+          igic_rate: 0.07,             // 7% IGIC rate (Canary Islands)
+          igic_label: "IGIC (7%)"      // IGIC label
         }
       }
     }

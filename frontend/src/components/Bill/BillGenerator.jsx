@@ -156,7 +156,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
     }
 
     const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal + diveInsuranceTotal;
-    const tax = subtotal * (settings.prices.tax.iva_rate || 0.21);
+    const tax = subtotal * (settings.prices.tax.igic_rate || 0.07);
     const total = subtotal + tax;
 
     const bill = {
@@ -471,7 +471,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   </TableRow>
                   <TableRow>
                     <TableCell colSpan={3} align="right">
-                      <Typography>IVA (21%):</Typography>
+                      <Typography>IGIC (7%):</Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography>€{calculatedBill?.tax.toFixed(2)}</Typography>
