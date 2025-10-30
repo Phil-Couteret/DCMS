@@ -73,6 +73,7 @@ export const translations = {
     // Navigation
     nav: {
       dashboard: 'Panel de Control',
+      global: 'Global',
       bookings: 'Reservas',
       newBooking: 'Nueva Reserva',
       stays: 'Estancias de clientes',
@@ -280,6 +281,7 @@ export const translations = {
     },
     nav: {
       dashboard: 'Dashboard',
+      global: 'Global',
       bookings: 'Bookings',
       newBooking: 'New Booking',
       stays: 'Customer Stays',
@@ -482,6 +484,7 @@ export const translations = {
     },
     nav: {
       dashboard: 'Armaturenbrett',
+      global: 'Global',
       bookings: 'Buchungen',
       newBooking: 'Neue Buchung',
       stays: 'Kundenaufenthalte',

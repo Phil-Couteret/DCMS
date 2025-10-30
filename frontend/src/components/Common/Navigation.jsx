@@ -15,7 +15,9 @@ import {
   Menu,
   MenuItem,
   Tabs,
-  Tab
+  Tab,
+  FormControl,
+  Select
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -124,12 +126,25 @@ const Navigation = () => {
           <Box sx={{ mr: 2 }}>
             <Tab
               key="dashboard-shortcut"
-              label={t('nav.dashboard')}
+              label={t('nav.global') || t('nav.dashboard')}
               value="__dashboard__"
               onClick={() => { localStorage.setItem('dcms_dashboard_scope', 'global'); navigate('/'); }}
               sx={{ minHeight: 48 }}
             />
           </Box>
+          {location.pathname === '/' && currentUser && locations.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 200, mr: 2 }}>
+              <Select
+                value={selectedLocationId || ''}
+                onChange={(e) => handleLocationChange(null, e.target.value)}
+                displayEmpty
+              >
+                {locations.map(loc => (
+                  <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           {/* Location Tabs (visible when user is logged in) */}
           {currentUser && locations.length > 0 && location.pathname !== '/' && (
             <Tabs
