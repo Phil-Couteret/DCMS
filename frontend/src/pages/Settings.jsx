@@ -341,13 +341,18 @@ const Settings = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
           <Tab 
-            icon={<SettingsIcon />} 
-            label="General Settings" 
+            icon={<VerifiedUserIcon />} 
+            label="Certification Verification" 
             iconPosition="start"
           />
           <Tab 
             icon={<PricesIcon />} 
             label="Prices" 
+            iconPosition="start"
+          />
+          <Tab 
+            icon={<PeopleIcon />} 
+            label="User Management" 
             iconPosition="start"
           />
         </Tabs>
@@ -424,114 +429,6 @@ const Settings = () => {
           </Box>
         </AccordionDetails>
       </Accordion>
-
-      {/* User Management - Only visible to admins */}
-      {isAdmin() && (
-        <Accordion sx={{ mb: 3 }}>
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            sx={{
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 1,
-              '&:before': { display: 'none' }
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-              <PeopleIcon color="primary" />
-              <Box>
-                <Typography variant="h6">User Management</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Create and manage admin and guide accounts
-                </Typography>
-              </Box>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Box sx={{ pt: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Manage system users and their roles. Admins have full access, guides can access bookings, customers, and equipment.
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddUser}
-                >
-                  Add User
-                </Button>
-              </Box>
-
-              <TableContainer component={Paper} variant="outlined">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Username</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Role</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {users.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center">
-                          <Typography color="text.secondary" sx={{ py: 2 }}>
-                            No users found. Click "Add User" to create one.
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>{user.name}</TableCell>
-                          <TableCell>{user.username}</TableCell>
-                          <TableCell>{user.email || '-'}</TableCell>
-                          <TableCell>
-                            <Chip
-                              icon={getRoleIcon(user.role)}
-                              label={getRoleLabel(user.role)}
-                              color={getRoleColor(user.role)}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={user.isActive ? 'Active' : 'Inactive'}
-                              color={user.isActive ? 'success' : 'default'}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditUser(user)}
-                              color="primary"
-                            >
-                              <EditIcon />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteUser(user.id)}
-                              color="error"
-                              disabled={user.role === USER_ROLES.ADMIN && users.filter(u => u.role === USER_ROLES.ADMIN).length === 1}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-      )}
 
       <Alert severity="info" sx={{ mb: 3 }}>
         <Typography variant="body2">
@@ -641,6 +538,126 @@ const Settings = () => {
 
       {activeTab === 1 && (
         <Prices />
+      )}
+
+      {activeTab === 2 && (
+        <Box>
+          {/* User Management - Only visible to admins */}
+          {isAdmin() && (
+            <Accordion defaultExpanded sx={{ mb: 3 }}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  '&:before': { display: 'none' }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                  <PeopleIcon color="primary" />
+                  <Box>
+                    <Typography variant="h6">User Management</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Create and manage admin and guide accounts
+                    </Typography>
+                  </Box>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ pt: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Manage system users and their roles. Admins have full access, guides can access bookings, customers, and equipment.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddUser}
+                    >
+                      Add User
+                    </Button>
+                  </Box>
+
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Name</TableCell>
+                          <TableCell>Username</TableCell>
+                          <TableCell>Email</TableCell>
+                          <TableCell>Role</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell align="right">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {users.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} align="center">
+                              <Typography color="text.secondary" sx={{ py: 2 }}>
+                                No users found. Click "Add User" to create one.
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          users.map((user) => (
+                            <TableRow key={user.id}>
+                              <TableCell>{user.name}</TableCell>
+                              <TableCell>{user.username}</TableCell>
+                              <TableCell>{user.email || '-'}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  icon={getRoleIcon(user.role)}
+                                  label={getRoleLabel(user.role)}
+                                  color={getRoleColor(user.role)}
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={user.isActive ? 'Active' : 'Inactive'}
+                                  color={user.isActive ? 'success' : 'default'}
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell align="right">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleEditUser(user)}
+                                  color="primary"
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  color="error"
+                                  disabled={user.role === USER_ROLES.ADMIN && users.filter(u => u.role === USER_ROLES.ADMIN).length === 1}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          )}
+
+          {!isAdmin() && (
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <Typography variant="body2">
+                You don't have permission to manage users. Only administrators can access this section.
+              </Typography>
+            </Alert>
+          )}
+        </Box>
       )}
     </Box>
   );
