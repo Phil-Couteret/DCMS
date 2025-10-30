@@ -95,10 +95,6 @@ const Settings = () => {
     }
   }, [isAdmin]);
 
-  // Debug locationAccess changes
-  useEffect(() => {
-    console.log('userFormData.locationAccess changed:', userFormData.locationAccess);
-  }, [userFormData.locationAccess]);
 
   const loadSettings = () => {
     try {
@@ -212,9 +208,6 @@ const Settings = () => {
   const handleEditUser = (user) => {
     setEditingUser(user);
     const locationAccess = (user.locationAccess || []).length === 0 ? ['__ALL__'] : user.locationAccess;
-    console.log('Editing user:', user);
-    console.log('Original locationAccess:', user.locationAccess);
-    console.log('Converted locationAccess:', locationAccess);
     setUserFormData({
       username: user.username,
       name: user.name,
@@ -232,9 +225,6 @@ const Settings = () => {
       const locationAccess = userFormData.locationAccess.includes('__ALL__') 
         ? [] 
         : userFormData.locationAccess;
-      
-      console.log('Saving user with locationAccess:', userFormData.locationAccess);
-      console.log('Converted to:', locationAccess);
       
       const userData = {
         ...userFormData,
