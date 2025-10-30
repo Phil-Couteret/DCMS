@@ -75,15 +75,25 @@ const Dashboard = () => {
     setLocations(locs);
     const stored = localStorage.getItem('dcms_current_location');
     setSelectedLocationId(stored || (locs[0]?.id || null));
-    // Initialize dashboard scope: 'global' => all, else current location
+    // Determine access: global admins can view all; local managers forced to their location
+    const hasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
     const scopeFlag = localStorage.getItem('dcms_dashboard_scope');
     const wantGlobal = scopeFlag === 'global';
-    setTabScope(wantGlobal ? 'all' : (stored || locs[0]?.id || 'all'));
+    if (hasGlobalAccess && wantGlobal) {
+      setTabScope('all');
+    } else {
+      setTabScope(stored || locs[0]?.id || 'all');
+    }
     const onLocChange = (e) => {
-      const newLoc = (e && e.detail && e.detail.locationId) || localStorage.getItem('dcms_current_location');
+      const detail = e && e.detail;
+      const newLoc = (typeof detail === 'string' ? detail : (detail && detail.locationId)) || localStorage.getItem('dcms_current_location');
       setSelectedLocationId(newLoc || null);
       const scope = localStorage.getItem('dcms_dashboard_scope');
-      setTabScope(scope === 'global' ? 'all' : (newLoc || 'all'));
+      if (hasGlobalAccess && scope === 'global') {
+        setTabScope('all');
+      } else {
+        setTabScope(newLoc || 'all');
+      }
     };
     window.addEventListener('dcms_location_changed', onLocChange);
     window.addEventListener('storage', onLocChange);

@@ -138,7 +138,7 @@ const Navigation = () => {
           {/* Global + Location Tabs unified */}
           {currentUser && locations.length > 0 && (
             <Tabs
-              value={location.pathname === '/' ? '__global__' : selectedLocationId}
+              value={(location.pathname === '/' && (!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0))) ? '__global__' : selectedLocationId}
               onChange={(_e, val) => {
                 if (val === '__global__') {
                   localStorage.setItem('dcms_dashboard_scope', 'global');
@@ -151,7 +151,9 @@ const Navigation = () => {
               indicatorColor="secondary"
               sx={{ flexGrow: 1, minHeight: 48 }}
             >
-              <Tab key="__global__" value="__global__" label={t('nav.global') || t('nav.dashboard')} sx={{ minHeight: 48 }} />
+              {(!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0)) && (
+                <Tab key="__global__" value="__global__" label={t('nav.global') || t('nav.dashboard')} sx={{ minHeight: 48 }} />
+              )}
               {locations.map(loc => (
                 <Tab key={loc.id} value={loc.id} label={loc.name} sx={{ minHeight: 48 }} />
               ))}
