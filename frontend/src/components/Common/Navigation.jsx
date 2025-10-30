@@ -13,7 +13,9 @@ import {
   Divider,
   Chip,
   Menu,
-  MenuItem
+  MenuItem,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -29,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useAuth, USER_ROLES } from '../../utils/authContext';
+import dataService from '../../services/dataService';
 
 const drawerWidth = 240;
 
@@ -37,6 +40,8 @@ const Navigation = () => {
   const location = useLocation();
   const { currentUser, logout, canAccess } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [selectedLocationId, setSelectedLocationId] = useState(null);
 
   // Define menu items with required permissions
   const allMenuItems = [
@@ -53,6 +58,37 @@ const Navigation = () => {
   const menuItems = allMenuItems.filter(item => 
     currentUser && canAccess(item.permission)
   );
+
+  // Load locations and initialize selected location
+  React.useEffect(() => {
+    try {
+      const allLocations = dataService.getAll('locations') || [];
+      // Determine accessible locations based on user rights
+      let accessible = allLocations;
+      if (currentUser && Array.isArray(currentUser.locationAccess)) {
+        accessible = allLocations.filter(loc => currentUser.locationAccess.includes(loc.id));
+      }
+      setLocations(accessible);
+
+      // Initialize selected location from localStorage or default to first accessible
+      const stored = localStorage.getItem('dcms_current_location');
+      const existsInAccessible = accessible.find(l => l.id === stored);
+      const initial = existsInAccessible ? existsInAccessible.id : (accessible[0]?.id || null);
+      setSelectedLocationId(initial);
+      if (initial) {
+        localStorage.setItem('dcms_current_location', initial);
+      }
+    } catch (e) {
+      // noop
+    }
+  }, [currentUser]);
+
+  const handleLocationChange = (_e, newLocationId) => {
+    setSelectedLocationId(newLocationId);
+    if (newLocationId) {
+      localStorage.setItem('dcms_current_location', newLocationId);
+    }
+  };
 
   const handleUserMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -75,9 +111,23 @@ const Navigation = () => {
         sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
       >
         <Toolbar>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ mr: 3 }}>
             DCMS - Deep Blue Diving
           </Typography>
+          {/* Location Tabs (visible when user is logged in) */}
+          {currentUser && locations.length > 0 && (
+            <Tabs
+              value={selectedLocationId}
+              onChange={handleLocationChange}
+              textColor="inherit"
+              indicatorColor="secondary"
+              sx={{ flexGrow: 1, minHeight: 48 }}
+           >
+              {locations.map(loc => (
+                <Tab key={loc.id} value={loc.id} label={loc.name} sx={{ minHeight: 48 }} />
+              ))}
+            </Tabs>
+          )}
           <LanguageSwitcher />
           {currentUser && (
             <>
