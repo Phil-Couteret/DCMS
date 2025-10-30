@@ -210,17 +210,25 @@ const Settings = () => {
       email: user.email || '',
       role: user.role,
       isActive: user.isActive,
-      locationAccess: user.locationAccess || []
+      locationAccess: (user.locationAccess || []).length === 0 ? ['all'] : user.locationAccess
     });
     setUserDialogOpen(true);
   };
 
   const handleSaveUser = () => {
     try {
+      // Convert "all" selection to empty array for global access
+      const userData = {
+        ...userFormData,
+        locationAccess: userFormData.locationAccess.includes('all') 
+          ? [] 
+          : userFormData.locationAccess
+      };
+
       if (editingUser) {
         // Update existing user
         dataService.update('users', editingUser.id, {
-          ...userFormData,
+          ...userData,
           updatedAt: new Date().toISOString()
         });
         setSnackbar({
@@ -231,7 +239,7 @@ const Settings = () => {
       } else {
         // Create new user
         dataService.create('users', {
-          ...userFormData,
+          ...userData,
           createdAt: new Date().toISOString()
         });
         setSnackbar({
@@ -405,33 +413,50 @@ const Settings = () => {
                 <Select
                   multiple
                   value={userFormData.locationAccess}
-                  onChange={(e) => setUserFormData({ ...userFormData, locationAccess: e.target.value })}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    // If "all" is selected, clear other selections
+                    if (selected.includes('all')) {
+                      setUserFormData({ ...userFormData, locationAccess: ['all'] });
+                    } else {
+                      setUserFormData({ ...userFormData, locationAccess: selected });
+                    }
+                  }}
                   label="Location Access"
                   MenuProps={{
                     sx: { zIndex: 99999 },
                     container: () => document.body
                   }}
                   renderValue={(selected) => {
-                    if (selected.length === 0) return 'All Locations (Global Access)';
+                    if (selected.length === 0) return 'Select locations...';
+                    if (selected.includes('all')) return 'All Locations (Global Access)';
                     if (selected.length === locations.length) return 'All Locations';
-                    return selected.map(locId => locations.find(l => l.id === locId)?.name).join(', ');
+                    return selected.map(locId => {
+                      if (locId === 'all') return 'All Locations (Global Access)';
+                      return locations.find(l => l.id === locId)?.name;
+                    }).join(', ');
                   }}
                 >
                   {locations.length === 0 ? (
                     <MenuItem disabled>No locations available</MenuItem>
                   ) : (
-                    locations.map((location) => (
-                      <MenuItem key={location.id} value={location.id}>
-                        {location.name}
-                      </MenuItem>
-                    ))
+                    <>
+                      <MenuItem value="all">All Locations (Global Access)</MenuItem>
+                      {locations.map((location) => (
+                        <MenuItem key={location.id} value={location.id}>
+                          {location.name}
+                        </MenuItem>
+                      ))}
+                    </>
                   )}
                 </Select>
               </FormControl>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 {userFormData.locationAccess.length === 0 
-                  ? 'No locations selected = Global access to all locations'
-                  : `Selected ${userFormData.locationAccess.length} location(s)`
+                  ? 'Select locations or choose "All Locations" for global access'
+                  : userFormData.locationAccess.includes('all')
+                    ? 'Global access to all current and future locations'
+                    : `Access to ${userFormData.locationAccess.length} specific location(s)`
                 }
               </Typography>
             </Grid>
