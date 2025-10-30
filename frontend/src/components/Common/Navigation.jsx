@@ -90,20 +90,24 @@ const Navigation = () => {
     }
   }, [currentUser]);
 
-  const handleLocationChange = (_e, newLocationId) => {
+  const selectLocation = (newLocationId) => {
+    if (!newLocationId) return;
     setSelectedLocationId(newLocationId);
-    if (newLocationId) {
-      localStorage.setItem('dcms_current_location', newLocationId);
-      localStorage.setItem('dcms_dashboard_scope', 'location');
-      if (location.pathname === '/') {
-        navigate('/bookings');
-      }
-      try {
-        window.dispatchEvent(new CustomEvent('dcms_location_changed', { detail: { locationId: newLocationId } }));
-      } catch (_) {
-        // ignore
-      }
+    localStorage.setItem('dcms_current_location', newLocationId);
+    localStorage.setItem('dcms_dashboard_scope', 'location');
+    if (location.pathname === '/') {
+      navigate('/bookings');
     }
+    try {
+      window.dispatchEvent(new CustomEvent('dcms_location_changed', { detail: { locationId: newLocationId } }));
+    } catch (_) {
+      // ignore
+    }
+  };
+
+  const handleLocationChange = (_e, newLocationId) => {
+    // This will fire when the tab value changes; fallback to onClick below for same-value clicks
+    selectLocation(newLocationId);
   };
 
   const handleUserMenuOpen = (event) => {
@@ -150,7 +154,13 @@ const Navigation = () => {
               sx={{ flexGrow: 1, minHeight: 48 }}
            >
               {locations.map(loc => (
-                <Tab key={loc.id} value={loc.id} label={loc.name} sx={{ minHeight: 48 }} />
+                <Tab
+                  key={loc.id}
+                  value={loc.id}
+                  label={loc.name}
+                  onClick={() => selectLocation(loc.id)}
+                  sx={{ minHeight: 48 }}
+                />
               ))}
             </Tabs>
           )}
