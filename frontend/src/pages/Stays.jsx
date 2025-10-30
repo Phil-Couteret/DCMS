@@ -3,10 +3,6 @@ import {
   Box,
   Typography,
   Button,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
   Chip,
   Table,
   TableBody,
@@ -18,7 +14,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Divider,
   Alert
 } from '@mui/material';
 import {
@@ -126,12 +121,19 @@ const Stays = () => {
           </Button>
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {activeStays.map((stay) => (
-            <Grid item xs={12} key={stay.customer.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <Accordion key={stay.customer.id} defaultExpanded>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'action.hover'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Box>
                       <Typography variant="h6" gutterBottom>
                         {stay.customer.name}
@@ -143,12 +145,13 @@ const Stays = () => {
                         Stay started: {formatDate(stay.stayStartDate)}
                       </Typography>
                     </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Chip
+                      label={getStatusText(stay.totalDives)}
+                      color={getStatusColor(stay.totalDives)}
+                    />
                     <Box sx={{ textAlign: 'right' }}>
-                      <Chip
-                        label={getStatusText(stay.totalDives)}
-                        color={getStatusColor(stay.totalDives)}
-                        sx={{ mb: 1 }}
-                      />
                       <Typography variant="h6" color="primary">
                         €{stay.totalPrice.toFixed(2)}
                       </Typography>
@@ -157,9 +160,10 @@ const Stays = () => {
                       </Typography>
                     </Box>
                   </Box>
-
-                  <Divider sx={{ my: 2 }} />
-
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     Stay Breakdown
                   </Typography>
@@ -191,32 +195,35 @@ const Stays = () => {
                     </Table>
                   </TableContainer>
 
-                  <Alert severity="info" sx={{ mt: 2 }}>
+                  <Alert severity="info">
                     <Typography variant="body2">
                       <strong>Cumulative Pricing:</strong> All dives in this stay are priced at €{stay.pricePerDive.toFixed(2)} 
                       per dive based on the total volume of {stay.totalDives} dives. This ensures customers get the best 
                       possible rate for their entire stay.
                     </Typography>
                   </Alert>
-                </CardContent>
-                <CardActions>
-                  <Button
-                    size="small"
-                    onClick={() => navigate(`/bookings/new?customerId=${stay.customer.id}`)}
-                  >
-                    Add Booking
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => navigate(`/customers/${stay.customer.id}`)}
-                  >
-                    View Customer
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
+
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => navigate(`/bookings/new?customerId=${stay.customer.id}`)}
+                    >
+                      Add Booking
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => navigate(`/customers/${stay.customer.id}`)}
+                    >
+                      View Customer
+                    </Button>
+                  </Box>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
           ))}
-        </Grid>
+        </Box>
       )}
     </Box>
   );
