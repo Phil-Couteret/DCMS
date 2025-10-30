@@ -653,39 +653,6 @@ const BookingForm = ({ bookingId = null }) => {
               />
             </Grid>
 
-            {/* Total Price Display */}
-            <Grid item xs={12}>
-              <Paper sx={{ p: 3, bgcolor: 'primary.main', color: 'white' }}>
-                <Typography variant="h6" gutterBottom>
-                  Total Price Breakdown
-                </Typography>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography>Base Price ({(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0) + (formData.diveSessions?.night ? 1 : 0)} dives):</Typography>
-                  <Typography>€{formData.price.toFixed(2)}</Typography>
-                </Box>
-                {formData.discount > 0 && (
-                  <>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography>Bono Discount:</Typography>
-                      <Typography>-€{formData.discount.toFixed(2)}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography>Government Payment:</Typography>
-                      <Typography>€{formData.governmentPayment.toFixed(2)}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography>Customer Payment:</Typography>
-                      <Typography>€{formData.customerPayment.toFixed(2)}</Typography>
-                    </Box>
-                  </>
-                )}
-                <Divider sx={{ my: 2, bgcolor: 'rgba(255,255,255,0.3)' }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="h6">TOTAL:</Typography>
-                  <Typography variant="h6">€{formData.totalPrice.toFixed(2)}</Typography>
-                </Box>
-              </Paper>
-            </Grid>
 
             {/* Actions */}
             <Grid item xs={12}>
