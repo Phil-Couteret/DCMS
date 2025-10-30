@@ -146,7 +146,13 @@ const Bookings = () => {
                         <strong>Activity:</strong> {booking.activityType}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Number of Dives:</strong> {booking.numberOfDives || 1}
+                        <strong>Dive Sessions:</strong> {
+                          booking.diveSessions ? 
+                            (booking.diveSessions.morning ? 'Morning (9AM)' : '') + 
+                            (booking.diveSessions.morning && booking.diveSessions.afternoon ? ', ' : '') +
+                            (booking.diveSessions.afternoon ? 'Afternoon (12PM)' : '') :
+                            (booking.numberOfDives || 1) + ' dives'
+                        }
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         <strong>Status:</strong> {booking.status}

@@ -18,6 +18,7 @@ import {
 import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import dataService from '../../services/dataService';
+import stayService from '../../services/stayService';
 import VolumeDiscountCalculator from './VolumeDiscountCalculator';
 
 const BookingForm = ({ bookingId = null }) => {
@@ -29,7 +30,10 @@ const BookingForm = ({ bookingId = null }) => {
     diveSiteId: '',
     bookingDate: new Date().toISOString().split('T')[0],
     activityType: 'diving',
-    numberOfDives: 1,
+    diveSessions: {
+      morning: false,  // 9:00 AM dive
+      afternoon: false // 12:00 PM dive
+    },
     price: 46.00,
     discount: 0,
     totalPrice: 46.00,
@@ -79,7 +83,7 @@ const BookingForm = ({ bookingId = null }) => {
 
   useEffect(() => {
     calculatePrice();
-  }, [formData.numberOfDives, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment]);
+  }, [formData.diveSessions, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment]);
 
   const loadData = () => {
     try {
@@ -114,12 +118,36 @@ const BookingForm = ({ bookingId = null }) => {
   };
 
   const calculatePrice = () => {
+    // Calculate number of dives based on selected sessions
+    const numberOfDives = (formData.diveSessions.morning ? 1 : 0) + (formData.diveSessions.afternoon ? 1 : 0);
+    
+    // Get cumulative pricing for this customer's stay
+    let cumulativePricing = null;
+    let pricePerDive = 46; // Default price
+    
+    if (formData.customerId) {
+      cumulativePricing = stayService.getCumulativeStayPricing(formData.customerId, formData.bookingDate);
+      pricePerDive = cumulativePricing.pricePerDive;
+    }
+    
+    // Calculate base price using cumulative pricing
+    const basePrice = numberOfDives * pricePerDive;
+    
+    // Calculate addon prices
     const addons = {
       nightDive: formData.addons?.nightDive ? 1 : 0,
       personalInstructor: formData.addons?.personalInstructor ? 1 : 0
     };
     
-    const price = dataService.calculatePrice(formData.numberOfDives, addons);
+    let addonPrice = 0;
+    if (addons.nightDive) {
+      addonPrice += 20; // Night dive addon
+    }
+    if (addons.personalInstructor) {
+      addonPrice += 100; // Personal instructor addon
+    }
+    
+    const price = basePrice + addonPrice;
     
     // Calculate equipment rental cost
     let equipmentRental = 0;
@@ -131,7 +159,10 @@ const BookingForm = ({ bookingId = null }) => {
         const customerBookings = dataService.getCustomerBookings(formData.customerId);
         customerBookings.forEach(booking => {
           if (booking.rentedEquipment?.completeEquipment) {
-            previousCompleteEquipmentDives += booking.numberOfDives || 0;
+            // Calculate previous dives from old format or new format
+            const previousDives = booking.numberOfDives || 
+              ((booking.diveSessions?.morning ? 1 : 0) + (booking.diveSessions?.afternoon ? 1 : 0));
+            previousCompleteEquipmentDives += previousDives;
           }
         });
       }
@@ -140,7 +171,7 @@ const BookingForm = ({ bookingId = null }) => {
       
       // Complete Equipment: €13 for first 8 dives only
       if (formData.rentedEquipment.completeEquipment) {
-        const completeEquipmentDives = Math.min(formData.numberOfDives, remainingCompleteEquipmentDives);
+        const completeEquipmentDives = Math.min(numberOfDives, remainingCompleteEquipmentDives);
         equipmentRental += completeEquipmentDives * 13;
       }
       
@@ -166,7 +197,7 @@ const BookingForm = ({ bookingId = null }) => {
           return;
         }
         if (isRented && equipmentPrices[equipment]) {
-          equipmentRental += equipmentPrices[equipment] * formData.numberOfDives;
+          equipmentRental += equipmentPrices[equipment] * numberOfDives;
         }
       });
     }
@@ -194,7 +225,8 @@ const BookingForm = ({ bookingId = null }) => {
       discount,
       totalPrice,
       governmentPayment,
-      customerPayment
+      customerPayment,
+      cumulativePricing // Store cumulative pricing info for display
     }));
   };
 
@@ -221,6 +253,16 @@ const BookingForm = ({ bookingId = null }) => {
       rentedEquipment: {
         ...(prev.rentedEquipment || {}),
         [equipmentType]: checked
+      }
+    }));
+  };
+
+  const handleDiveSessionChange = (session, checked) => {
+    setFormData(prev => ({
+      ...prev,
+      diveSessions: {
+        ...(prev.diveSessions || {}),
+        [session]: checked
       }
     }));
   };
@@ -294,18 +336,63 @@ const BookingForm = ({ bookingId = null }) => {
 
             {/* Boat and Dive Site will be selected after the dive for Spanish regulation compliance */}
 
-            {/* Number of Dives */}
+            {/* Dive Sessions */}
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Number of Dives"
-                type="number"
-                fullWidth
-                value={formData.numberOfDives}
-                onChange={(e) => handleChange('numberOfDives', parseInt(e.target.value) || 1)}
-                inputProps={{ min: 1, max: 10 }}
-                required
-              />
+              <Typography variant="h6" gutterBottom>
+                Dive Sessions
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Select which dive sessions the customer will participate in:
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.diveSessions?.morning || false}
+                      onChange={(e) => handleDiveSessionChange('morning', e.target.checked)}
+                    />
+                  }
+                  label="Morning Dive (9:00 AM)"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.diveSessions?.afternoon || false}
+                      onChange={(e) => handleDiveSessionChange('afternoon', e.target.checked)}
+                    />
+                  }
+                  label="Afternoon Dive (12:00 PM)"
+                />
+              </Box>
+              {!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && (
+                <Typography variant="caption" color="error">
+                  Please select at least one dive session
+                </Typography>
+              )}
             </Grid>
+
+            {/* Cumulative Pricing Information */}
+            {formData.customerId && formData.cumulativePricing && (
+              <Grid item xs={12}>
+                <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
+                  <Typography variant="h6" gutterBottom>
+                    Cumulative Stay Pricing
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Total dives in stay:</strong> {formData.cumulativePricing.totalDives} dives
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Price per dive:</strong> €{formData.cumulativePricing.pricePerDive.toFixed(2)}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Total stay price:</strong> €{formData.cumulativePricing.totalPrice.toFixed(2)}
+                  </Typography>
+                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                    All dives in this stay are priced at the same rate based on total volume
+                  </Typography>
+                </Paper>
+              </Grid>
+            )}
 
             {/* Activity Type */}
             <Grid item xs={12} md={6}>
@@ -558,7 +645,7 @@ const BookingForm = ({ bookingId = null }) => {
             {/* Volume Discount Calculator */}
             <Grid item xs={12}>
               <VolumeDiscountCalculator 
-                numberOfDives={formData.numberOfDives}
+                numberOfDives={(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0)}
                 addons={formData.addons || {}}
                 bono={bonos.find(b => b.id === formData.bonoId)}
               />
@@ -571,7 +658,7 @@ const BookingForm = ({ bookingId = null }) => {
                   Total Price Breakdown
                 </Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography>Base Price ({formData.numberOfDives} dives):</Typography>
+                  <Typography>Base Price ({(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0)} dives):</Typography>
                   <Typography>€{formData.price.toFixed(2)}</Typography>
                 </Box>
                 {formData.discount > 0 && (

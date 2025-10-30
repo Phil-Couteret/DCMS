@@ -23,7 +23,8 @@ import {
   Settings as SettingsIcon,
   Add as AddIcon,
   Logout as LogoutIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Receipt as StaysIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useAuth, USER_ROLES } from '../../utils/authContext';
@@ -41,6 +42,7 @@ const Navigation = () => {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: 'Bookings', icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
     { text: 'New Booking', icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
+    { text: 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
     { text: 'Customers', icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
     { text: 'Equipment', icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings', permission: 'settings' }

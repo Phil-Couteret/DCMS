@@ -11,7 +11,10 @@ export const initialMockData = {
       diveSiteId: '550e8400-e29b-41d4-a716-446655440005',
       bookingDate: new Date().toISOString().split('T')[0],
       activityType: 'diving',
-      numberOfDives: 1,
+      diveSessions: {
+        morning: true,
+        afternoon: false
+      },
       price: 46.00,
       discount: 0,
       totalPrice: 46.00,
@@ -30,7 +33,10 @@ export const initialMockData = {
       diveSiteId: '550e8400-e29b-41d4-a716-446655440006',
       bookingDate: new Date().toISOString().split('T')[0],
       activityType: 'diving',
-      numberOfDives: 2,
+      diveSessions: {
+        morning: true,
+        afternoon: true
+      },
       price: 88.00,
       discount: 0,
       totalPrice: 88.00,
@@ -38,6 +44,51 @@ export const initialMockData = {
       paymentMethod: 'cash',
       paymentStatus: 'paid',
       ownEquipment: true
+    },
+    // Additional test bookings for cumulative pricing demonstration
+    {
+      id: '550e8400-e29b-41d4-a716-446655440003',
+      customerId: '550e8400-e29b-41d4-a716-446655440020', // Same customer as first booking
+      locationId: '550e8400-e29b-41d4-a716-446655440001',
+      boatId: '550e8400-e29b-41d4-a716-446655440004',
+      diveSiteId: '550e8400-e29b-41d4-a716-446655440005',
+      bookingDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tomorrow
+      activityType: 'diving',
+      diveSessions: {
+        morning: true,
+        afternoon: false
+      },
+      price: 46.00,
+      discount: 0,
+      totalPrice: 46.00,
+      status: 'confirmed',
+      paymentMethod: 'card',
+      paymentStatus: 'paid',
+      equipmentNeeded: ['BCD', 'Regulator', 'Mask', 'Fins'],
+      ownEquipment: false,
+      notes: 'Second day of stay'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440004',
+      customerId: '550e8400-e29b-41d4-a716-446655440020', // Same customer as first booking
+      locationId: '550e8400-e29b-41d4-a716-446655440001',
+      boatId: '550e8400-e29b-41d4-a716-446655440004',
+      diveSiteId: '550e8400-e29b-41d4-a716-446655440005',
+      bookingDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Day after tomorrow
+      activityType: 'diving',
+      diveSessions: {
+        morning: true,
+        afternoon: true
+      },
+      price: 88.00,
+      discount: 0,
+      totalPrice: 88.00,
+      status: 'confirmed',
+      paymentMethod: 'card',
+      paymentStatus: 'paid',
+      equipmentNeeded: ['BCD', 'Regulator', 'Mask', 'Fins'],
+      ownEquipment: false,
+      notes: 'Third day of stay - should get volume discount'
     }
   ],
   
