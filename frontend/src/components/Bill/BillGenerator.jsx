@@ -123,6 +123,12 @@ const BillGenerator = ({ open, onClose, stay }) => {
     // Calculate dive totals
     const diveTotal = (billData.dives || []).reduce((sum, dive) => sum + (dive.total || 0), 0);
 
+    // Resolve location-specific pricing
+    const locations = dataService.getAll('locations') || [];
+    const stayLocationId = (stay?.stayBookings && stay.stayBookings[0]?.locationId) || localStorage.getItem('dcms_current_location');
+    const location = locations.find(l => l.id === stayLocationId);
+    const pricing = (location?.pricing) || (settings.prices || {});
+
     // Calculate beverage totals
     const beverageTotal = (billData.beverages || []).reduce((sum, bev) => sum + (bev.total || 0), 0);
 
@@ -135,8 +141,8 @@ const BillGenerator = ({ open, onClose, stay }) => {
       stay.stayBookings.forEach(booking => {
         if (booking.rentedEquipment) {
           Object.entries(booking.rentedEquipment).forEach(([equipment, isRented]) => {
-            if (isRented && settings.prices.equipment[equipment.toLowerCase()]) {
-              const equipmentPrice = settings.prices.equipment[equipment.toLowerCase()];
+            if (isRented && pricing.equipment && pricing.equipment[equipment]) {
+              const equipmentPrice = pricing.equipment[equipment];
               const bookingDives = booking.diveSessions ? 
                 (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
                 (booking.numberOfDives || 0);
@@ -149,14 +155,14 @@ const BillGenerator = ({ open, onClose, stay }) => {
 
     // Calculate dive insurance (mandatory for all divers)
     let diveInsuranceTotal = 0;
-    if (settings.prices.diveInsurance) {
+    if (pricing.diveInsurance) {
       // For now, we'll use one_day insurance as default
       // In a real implementation, this would be based on the stay duration
-      diveInsuranceTotal = settings.prices.diveInsurance.one_day || 7.00;
+      diveInsuranceTotal = pricing.diveInsurance.one_day || 7.00;
     }
 
     const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal + diveInsuranceTotal;
-    const tax = subtotal * (settings.prices.tax.igic_rate || 0.07);
+    const tax = subtotal * ((pricing.tax && pricing.tax.igic_rate) || 0.07);
     const total = subtotal + tax;
 
     const bill = {

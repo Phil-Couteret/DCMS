@@ -149,10 +149,17 @@ const BookingForm = ({ bookingId = null }) => {
     // Calculate base price using cumulative pricing
     const basePrice = numberOfDives * pricePerDive;
     
+    // Resolve location-specific pricing
+    const allLocations = dataService.getAll('locations') || [];
+    const storedLocation = localStorage.getItem('dcms_current_location');
+    const effectiveLocationId = formData.locationId || storedLocation || allLocations[0]?.id;
+    const location = allLocations.find(l => l.id === effectiveLocationId);
+    const locPricing = location?.pricing || {};
+
     // Calculate night dive surcharge
     let nightDiveSurcharge = 0;
     if (formData.diveSessions.night) {
-      nightDiveSurcharge = 20; // Night dive surcharge
+      nightDiveSurcharge = locPricing.addons?.night_dive ?? 20; // Night dive surcharge
     }
     
     // Calculate other addon prices
@@ -162,7 +169,7 @@ const BookingForm = ({ bookingId = null }) => {
     
     let addonPrice = 0;
     if (addons.personalInstructor) {
-      addonPrice += 100; // Personal instructor addon
+      addonPrice += (locPricing.addons?.personal_instructor ?? 100);
     }
     
     const price = basePrice + nightDiveSurcharge + addonPrice;
@@ -197,12 +204,12 @@ const BookingForm = ({ bookingId = null }) => {
       // Note: Individual equipment is only charged if complete equipment is NOT selected
       // UW Camera can be added regardless
       const equipmentPrices = {
-        Suit: 5,
-        BCD: 5,
-        Regulator: 5,
-        Torch: 5,
-        Computer: 3,
-        UWCamera: 20
+        Suit: locPricing.equipment?.Suit ?? 5,
+        BCD: locPricing.equipment?.BCD ?? 5,
+        Regulator: locPricing.equipment?.Regulator ?? 5,
+        Torch: locPricing.equipment?.Torch ?? 5,
+        Computer: locPricing.equipment?.Computer ?? 3,
+        UWCamera: locPricing.equipment?.UWCamera ?? 20
       };
       
       Object.entries(formData.rentedEquipment).forEach(([equipment, isRented]) => {
@@ -222,10 +229,11 @@ const BookingForm = ({ bookingId = null }) => {
     
     // Calculate dive insurance (mandatory for all divers)
     let diveInsurance = 0;
-    if (settings.prices.diveInsurance) {
+    if (locPricing.diveInsurance || settings.prices.diveInsurance) {
       // For now, we'll use one_day insurance as default
       // In a real implementation, this would be based on the stay duration
-      diveInsurance = settings.prices.diveInsurance.one_day || 7.00;
+      const di = (locPricing.diveInsurance || settings.prices.diveInsurance);
+      diveInsurance = di.one_day || 7.00;
     }
     
     let totalPrice = price + equipmentRental + diveInsurance;

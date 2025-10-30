@@ -53,9 +53,20 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
   const customer = dataService.getById('customers', customerId);
   const customerType = customer?.customerType || 'tourist';
   
-  // Get pricing config for customer type
-  const pricingConfigs = dataService.getAll('pricingConfig');
-  const customerPricing = pricingConfigs.find(config => config.customerType === customerType);
+  // Determine location-specific pricing (use first booking's location)
+  const locations = dataService.getAll('locations') || [];
+  const stayLocationId = stayBookings[0]?.locationId;
+  const location = locations.find(l => l.id === stayLocationId);
+  const locationPricing = location?.pricing?.customerTypes;
+  let customerPricing = null;
+  if (locationPricing) {
+    const lp = locationPricing[customerType];
+    if (lp?.pricing === 'tiered' && Array.isArray(lp.diveTiers)) {
+      customerPricing = { tiers: lp.diveTiers.map(t => ({ dives: t.dives, price: t.price })) };
+    } else if (lp?.pricing === 'fixed') {
+      customerPricing = { pricePerDive: lp.pricePerDive };
+    }
+  }
   
   if (!customerPricing) {
     console.warn(`Pricing config not found for customer type: ${customerType}, using fallback pricing`);
