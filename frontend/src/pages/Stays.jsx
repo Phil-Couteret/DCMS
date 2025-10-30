@@ -214,7 +214,7 @@ const Stays = () => {
                     <Button
                       variant="contained"
                       size="small"
-                      onClick={() => navigate(`/customers/${stay.customer.id}`)}
+                      onClick={() => navigate(`/customers?id=${stay.customer.id}`)}
                     >
                       View Customer
                     </Button>
