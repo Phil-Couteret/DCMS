@@ -93,6 +93,11 @@ const Settings = () => {
     }
   }, [isAdmin]);
 
+  // Debug locationAccess changes
+  useEffect(() => {
+    console.log('userFormData.locationAccess changed:', userFormData.locationAccess);
+  }, [userFormData.locationAccess]);
+
   const loadSettings = () => {
     try {
       const savedSettings = dataService.getAll('settings');
@@ -424,10 +429,14 @@ const Settings = () => {
                   value={userFormData.locationAccess}
                   onChange={(e) => {
                     const selected = e.target.value;
+                    console.log('Select onChange - selected:', selected);
+                    console.log('Select onChange - current userFormData.locationAccess:', userFormData.locationAccess);
                     // If "__ALL__" is selected, clear other selections
                     if (selected.includes('__ALL__')) {
+                      console.log('Setting to __ALL__ only');
                       setUserFormData({ ...userFormData, locationAccess: ['__ALL__'] });
                     } else {
+                      console.log('Setting to specific locations:', selected);
                       setUserFormData({ ...userFormData, locationAccess: selected });
                     }
                   }}
@@ -437,6 +446,8 @@ const Settings = () => {
                     container: () => document.body
                   }}
                   renderValue={(selected) => {
+                    console.log('renderValue - selected:', selected);
+                    console.log('renderValue - userFormData.locationAccess:', userFormData.locationAccess);
                     if (selected.length === 0) return 'Select locations...';
                     if (selected.includes('__ALL__')) return 'All Locations (Global Access)';
                     if (selected.length === locations.length) return 'All Locations';
