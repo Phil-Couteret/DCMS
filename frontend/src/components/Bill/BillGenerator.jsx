@@ -63,7 +63,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
     if (!stay) return;
 
     // Initialize dive data from stay
-    const dives = stay.breakdown.map(booking => ({
+    const dives = (stay.breakdown || []).map(booking => ({
       date: booking.bookingDate,
       sessions: booking.sessions,
       dives: booking.dives,
@@ -121,29 +121,31 @@ const BillGenerator = ({ open, onClose, stay }) => {
     if (!stay || !settings) return;
 
     // Calculate dive totals
-    const diveTotal = billData.dives.reduce((sum, dive) => sum + dive.total, 0);
+    const diveTotal = (billData.dives || []).reduce((sum, dive) => sum + (dive.total || 0), 0);
 
     // Calculate beverage totals
-    const beverageTotal = billData.beverages.reduce((sum, bev) => sum + bev.total, 0);
+    const beverageTotal = (billData.beverages || []).reduce((sum, bev) => sum + (bev.total || 0), 0);
 
     // Calculate other items totals
-    const otherTotal = otherItems.reduce((sum, item) => sum + (item.price || 0), 0);
+    const otherTotal = (otherItems || []).reduce((sum, item) => sum + (item.price || 0), 0);
 
     // Calculate equipment rental from stay bookings
     let equipmentTotal = 0;
-    stay.stayBookings.forEach(booking => {
-      if (booking.rentedEquipment) {
-        Object.entries(booking.rentedEquipment).forEach(([equipment, isRented]) => {
-          if (isRented && settings.prices.equipment[equipment.toLowerCase()]) {
-            const equipmentPrice = settings.prices.equipment[equipment.toLowerCase()];
-            const bookingDives = booking.diveSessions ? 
-              (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) :
-              (booking.numberOfDives || 0);
-            equipmentTotal += equipmentPrice * bookingDives;
-          }
-        });
-      }
-    });
+    if (stay.stayBookings && Array.isArray(stay.stayBookings)) {
+      stay.stayBookings.forEach(booking => {
+        if (booking.rentedEquipment) {
+          Object.entries(booking.rentedEquipment).forEach(([equipment, isRented]) => {
+            if (isRented && settings.prices.equipment[equipment.toLowerCase()]) {
+              const equipmentPrice = settings.prices.equipment[equipment.toLowerCase()];
+              const bookingDives = booking.diveSessions ? 
+                (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
+                (booking.numberOfDives || 0);
+              equipmentTotal += equipmentPrice * bookingDives;
+            }
+          });
+        }
+      });
+    }
 
     const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal;
     const tax = subtotal * 0.21; // 21% IVA (Spanish VAT)
@@ -156,7 +158,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
       billNumber: `BILL-${Date.now()}`,
       dives: billData.dives,
       beverages: billData.beverages,
-      otherItems: otherItems.filter(item => item.name && item.price > 0),
+      otherItems: (otherItems || []).filter(item => item.name && item.price > 0),
       equipmentTotal,
       subtotal,
       tax,
