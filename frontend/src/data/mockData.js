@@ -1611,19 +1611,21 @@ export const initialMockData = {
       },
       isActive: true,
       pricing: {
-        // Las Playitas specific pricing (slightly different)
+        // Las Playitas specific pricing
         customerTypes: {
           tourist: {
             name: "Tourist",
             description: "Visiting divers with volume discounts",
             pricing: "tiered",
-            orientationDive: 30.00,    // Slightly cheaper than Caleta
+            // Playitas Dive
+            orientationDive: 35.00,
             diveTiers: [
-              { dives: 1, price: 44.00, description: "1-2 dives" },
-              { dives: 3, price: 42.00, description: "3-5 dives" },
-              { dives: 6, price: 40.00, description: "6-8 dives" },
-              { dives: 9, price: 38.00, description: "9-12 dives" },
-              { dives: 13, price: 36.00, description: "13+ dives" }
+              // Caleta Dive from Playitas
+              { dives: 1, price: 45.00, description: "1-2 dives" },
+              { dives: 3, price: 43.00, description: "3-5 dives" },
+              { dives: 6, price: 41.00, description: "6-8 dives" },
+              { dives: 9, price: 39.00, description: "9-12 dives" },
+              { dives: 13, price: 37.00, description: "13+ dives" }
             ]
           },
           local: {
@@ -1653,7 +1655,10 @@ export const initialMockData = {
         },
         addons: {
           night_dive: 18.00,           // Slightly cheaper than Caleta
-          personal_instructor: 90.00   // Slightly cheaper than Caleta
+          personal_instructor: 90.00,  // Slightly cheaper than Caleta
+          // Other activities specific to Las Playitas
+          dive_trip_gran_tarajal_lajita: 45.00,
+          transfer_to_caleta: 15.00
         },
         diveInsurance: {
           one_day: 7.00,               // Same as Caleta
