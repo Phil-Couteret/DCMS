@@ -283,13 +283,15 @@ const BookingForm = ({ bookingId = null }) => {
       // Individual equipment pricing (Fins, Boots, Masks are free - included in dive price)
       // Note: Individual equipment is only charged if complete equipment is NOT selected
       // UW Camera can be added regardless
+      // Equipment rental prices are global (same across locations)
+      const globalEq = settings.prices?.equipment || {};
       const equipmentPrices = {
-        Suit: locPricing.equipment?.Suit ?? 5,
-        BCD: locPricing.equipment?.BCD ?? 5,
-        Regulator: locPricing.equipment?.Regulator ?? 5,
-        Torch: locPricing.equipment?.Torch ?? 5,
-        Computer: locPricing.equipment?.Computer ?? 3,
-        UWCamera: locPricing.equipment?.UWCamera ?? 20
+        Suit: globalEq.Suit ?? 5,
+        BCD: globalEq.BCD ?? 5,
+        Regulator: globalEq.Regulator ?? 5,
+        Torch: globalEq.Torch ?? 5,
+        Computer: globalEq.Computer ?? 3,
+        UWCamera: globalEq.UWCamera ?? 20
       };
       
       Object.entries(formData.rentedEquipment).forEach(([equipment, isRented]) => {

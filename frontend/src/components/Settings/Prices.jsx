@@ -159,14 +159,18 @@ const Prices = () => {
     }
   };
 
+  // Equipment prices are global across locations
   const handleEquipmentPriceChange = (equipment, value) => {
-    updateLocationPricing((pricing) => ({
-      ...pricing,
-      equipment: {
-        ...(pricing.equipment || {}),
-        [equipment]: parseFloat(value) || 0
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        equipment: {
+          ...settings.prices.equipment,
+          [equipment]: parseFloat(value) || 0
+        }
       }
-    }));
+    });
   };
 
   const handleAddonPriceChange = (addon, value) => {
@@ -388,7 +392,7 @@ const Prices = () => {
             <CardHeader title="Equipment Rental Prices" />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(locPricing.equipment || {}).map(([equipment, price]) => (
+                {Object.entries(settings.prices.equipment || {}).map(([equipment, price]) => (
                   <Grid item xs={12} key={equipment}>
                     <TextField
                       label={equipment.replace(/_/g, ' ').toUpperCase()}

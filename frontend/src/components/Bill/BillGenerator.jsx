@@ -141,8 +141,10 @@ const BillGenerator = ({ open, onClose, stay }) => {
       stay.stayBookings.forEach(booking => {
         if (booking.rentedEquipment) {
           Object.entries(booking.rentedEquipment).forEach(([equipment, isRented]) => {
-            if (isRented && pricing.equipment && pricing.equipment[equipment]) {
-              const equipmentPrice = pricing.equipment[equipment];
+            // Equipment rental prices are global in settings
+            const eqKey = equipment.toLowerCase();
+            if (isRented && settings.prices.equipment && settings.prices.equipment[eqKey] != null) {
+              const equipmentPrice = settings.prices.equipment[eqKey];
               const bookingDives = booking.diveSessions ? 
                 (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
                 (booking.numberOfDives || 0);
