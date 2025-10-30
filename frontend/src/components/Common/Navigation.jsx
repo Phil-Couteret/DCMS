@@ -48,7 +48,10 @@ const Navigation = () => {
   const [selectedLocationId, setSelectedLocationId] = useState(null);
 
   // Build menu items by scope
-  const scope = localStorage.getItem('dcms_dashboard_scope') === 'global' || location.pathname === '/' ? 'global' : 'location';
+  const userHasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
+  const scope = userHasGlobalAccess
+    ? (localStorage.getItem('dcms_dashboard_scope') === 'global' || location.pathname === '/' ? 'global' : 'location')
+    : 'location';
   const globalMenu = [
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
