@@ -1272,6 +1272,23 @@ export const initialMockData = {
       capacity: 10,
       equipmentOnboard: ['oxygen', 'first_aid', 'radio', 'mobile_phone', 'gps', 'life_jackets', 'flares'],
       isActive: true
+    },
+    // Las Playitas boats
+    {
+      id: '550e8400-e29b-41d4-a716-446655440010',
+      locationId: '550e8400-e29b-41d4-a716-446655440002', // Las Playitas
+      name: 'Las Playitas Express',
+      capacity: 8,
+      equipmentOnboard: ['oxygen', 'first_aid', 'radio', 'mobile_phone', 'gps', 'life_jackets', 'flares'],
+      isActive: true
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440011',
+      locationId: '550e8400-e29b-41d4-a716-446655440002', // Las Playitas
+      name: 'Playa Diver',
+      capacity: 10,
+      equipmentOnboard: ['oxygen', 'first_aid', 'radio', 'mobile_phone', 'gps', 'life_jackets', 'flares'],
+      isActive: true
     }
   ],
   
@@ -1460,6 +1477,43 @@ export const initialMockData = {
       waves: 'unprotected',
       travelTime: '15-20 min',
       description: 'Nuevo Horizonte, vor Costa Caleta (Caleta de la Camella). Large fish such as tuna, bonito, amber jacks and barracudas are regularly sighted here. Doradas, Badis, Barracudas and Tuna come curiously towards the reef. In February and March, a lot of angel sharks come here to mate.'
+    },
+    // Las Playitas dive sites
+    {
+      id: '550e8400-e29b-41d4-a716-446655440020',
+      name: 'Playa de Las Playitas',
+      locationId: '550e8400-e29b-41d4-a716-446655440002', // Las Playitas
+      type: 'beach',
+      difficulty: 'beginner',
+      depth: '3-8m',
+      current: 'low',
+      waves: 'low',
+      travelTime: '0 min',
+      description: 'Direct beach entry from Las Playitas. Perfect for beginners and training dives. Shallow waters with sandy bottom and scattered rocks. Great for night dives and underwater photography.'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440021',
+      name: 'Cueva de Las Playitas',
+      locationId: '550e8400-e29b-41d4-a716-446655440002', // Las Playitas
+      type: 'cave',
+      difficulty: 'advanced',
+      depth: '12-18m',
+      current: 'medium',
+      waves: 'medium',
+      travelTime: '5-10 min',
+      description: 'Underwater cave system with multiple entrances. Advanced divers only. Rich marine life including groupers, moray eels, and occasional rays. Excellent visibility year-round.'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440022',
+      name: 'Arrecife de Las Playitas',
+      locationId: '550e8400-e29b-41d4-a716-446655440002', // Las Playitas
+      type: 'reef',
+      difficulty: 'intermediate',
+      depth: '8-15m',
+      current: 'low',
+      waves: 'low',
+      travelTime: '10-15 min',
+      description: 'Natural reef formation with abundant coral and marine life. Perfect for intermediate divers. Common sightings include parrotfish, angelfish, and various species of wrasse.'
     }
   ],
   
@@ -1474,7 +1528,157 @@ export const initialMockData = {
         postalCode: '35610',
         country: 'Spain'
       },
-      isActive: true
+      isActive: true,
+      pricing: {
+        // Caleta de Fuste specific pricing
+        customerTypes: {
+          tourist: {
+            name: "Tourist",
+            description: "Visiting divers with volume discounts",
+            pricing: "tiered",
+            orientationDive: 32.00,
+            diveTiers: [
+              { dives: 1, price: 46.00, description: "1-2 dives" },
+              { dives: 3, price: 44.00, description: "3-5 dives" },
+              { dives: 6, price: 42.00, description: "6-8 dives" },
+              { dives: 9, price: 40.00, description: "9-12 dives" },
+              { dives: 13, price: 38.00, description: "13+ dives" }
+            ]
+          },
+          local: {
+            name: "Local",
+            description: "Local residents with fixed pricing",
+            pricing: "fixed",
+            pricePerDive: 35.00
+          },
+          recurrent: {
+            name: "Recurrent",
+            description: "Regular customers with fixed pricing",
+            pricing: "fixed",
+            pricePerDive: 32.00
+          }
+        },
+        equipment: {
+          completeEquipment: 13.00,     // Complete equipment rental
+          Suit: 5.00,                   // Wetsuit rental
+          BCD: 5.00,                    // BCD rental
+          Regulator: 5.00,              // Regulator rental
+          Torch: 5.00,                  // Torch rental
+          Computer: 3.00,               // Dive computer rental
+          UWCamera: 20.00,              // Underwater camera rental
+          mask: 0.00,                   // Free (included in dive price)
+          fins: 0.00,                   // Free (included in dive price)
+          boots: 0.00                   // Free (included in dive price)
+        },
+        addons: {
+          night_dive: 20.00,            // Night dive surcharge
+          personal_instructor: 100.00   // Personal instructor
+        },
+        diveInsurance: {
+          one_day: 7.00,               // 1 day insurance
+          one_week: 18.00,             // 1 week insurance
+          one_month: 25.00,            // 1 month insurance
+          one_year: 45.00              // 1 year insurance
+        },
+        beverages: {
+          water: 1.80,                 // Water
+          soft_drinks: 1.80,           // Soft drinks
+          beer: 1.80,                  // Beer
+          coffee: 1.80,                // Coffee
+          tea: 1.80                    // Tea
+        },
+        other: {
+          clothes: 0.00,               // Variable price
+          souvenirs: 0.00,             // Variable price
+          photos: 0.00,                // Variable price
+          tips: 0.00                   // Variable price
+        },
+        tax: {
+          igic_rate: 0.07,             // 7% IGIC rate (Canary Islands)
+          igic_label: "IGIC (7%)"      // IGIC label
+        }
+      }
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440002',
+      name: 'Las Playitas',
+      type: 'diving',
+      address: {
+        street: 'Playa de Las Playitas',
+        city: 'Las Playitas',
+        postalCode: '35610',
+        country: 'Spain'
+      },
+      isActive: true,
+      pricing: {
+        // Las Playitas specific pricing (slightly different)
+        customerTypes: {
+          tourist: {
+            name: "Tourist",
+            description: "Visiting divers with volume discounts",
+            pricing: "tiered",
+            orientationDive: 30.00,    // Slightly cheaper than Caleta
+            diveTiers: [
+              { dives: 1, price: 44.00, description: "1-2 dives" },
+              { dives: 3, price: 42.00, description: "3-5 dives" },
+              { dives: 6, price: 40.00, description: "6-8 dives" },
+              { dives: 9, price: 38.00, description: "9-12 dives" },
+              { dives: 13, price: 36.00, description: "13+ dives" }
+            ]
+          },
+          local: {
+            name: "Local",
+            description: "Local residents with fixed pricing",
+            pricing: "fixed",
+            pricePerDive: 33.00        // Slightly cheaper than Caleta
+          },
+          recurrent: {
+            name: "Recurrent",
+            description: "Regular customers with fixed pricing",
+            pricing: "fixed",
+            pricePerDive: 30.00        // Slightly cheaper than Caleta
+          }
+        },
+        equipment: {
+          completeEquipment: 12.00,    // Slightly cheaper than Caleta
+          Suit: 4.50,                  // Slightly cheaper
+          BCD: 4.50,                   // Slightly cheaper
+          Regulator: 4.50,             // Slightly cheaper
+          Torch: 4.50,                 // Slightly cheaper
+          Computer: 2.50,              // Slightly cheaper
+          UWCamera: 18.00,             // Slightly cheaper
+          mask: 0.00,                  // Free (included in dive price)
+          fins: 0.00,                  // Free (included in dive price)
+          boots: 0.00                  // Free (included in dive price)
+        },
+        addons: {
+          night_dive: 18.00,           // Slightly cheaper than Caleta
+          personal_instructor: 90.00   // Slightly cheaper than Caleta
+        },
+        diveInsurance: {
+          one_day: 7.00,               // Same as Caleta
+          one_week: 18.00,             // Same as Caleta
+          one_month: 25.00,            // Same as Caleta
+          one_year: 45.00              // Same as Caleta
+        },
+        beverages: {
+          water: 1.80,                 // Same as Caleta
+          soft_drinks: 1.80,           // Same as Caleta
+          beer: 1.80,                  // Same as Caleta
+          coffee: 1.80,                // Same as Caleta
+          tea: 1.80                    // Same as Caleta
+        },
+        other: {
+          clothes: 0.00,               // Variable price
+          souvenirs: 0.00,             // Variable price
+          photos: 0.00,                // Variable price
+          tips: 0.00                   // Variable price
+        },
+        tax: {
+          igic_rate: 0.07,             // Same as Caleta
+          igic_label: "IGIC (7%)"      // Same as Caleta
+        }
+      }
     }
   ],
   
@@ -1688,6 +1892,57 @@ export const initialMockData = {
       name: 'Tom Wilson',
       email: 'tom@deep-blue-diving.com',
       role: 'intern',
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    // Location-specific admin accounts
+    {
+      id: '550e8400-e29b-41d4-a716-446655440106',
+      username: 'caleta_admin',
+      name: 'Caleta Manager',
+      email: 'caleta@deep-blue-diving.com',
+      role: 'admin',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001'], // Caleta de Fuste only
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440107',
+      username: 'playitas_admin',
+      name: 'Las Playitas Manager',
+      email: 'playitas@deep-blue-diving.com',
+      role: 'admin',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440002'], // Las Playitas only
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440108',
+      username: 'caleta_guide',
+      name: 'Caleta Guide',
+      email: 'caleta_guide@deep-blue-diving.com',
+      role: 'guide',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001'], // Caleta de Fuste only
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440109',
+      username: 'playitas_guide',
+      name: 'Las Playitas Guide',
+      email: 'playitas_guide@deep-blue-diving.com',
+      role: 'guide',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440002'], // Las Playitas only
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440110',
+      username: 'multi_location',
+      name: 'Multi-Location Manager',
+      email: 'multi@deep-blue-diving.com',
+      role: 'admin',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
     }

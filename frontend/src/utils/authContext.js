@@ -123,3 +123,33 @@ export const useAuth = () => {
   return context;
 };
 
+// Location-based access control functions
+export const hasLocationAccess = (user, locationId) => {
+  if (!user) return false;
+  
+  // If user has no locationAccess property, they have access to all locations (global admin)
+  if (!user.locationAccess) return true;
+  
+  // Check if user has access to the specific location
+  return user.locationAccess.includes(locationId);
+};
+
+export const getAccessibleLocations = (user) => {
+  if (!user) return [];
+  
+  // If user has no locationAccess property, they have access to all locations
+  if (!user.locationAccess) return ['all'];
+  
+  return user.locationAccess;
+};
+
+export const isMultiLocationUser = (user) => {
+  if (!user) return false;
+  
+  // If user has no locationAccess property, they are a global admin
+  if (!user.locationAccess) return true;
+  
+  // Check if user has access to multiple locations
+  return user.locationAccess.length > 1;
+};
+
