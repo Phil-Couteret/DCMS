@@ -424,61 +424,46 @@ const Settings = () => {
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Location Access</InputLabel>
-                <Select
-                  multiple
-                  value={userFormData.locationAccess}
-                  onOpen={() => console.log('Select opened')}
-                  onClose={() => console.log('Select closed')}
-                  onChange={(e) => {
-                    const selected = e.target.value;
-                    console.log('Select onChange - selected:', selected);
-                    console.log('Select onChange - current userFormData.locationAccess:', userFormData.locationAccess);
-                    
-                    // If "__ALL__" is selected, clear other selections
-                    if (selected.includes('__ALL__')) {
-                      console.log('Setting to __ALL__ only');
-                      setUserFormData({ ...userFormData, locationAccess: ['__ALL__'] });
-                    } else {
-                      console.log('Setting to specific locations:', selected);
-                      setUserFormData({ ...userFormData, locationAccess: selected });
-                    }
-                  }}
-                  label="Location Access"
-                  MenuProps={{
-                    sx: { zIndex: 99999 }
-                  }}
-                  renderValue={(selected) => {
-                    console.log('renderValue - selected:', selected);
-                    console.log('renderValue - userFormData.locationAccess:', userFormData.locationAccess);
-                    if (selected.length === 0) return 'Select locations...';
-                    if (selected.includes('__ALL__')) return 'All Locations (Global Access)';
-                    if (selected.length === locations.length) return 'All Locations';
-                    return selected.map(locId => {
-                      if (locId === '__ALL__') return 'All Locations (Global Access)';
-                      return locations.find(l => l.id === locId)?.name;
-                    }).join(', ');
-                  }}
-                >
-                  {locations.length === 0 ? (
-                    <MenuItem disabled>No locations available</MenuItem>
-                  ) : (
-                    <>
-                      <MenuItem value="__ALL__">
-                        <Checkbox checked={userFormData.locationAccess.includes('__ALL__')} />
-                        <ListItemText primary="All Locations (Global Access)" />
-                      </MenuItem>
-                      {locations.map((location) => (
-                        <MenuItem key={location.id} value={location.id}>
-                          <Checkbox checked={userFormData.locationAccess.includes(location.id)} />
-                          <ListItemText primary={location.name} />
-                        </MenuItem>
-                      ))}
-                    </>
-                  )}
-                </Select>
-              </FormControl>
+              <Typography variant="subtitle2" gutterBottom>Location Access</Typography>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={userFormData.locationAccess.includes('__ALL__')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setUserFormData({ ...userFormData, locationAccess: ['__ALL__'] });
+                      } else {
+                        setUserFormData({ ...userFormData, locationAccess: [] });
+                      }
+                    }}
+                  />
+                }
+                label="All Locations (Global Access)"
+              />
+              {!userFormData.locationAccess.includes('__ALL__') && locations.map((location) => (
+                <FormControlLabel
+                  key={location.id}
+                  control={
+                    <Checkbox
+                      checked={userFormData.locationAccess.includes(location.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setUserFormData({ 
+                            ...userFormData, 
+                            locationAccess: [...userFormData.locationAccess, location.id] 
+                          });
+                        } else {
+                          setUserFormData({ 
+                            ...userFormData, 
+                            locationAccess: userFormData.locationAccess.filter(id => id !== location.id) 
+                          });
+                        }
+                      }}
+                    />
+                  }
+                  label={location.name}
+                />
+              ))}
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 {userFormData.locationAccess.length === 0 
                   ? 'Select locations or choose "All Locations" for global access'
