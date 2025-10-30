@@ -34,7 +34,9 @@ import {
   Tab,
   Card,
   CardContent,
-  CardHeader
+  CardHeader,
+  Checkbox,
+  ListItemText
 } from '@mui/material';
 import { 
   Save as SaveIcon,
@@ -463,10 +465,14 @@ const Settings = () => {
                     <MenuItem disabled>No locations available</MenuItem>
                   ) : (
                     <>
-                      <MenuItem value="__ALL__" onClick={() => console.log('All Locations clicked')}>All Locations (Global Access)</MenuItem>
+                      <MenuItem value="__ALL__">
+                        <Checkbox checked={userFormData.locationAccess.includes('__ALL__')} />
+                        <ListItemText primary="All Locations (Global Access)" />
+                      </MenuItem>
                       {locations.map((location) => (
-                        <MenuItem key={location.id} value={location.id} onClick={() => console.log('Location clicked:', location.name)}>
-                          {location.name}
+                        <MenuItem key={location.id} value={location.id}>
+                          <Checkbox checked={userFormData.locationAccess.includes(location.id)} />
+                          <ListItemText primary={location.name} />
                         </MenuItem>
                       ))}
                     </>
