@@ -119,6 +119,16 @@ const Navigation = () => {
           <Typography variant="h6" noWrap component="div" sx={{ mr: 3 }}>
             DCMS - Deep Blue Diving
           </Typography>
+          {/* Dashboard shortcut before location tabs */}
+          <Box sx={{ mr: 2 }}>
+            <Tab
+              key="dashboard-shortcut"
+              label={t('nav.dashboard')}
+              value="__dashboard__"
+              onClick={() => navigate('/')}
+              sx={{ minHeight: 48 }}
+            />
+          </Box>
           {/* Location Tabs (visible when user is logged in) */}
           {currentUser && locations.length > 0 && (
             <Tabs

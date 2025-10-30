@@ -41,8 +41,10 @@ const Bookings = () => {
 
   const loadBookings = () => {
     const allBookings = dataService.getAll('bookings');
+    const currentLocationId = localStorage.getItem('dcms_current_location');
     const allCustomers = dataService.getAll('customers');
-    setBookings(allBookings);
+    const filtered = currentLocationId ? allBookings.filter(b => b.locationId === currentLocationId) : allBookings;
+    setBookings(filtered);
     setCustomers(allCustomers);
   };
 
@@ -129,6 +131,17 @@ const Bookings = () => {
                       <Typography variant="body2" color="text.secondary">
                         {booking.activityType}
                       </Typography>
+                      {booking.routeType && (
+                        <Chip
+                          label={
+                            booking.routeType === 'playitas_local' ? 'Playitas Local' :
+                            booking.routeType === 'caleta_from_playitas' ? 'Caleta from Playitas' :
+                            booking.routeType === 'dive_trip' ? 'Dive Trip' : booking.routeType
+                          }
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
                       <Typography variant="body2" fontWeight="bold" color="primary">
                         €{booking.totalPrice?.toFixed(2) || '0.00'}
                       </Typography>
