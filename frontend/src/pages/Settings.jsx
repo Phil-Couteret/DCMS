@@ -348,8 +348,8 @@ const Settings = () => {
         maxWidth="sm" 
         fullWidth 
         keepMounted
-        sx={{ zIndex: 9999 }}
-        PaperProps={{ sx: { zIndex: 9999 } }}
+        sx={{ zIndex: 1300 }}
+        PaperProps={{ sx: { zIndex: 1300 } }}
       >
         <DialogTitle>
           {editingUser ? 'Edit User' : 'Add New User'}
@@ -408,7 +408,8 @@ const Settings = () => {
                   onChange={(e) => setUserFormData({ ...userFormData, locationAccess: e.target.value })}
                   label="Location Access"
                   MenuProps={{
-                    sx: { zIndex: 9999 }
+                    sx: { zIndex: 99999 },
+                    container: () => document.body
                   }}
                   renderValue={(selected) => {
                     if (selected.length === 0) return 'All Locations (Global Access)';
