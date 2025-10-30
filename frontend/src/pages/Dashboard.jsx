@@ -63,7 +63,7 @@ const Dashboard = () => {
   const [revenuePeriod, setRevenuePeriod] = useState(7); // 7, 14, 30 days
   const [trendsPeriod, setTrendsPeriod] = useState(14); // 7, 14, 30 days
   const [locations, setLocations] = useState([]);
-  const [scope, setScope] = useState('current'); // 'current' | 'all' | locationId
+  const [tabScope, setTabScope] = useState('all'); // 'all' or locationId
   const [selectedLocationId, setSelectedLocationId] = useState(null);
 
   useEffect(() => {
@@ -72,9 +72,9 @@ const Dashboard = () => {
     setLocations(locs);
     const stored = localStorage.getItem('dcms_current_location');
     setSelectedLocationId(stored || (locs[0]?.id || null));
-    // If user is global (no locationAccess or empty), default scope to 'all'
+    // Initialize dashboard tab scope
     const hasGlobal = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
-    setScope(hasGlobal ? 'all' : 'current');
+    setTabScope(hasGlobal ? 'all' : (stored || locs[0]?.id || 'all'));
   }, [currentUser]);
 
   useEffect(() => {
@@ -84,13 +84,10 @@ const Dashboard = () => {
       const allBookingsData = dataService.getAll('bookings') || [];
       const allCustomers = dataService.getAll('customers') || [];
 
-      // Determine filtering based on scope
+      // Determine filtering based on tab scope
       let locationFilteredBookings = allBookingsData;
-      if (scope === 'current' && selectedLocationId) {
-        locationFilteredBookings = allBookingsData.filter(b => b.locationId === selectedLocationId);
-      } else if (scope !== 'all' && scope) {
-        // Specific location id chosen
-        locationFilteredBookings = allBookingsData.filter(b => b.locationId === scope);
+      if (tabScope !== 'all' && tabScope) {
+        locationFilteredBookings = allBookingsData.filter(b => b.locationId === tabScope);
       }
 
       // Upcoming bookings with days filter
@@ -127,7 +124,7 @@ const Dashboard = () => {
     loadStats();
     const interval = setInterval(loadStats, 5000);
     return () => clearInterval(interval);
-  }, [daysToShow, scope, selectedLocationId]);
+  }, [daysToShow, tabScope, selectedLocationId]);
 
   const getCustomerName = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -172,22 +169,30 @@ const Dashboard = () => {
       <Typography variant="h4" gutterBottom>
         Dashboard
       </Typography>
-      {/* Location scope selector for global users */}
-      {(!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0)) && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Scope</InputLabel>
-            <Select label="Scope" value={scope} onChange={(e)=> setScope(e.target.value)}>
-              <MenuItem value="all">All Locations</MenuItem>
-              <MenuItem value="current">Selected Location</MenuItem>
-              <MenuItem disabled>──────────</MenuItem>
-              {locations.map(loc => (
-                <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-      )}
+      {/* Dashboard scope tabs: Global + per-location */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+        <Tabs
+          value={tabScope}
+          onChange={(_e, value) => setTabScope(value)}
+          textColor="primary"
+          indicatorColor="primary"
+        >
+          {/* Global tab only for global-access users */}
+          {(!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0)) && (
+            <Tab value="all" label="Global" />
+          )}
+          {/* Per-location tabs - show only locations the user has access to (or all for global) */}
+          {locations
+            .filter(loc => {
+              const la = currentUser?.locationAccess;
+              if (!la || (Array.isArray(la) && la.length === 0)) return true; // global
+              return la.includes(loc.id);
+            })
+            .map(loc => (
+              <Tab key={loc.id} value={loc.id} label={loc.name} />
+            ))}
+        </Tabs>
+      </Box>
       
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
