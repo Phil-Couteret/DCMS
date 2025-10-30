@@ -78,6 +78,15 @@ const BookingForm = ({ bookingId = null }) => {
     console.log('localStorage keys:', Object.keys(localStorage).filter(key => key.startsWith('dcms_')));
     loadData();
     loadSettings();
+    // Initialize booking location from current selected location tab
+    try {
+      const storedLocation = localStorage.getItem('dcms_current_location');
+      if (storedLocation) {
+        setFormData(prev => ({ ...prev, locationId: storedLocation }));
+      }
+    } catch (_) {
+      // ignore
+    }
     if (bookingId) {
       loadBooking();
     }
