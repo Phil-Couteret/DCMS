@@ -50,7 +50,7 @@ const Navigation = () => {
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
     { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
-    { text: 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
+    { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
     { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
     { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' }

@@ -75,6 +75,7 @@ export const translations = {
       dashboard: 'Panel de Control',
       bookings: 'Reservas',
       newBooking: 'Nueva Reserva',
+      stays: 'Estancias de clientes',
       customers: 'Clientes',
       equipment: 'Equipamiento',
       settings: 'Configuración'
@@ -281,6 +282,7 @@ export const translations = {
       dashboard: 'Dashboard',
       bookings: 'Bookings',
       newBooking: 'New Booking',
+      stays: 'Customer Stays',
       customers: 'Customers',
       equipment: 'Equipment',
       settings: 'Settings'
@@ -482,6 +484,7 @@ export const translations = {
       dashboard: 'Armaturenbrett',
       bookings: 'Buchungen',
       newBooking: 'Neue Buchung',
+      stays: 'Kundenaufenthalte',
       customers: 'Kunden',
       equipment: 'Ausrüstung',
       settings: 'Einstellungen'
