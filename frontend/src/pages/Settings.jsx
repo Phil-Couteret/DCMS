@@ -354,8 +354,8 @@ const Settings = () => {
       </Box>
 
       {activeTab === 0 && (
-      
-      {/* Certification Verification Settings */}
+        <Box>
+          {/* Certification Verification Settings */}
       <Accordion defaultExpanded sx={{ mb: 3 }}>
         <AccordionSummary
           expandIcon={<ExpandMoreIcon />}
@@ -636,6 +636,7 @@ const Settings = () => {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         message={snackbar.message}
       />
+        </Box>
       )}
 
       {activeTab === 1 && (
