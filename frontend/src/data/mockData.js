@@ -1471,6 +1471,37 @@ export const initialMockData = {
         PADI: 'https://www.padi.com/verify',
         CMAS: 'https://www.cmas.org/certification-verification',
         VDST: 'https://www.vdst.de/zertifikatspruefung'
+      },
+      prices: {
+        beverages: {
+          water: 1.8,
+          soft_drinks: 2.5,
+          beer: 3.0,
+          coffee: 2.0,
+          tea: 1.5
+        },
+        equipment: {
+          complete_equipment: 13,
+          suit: 5,
+          bcd: 5,
+          regulator: 5,
+          torch: 5,
+          computer: 3,
+          uw_camera: 20,
+          mask: 0, // Free
+          fins: 0, // Free
+          boots: 0  // Free
+        },
+        addons: {
+          night_dive: 20,
+          personal_instructor: 100
+        },
+        other: {
+          clothes: 0, // Variable price
+          souvenirs: 0, // Variable price
+          photos: 0, // Variable price
+          tips: 0 // Variable price
+        }
       }
     }
   ],

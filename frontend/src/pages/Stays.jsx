@@ -20,15 +20,19 @@ import {
   Add as AddIcon,
   ExpandMore as ExpandMoreIcon,
   Refresh as RefreshIcon,
-  Receipt as ReceiptIcon
+  Receipt as ReceiptIcon,
+  ReceiptLong as EndStayIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import stayService from '../services/stayService';
+import BillGenerator from '../components/Bill/BillGenerator';
 
 const Stays = () => {
   const navigate = useNavigate();
   const [activeStays, setActiveStays] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStay, setSelectedStay] = useState(null);
+  const [showBillGenerator, setShowBillGenerator] = useState(false);
 
   useEffect(() => {
     loadActiveStays();
@@ -61,6 +65,16 @@ const Stays = () => {
       month: '2-digit',
       year: 'numeric'
     });
+  };
+
+  const handleEndStay = (stay) => {
+    setSelectedStay(stay);
+    setShowBillGenerator(true);
+  };
+
+  const handleCloseBillGenerator = () => {
+    setShowBillGenerator(false);
+    setSelectedStay(null);
   };
 
   const getSessionText = (sessions) => {
@@ -212,11 +226,20 @@ const Stays = () => {
                       Add Booking
                     </Button>
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       size="small"
                       onClick={() => navigate(`/customers?id=${stay.customer.id}`)}
                     >
                       View Customer
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      size="small"
+                      startIcon={<EndStayIcon />}
+                      onClick={() => handleEndStay(stay)}
+                    >
+                      End Stay & Generate Bill
                     </Button>
                   </Box>
                 </Box>
@@ -225,6 +248,13 @@ const Stays = () => {
           ))}
         </Box>
       )}
+
+      {/* Bill Generator Dialog */}
+      <BillGenerator
+        open={showBillGenerator}
+        onClose={handleCloseBillGenerator}
+        stay={selectedStay}
+      />
     </Box>
   );
 };
