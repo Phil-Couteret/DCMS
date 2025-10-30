@@ -108,18 +108,52 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
   
   const totalPrice = totalDives * pricePerDive;
   
+  // Compute route-based pricing for Playitas specifics
+  let caletaDivesCount = 0;
+  const isPlayitas = !!location && location.name?.toLowerCase().includes('playitas');
+  if (isPlayitas) {
+    stayBookings.forEach(b => {
+      const d = b.diveSessions ? ((b.diveSessions.morning?1:0)+(b.diveSessions.afternoon?1:0)+(b.diveSessions.night?1:0)) : (b.numberOfDives || 0);
+      if (b.routeType === 'caleta_from_playitas') caletaDivesCount += d;
+    });
+  }
+
+  // Determine tier price for Caleta from Playitas if applicable
+  let playitasCaletaTierPrice = null;
+  if (isPlayitas && caletaDivesCount > 0) {
+    const tiers = locationPricing?.tourist?.diveTiers || [];
+    for (let i = 0; i < tiers.length; i++) {
+      const currentTier = tiers[i];
+      const nextTier = tiers[i+1];
+      if (caletaDivesCount >= currentTier.dives && (!nextTier || caletaDivesCount < nextTier.dives)) {
+        playitasCaletaTierPrice = currentTier.price;
+        break;
+      }
+    }
+    if (playitasCaletaTierPrice == null && tiers.length > 0) playitasCaletaTierPrice = tiers[tiers.length-1].price;
+  }
+
   // Create breakdown for each booking
   const breakdown = stayBookings.map(booking => {
     const bookingDives = booking.diveSessions ? 
       (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
       (booking.numberOfDives || 0);
+
+    let perDive = pricePerDive;
+    let extra = 0;
+    if (isPlayitas) {
+      if (booking.routeType === 'playitas_local') perDive = 35;
+      if (booking.routeType === 'dive_trip') perDive = 45;
+      if (booking.routeType === 'caleta_from_playitas' && playitasCaletaTierPrice) perDive = playitasCaletaTierPrice;
+      if (booking.routeType === 'caleta_from_playitas' && bookingDives > 0) extra += 15; // transfer per day
+    }
     
     return {
       bookingId: booking.id,
       bookingDate: booking.bookingDate,
       dives: bookingDives,
-      pricePerDive,
-      totalForBooking: bookingDives * pricePerDive,
+      pricePerDive: perDive,
+      totalForBooking: bookingDives * perDive + extra,
       sessions: booking.diveSessions ? {
         morning: booking.diveSessions.morning,
         afternoon: booking.diveSessions.afternoon

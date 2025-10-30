@@ -27,6 +27,7 @@ const BookingForm = ({ bookingId = null }) => {
   const [formData, setFormData] = useState({
     customerId: '',
     locationId: '550e8400-e29b-41d4-a716-446655440001', // Caleta de Fuste
+    routeType: '', // playitas_local | caleta_from_playitas | dive_trip
     boatId: '',
     diveSiteId: '',
     bookingDate: new Date().toISOString().split('T')[0],
@@ -155,15 +156,58 @@ const BookingForm = ({ bookingId = null }) => {
       pricePerDive = cumulativePricing.pricePerDive;
     }
     
-    // Calculate base price using cumulative pricing
-    const basePrice = numberOfDives * pricePerDive;
-    
-    // Resolve location-specific pricing
+    // Determine route-based pricing overrides (especially for Las Playitas)
     const allLocations = dataService.getAll('locations') || [];
     const storedLocation = localStorage.getItem('dcms_current_location');
     const effectiveLocationId = formData.locationId || storedLocation || allLocations[0]?.id;
     const location = allLocations.find(l => l.id === effectiveLocationId);
     const locPricing = location?.pricing || {};
+
+    let basePrice = 0;
+    // If Playitas location, apply specific rules
+    if (location && location.name?.toLowerCase().includes('playitas')) {
+      const route = formData.routeType;
+      if (route === 'playitas_local') {
+        pricePerDive = 35;
+        basePrice = numberOfDives * pricePerDive;
+      } else if (route === 'dive_trip') {
+        pricePerDive = 45;
+        basePrice = numberOfDives * pricePerDive;
+      } else if (route === 'caleta_from_playitas') {
+        // Determine tier based on cumulative Caleta-from-Playitas dives for this customer
+        const tiers = locPricing.customerTypes?.tourist?.diveTiers || [];
+        let previousCaletaDives = 0;
+        if (formData.customerId) {
+          const customerBookings = dataService.getCustomerBookings(formData.customerId) || [];
+          customerBookings.forEach(b => {
+            if (b.routeType === 'caleta_from_playitas') {
+              previousCaletaDives += (b.diveSessions ? ((b.diveSessions.morning?1:0)+(b.diveSessions.afternoon?1:0)+(b.diveSessions.night?1:0)) : (b.numberOfDives || 0));
+            }
+          });
+        }
+        const totalCaletaDives = previousCaletaDives + numberOfDives;
+        let tierPrice = 45; // default to first tier
+        for (let i = 0; i < tiers.length; i++) {
+          const currentTier = tiers[i];
+          const nextTier = tiers[i+1];
+          if (totalCaletaDives >= currentTier.dives && (!nextTier || totalCaletaDives < nextTier.dives)) {
+            tierPrice = currentTier.price;
+            break;
+          }
+        }
+        pricePerDive = tierPrice;
+        basePrice = numberOfDives * pricePerDive;
+      } else {
+        // Fallback to cumulative pricing
+        basePrice = numberOfDives * pricePerDive;
+      }
+    } else {
+      // Non-Playitas or unknown: use cumulative pricing
+      basePrice = numberOfDives * pricePerDive;
+    }
+    
+    // Resolve location-specific pricing
+    // locPricing already resolved above
 
     // Calculate night dive surcharge
     let nightDiveSurcharge = 0;
@@ -181,7 +225,13 @@ const BookingForm = ({ bookingId = null }) => {
       addonPrice += (locPricing.addons?.personal_instructor ?? 100);
     }
     
-    const price = basePrice + nightDiveSurcharge + addonPrice;
+    // Transfer fee (Caleta from Playitas): €15 per booking day when any dives selected
+    let transferFee = 0;
+    if (formData.routeType === 'caleta_from_playitas' && numberOfDives > 0) {
+      transferFee = 15;
+    }
+
+    const price = basePrice + nightDiveSurcharge + addonPrice + transferFee;
     
     // Calculate equipment rental cost
     let equipmentRental = 0;
@@ -271,6 +321,7 @@ const BookingForm = ({ bookingId = null }) => {
       customerPayment,
       equipmentRental,
       diveInsurance,
+      transferFee,
       cumulativePricing // Store cumulative pricing info for display
     }));
   };
@@ -424,6 +475,23 @@ const BookingForm = ({ bookingId = null }) => {
                 </Typography>
               )}
             </Grid>
+
+          {/* Route Type for Las Playitas */}
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth>
+              <InputLabel>Route</InputLabel>
+              <Select
+                value={formData.routeType}
+                onChange={(e) => handleChange('routeType', e.target.value)}
+                label="Route"
+              >
+                <MenuItem value="">Default</MenuItem>
+                <MenuItem value="playitas_local">Playitas Local Dive (€35)</MenuItem>
+                <MenuItem value="caleta_from_playitas">Caleta Dive from Playitas (tiers + €15 transfer per day)</MenuItem>
+                <MenuItem value="dive_trip">Dive Trip (Gran Tarajal / La Lajita) (€45)</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
 
             {/* Cumulative Pricing Information */}
             {formData.customerId && formData.cumulativePricing && (
