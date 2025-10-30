@@ -23,6 +23,7 @@ import VolumeDiscountCalculator from './VolumeDiscountCalculator';
 
 const BookingForm = ({ bookingId = null }) => {
   const navigate = useNavigate();
+  const [settings, setSettings] = useState(null);
   const [formData, setFormData] = useState({
     customerId: '',
     locationId: '550e8400-e29b-41d4-a716-446655440001', // Caleta de Fuste
@@ -76,6 +77,7 @@ const BookingForm = ({ bookingId = null }) => {
     console.log('BookingForm mounted, bookingId:', bookingId);
     console.log('localStorage keys:', Object.keys(localStorage).filter(key => key.startsWith('dcms_')));
     loadData();
+    loadSettings();
     if (bookingId) {
       loadBooking();
     }
@@ -83,7 +85,7 @@ const BookingForm = ({ bookingId = null }) => {
 
   useEffect(() => {
     calculatePrice();
-  }, [formData.diveSessions, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment]);
+  }, [formData.diveSessions, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment, settings]);
 
   const loadData = () => {
     try {
@@ -110,6 +112,15 @@ const BookingForm = ({ bookingId = null }) => {
     }
   };
 
+  const loadSettings = () => {
+    try {
+      const settingsData = dataService.getAll('settings')[0];
+      setSettings(settingsData);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
   const loadBooking = () => {
     const booking = dataService.getById('bookings', bookingId);
     if (booking) {
@@ -118,6 +129,11 @@ const BookingForm = ({ bookingId = null }) => {
   };
 
   const calculatePrice = () => {
+    // Return early if settings not loaded yet
+    if (!settings) {
+      return;
+    }
+    
     // Calculate number of dives based on selected sessions
     const numberOfDives = (formData.diveSessions.morning ? 1 : 0) + (formData.diveSessions.afternoon ? 1 : 0) + (formData.diveSessions.night ? 1 : 0);
     
