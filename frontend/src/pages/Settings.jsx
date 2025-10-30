@@ -332,7 +332,93 @@ const Settings = () => {
   };
 
   return (
-    <Box>
+    <>
+      {/* User Dialog - moved outside main container */}
+      <Dialog 
+        open={userDialogOpen} 
+        onClose={() => {
+          console.log('Dialog close called');
+          setUserDialogOpen(false);
+        }} 
+        maxWidth="sm" 
+        fullWidth 
+        keepMounted
+        sx={{ zIndex: 9999 }}
+        PaperProps={{ sx: { zIndex: 9999 } }}
+      >
+        <DialogTitle>
+          {editingUser ? 'Edit User' : 'Add New User'}
+          <Typography variant="caption" color="error" sx={{ ml: 2 }}>
+            DEBUG: Dialog is open!
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Username"
+                value={userFormData.username}
+                onChange={(e) => setUserFormData({ ...userFormData, username: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Full Name"
+                value={userFormData.name}
+                onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={userFormData.email}
+                onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  value={userFormData.role}
+                  onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
+                  label="Role"
+                >
+                  <MenuItem value={USER_ROLES.ADMIN}>Admin</MenuItem>
+                  <MenuItem value={USER_ROLES.BOAT_PILOT}>Boat Pilot</MenuItem>
+                  <MenuItem value={USER_ROLES.GUIDE}>Guide</MenuItem>
+                  <MenuItem value={USER_ROLES.TRAINER}>Trainer</MenuItem>
+                  <MenuItem value={USER_ROLES.INTERN}>Intern</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={userFormData.isActive}
+                    onChange={(e) => setUserFormData({ ...userFormData, isActive: e.target.checked })}
+                  />
+                }
+                label="Active"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUserDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleSaveUser} variant="contained" disabled={!userFormData.username || !userFormData.name}>
+            {editingUser ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
         <SettingsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
         <Box>
@@ -445,103 +531,6 @@ const Settings = () => {
         </Typography>
       </Alert>
 
-      {/* User Dialog */}
-      <Dialog 
-        open={userDialogOpen} 
-        onClose={() => {
-          console.log('Dialog close called');
-          setUserDialogOpen(false);
-        }} 
-        maxWidth="sm" 
-        fullWidth 
-        keepMounted
-      >
-        <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Username"
-                value={userFormData.username}
-                onChange={(e) => setUserFormData({ ...userFormData, username: e.target.value })}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                value={userFormData.name}
-                onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={userFormData.email}
-                onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Role</InputLabel>
-                <Select
-                  value={userFormData.role}
-                  onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
-                  label="Role"
-                >
-                  <MenuItem value={USER_ROLES.ADMIN}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <AdminIcon /> Admin
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value={USER_ROLES.BOAT_PILOT}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <BoatIcon /> Boat Pilot
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value={USER_ROLES.GUIDE}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <GuideIcon /> Guide
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value={USER_ROLES.TRAINER}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TrainerIcon /> Trainer
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value={USER_ROLES.INTERN}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <InternIcon /> Intern
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={userFormData.isActive}
-                    onChange={(e) => setUserFormData({ ...userFormData, isActive: e.target.checked })}
-                  />
-                }
-                label="Active"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setUserDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveUser} variant="contained" disabled={!userFormData.username || !userFormData.name}>
-            {editingUser ? 'Update' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Snackbar
         open={snackbar.open}
@@ -688,7 +677,8 @@ const Settings = () => {
           )}
         </Box>
       )}
-    </Box>
+      </Box>
+    </>
   );
 };
 
