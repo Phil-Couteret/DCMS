@@ -463,9 +463,9 @@ const Settings = () => {
                     <MenuItem disabled>No locations available</MenuItem>
                   ) : (
                     <>
-                      <MenuItem value="__ALL__">All Locations (Global Access)</MenuItem>
+                      <MenuItem value="__ALL__" onClick={() => console.log('All Locations clicked')}>All Locations (Global Access)</MenuItem>
                       {locations.map((location) => (
-                        <MenuItem key={location.id} value={location.id}>
+                        <MenuItem key={location.id} value={location.id} onClick={() => console.log('Location clicked:', location.name)}>
                           {location.name}
                         </MenuItem>
                       ))}
