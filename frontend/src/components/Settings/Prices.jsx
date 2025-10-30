@@ -29,6 +29,8 @@ import dataService from '../../services/dataService';
 
 const Prices = () => {
   const [settings, setSettings] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [selectedLocationId, setSelectedLocationId] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -38,6 +40,7 @@ const Prices = () => {
 
   useEffect(() => {
     loadSettings();
+    loadLocations();
   }, []);
 
   const loadSettings = () => {
@@ -45,10 +48,24 @@ const Prices = () => {
     setSettings(settingsData);
   };
 
+  const loadLocations = () => {
+    const locs = dataService.getAll('locations') || [];
+    setLocations(locs);
+    const stored = localStorage.getItem('dcms_current_location');
+    const initial = stored && locs.find(l => l.id === stored) ? stored : (locs[0]?.id || '');
+    setSelectedLocationId(initial);
+  };
+
   const handleSave = () => {
     setLoading(true);
     try {
-      dataService.update('settings', settings.id, settings);
+      // Persist selected location pricing changes
+      if (selectedLocationId) {
+        const loc = locations.find(l => l.id === selectedLocationId);
+        if (loc) {
+          dataService.update('locations', loc.id, loc);
+        }
+      }
       setSnackbar({
         open: true,
         message: 'Prices updated successfully',
@@ -65,143 +82,130 @@ const Prices = () => {
     }
   };
 
+  // Access selected location pricing safely
+  const selectedLocation = locations.find(l => l.id === selectedLocationId);
+  const locPricing = selectedLocation?.pricing || {};
+
+  const updateLocationPricing = (updater) => {
+    setLocations(prev => prev.map(l => {
+      if (l.id !== selectedLocationId) return l;
+      const updatedPricing = updater(l.pricing || {});
+      return { ...l, pricing: updatedPricing };
+    }));
+  };
+
   const handleCustomerTypePriceChange = (customerType, field, value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        customerTypes: {
-          ...settings.prices.customerTypes,
-          [customerType]: {
-            ...settings.prices.customerTypes[customerType],
-            [field]: value
-          }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      customerTypes: {
+        ...(pricing.customerTypes || {}),
+        [customerType]: {
+          ...(pricing.customerTypes?.[customerType] || {}),
+          [field]: value
         }
       }
-    });
+    }));
   };
 
   const handleTouristTierChange = (index, field, value) => {
-    const newTiers = [...settings.prices.customerTypes.tourist.diveTiers];
+    const newTiers = [...(locPricing.customerTypes?.tourist?.diveTiers || [])];
     newTiers[index] = { ...newTiers[index], [field]: value };
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        customerTypes: {
-          ...settings.prices.customerTypes,
-          tourist: {
-            ...settings.prices.customerTypes.tourist,
-            diveTiers: newTiers
-          }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      customerTypes: {
+        ...(pricing.customerTypes || {}),
+        tourist: {
+          ...(pricing.customerTypes?.tourist || {}),
+          diveTiers: newTiers
         }
       }
-    });
+    }));
   };
 
   const addTouristTier = () => {
+    const current = locPricing.customerTypes?.tourist?.diveTiers || [];
     const newTier = {
-      dives: settings.prices.customerTypes.tourist.diveTiers.length + 1,
+      dives: current.length + 1,
       price: 38.00,
-      description: `${settings.prices.customerTypes.tourist.diveTiers.length + 1}+ dives`
+      description: `${current.length + 1}+ dives`
     };
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        customerTypes: {
-          ...settings.prices.customerTypes,
-          tourist: {
-            ...settings.prices.customerTypes.tourist,
-            diveTiers: [...settings.prices.customerTypes.tourist.diveTiers, newTier]
-          }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      customerTypes: {
+        ...(pricing.customerTypes || {}),
+        tourist: {
+          ...(pricing.customerTypes?.tourist || {}),
+          diveTiers: [...(pricing.customerTypes?.tourist?.diveTiers || []), newTier]
         }
       }
-    });
+    }));
   };
 
   const removeTouristTier = (index) => {
-    if (settings.prices.customerTypes.tourist.diveTiers.length > 1) {
-      const newTiers = settings.prices.customerTypes.tourist.diveTiers.filter((_, i) => i !== index);
-      setSettings({
-        ...settings,
-        prices: {
-          ...settings.prices,
-          customerTypes: {
-            ...settings.prices.customerTypes,
-            tourist: {
-              ...settings.prices.customerTypes.tourist,
-              diveTiers: newTiers
-            }
+    const current = locPricing.customerTypes?.tourist?.diveTiers || [];
+    if (current.length > 1) {
+      const newTiers = current.filter((_, i) => i !== index);
+      updateLocationPricing((pricing) => ({
+        ...pricing,
+        customerTypes: {
+          ...(pricing.customerTypes || {}),
+          tourist: {
+            ...(pricing.customerTypes?.tourist || {}),
+            diveTiers: newTiers
           }
         }
-      });
+      }));
     }
   };
 
   const handleEquipmentPriceChange = (equipment, value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        equipment: {
-          ...settings.prices.equipment,
-          [equipment]: parseFloat(value) || 0
-        }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      equipment: {
+        ...(pricing.equipment || {}),
+        [equipment]: parseFloat(value) || 0
       }
-    });
+    }));
   };
 
   const handleAddonPriceChange = (addon, value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        addons: {
-          ...settings.prices.addons,
-          [addon]: parseFloat(value) || 0
-        }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      addons: {
+        ...(pricing.addons || {}),
+        [addon]: parseFloat(value) || 0
       }
-    });
+    }));
   };
 
   const handleBeveragePriceChange = (beverage, value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        beverages: {
-          ...settings.prices.beverages,
-          [beverage]: parseFloat(value) || 0
-        }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      beverages: {
+        ...(pricing.beverages || {}),
+        [beverage]: parseFloat(value) || 0
       }
-    });
+    }));
   };
 
   const handleDiveInsurancePriceChange = (insuranceType, value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        diveInsurance: {
-          ...settings.prices.diveInsurance,
-          [insuranceType]: parseFloat(value) || 0
-        }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      diveInsurance: {
+        ...(pricing.diveInsurance || {}),
+        [insuranceType]: parseFloat(value) || 0
       }
-    });
+    }));
   };
 
   const handleTaxRateChange = (value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        tax: {
-          ...settings.prices.tax,
-          igic_rate: (parseFloat(value) || 0) / 100
-        }
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      tax: {
+        ...(pricing.tax || {}),
+        igic_rate: (parseFloat(value) || 0) / 100
       }
-    });
+    }));
   };
 
   if (!settings) {
@@ -216,6 +220,16 @@ const Prices = () => {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Manage all pricing configurations for dives, equipment, and services.
       </Typography>
+
+      {/* Location selector for pricing scope */}
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle1">Pricing Location:</Typography>
+        <TextField select size="small" value={selectedLocationId} onChange={(e) => setSelectedLocationId(e.target.value)}>
+          {locations.map(loc => (
+            <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
+          ))}
+        </TextField>
+      </Box>
 
       <Grid container spacing={3}>
         {/* Customer Type Pricing */}
@@ -250,7 +264,7 @@ const Prices = () => {
                         <TextField
                           label="Orientation Dive Price"
                           type="number"
-                          value={settings.prices.customerTypes.tourist.orientationDive || 32.00}
+                            value={locPricing.customerTypes?.tourist?.orientationDive || 32.00}
                           onChange={(e) => handleCustomerTypePriceChange('tourist', 'orientationDive', parseFloat(e.target.value) || 0)}
                           fullWidth
                           size="small"
@@ -271,7 +285,7 @@ const Prices = () => {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {settings.prices.customerTypes.tourist.diveTiers.map((tier, index) => (
+                            {(locPricing.customerTypes?.tourist?.diveTiers || []).map((tier, index) => (
                               <TableRow key={index}>
                                 <TableCell>
                                   <TextField
@@ -331,7 +345,7 @@ const Prices = () => {
                           <TextField
                             label="Price per Dive"
                             type="number"
-                            value={settings.prices.customerTypes.local.pricePerDive}
+                            value={locPricing.customerTypes?.local?.pricePerDive || 0}
                             onChange={(e) => handleCustomerTypePriceChange('local', 'pricePerDive', parseFloat(e.target.value) || 0)}
                             fullWidth
                             size="small"
@@ -349,7 +363,7 @@ const Prices = () => {
                           <TextField
                             label="Price per Dive"
                             type="number"
-                            value={settings.prices.customerTypes.recurrent.pricePerDive}
+                            value={locPricing.customerTypes?.recurrent?.pricePerDive || 0}
                             onChange={(e) => handleCustomerTypePriceChange('recurrent', 'pricePerDive', parseFloat(e.target.value) || 0)}
                             fullWidth
                             size="small"
@@ -373,7 +387,7 @@ const Prices = () => {
             <CardHeader title="Equipment Rental Prices" />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(settings.prices.equipment).map(([equipment, price]) => (
+                {Object.entries(locPricing.equipment || {}).map(([equipment, price]) => (
                   <Grid item xs={12} key={equipment}>
                     <TextField
                       label={equipment.replace(/_/g, ' ').toUpperCase()}
@@ -403,7 +417,7 @@ const Prices = () => {
             <CardHeader title="Addon Services" />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(settings.prices.addons).map(([addon, price]) => (
+                {Object.entries(locPricing.addons || {}).map(([addon, price]) => (
                   <Grid item xs={12} key={addon}>
                     <TextField
                       label={addon.replace(/_/g, ' ').toUpperCase()}
@@ -429,7 +443,7 @@ const Prices = () => {
             <CardHeader title="Beverage Prices" />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(settings.prices.beverages).map(([beverage, price]) => (
+                {Object.entries(locPricing.beverages || {}).map(([beverage, price]) => (
                   <Grid item xs={12} key={beverage}>
                     <TextField
                       label={beverage.replace(/_/g, ' ').toUpperCase()}
@@ -458,7 +472,7 @@ const Prices = () => {
             />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(settings.prices.diveInsurance).map(([insuranceType, price]) => (
+                {Object.entries(locPricing.diveInsurance || {}).map(([insuranceType, price]) => (
                   <Grid item xs={12} key={insuranceType}>
                     <TextField
                       label={insuranceType.replace(/_/g, ' ').toUpperCase()}
@@ -494,7 +508,7 @@ const Prices = () => {
                   <TextField
                     label="IGIC Rate"
                     type="number"
-                    value={(settings.prices.tax.igic_rate * 100).toFixed(1)}
+                    value={((locPricing.tax?.igic_rate || 0) * 100).toFixed(1)}
                     onChange={(e) => handleTaxRateChange(e.target.value)}
                     fullWidth
                     size="small"
@@ -507,7 +521,7 @@ const Prices = () => {
                 <Grid item xs={12}>
                   <TextField
                     label="Tax Label"
-                    value={settings.prices.tax.igic_label}
+                    value={locPricing.tax?.igic_label || ''}
                     onChange={(e) => setSettings({
                       ...settings,
                       prices: {
