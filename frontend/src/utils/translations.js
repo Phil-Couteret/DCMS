@@ -34,6 +34,21 @@ export const translations = {
         confirmed: 'Confirmado',
         completed: 'Completado',
         cancelled: 'Cancelado'
+      },
+      details: {
+        bookingId: 'ID de Reserva',
+        date: 'Fecha',
+        activity: 'Actividad',
+        diveSessions: 'Sesiones de buceo',
+        morning: 'Mañana (9:00)',
+        afternoon: 'Tarde (12:00)',
+        dives: 'inmersiones',
+        paymentMethod: 'Método de pago',
+        paymentStatus: 'Estado del pago',
+        ownEquipment: 'Equipo propio',
+        rentedEquipment: 'Equipo alquilado',
+        specialRequirements: 'Requisitos especiales',
+        notes: 'Notas'
       }
     },
     // Customers
@@ -45,7 +60,8 @@ export const translations = {
       search: 'Buscar clientes por nombre, email o teléfono...',
       edit: 'Editar',
       nationality: 'Nacionalidad',
-      type: 'Tipo'
+      type: 'Tipo',
+      unknown: 'Cliente desconocido'
     },
     // Equipment
     equipment: {
@@ -58,11 +74,45 @@ export const translations = {
       category: 'Categoría',
       size: 'Talla',
       serial: 'Número de Serie',
+      add: 'Añadir equipamiento',
+      addTitle: 'Añadir nuevo equipamiento',
+      editTitle: 'Editar equipamiento',
+      type: 'Tipo',
+      brand: 'Marca',
+      thickness: 'Grosor',
+      style: 'Estilo',
+      hood: 'Capucha',
       condition: {
         excellent: 'Excelente',
         good: 'Bueno',
         fair: 'Regular',
         poor: 'Pobre'
+      },
+      form: {
+        name: 'Nombre del equipamiento',
+        category: 'Categoría',
+        type: 'Tipo',
+        size: 'Talla',
+        serial: 'Número de Serie',
+        brand: 'Marca',
+        model: 'Modelo',
+        thickness: 'Grosor (para trajes)',
+        style: 'Estilo (para trajes)',
+        hood: 'Capucha (para trajes)',
+        condition: 'Condición',
+        notes: 'Notas'
+      },
+      categories: {
+        diving: 'Buceo',
+        snorkeling: 'Snorkel',
+        safety: 'Seguridad',
+        maintenance: 'Mantenimiento',
+        ownEquipment: 'Equipo propio'
+      },
+      bulk: {
+        title: 'Importación masiva de equipamiento',
+        description: 'Sube un archivo CSV con datos de equipamiento. El archivo debe tener las siguientes columnas:',
+        example: 'Ejemplo:'
       }
     },
     // Common
@@ -74,7 +124,14 @@ export const translations = {
       delete: 'Eliminar',
       loading: 'Cargando...',
       saved: 'Guardado con éxito',
-      error: 'Error'
+      error: 'Error',
+      status: 'Estado',
+      yes: 'Sí',
+      no: 'No',
+      close: 'Cerrar',
+      update: 'Actualizar',
+      add: 'Añadir',
+      bulkImport: 'Importación Masiva'
     }
   },
   en: {
@@ -105,6 +162,21 @@ export const translations = {
         confirmed: 'Confirmed',
         completed: 'Completed',
         cancelled: 'Cancelled'
+      },
+      details: {
+        bookingId: 'Booking ID',
+        date: 'Date',
+        activity: 'Activity',
+        diveSessions: 'Dive Sessions',
+        morning: 'Morning (9AM)',
+        afternoon: 'Afternoon (12PM)',
+        dives: 'dives',
+        paymentMethod: 'Payment Method',
+        paymentStatus: 'Payment Status',
+        ownEquipment: 'Own Equipment',
+        rentedEquipment: 'Rented Equipment',
+        specialRequirements: 'Special Requirements',
+        notes: 'Notes'
       }
     },
     customers: {
@@ -115,7 +187,8 @@ export const translations = {
       search: 'Search customers by name, email, or phone...',
       edit: 'Edit',
       nationality: 'Nationality',
-      type: 'Type'
+      type: 'Type',
+      unknown: 'Unknown Customer'
     },
     equipment: {
       title: 'Equipment',
@@ -127,11 +200,45 @@ export const translations = {
       category: 'Category',
       size: 'Size',
       serial: 'Serial Number',
+      add: 'Add Equipment',
+      addTitle: 'Add New Equipment',
+      editTitle: 'Edit Equipment',
+      type: 'Type',
+      brand: 'Brand',
+      thickness: 'Thickness',
+      style: 'Style',
+      hood: 'Hood',
       condition: {
         excellent: 'Excellent',
         good: 'Good',
         fair: 'Fair',
         poor: 'Poor'
+      },
+      form: {
+        name: 'Equipment Name',
+        category: 'Category',
+        type: 'Type',
+        size: 'Size',
+        serial: 'Serial Number',
+        brand: 'Brand',
+        model: 'Model',
+        thickness: 'Thickness (for wetsuits)',
+        style: 'Style (for wetsuits)',
+        hood: 'Hood (for wetsuits)',
+        condition: 'Condition',
+        notes: 'Notes'
+      },
+      categories: {
+        diving: 'Diving',
+        snorkeling: 'Snorkeling',
+        safety: 'Safety',
+        maintenance: 'Maintenance',
+        ownEquipment: 'Own Equipment'
+      },
+      bulk: {
+        title: 'Bulk Import Equipment',
+        description: 'Upload a CSV file with equipment data. The file should have the following columns:',
+        example: 'Example:'
       }
     },
     common: {
@@ -142,7 +249,14 @@ export const translations = {
       delete: 'Delete',
       loading: 'Loading...',
       saved: 'Saved successfully',
-      error: 'Error'
+      error: 'Error',
+      status: 'Status',
+      yes: 'Yes',
+      no: 'No',
+      close: 'Close',
+      update: 'Update',
+      add: 'Add',
+      bulkImport: 'Bulk Import'
     }
   },
   de: {
@@ -173,6 +287,21 @@ export const translations = {
         confirmed: 'Bestätigt',
         completed: 'Abgeschlossen',
         cancelled: 'Storniert'
+      },
+      details: {
+        bookingId: 'Buchungs-ID',
+        date: 'Datum',
+        activity: 'Aktivität',
+        diveSessions: 'Tauchgänge',
+        morning: 'Morgens (9:00)',
+        afternoon: 'Nachmittags (12:00)',
+        dives: 'Tauchgänge',
+        paymentMethod: 'Zahlungsmethode',
+        paymentStatus: 'Zahlungsstatus',
+        ownEquipment: 'Eigene Ausrüstung',
+        rentedEquipment: 'Geliehene Ausrüstung',
+        specialRequirements: 'Besondere Anforderungen',
+        notes: 'Notizen'
       }
     },
     customers: {
@@ -180,10 +309,11 @@ export const translations = {
       new: 'Neuer Kunde',
       noCustomers: 'Noch keine Kunden',
       createFirst: 'Ersten Kunden erstellen',
-      search: 'Kunden suchen...',
+      search: 'Kunden nach Name, E-Mail oder Telefon suchen...',
       edit: 'Bearbeiten',
       nationality: 'Nationalität',
-      type: 'Typ'
+      type: 'Typ',
+      unknown: 'Unbekannter Kunde'
     },
     equipment: {
       title: 'Ausrüstung',
@@ -195,11 +325,45 @@ export const translations = {
       category: 'Kategorie',
       size: 'Größe',
       serial: 'Seriennummer',
+      add: 'Ausrüstung hinzufügen',
+      addTitle: 'Neue Ausrüstung hinzufügen',
+      editTitle: 'Ausrüstung bearbeiten',
+      type: 'Typ',
+      brand: 'Marke',
+      thickness: 'Dicke',
+      style: 'Stil',
+      hood: 'Haube',
       condition: {
         excellent: 'Ausgezeichnet',
         good: 'Gut',
         fair: 'Zufriedenstellend',
         poor: 'Schlecht'
+      },
+      form: {
+        name: 'Ausrüstungsname',
+        category: 'Kategorie',
+        type: 'Typ',
+        size: 'Größe',
+        serial: 'Seriennummer',
+        brand: 'Marke',
+        model: 'Modell',
+        thickness: 'Dicke (für Neoprenanzüge)',
+        style: 'Stil (für Neoprenanzüge)',
+        hood: 'Haube (für Neoprenanzüge)',
+        condition: 'Zustand',
+        notes: 'Notizen'
+      },
+      categories: {
+        diving: 'Tauchen',
+        snorkeling: 'Schnorcheln',
+        safety: 'Sicherheit',
+        maintenance: 'Wartung',
+        ownEquipment: 'Eigene Ausrüstung'
+      },
+      bulk: {
+        title: 'Stapelimport Ausrüstung',
+        description: 'Laden Sie eine CSV-Datei mit Ausrüstungsdaten hoch. Die Datei sollte die folgenden Spalten enthalten:',
+        example: 'Beispiel:'
       }
     },
     common: {
@@ -210,7 +374,14 @@ export const translations = {
       delete: 'Löschen',
       loading: 'Laden...',
       saved: 'Erfolgreich gespeichert',
-      error: 'Fehler'
+      error: 'Fehler',
+      status: 'Status',
+      yes: 'Ja',
+      no: 'Nein',
+      close: 'Schließen',
+      update: 'Aktualisieren',
+      add: 'Hinzufügen',
+      bulkImport: 'Stapelimport'
     }
   }
 };

@@ -31,10 +31,12 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../utils/languageContext';
 import dataService from '../services/dataService';
 
 const Equipment = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [equipment, setEquipment] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -194,7 +196,7 @@ const Equipment = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          Equipment Tracking
+          {t('equipment.title')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
@@ -202,14 +204,14 @@ const Equipment = () => {
             startIcon={<UploadIcon />}
             onClick={() => setBulkDialogOpen(true)}
           >
-            Bulk Import
+            {t('common.bulkImport')}
           </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAddEquipment}
           >
-            Add Equipment
+            {t('equipment.add') || 'Add Equipment'}
           </Button>
         </Box>
       </Box>
@@ -218,7 +220,7 @@ const Equipment = () => {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="h6">Total Equipment</Typography>
+              <Typography variant="h6">{t('equipment.total')}</Typography>
               <Typography variant="h4" color="primary">
                 {totalCount}
               </Typography>
@@ -228,7 +230,7 @@ const Equipment = () => {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="h6">Available</Typography>
+              <Typography variant="h6">{t('equipment.available')}</Typography>
               <Typography variant="h4" color="success.main">
                 {availableCount}
               </Typography>
@@ -238,7 +240,7 @@ const Equipment = () => {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="h6">In Use</Typography>
+              <Typography variant="h6">{t('equipment.inUse')}</Typography>
               <Typography variant="h4" color="warning.main">
                 {totalCount - availableCount}
               </Typography>
@@ -249,7 +251,7 @@ const Equipment = () => {
 
       <TextField
         fullWidth
-        placeholder="Search equipment by name, size, or serial number..."
+        placeholder={t('equipment.search')}
         value={searchQuery}
         onChange={(e) => handleSearch(e.target.value)}
         sx={{ mb: 3 }}
@@ -266,7 +268,7 @@ const Equipment = () => {
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <EquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            {searchQuery ? 'No equipment found' : 'No equipment registered'}
+            {searchQuery ? (t('equipment.noResults') || 'No equipment found') : (t('equipment.noEquipment') || 'No equipment registered')}
           </Typography>
         </Box>
       ) : (
@@ -282,14 +284,14 @@ const Equipment = () => {
                     {item.isAvailable ? (
                       <Chip
                         icon={<AvailableIcon />}
-                        label="Available"
+                        label={t('equipment.available')}
                         color="success"
                         size="small"
                       />
                     ) : (
                       <Chip
                         icon={<UnavailableIcon />}
-                        label="In Use"
+                        label={t('equipment.inUse')}
                         color="error"
                         size="small"
                       />
@@ -297,36 +299,36 @@ const Equipment = () => {
                   </Box>
 
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Type: {item.type}
+                    {t('equipment.type') || 'Type'}: {item.type}
                   </Typography>
                   {item.brand && item.model && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Brand: {item.brand} {item.model}
+                      {t('equipment.brand') || 'Brand'}: {item.brand} {item.model}
                     </Typography>
                   )}
                   {item.size && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Size: {item.size}
+                      {t('equipment.size') || 'Size'}: {item.size}
                     </Typography>
                   )}
                   {item.thickness && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Thickness: {item.thickness}
+                      {t('equipment.thickness') || 'Thickness'}: {item.thickness}
                     </Typography>
                   )}
                   {item.style && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Style: {item.style}
+                      {t('equipment.style') || 'Style'}: {item.style}
                     </Typography>
                   )}
                   {item.hood && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Hood: {item.hood}
+                      {t('equipment.hood') || 'Hood'}: {item.hood}
                     </Typography>
                   )}
                   {item.serialNumber && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Serial: {item.serialNumber}
+                      {t('equipment.serial') || 'Serial'}: {item.serialNumber}
                     </Typography>
                   )}
                   <Box sx={{ mt: 2 }}>
@@ -343,7 +345,7 @@ const Equipment = () => {
                       startIcon={<EditIcon />}
                       onClick={() => handleEditEquipment(item)}
                     >
-                      Edit
+                      {t('common.edit')}
                     </Button>
                     <Button
                       size="small"
@@ -352,7 +354,7 @@ const Equipment = () => {
                       startIcon={<DeleteIcon />}
                       onClick={() => handleDeleteEquipment(item.id)}
                     >
-                      Delete
+                      {t('common.delete')}
                     </Button>
                   </Box>
                 </CardContent>
@@ -365,14 +367,14 @@ const Equipment = () => {
       {/* Add/Edit Equipment Dialog */}
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
-          {editingEquipment ? 'Edit Equipment' : 'Add New Equipment'}
+          {editingEquipment ? (t('equipment.editTitle') || 'Edit Equipment') : (t('equipment.addTitle') || 'Add New Equipment')}
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Equipment Name *"
+                label={(t('equipment.form.name') || 'Equipment Name') + ' *'}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -380,22 +382,22 @@ const Equipment = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required>
-                <InputLabel>Category</InputLabel>
+                <InputLabel>{t('equipment.form.category') || 'Category'}</InputLabel>
                 <Select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 >
-                  <MenuItem value="diving">Diving</MenuItem>
-                  <MenuItem value="snorkeling">Snorkeling</MenuItem>
-                  <MenuItem value="safety">Safety</MenuItem>
-                  <MenuItem value="maintenance">Maintenance</MenuItem>
-                  <MenuItem value="own_equipment">Own Equipment</MenuItem>
+                  <MenuItem value="diving">{t('equipment.categories.diving') || 'Diving'}</MenuItem>
+                  <MenuItem value="snorkeling">{t('equipment.categories.snorkeling') || 'Snorkeling'}</MenuItem>
+                  <MenuItem value="safety">{t('equipment.categories.safety') || 'Safety'}</MenuItem>
+                  <MenuItem value="maintenance">{t('equipment.categories.maintenance') || 'Maintenance'}</MenuItem>
+                  <MenuItem value="own_equipment">{t('equipment.categories.ownEquipment') || 'Own Equipment'}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required>
-                <InputLabel>Type</InputLabel>
+                <InputLabel>{t('equipment.form.type') || 'Type'}</InputLabel>
                 <Select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
@@ -418,7 +420,7 @@ const Equipment = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Size"
+                label={t('equipment.form.size') || 'Size'}
                 value={formData.size}
                 onChange={(e) => setFormData({ ...formData, size: e.target.value })}
                 placeholder="e.g., M, L, XL, 12L"
@@ -427,7 +429,7 @@ const Equipment = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Serial Number"
+                label={t('equipment.form.serial') || 'Serial Number'}
                 value={formData.serialNumber}
                 onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
               />
@@ -435,7 +437,7 @@ const Equipment = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Brand"
+                label={t('equipment.form.brand') || 'Brand'}
                 value={formData.brand}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                 placeholder="e.g., Mares, Cressi, Aqualung"
@@ -444,7 +446,7 @@ const Equipment = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Model"
+                label={t('equipment.form.model') || 'Model'}
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 placeholder="e.g., Avant Quattro, Pro Light"
@@ -453,7 +455,7 @@ const Equipment = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Thickness (for wetsuits)"
+                label={t('equipment.form.thickness') || 'Thickness (for wetsuits)'}
                 value={formData.thickness}
                 onChange={(e) => setFormData({ ...formData, thickness: e.target.value })}
                 placeholder="e.g., 3mm, 5mm, 7mm"
@@ -462,7 +464,7 @@ const Equipment = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Style (for wetsuits)"
+                label={t('equipment.form.style') || 'Style (for wetsuits)'}
                 value={formData.style}
                 onChange={(e) => setFormData({ ...formData, style: e.target.value })}
                 placeholder="e.g., Shorty, Full, Semi-Dry"
@@ -471,7 +473,7 @@ const Equipment = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Hood (for wetsuits)"
+                label={t('equipment.form.hood') || 'Hood (for wetsuits)'}
                 value={formData.hood}
                 onChange={(e) => setFormData({ ...formData, hood: e.target.value })}
                 placeholder="e.g., Yes, No"
@@ -479,22 +481,22 @@ const Equipment = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Condition</InputLabel>
+                <InputLabel>{t('equipment.form.condition') || 'Condition'}</InputLabel>
                 <Select
                   value={formData.condition}
                   onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
                 >
-                  <MenuItem value="excellent">Excellent</MenuItem>
-                  <MenuItem value="good">Good</MenuItem>
-                  <MenuItem value="fair">Fair</MenuItem>
-                  <MenuItem value="poor">Poor</MenuItem>
+                  <MenuItem value="excellent">{t('equipment.condition.excellent') || 'Excellent'}</MenuItem>
+                  <MenuItem value="good">{t('equipment.condition.good') || 'Good'}</MenuItem>
+                  <MenuItem value="fair">{t('equipment.condition.fair') || 'Fair'}</MenuItem>
+                  <MenuItem value="poor">{t('equipment.condition.poor') || 'Poor'}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Notes"
+                label={t('equipment.form.notes') || 'Notes'}
                 multiline
                 rows={3}
                 value={formData.notes}
@@ -505,19 +507,19 @@ const Equipment = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAddDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleSaveEquipment} variant="contained">
-            {editingEquipment ? 'Update' : 'Add'} Equipment
+            {editingEquipment ? t('common.update') : t('common.add')} {t('nav.equipment')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Bulk Import Dialog */}
       <Dialog open={bulkDialogOpen} onClose={() => setBulkDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Bulk Import Equipment</DialogTitle>
+        <DialogTitle>{t('equipment.bulk.title') || 'Bulk Import Equipment'}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            Upload a CSV file with equipment data. The file should have the following columns:
+            {t('equipment.bulk.description') || 'Upload a CSV file with equipment data. The file should have the following columns:'}
           </Typography>
           <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
             <Typography variant="body2" component="pre">
@@ -525,7 +527,7 @@ const Equipment = () => {
             </Typography>
           </Box>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            Example:
+            {t('equipment.bulk.example') || 'Example:'}
           </Typography>
           <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
             <Typography variant="body2" component="pre">
@@ -542,7 +544,7 @@ const Equipment = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBulkDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setBulkDialogOpen(false)}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>
 

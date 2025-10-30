@@ -19,9 +19,11 @@ import {
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import BookingForm from '../components/Booking/BookingForm';
 import dataService from '../services/dataService';
+import { useTranslation } from '../utils/languageContext';
 
 const Bookings = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { id } = useParams();
   const location = useLocation();
   
@@ -46,7 +48,7 @@ const Bookings = () => {
 
   const getCustomerName = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
-    return customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown Customer';
+    return customer ? `${customer.firstName} ${customer.lastName}` : t('customers.unknown') || 'Unknown Customer';
   };
 
   if (isNewMode || id) {
@@ -68,14 +70,14 @@ const Bookings = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">
-          Bookings
+          {t('bookings.title')}
         </Typography>
         <Button 
           variant="contained" 
           startIcon={<AddIcon />}
           onClick={() => navigate('/bookings/new')}
         >
-          New Booking
+          {t('bookings.new')}
         </Button>
       </Box>
 
@@ -83,17 +85,17 @@ const Bookings = () => {
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <EventIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No bookings yet
+            {t('bookings.noBookings')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Create your first booking to get started
+            {t('bookings.createFirst')}
           </Typography>
           <Button 
             variant="contained" 
             startIcon={<AddIcon />}
             onClick={() => navigate('/bookings/new')}
           >
-            Create First Booking
+            {t('bookings.createFirst')}
           </Button>
         </Box>
       ) : (
@@ -137,31 +139,31 @@ const Bookings = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Booking ID:</strong> {booking.id.substring(0, 8)}...
+                        <strong>{t('bookings.details.bookingId') || 'Booking ID'}:</strong> {booking.id.substring(0, 8)}...
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Date:</strong> {booking.bookingDate}
+                        <strong>{t('bookings.details.date') || 'Date'}:</strong> {booking.bookingDate}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Activity:</strong> {booking.activityType}
+                        <strong>{t('bookings.details.activity') || 'Activity'}:</strong> {booking.activityType}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Dive Sessions:</strong> {
+                        <strong>{t('bookings.details.diveSessions') || 'Dive Sessions'}:</strong> {
                           booking.diveSessions ? 
-                            (booking.diveSessions.morning ? 'Morning (9AM)' : '') + 
+                            (booking.diveSessions.morning ? t('bookings.details.morning') || 'Morning (9AM)' : '') + 
                             (booking.diveSessions.morning && booking.diveSessions.afternoon ? ', ' : '') +
-                            (booking.diveSessions.afternoon ? 'Afternoon (12PM)' : '') :
-                            (booking.numberOfDives || 1) + ' dives'
+                            (booking.diveSessions.afternoon ? t('bookings.details.afternoon') || 'Afternoon (12PM)' : '') :
+                            `${(booking.numberOfDives || 1)} ${t('bookings.details.dives') || 'dives'}`
                         }
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Status:</strong> {booking.status}
+                        <strong>{t('common.status') || 'Status'}:</strong> {t(`bookings.status.${booking.status}`) || booking.status}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Payment Method:</strong> {booking.paymentMethod || 'N/A'}
+                        <strong>{t('bookings.details.paymentMethod') || 'Payment Method'}:</strong> {booking.paymentMethod || 'N/A'}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>Payment Status:</strong> {booking.paymentStatus || 'pending'}
+                        <strong>{t('bookings.details.paymentStatus') || 'Payment Status'}:</strong> {booking.paymentStatus || 'pending'}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -170,13 +172,13 @@ const Bookings = () => {
                       </Typography>
                       {booking.ownEquipment && (
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          <strong>Own Equipment:</strong> Yes
+                          <strong>{t('bookings.details.ownEquipment') || 'Own Equipment'}:</strong> {t('common.yes')}
                         </Typography>
                       )}
                       {booking.rentedEquipment && Object.values(booking.rentedEquipment).some(v => v) && (
                         <Box>
                           <Typography variant="body2" color="text.secondary" gutterBottom>
-                            <strong>Rented Equipment:</strong>
+                            <strong>{t('bookings.details.rentedEquipment') || 'Rented Equipment'}:</strong>
                           </Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
                             {Object.entries(booking.rentedEquipment).map(([eq, rented]) => 
@@ -194,12 +196,12 @@ const Bookings = () => {
                       )}
                       {booking.specialRequirements && (
                         <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
-                          <strong>Special Requirements:</strong> {booking.specialRequirements}
+                          <strong>{t('bookings.details.specialRequirements') || 'Special Requirements'}:</strong> {booking.specialRequirements}
                         </Typography>
                       )}
                       {booking.notes && (
                         <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
-                          <strong>Notes:</strong> {booking.notes}
+                          <strong>{t('bookings.details.notes') || 'Notes'}:</strong> {booking.notes}
                         </Typography>
                       )}
                     </Grid>
@@ -210,7 +212,7 @@ const Bookings = () => {
                         startIcon={<EditIcon />}
                         onClick={() => navigate(`/bookings/${booking.id}`)}
                       >
-                        Edit Booking
+                        {t('common.edit')}
                       </Button>
                     </Grid>
                   </Grid>

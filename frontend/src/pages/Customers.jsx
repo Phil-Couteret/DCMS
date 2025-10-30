@@ -28,10 +28,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerForm from '../components/Customer/CustomerForm';
 import dataService from '../services/dataService';
 import { useAuth } from '../utils/authContext';
+import { useTranslation } from '../utils/languageContext';
 
 const Customers = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode');
   const customerId = searchParams.get('id');
@@ -73,7 +75,7 @@ const Customers = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">
-          Customers
+          {t('customers.title')}
         </Typography>
         {isAdmin() && (
           <Button
@@ -81,7 +83,7 @@ const Customers = () => {
             startIcon={<AddIcon />}
             onClick={() => navigate('/customers?mode=new')}
           >
-            New Customer
+            {t('customers.new')}
           </Button>
         )}
       </Box>
@@ -89,7 +91,7 @@ const Customers = () => {
       <Box sx={{ mb: 3 }}>
         <TextField
           fullWidth
-          placeholder="Search customers by name, email, or phone..."
+          placeholder={t('customers.search')}
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
           InputProps={{
@@ -106,19 +108,19 @@ const Customers = () => {
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <PeopleIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            {searchQuery ? 'No results found' : 'No customers yet'}
+            {searchQuery ? (t('customers.noResults') || 'No results found') : t('customers.noCustomers')}
           </Typography>
           {!searchQuery && (
             <>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Create your first customer to get started
+                {t('customers.createFirst')}
               </Typography>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/customers?mode=new')}
               >
-                Create First Customer
+                {t('customers.createFirst')}
               </Button>
             </>
           )}
@@ -337,7 +339,7 @@ const Customers = () => {
                         startIcon={<EditIcon />}
                         onClick={() => navigate(`/customers?id=${customer.id}`)}
                       >
-                        Edit Customer
+                        {t('common.edit')}
                       </Button>
                     </Grid>
                   </Grid>
