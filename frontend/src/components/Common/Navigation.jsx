@@ -24,7 +24,8 @@ import {
   Add as AddIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
-  Receipt as StaysIcon
+  Receipt as StaysIcon,
+  AttachMoney as PricesIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useAuth, USER_ROLES } from '../../utils/authContext';
@@ -45,6 +46,7 @@ const Navigation = () => {
     { text: 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
     { text: 'Customers', icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
     { text: 'Equipment', icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
+    { text: 'Prices', icon: <PricesIcon />, path: '/prices', permission: 'settings' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
   ];
 

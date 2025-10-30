@@ -79,7 +79,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
 
   const addBeverage = () => {
     if (beverageQuantity > 0 && settings) {
-      const beveragePrice = settings.prices.beverages.beverage || 1.8;
+      const beveragePrice = settings.prices.beverages.water || 1.8;
       const newBeverage = {
         type: 'beverage',
         quantity: beverageQuantity,
@@ -148,7 +148,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
     }
 
     const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal;
-    const tax = subtotal * 0.21; // 21% IVA (Spanish VAT)
+    const tax = subtotal * (settings.prices.tax.iva_rate || 0.21);
     const total = subtotal + tax;
 
     const bill = {

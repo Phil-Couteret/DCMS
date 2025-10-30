@@ -1434,19 +1434,19 @@ export const initialMockData = {
   pricingConfig: [
     {
       tiers: [
-        { dives: 1, price: 46 },
-        { dives: 2, price: 44 },
-        { dives: 3, price: 44 },
-        { dives: 4, price: 42 },
-        { dives: 5, price: 42 },
-        { dives: 6, price: 42 },
-        { dives: 7, price: 40 },
-        { dives: 8, price: 40 },
-        { dives: 9, price: 38 }
+        { dives: 1, price: 46.00 },
+        { dives: 2, price: 44.00 },
+        { dives: 3, price: 42.00 },
+        { dives: 4, price: 40.00 },
+        { dives: 5, price: 38.00 },
+        { dives: 6, price: 36.00 },
+        { dives: 7, price: 34.00 },
+        { dives: 8, price: 32.00 },
+        { dives: 9, price: 30.00 }
       ],
       addons: {
-        nightDive: 20,
-        personalInstructor: 100
+        nightDive: 20.00,
+        personalInstructor: 100.00
       }
     }
   ],
@@ -1474,30 +1474,60 @@ export const initialMockData = {
         VDST: 'https://www.vdst.de/zertifikatspruefung'
       },
       prices: {
-        beverages: {
-          beverage: 1.8      // All beverages at €1.80 each
-        },
+        // Dive pricing tiers (volume discounts)
+        diveTiers: [
+          { dives: 1, price: 46.00, description: "1 dive" },
+          { dives: 2, price: 44.00, description: "2 dives" },
+          { dives: 3, price: 42.00, description: "3 dives" },
+          { dives: 4, price: 40.00, description: "4 dives" },
+          { dives: 5, price: 38.00, description: "5 dives" },
+          { dives: 6, price: 36.00, description: "6 dives" },
+          { dives: 7, price: 34.00, description: "7 dives" },
+          { dives: 8, price: 32.00, description: "8 dives" },
+          { dives: 9, price: 30.00, description: "9+ dives" }
+        ],
+        
+        // Equipment rental prices
         equipment: {
-          complete_equipment: 13,
-          suit: 5,
-          bcd: 5,
-          regulator: 5,
-          torch: 5,
-          computer: 3,
-          uw_camera: 20,
-          mask: 0, // Free
-          fins: 0, // Free
-          boots: 0  // Free
+          complete_equipment: 13.00,  // Full equipment set (first 8 dives only)
+          suit: 5.00,                 // Wetsuit
+          bcd: 5.00,                  // Buoyancy Control Device
+          regulator: 5.00,            // Regulator
+          torch: 5.00,                // Underwater torch
+          computer: 3.00,             // Dive computer
+          uw_camera: 20.00,           // Underwater camera
+          mask: 0.00,                 // Free (included in dive price)
+          fins: 0.00,                 // Free (included in dive price)
+          boots: 0.00                 // Free (included in dive price)
         },
+        
+        // Addon services
         addons: {
-          night_dive: 20,
-          personal_instructor: 100
+          night_dive: 20.00,          // Night dive surcharge
+          personal_instructor: 100.00 // Personal instructor
         },
+        
+        // Beverages
+        beverages: {
+          water: 1.80,                // Water
+          soft_drinks: 1.80,          // Soft drinks
+          beer: 1.80,                 // Beer
+          coffee: 1.80,               // Coffee
+          tea: 1.80                   // Tea
+        },
+        
+        // Other services (variable pricing)
         other: {
-          clothes: 0, // Variable price
-          souvenirs: 0, // Variable price
-          photos: 0, // Variable price
-          tips: 0 // Variable price
+          clothes: 0.00,              // Variable price
+          souvenirs: 0.00,            // Variable price
+          photos: 0.00,               // Variable price
+          tips: 0.00                  // Variable price
+        },
+        
+        // Tax settings
+        tax: {
+          iva_rate: 0.21,             // 21% IVA (Spanish VAT)
+          iva_label: "IVA (21%)"      // Tax label
         }
       }
     }
