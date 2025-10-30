@@ -98,6 +98,11 @@ const Navigation = () => {
       if (location.pathname === '/') {
         navigate('/bookings');
       }
+      try {
+        window.dispatchEvent(new CustomEvent('dcms_location_changed', { detail: { locationId: newLocationId } }));
+      } catch (_) {
+        // ignore
+      }
     }
   };
 

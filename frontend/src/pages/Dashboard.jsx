@@ -79,6 +79,18 @@ const Dashboard = () => {
     const scopeFlag = localStorage.getItem('dcms_dashboard_scope');
     const wantGlobal = scopeFlag === 'global';
     setTabScope(wantGlobal ? 'all' : (stored || locs[0]?.id || 'all'));
+    const onLocChange = (e) => {
+      const newLoc = (e && e.detail && e.detail.locationId) || localStorage.getItem('dcms_current_location');
+      setSelectedLocationId(newLoc || null);
+      const scope = localStorage.getItem('dcms_dashboard_scope');
+      setTabScope(scope === 'global' ? 'all' : (newLoc || 'all'));
+    };
+    window.addEventListener('dcms_location_changed', onLocChange);
+    window.addEventListener('storage', onLocChange);
+    return () => {
+      window.removeEventListener('dcms_location_changed', onLocChange);
+      window.removeEventListener('storage', onLocChange);
+    };
   }, [currentUser]);
 
   useEffect(() => {

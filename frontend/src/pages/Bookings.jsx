@@ -39,6 +39,19 @@ const Bookings = () => {
     }
   }, [isNewMode, id]);
 
+  // Refresh list when location changes from top tabs
+  useEffect(() => {
+    const onLocChange = () => {
+      if (!isNewMode && !id) loadBookings();
+    };
+    window.addEventListener('dcms_location_changed', onLocChange);
+    window.addEventListener('storage', onLocChange);
+    return () => {
+      window.removeEventListener('dcms_location_changed', onLocChange);
+      window.removeEventListener('storage', onLocChange);
+    };
+  }, [isNewMode, id]);
+
   const loadBookings = () => {
     const allBookings = dataService.getAll('bookings');
     const currentLocationId = localStorage.getItem('dcms_current_location');
