@@ -42,10 +42,12 @@ import {
   getTopCustomers
 } from '../utils/chartData';
 import { useAuth } from '../utils/authContext';
+import { useTranslation } from '../utils/languageContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, currentUser } = useAuth();
+  const { t } = useTranslation();
   const [stats, setStats] = useState({
     totalBookings: 0,
     todaysBookings: 0,
@@ -167,7 +169,7 @@ const Dashboard = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Dashboard
+        {t('dashboard.title')}
       </Typography>
       {/* Dashboard scope tabs: Global + per-location */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
@@ -198,7 +200,7 @@ const Dashboard = () => {
       <Grid container spacing={3} sx={{ mt: 2 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard 
-            title="Today's Bookings" 
+            title={t('dashboard.todayBookings')} 
             value={stats.todaysBookings}
             icon={<EventIcon />}
             color="primary"
@@ -207,7 +209,7 @@ const Dashboard = () => {
         {isAdmin() && (
           <Grid item xs={12} sm={6} md={3}>
             <StatCard 
-              title="Today's Revenue" 
+              title={t('dashboard.todayRevenue')} 
               value={`€${stats.todaysRevenue.toFixed(2)}`}
               icon={<EuroIcon />}
               color="success"
@@ -216,7 +218,7 @@ const Dashboard = () => {
         )}
         <Grid item xs={12} sm={6} md={3}>
           <StatCard 
-            title="Total Bookings" 
+            title={t('dashboard.totalBookings')} 
             value={stats.totalBookings}
             icon={<TrendingUpIcon />}
             color="info"
@@ -225,7 +227,7 @@ const Dashboard = () => {
         {isAdmin() && (
           <Grid item xs={12} sm={6} md={3}>
             <StatCard 
-              title="Total Revenue" 
+              title={t('dashboard.totalRevenue')} 
               value={`€${stats.totalRevenue.toFixed(2)}`}
               icon={<EuroIcon />}
               color="warning"

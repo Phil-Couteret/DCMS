@@ -30,6 +30,7 @@ import {
   AttachMoney as PricesIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslation } from '../../utils/languageContext';
 import { useAuth, USER_ROLES } from '../../utils/authContext';
 import dataService from '../../services/dataService';
 
@@ -39,19 +40,20 @@ const Navigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, logout, canAccess } = useAuth();
+  const { t } = useTranslation();
   const [anchorEl, setAnchorEl] = useState(null);
   const [locations, setLocations] = useState([]);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
 
   // Define menu items with required permissions
   const allMenuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
-    { text: 'Bookings', icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
-    { text: 'New Booking', icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
+    { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
+    { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
+    { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
     { text: 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
-    { text: 'Customers', icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
-    { text: 'Equipment', icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
+    { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
+    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
+    { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
   ];
 
   // Filter menu items based on user permissions
