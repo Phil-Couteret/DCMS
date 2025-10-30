@@ -427,10 +427,13 @@ const Settings = () => {
                 <Select
                   multiple
                   value={userFormData.locationAccess}
+                  onOpen={() => console.log('Select opened')}
+                  onClose={() => console.log('Select closed')}
                   onChange={(e) => {
                     const selected = e.target.value;
                     console.log('Select onChange - selected:', selected);
                     console.log('Select onChange - current userFormData.locationAccess:', userFormData.locationAccess);
+                    
                     // If "__ALL__" is selected, clear other selections
                     if (selected.includes('__ALL__')) {
                       console.log('Setting to __ALL__ only');
@@ -442,8 +445,7 @@ const Settings = () => {
                   }}
                   label="Location Access"
                   MenuProps={{
-                    sx: { zIndex: 99999 },
-                    container: () => document.body
+                    sx: { zIndex: 99999 }
                   }}
                   renderValue={(selected) => {
                     console.log('renderValue - selected:', selected);
