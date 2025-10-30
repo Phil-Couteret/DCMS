@@ -72,25 +72,24 @@ const Settings = () => {
   
   // User Management state
   const [users, setUsers] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   
-  // Debug dialog state
-  useEffect(() => {
-    console.log('userDialogOpen state changed:', userDialogOpen);
-  }, [userDialogOpen]);
   const [editingUser, setEditingUser] = useState(null);
   const [userFormData, setUserFormData] = useState({
     username: '',
     name: '',
     email: '',
     role: USER_ROLES.GUIDE,
-    isActive: true
+    isActive: true,
+    locationAccess: [] // Array of location IDs
   });
 
   useEffect(() => {
     loadSettings();
     if (isAdmin()) {
       loadUsers();
+      loadLocations();
     }
   }, [isAdmin]);
 
@@ -181,17 +180,25 @@ const Settings = () => {
     }
   };
 
+  const loadLocations = () => {
+    try {
+      const allLocations = dataService.getAll('locations');
+      setLocations(allLocations);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+    }
+  };
+
   const handleAddUser = () => {
-    console.log('handleAddUser called');
     setEditingUser(null);
     setUserFormData({
       username: '',
       name: '',
       email: '',
       role: USER_ROLES.GUIDE,
-      isActive: true
+      isActive: true,
+      locationAccess: []
     });
-    console.log('Setting userDialogOpen to true');
     setUserDialogOpen(true);
   };
 
@@ -202,7 +209,8 @@ const Settings = () => {
       name: user.name,
       email: user.email || '',
       role: user.role,
-      isActive: user.isActive
+      isActive: user.isActive,
+      locationAccess: user.locationAccess || []
     });
     setUserDialogOpen(true);
   };
@@ -336,10 +344,7 @@ const Settings = () => {
       {/* User Dialog - moved outside main container */}
       <Dialog 
         open={userDialogOpen} 
-        onClose={() => {
-          console.log('Dialog close called');
-          setUserDialogOpen(false);
-        }} 
+        onClose={() => setUserDialogOpen(false)} 
         maxWidth="sm" 
         fullWidth 
         keepMounted
@@ -348,9 +353,6 @@ const Settings = () => {
       >
         <DialogTitle>
           {editingUser ? 'Edit User' : 'Add New User'}
-          <Typography variant="caption" color="error" sx={{ ml: 2 }}>
-            DEBUG: Dialog is open!
-          </Typography>
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -396,6 +398,34 @@ const Settings = () => {
                   <MenuItem value={USER_ROLES.INTERN}>Intern</MenuItem>
                 </Select>
               </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Location Access</InputLabel>
+                <Select
+                  multiple
+                  value={userFormData.locationAccess}
+                  onChange={(e) => setUserFormData({ ...userFormData, locationAccess: e.target.value })}
+                  label="Location Access"
+                  renderValue={(selected) => {
+                    if (selected.length === 0) return 'All Locations (Global Access)';
+                    if (selected.length === locations.length) return 'All Locations';
+                    return selected.map(locId => locations.find(l => l.id === locId)?.name).join(', ');
+                  }}
+                >
+                  {locations.map((location) => (
+                    <MenuItem key={location.id} value={location.id}>
+                      {location.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {userFormData.locationAccess.length === 0 
+                  ? 'No locations selected = Global access to all locations'
+                  : `Selected ${userFormData.locationAccess.length} location(s)`
+                }
+              </Typography>
             </Grid>
             <Grid item xs={12}>
               <FormControlLabel
@@ -579,22 +609,9 @@ const Settings = () => {
                     <Button
                       variant="contained"
                       startIcon={<AddIcon />}
-                      onClick={() => {
-                        console.log('Add User button clicked');
-                        handleAddUser();
-                      }}
+                      onClick={handleAddUser}
                     >
                       Add User
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      onClick={() => {
-                        console.log('Test dialog button clicked');
-                        setUserDialogOpen(true);
-                      }}
-                      sx={{ ml: 1 }}
-                    >
-                      Test Dialog
                     </Button>
                   </Box>
 
