@@ -73,6 +73,11 @@ const Settings = () => {
   // User Management state
   const [users, setUsers] = useState([]);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
+  
+  // Debug dialog state
+  useEffect(() => {
+    console.log('userDialogOpen state changed:', userDialogOpen);
+  }, [userDialogOpen]);
   const [editingUser, setEditingUser] = useState(null);
   const [userFormData, setUserFormData] = useState({
     username: '',
@@ -177,6 +182,7 @@ const Settings = () => {
   };
 
   const handleAddUser = () => {
+    console.log('handleAddUser called');
     setEditingUser(null);
     setUserFormData({
       username: '',
@@ -185,6 +191,7 @@ const Settings = () => {
       role: USER_ROLES.GUIDE,
       isActive: true
     });
+    console.log('Setting userDialogOpen to true');
     setUserDialogOpen(true);
   };
 
@@ -439,7 +446,16 @@ const Settings = () => {
       </Alert>
 
       {/* User Dialog */}
-      <Dialog open={userDialogOpen} onClose={() => setUserDialogOpen(false)} maxWidth="sm" fullWidth keepMounted>
+      <Dialog 
+        open={userDialogOpen} 
+        onClose={() => {
+          console.log('Dialog close called');
+          setUserDialogOpen(false);
+        }} 
+        maxWidth="sm" 
+        fullWidth 
+        keepMounted
+      >
         <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -574,9 +590,22 @@ const Settings = () => {
                     <Button
                       variant="contained"
                       startIcon={<AddIcon />}
-                      onClick={handleAddUser}
+                      onClick={() => {
+                        console.log('Add User button clicked');
+                        handleAddUser();
+                      }}
                     >
                       Add User
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        console.log('Test dialog button clicked');
+                        setUserDialogOpen(true);
+                      }}
+                      sx={{ ml: 1 }}
+                    >
+                      Test Dialog
                     </Button>
                   </Box>
 
