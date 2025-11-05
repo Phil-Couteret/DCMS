@@ -29,7 +29,8 @@ import {
   Logout as LogoutIcon,
   Person as PersonIcon,
   Receipt as StaysIcon,
-  AttachMoney as PricesIcon
+  AttachMoney as PricesIcon,
+  DirectionsBoat as BoatPrepIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from '../../utils/languageContext';
@@ -56,11 +57,20 @@ const Navigation = () => {
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' }
   ];
+  // Get current location's boats to determine menu text
+  const currentLocationId = selectedLocationId || localStorage.getItem('dcms_current_location');
+  const boatsForLocation = React.useMemo(() => {
+    if (!currentLocationId) return [];
+    return (dataService.getAll('boats') || []).filter(b => b.locationId === currentLocationId && b.isActive);
+  }, [currentLocationId]);
+  const hasBoats = boatsForLocation.length > 0;
+  
   const locationMenu = [
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
     { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
     { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
+    { text: hasBoats ? 'Boat Preparation' : 'Dive Preparation', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'bookings' },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
     { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' }
   ];

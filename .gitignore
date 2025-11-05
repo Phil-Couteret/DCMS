@@ -56,3 +56,7 @@ coverage/
 
 # Local development
 .local/
+
+# NPM cache
+.npm-cache/
+.npmrc

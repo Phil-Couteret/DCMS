@@ -139,6 +139,7 @@ export const initialMockData = {
         verified: true,
         verifiedDate: '2025-01-08'
       },
+      centerSkillLevel: 'beginner',
       notes: 'Prefers morning dives'
     },
     {
@@ -192,6 +193,7 @@ export const initialMockData = {
         expiryDate: '2025-02-01',
         verified: false // Not yet verified
       },
+      centerSkillLevel: 'intermediate',
       notes: 'Regular customer'
     },
     {
@@ -239,7 +241,270 @@ export const initialMockData = {
         verified: true,
         verifiedDate: '2025-01-05'
       },
+      centerSkillLevel: 'advanced',
       notes: 'Frequent diver, comes every month'
+    }
+    ,
+    // Additional mock divers to fill two boats (capacity ~10 each)
+    {
+      id: 'cust-mock-001',
+      firstName: 'Alice',
+      lastName: 'Brown',
+      email: 'alice.brown@example.com',
+      phone: '+34 600 000 001',
+      dob: '1992-04-12',
+      nationality: 'British',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-001', verified: true }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-002',
+      firstName: 'Ben',
+      lastName: 'Taylor',
+      email: 'ben.taylor@example.com',
+      phone: '+34 600 000 002',
+      dob: '1988-09-30',
+      nationality: 'Irish',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: true },
+      certifications: [{ agency: 'SSI', level: 'AOW', certificationNumber: 'S-AOW-002', verified: true }],
+      centerSkillLevel: 'intermediate'
+    },
+    {
+      id: 'cust-mock-003',
+      firstName: 'Chloe',
+      lastName: 'Martin',
+      email: 'chloe.martin@example.com',
+      phone: '+33 600 000 003',
+      dob: '1995-01-08',
+      nationality: 'French',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'XS', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-003', verified: true }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-004',
+      firstName: 'David',
+      lastName: 'Lee',
+      email: 'david.lee@example.com',
+      phone: '+49 600 000 004',
+      dob: '1980-12-22',
+      nationality: 'German',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-004', verified: true }],
+      centerSkillLevel: 'intermediate'
+    },
+    {
+      id: 'cust-mock-005',
+      firstName: 'Emma',
+      lastName: 'Wilson',
+      email: 'emma.wilson@example.com',
+      phone: '+44 600 000 005',
+      dob: '1998-03-17',
+      nationality: 'British',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: false },
+      certifications: [{ agency: 'SSI', level: 'OW', certificationNumber: 'S-OW-005', verified: true }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-006',
+      firstName: 'Fabio',
+      lastName: 'Rossi',
+      email: 'fabio.rossi@example.com',
+      phone: '+39 600 000 006',
+      dob: '1986-07-11',
+      nationality: 'Italian',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'XL', finsSize: 'XL', bootsSize: 'XL', wetsuitSize: 'XL', ownEquipment: true },
+      certifications: [{ agency: 'PADI', level: 'RESCUE', certificationNumber: 'P-RES-006', verified: true }],
+      centerSkillLevel: 'advanced'
+    },
+    {
+      id: 'cust-mock-007',
+      firstName: 'Giulia',
+      lastName: 'Bianchi',
+      email: 'giulia.bianchi@example.com',
+      phone: '+39 600 000 007',
+      dob: '1991-10-05',
+      nationality: 'Italian',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      certifications: [{ agency: 'CMAS', level: '1*', certificationNumber: 'C-1-007', verified: false }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-008',
+      firstName: 'Hugo',
+      lastName: 'Leroy',
+      email: 'hugo.leroy@example.com',
+      phone: '+33 600 000 008',
+      dob: '1993-06-25',
+      nationality: 'French',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'M', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'M', ownEquipment: false },
+      certifications: [{ agency: 'SSI', level: 'AOW', certificationNumber: 'S-AOW-008', verified: true }],
+      centerSkillLevel: 'intermediate'
+    },
+    {
+      id: 'cust-mock-009',
+      firstName: 'Isabel',
+      lastName: 'Lopez',
+      email: 'isabel.lopez@example.com',
+      phone: '+34 600 000 009',
+      dob: '1994-02-02',
+      nationality: 'Spanish',
+      customerType: 'local',
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: true },
+      certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-009', verified: true }],
+      centerSkillLevel: 'intermediate'
+    },
+    {
+      id: 'cust-mock-010',
+      firstName: 'Javier',
+      lastName: 'Navarro',
+      email: 'javier.navarro@example.com',
+      phone: '+34 600 000 010',
+      dob: '1987-11-18',
+      nationality: 'Spanish',
+      customerType: 'local',
+      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', ownEquipment: false },
+      certifications: [{ agency: 'SSI', level: 'OW', certificationNumber: 'S-OW-010', verified: true }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-011',
+      firstName: 'Katarina',
+      lastName: 'Novak',
+      email: 'katarina.novak@example.com',
+      phone: '+421 600 000 011',
+      dob: '1990-05-28',
+      nationality: 'Slovak',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'S', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'S', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-011', verified: true }],
+      centerSkillLevel: 'intermediate'
+    },
+    {
+      id: 'cust-mock-012',
+      firstName: 'Liam',
+      lastName: 'Murphy',
+      email: 'liam.murphy@example.com',
+      phone: '+353 600 000 012',
+      dob: '1985-08-09',
+      nationality: 'Irish',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'XL', finsSize: 'XL', bootsSize: 'XL', wetsuitSize: 'XL', ownEquipment: true },
+      certifications: [{ agency: 'PADI', level: 'RESCUE', certificationNumber: 'P-RES-012', verified: true }],
+      centerSkillLevel: 'advanced'
+    },
+    {
+      id: 'cust-mock-013',
+      firstName: 'Marta',
+      lastName: 'Silva',
+      email: 'marta.silva@example.com',
+      phone: '+351 600 000 013',
+      dob: '1996-09-14',
+      nationality: 'Portuguese',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: false },
+      certifications: [{ agency: 'SSI', level: 'OW', certificationNumber: 'S-OW-013', verified: true }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-014',
+      firstName: 'Noah',
+      lastName: 'Schmidt',
+      email: 'noah.schmidt@example.com',
+      phone: '+49 600 000 014',
+      dob: '1991-01-21',
+      nationality: 'German',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-014', verified: true }],
+      centerSkillLevel: 'intermediate'
+    },
+    {
+      id: 'cust-mock-015',
+      firstName: 'Olivia',
+      lastName: 'Hernandez',
+      email: 'olivia.hernandez@example.com',
+      phone: '+34 600 000 015',
+      dob: '1997-12-03',
+      nationality: 'Spanish',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: true },
+      certifications: [{ agency: 'SSI', level: 'OW', certificationNumber: 'S-OW-015', verified: true }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-016',
+      firstName: 'Pedro',
+      lastName: 'Gonzalez',
+      email: 'pedro.gonzalez@example.com',
+      phone: '+34 600 000 016',
+      dob: '1989-04-04',
+      nationality: 'Spanish',
+      customerType: 'recurrent',
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: '5mm', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-016', verified: true }],
+      centerSkillLevel: 'intermediate'
+    },
+    {
+      id: 'cust-mock-017',
+      firstName: 'Quentin',
+      lastName: 'Dupont',
+      email: 'quentin.dupont@example.com',
+      phone: '+33 600 000 017',
+      dob: '1984-06-06',
+      nationality: 'French',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'XL', finsSize: 'XL', bootsSize: 'XL', wetsuitSize: 'XL', ownEquipment: false },
+      certifications: [{ agency: 'CMAS', level: '2*', certificationNumber: 'C-2-017', verified: true }],
+      centerSkillLevel: 'advanced'
+    },
+    {
+      id: 'cust-mock-018',
+      firstName: 'Rita',
+      lastName: 'Costa',
+      email: 'rita.costa@example.com',
+      phone: '+351 600 000 018',
+      dob: '1993-09-19',
+      nationality: 'Portuguese',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'XS', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-018', verified: true }],
+      centerSkillLevel: 'beginner'
+    },
+    {
+      id: 'cust-mock-019',
+      firstName: 'Sam',
+      lastName: 'Anderson',
+      email: 'sam.anderson@example.com',
+      phone: '+44 600 000 019',
+      dob: '1983-02-14',
+      nationality: 'British',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: true },
+      certifications: [{ agency: 'SSI', level: 'AOW', certificationNumber: 'S-AOW-019', verified: true }],
+      centerSkillLevel: 'advanced'
+    },
+    {
+      id: 'cust-mock-020',
+      firstName: 'Tara',
+      lastName: 'Singh',
+      email: 'tara.singh@example.com',
+      phone: '+91 600 000 020',
+      dob: '1999-11-27',
+      nationality: 'Indian',
+      customerType: 'tourist',
+      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-020', verified: true }],
+      centerSkillLevel: 'beginner'
     }
   ],
   
@@ -1273,23 +1538,7 @@ export const initialMockData = {
       equipmentOnboard: ['oxygen', 'first_aid', 'radio', 'mobile_phone', 'gps', 'life_jackets', 'flares'],
       isActive: true
     },
-    // Las Playitas boats
-    {
-      id: '550e8400-e29b-41d4-a716-446655440010',
-      locationId: '550e8400-e29b-41d4-a716-446655440002', // Las Playitas
-      name: 'Las Playitas Express',
-      capacity: 8,
-      equipmentOnboard: ['oxygen', 'first_aid', 'radio', 'mobile_phone', 'gps', 'life_jackets', 'flares'],
-      isActive: true
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440011',
-      locationId: '550e8400-e29b-41d4-a716-446655440002', // Las Playitas
-      name: 'Playa Diver',
-      capacity: 10,
-      equipmentOnboard: ['oxygen', 'first_aid', 'radio', 'mobile_phone', 'gps', 'life_jackets', 'flares'],
-      isActive: true
-    }
+    // Las Playitas - No boats (shore dives only)
   ],
   
   diveSites: [
@@ -1957,7 +2206,7 @@ export const initialMockData = {
 // Initialize localStorage with mock data if not already initialized
 export const initializeMockData = () => {
   // Clear existing data to force re-initialization with correct structure
-  const keys = ['dcms_bookings', 'dcms_customers', 'dcms_equipment', 'dcms_boats', 'dcms_diveSites', 'dcms_locations', 'dcms_pricingConfig', 'dcms_governmentBonos', 'dcms_settings', 'dcms_users'];
+  const keys = ['dcms_bookings', 'dcms_customers', 'dcms_equipment', 'dcms_boats', 'dcms_diveSites', 'dcms_locations', 'dcms_pricingConfig', 'dcms_governmentBonos', 'dcms_settings', 'dcms_users', 'dcms_boatPreps'];
   keys.forEach(key => localStorage.removeItem(key));
   
   // Initialize with correct data structure
@@ -1971,6 +2220,7 @@ export const initializeMockData = () => {
   localStorage.setItem('dcms_governmentBonos', JSON.stringify(initialMockData.governmentBonos));
   localStorage.setItem('dcms_settings', JSON.stringify(initialMockData.settings));
   localStorage.setItem('dcms_users', JSON.stringify(initialMockData.users));
+  localStorage.setItem('dcms_boatPreps', JSON.stringify([]));
 };
 
 export default initialMockData;

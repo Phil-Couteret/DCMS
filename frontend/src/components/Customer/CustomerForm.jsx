@@ -35,6 +35,7 @@ const CustomerForm = () => {
     dob: '',
     nationality: '',
     customerType: 'tourist',
+    centerSkillLevel: 'beginner',
     preferences: {
       bcdSize: 'M',
       finsSize: 'M',
@@ -205,7 +206,9 @@ const CustomerForm = () => {
         if (customer) {
           dataService.update('customers', customerId, {
             ...customer,
-            preferences: formData.preferences // Only update preferences (equipment sizes)
+            preferences: formData.preferences,
+            // Allow guides/staff to update centerSkillLevel even in read-only mode
+            centerSkillLevel: formData.centerSkillLevel
           });
         }
       }
@@ -321,6 +324,21 @@ const CustomerForm = () => {
                 <MenuItem value="tourist">Tourist</MenuItem>
                 <MenuItem value="local">Local</MenuItem>
                 <MenuItem value="recurrent">Recurrent</MenuItem>
+              </TextField>
+            </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              label="Center Skill Level"
+              fullWidth
+              value={formData.centerSkillLevel || 'beginner'}
+              onChange={(e) => handleChange('centerSkillLevel', e.target.value)}
+              helperText="Operational assessment by staff"
+            >
+              <MenuItem value="beginner">Beginner</MenuItem>
+              <MenuItem value="intermediate">Intermediate</MenuItem>
+              <MenuItem value="advanced">Advanced</MenuItem>
               </TextField>
             </Grid>
 

@@ -148,6 +148,12 @@ const Customers = () => {
                         size="small" 
                         variant="outlined"
                       />
+                      <Chip 
+                        label={`Skill: ${customer.centerSkillLevel || 'beginner'}`}
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                      />
                       <Typography variant="body2" color="text.secondary">
                         {customer.email}
                       </Typography>
