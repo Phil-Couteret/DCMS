@@ -41,6 +41,7 @@ const CustomerForm = () => {
       finsSize: 'M',
       bootsSize: 'M',
       wetsuitSize: 'M',
+      tankSize: '12L',
       ownEquipment: false
     },
     medicalConditions: [],
@@ -415,6 +416,24 @@ const CustomerForm = () => {
                 <MenuItem value="L">L</MenuItem>
                 <MenuItem value="XL">XL</MenuItem>
                 <MenuItem value="XXL">XXL</MenuItem>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                label="Tank Size"
+                fullWidth
+                value={formData.preferences.tankSize || '12L'}
+                onChange={(e) => handleChange('preferences.tankSize', e.target.value)}
+                helperText="Required for all dives"
+              >
+                <MenuItem value="10L">10L (Normal)</MenuItem>
+                <MenuItem value="12L">12L (Normal)</MenuItem>
+                <MenuItem value="15L">15L (Normal)</MenuItem>
+                <MenuItem value="Nitrox 10L">Nitrox 10L</MenuItem>
+                <MenuItem value="Nitrox 12L">Nitrox 12L</MenuItem>
+                <MenuItem value="Nitrox 15L">Nitrox 15L</MenuItem>
               </TextField>
             </Grid>
 

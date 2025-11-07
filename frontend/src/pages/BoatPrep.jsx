@@ -453,11 +453,31 @@ const BoatPrep = () => {
   };
 
   const handleAllocate = () => {
-    if (!allocateRental) return;
     const updates = [];
+    
     allAssignedCustomers.forEach(c => {
       const wantsRental = !c.preferences?.ownEquipment;
-      if (!wantsRental) return;
+      const tankSize = c.preferences?.tankSize || '12L';
+      
+      // Refetch available equipment for each diver to get current availability
+      const available = dataService.getAvailableEquipment('diving');
+      
+      // Allocate tank for all divers (required for all dives, regardless of ownEquipment)
+      const tanks = available.filter(e => e.type?.toLowerCase() === 'tank');
+      const tankMatch = tanks.find(e => {
+        const eqSize = (e.size || '').toUpperCase();
+        const reqSize = tankSize.toUpperCase();
+        return eqSize === reqSize || eqSize.includes(reqSize) || reqSize.includes(eqSize);
+      }) || tanks[0]; // Fallback to any available tank if exact match not found
+      
+      if (tankMatch) {
+        dataService.update('equipment', tankMatch.id, { isAvailable: false });
+        updates.push(tankMatch);
+      }
+      
+      // Allocate other equipment only if diver needs rental and auto-allocate is enabled
+      if (!allocateRental || !wantsRental) return;
+      
       const sizeMap = {
         BCD: c.preferences?.bcdSize,
         Fins: c.preferences?.finsSize,
@@ -465,7 +485,6 @@ const BoatPrep = () => {
         Wetsuit: c.preferences?.wetsuitSize
       };
       ['BCD', 'Regulator', 'Mask', 'Fins', 'Boots', 'Wetsuit', 'Computer', 'Torch'].forEach(type => {
-        const available = dataService.getAvailableEquipment('diving');
         const byType = available.filter(e => e.type?.toLowerCase() === type.toLowerCase());
         const exact = byType.find(e => (e.size || '').toUpperCase() === (sizeMap[type] || '').toUpperCase());
         const match = exact || byType[0];
@@ -475,7 +494,16 @@ const BoatPrep = () => {
         }
       });
     });
-    alert(`Allocated ${updates.length} equipment items for ${allAssignedCustomers.length} divers`);
+    
+    const tankCount = updates.filter(e => e.type?.toLowerCase() === 'tank').length;
+    const otherCount = updates.length - tankCount;
+    if (tankCount > 0 && otherCount > 0) {
+      alert(`Allocated ${tankCount} tank(s) and ${otherCount} other equipment item(s) for ${allAssignedCustomers.length} divers`);
+    } else if (tankCount > 0) {
+      alert(`Allocated ${tankCount} tank(s) for ${allAssignedCustomers.length} divers`);
+    } else {
+      alert(`No equipment available to allocate`);
+    }
   };
 
   const savePreparation = () => {
@@ -555,8 +583,9 @@ const BoatPrep = () => {
     const skill = getDiverSkillLevel(customer);
     const own = customer.preferences?.ownEquipment;
     const sizes = customer.preferences || {};
+    const tankSize = sizes.tankSize || '12L';
     const equipmentText = own ? 'Own equipment' : `Rental (BCD ${sizes.bcdSize || '-'}, Fins ${sizes.finsSize || '-'}, Boots ${sizes.bootsSize || '-'}, Wetsuit ${sizes.wetsuitSize || '-'})`;
-    const rest = `${skill} · ${equipmentText}`;
+    const rest = `${skill} · Tank: ${tankSize} · ${equipmentText}`;
     
     return (
       <ListItem 
@@ -1056,8 +1085,9 @@ const BoatPrep = () => {
                   const skill = getDiverSkillLevel(c);
                   const own = c.preferences?.ownEquipment;
                   const sizes = c.preferences || {};
+                  const tankSize = sizes.tankSize || '12L';
                   const equipmentText = own ? 'Own equipment' : `Rental (BCD ${sizes.bcdSize || '-'}, Fins ${sizes.finsSize || '-'}, Boots ${sizes.bootsSize || '-'}, Wetsuit ${sizes.wetsuitSize || '-'})`;
-                  const rest = `${skill} · ${equipmentText}`;
+                  const rest = `${skill} · Tank: ${tankSize} · ${equipmentText}`;
                   return (
                     <ListItem 
                       key={c.id}

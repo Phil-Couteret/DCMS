@@ -108,6 +108,7 @@ export const initialMockData = {
         finsSize: 'M',
         bootsSize: 'M',
         wetsuitSize: 'M',
+        tankSize: '12L',
         ownEquipment: false
       },
       medicalConditions: [],
@@ -156,6 +157,7 @@ export const initialMockData = {
         finsSize: 'S',
         bootsSize: 'S',
         wetsuitSize: 'S',
+        tankSize: '12L',
         ownEquipment: true
       },
       medicalConditions: [],
@@ -210,6 +212,7 @@ export const initialMockData = {
         finsSize: 'L',
         bootsSize: 'L',
         wetsuitSize: 'L',
+        tankSize: '15L',
         ownEquipment: true
       },
       medicalConditions: [],
@@ -255,7 +258,7 @@ export const initialMockData = {
       dob: '1992-04-12',
       nationality: 'British',
       customerType: 'tourist',
-      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-001', verified: true }],
       centerSkillLevel: 'beginner'
     },
@@ -268,7 +271,7 @@ export const initialMockData = {
       dob: '1988-09-30',
       nationality: 'Irish',
       customerType: 'tourist',
-      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: true },
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', tankSize: '12L', ownEquipment: true },
       certifications: [{ agency: 'SSI', level: 'AOW', certificationNumber: 'S-AOW-002', verified: true }],
       centerSkillLevel: 'intermediate'
     },
@@ -281,7 +284,7 @@ export const initialMockData = {
       dob: '1995-01-08',
       nationality: 'French',
       customerType: 'tourist',
-      preferences: { bcdSize: 'XS', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      preferences: { bcdSize: 'XS', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', tankSize: '10L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-003', verified: true }],
       centerSkillLevel: 'beginner'
     },
@@ -294,7 +297,7 @@ export const initialMockData = {
       dob: '1980-12-22',
       nationality: 'German',
       customerType: 'tourist',
-      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', ownEquipment: false },
+      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', tankSize: '15L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-004', verified: true }],
       centerSkillLevel: 'intermediate'
     },
@@ -307,7 +310,7 @@ export const initialMockData = {
       dob: '1998-03-17',
       nationality: 'British',
       customerType: 'tourist',
-      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: false },
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'SSI', level: 'OW', certificationNumber: 'S-OW-005', verified: true }],
       centerSkillLevel: 'beginner'
     },
@@ -320,7 +323,7 @@ export const initialMockData = {
       dob: '1986-07-11',
       nationality: 'Italian',
       customerType: 'tourist',
-      preferences: { bcdSize: 'XL', finsSize: 'XL', bootsSize: 'XL', wetsuitSize: 'XL', ownEquipment: true },
+      preferences: { bcdSize: 'XL', finsSize: 'XL', bootsSize: 'XL', wetsuitSize: 'XL', tankSize: '15L', ownEquipment: true },
       certifications: [{ agency: 'PADI', level: 'RESCUE', certificationNumber: 'P-RES-006', verified: true }],
       centerSkillLevel: 'advanced'
     },
@@ -333,7 +336,7 @@ export const initialMockData = {
       dob: '1991-10-05',
       nationality: 'Italian',
       customerType: 'tourist',
-      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'CMAS', level: '1*', certificationNumber: 'C-1-007', verified: false }],
       centerSkillLevel: 'beginner'
     },
@@ -346,7 +349,7 @@ export const initialMockData = {
       dob: '1993-06-25',
       nationality: 'French',
       customerType: 'tourist',
-      preferences: { bcdSize: 'M', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'M', ownEquipment: false },
+      preferences: { bcdSize: 'M', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'M', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'SSI', level: 'AOW', certificationNumber: 'S-AOW-008', verified: true }],
       centerSkillLevel: 'intermediate'
     },
@@ -359,7 +362,7 @@ export const initialMockData = {
       dob: '1994-02-02',
       nationality: 'Spanish',
       customerType: 'local',
-      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: true },
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', tankSize: '12L', ownEquipment: true },
       certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-009', verified: true }],
       centerSkillLevel: 'intermediate'
     },
@@ -372,7 +375,7 @@ export const initialMockData = {
       dob: '1987-11-18',
       nationality: 'Spanish',
       customerType: 'local',
-      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', ownEquipment: false },
+      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', tankSize: '15L', ownEquipment: false },
       certifications: [{ agency: 'SSI', level: 'OW', certificationNumber: 'S-OW-010', verified: true }],
       centerSkillLevel: 'beginner'
     },
@@ -385,7 +388,7 @@ export const initialMockData = {
       dob: '1990-05-28',
       nationality: 'Slovak',
       customerType: 'tourist',
-      preferences: { bcdSize: 'S', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'S', ownEquipment: false },
+      preferences: { bcdSize: 'S', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'S', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-011', verified: true }],
       centerSkillLevel: 'intermediate'
     },
@@ -398,7 +401,7 @@ export const initialMockData = {
       dob: '1985-08-09',
       nationality: 'Irish',
       customerType: 'tourist',
-      preferences: { bcdSize: 'XL', finsSize: 'XL', bootsSize: 'XL', wetsuitSize: 'XL', ownEquipment: true },
+      preferences: { bcdSize: 'XL', finsSize: 'XL', bootsSize: 'XL', wetsuitSize: 'XL', tankSize: '15L', ownEquipment: true },
       certifications: [{ agency: 'PADI', level: 'RESCUE', certificationNumber: 'P-RES-012', verified: true }],
       centerSkillLevel: 'advanced'
     },
@@ -411,7 +414,7 @@ export const initialMockData = {
       dob: '1996-09-14',
       nationality: 'Portuguese',
       customerType: 'tourist',
-      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: false },
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'SSI', level: 'OW', certificationNumber: 'S-OW-013', verified: true }],
       centerSkillLevel: 'beginner'
     },
@@ -424,7 +427,7 @@ export const initialMockData = {
       dob: '1991-01-21',
       nationality: 'German',
       customerType: 'tourist',
-      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', ownEquipment: false },
+      preferences: { bcdSize: 'L', finsSize: 'L', bootsSize: 'L', wetsuitSize: 'L', tankSize: '15L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-014', verified: true }],
       centerSkillLevel: 'intermediate'
     },
@@ -450,7 +453,7 @@ export const initialMockData = {
       dob: '1989-04-04',
       nationality: 'Spanish',
       customerType: 'recurrent',
-      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: '5mm', ownEquipment: false },
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: '5mm', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'AOW', certificationNumber: 'P-AOW-016', verified: true }],
       centerSkillLevel: 'intermediate'
     },
@@ -476,7 +479,7 @@ export const initialMockData = {
       dob: '1993-09-19',
       nationality: 'Portuguese',
       customerType: 'tourist',
-      preferences: { bcdSize: 'XS', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      preferences: { bcdSize: 'XS', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', tankSize: '10L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-018', verified: true }],
       centerSkillLevel: 'beginner'
     },
@@ -489,7 +492,7 @@ export const initialMockData = {
       dob: '1983-02-14',
       nationality: 'British',
       customerType: 'tourist',
-      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', ownEquipment: true },
+      preferences: { bcdSize: 'M', finsSize: 'M', bootsSize: 'M', wetsuitSize: 'M', tankSize: '12L', ownEquipment: true },
       certifications: [{ agency: 'SSI', level: 'AOW', certificationNumber: 'S-AOW-019', verified: true }],
       centerSkillLevel: 'advanced'
     },
@@ -502,7 +505,7 @@ export const initialMockData = {
       dob: '1999-11-27',
       nationality: 'Indian',
       customerType: 'tourist',
-      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', ownEquipment: false },
+      preferences: { bcdSize: 'S', finsSize: 'S', bootsSize: 'S', wetsuitSize: 'S', tankSize: '12L', ownEquipment: false },
       certifications: [{ agency: 'PADI', level: 'OW', certificationNumber: 'P-OW-020', verified: true }],
       centerSkillLevel: 'beginner'
     }
