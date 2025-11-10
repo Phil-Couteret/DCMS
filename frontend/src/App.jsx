@@ -10,6 +10,7 @@ import Bookings from './pages/Bookings';
 import Stays from './pages/Stays';
 import Customers from './pages/Customers';
 import Equipment from './pages/Equipment';
+import Materials from './pages/Materials';
 import Settings from './pages/Settings';
 import BoatPrep from './pages/BoatPrep';
 
@@ -61,6 +62,7 @@ function App() {
                     <Route path="/stays" element={<ProtectedRoute requiredPermission="bookings"><Stays /></ProtectedRoute>} />
                     <Route path="/customers" element={<ProtectedRoute requiredPermission="customers"><Customers /></ProtectedRoute>} />
                     <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
+                    <Route path="/materials" element={<ProtectedRoute requiredPermission="equipment"><Materials /></ProtectedRoute>} />
                     <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="bookings"><BoatPrep /></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
                   </Routes>
