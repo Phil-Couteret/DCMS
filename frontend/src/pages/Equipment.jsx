@@ -51,6 +51,7 @@ const Equipment = () => {
   const [equipment, setEquipment] = useState([]);
   const [locations, setLocations] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
@@ -253,13 +254,18 @@ const Equipment = () => {
     reader.readAsText(file);
   };
 
-  const filteredEquipment = searchQuery
-    ? equipment.filter(eq =>
-        eq.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        eq.size?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        eq.serialNumber?.toLowerCase().includes(query.toLowerCase())
-      )
-    : equipment;
+  const filteredEquipment = equipment.filter(eq => {
+    const matchesSearch = searchQuery.trim() === '' ||
+      eq.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      eq.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      eq.model?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      eq.size?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      eq.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesType = filterType === 'all' || eq.type === filterType;
+    
+    return matchesSearch && matchesType;
+  });
 
   const getConditionColor = (condition) => {
     const colors = {
@@ -368,20 +374,43 @@ const Equipment = () => {
         </Box>
       )}
 
-      <TextField
-        fullWidth
-        placeholder={t('equipment.search')}
-        value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
-        sx={{ mb: 3 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon />
-            </InputAdornment>
-          ),
-        }}
-      />
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <TextField
+          fullWidth
+          placeholder={t('equipment.search')}
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel>Filter by Type</InputLabel>
+          <Select
+            value={filterType}
+            label="Filter by Type"
+            onChange={(e) => setFilterType(e.target.value)}
+          >
+            <MenuItem value="all">All Types</MenuItem>
+            <MenuItem value="BCD">BCD</MenuItem>
+            <MenuItem value="Regulator">Regulator</MenuItem>
+            <MenuItem value="Mask">Mask</MenuItem>
+            <MenuItem value="Fins">Fins</MenuItem>
+            <MenuItem value="Boots">Boots</MenuItem>
+            <MenuItem value="Wetsuit">Wetsuit</MenuItem>
+            <MenuItem value="Semi-Dry">Semi-Dry</MenuItem>
+            <MenuItem value="Dry Suit">Dry Suit</MenuItem>
+            <MenuItem value="Tank">Tank</MenuItem>
+            <MenuItem value="Computer">Computer</MenuItem>
+            <MenuItem value="Torch">Torch</MenuItem>
+            <MenuItem value="Accessory">Accessory</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
       {filteredEquipment.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
