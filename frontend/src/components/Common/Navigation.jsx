@@ -73,8 +73,7 @@ const Navigation = () => {
     { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
     { text: hasBoats ? 'Boat Preparation' : 'Dive Preparation', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'bookings' },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
-    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' },
-    { text: 'Materials', icon: <MaterialsIcon />, path: '/materials', permission: 'equipment' }
+    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' }
   ];
   const allMenuItems = scope === 'global' ? globalMenu : locationMenu;
   const menuItems = allMenuItems.filter(item => currentUser && canAccess(item.permission));

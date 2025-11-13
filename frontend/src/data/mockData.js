@@ -525,6 +525,10 @@ export const initialMockData = {
       isAvailable: true,
       brand: 'Mares',
       model: 'Avant Quattro',
+      purchaseDate: '2023-01-15',
+      warranty: '2 years',
+      lastRevisionDate: '2024-06-01',
+      nextRevisionDate: '2025-06-01',
       notes: 'New BCD, excellent condition'
     },
     {
@@ -611,6 +615,16 @@ export const initialMockData = {
       isAvailable: true,
       brand: 'Aqualung',
       model: 'Calypso',
+      purchaseDate: '2023-03-20',
+      warranty: '3 years',
+      lastRevisionDate: '2024-05-15',
+      nextRevisionDate: '2025-05-15',
+      firstStageBrand: 'Aqualung',
+      firstStageModel: 'Calypso',
+      secondStageBrand: 'Aqualung',
+      secondStageModel: 'Calypso',
+      octopusBrand: 'Aqualung',
+      octopusModel: 'Calypso',
       notes: 'New regulator, recently serviced'
     },
     {
@@ -2203,124 +2217,13 @@ export const initialMockData = {
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
     }
-  ],
-  
-  materials: [
-    {
-      id: 'material_001',
-      type: 'BCD',
-      brand: 'Mares',
-      model: 'Prestige',
-      purchaseDate: '2023-01-15',
-      warranty: '2 years',
-      lastRevisionDate: '2024-06-01',
-      nextRevisionDate: '2025-06-01',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'Excellent condition'
-    },
-    {
-      id: 'material_002',
-      type: 'Reg',
-      brand: 'Aqualung',
-      model: 'Legend',
-      purchaseDate: '2023-03-20',
-      warranty: '3 years',
-      lastRevisionDate: '2024-05-15',
-      nextRevisionDate: '2025-05-15',
-      firstStageBrand: 'Aqualung',
-      firstStageModel: 'Legend',
-      secondStageBrand: 'Aqualung',
-      secondStageModel: 'Legend',
-      octopusBrand: 'Aqualung',
-      octopusModel: 'Calypso',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'Recently serviced'
-    },
-    {
-      id: 'material_003',
-      type: 'Tank',
-      brand: 'Faber',
-      model: '12L Steel',
-      purchaseDate: '2022-11-10',
-      warranty: '5 years',
-      lastRevisionDate: '2024-01-10',
-      nextRevisionDate: '2025-01-10',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'VIP inspection due soon'
-    },
-    {
-      id: 'material_004',
-      type: 'Suits',
-      brand: 'Cressi',
-      model: '5mm Full',
-      purchaseDate: '2023-08-05',
-      warranty: '1 year',
-      lastRevisionDate: '',
-      nextRevisionDate: '',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'Size M'
-    },
-    {
-      id: 'material_005',
-      type: 'Fins',
-      brand: 'Mares',
-      model: 'Avanti Quattro',
-      purchaseDate: '2023-09-12',
-      warranty: '2 years',
-      lastRevisionDate: '',
-      nextRevisionDate: '',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'Size 42-44'
-    },
-    {
-      id: 'material_006',
-      type: 'Mask',
-      brand: 'Cressi',
-      model: 'F1',
-      purchaseDate: '2024-02-20',
-      warranty: '1 year',
-      lastRevisionDate: '',
-      nextRevisionDate: '',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'Clear lens'
-    },
-    {
-      id: 'material_007',
-      type: 'Boots',
-      brand: 'Mares',
-      model: 'Flexa',
-      purchaseDate: '2023-10-18',
-      warranty: '1 year',
-      lastRevisionDate: '',
-      nextRevisionDate: '',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'Size 42'
-    },
-    {
-      id: 'material_008',
-      type: 'Reg',
-      brand: 'Scubapro',
-      model: 'MK25 EVO',
-      purchaseDate: '2023-06-30',
-      warranty: '3 years',
-      lastRevisionDate: '2024-08-01',
-      nextRevisionDate: '2025-08-01',
-      firstStageBrand: 'Scubapro',
-      firstStageModel: 'MK25 EVO',
-      secondStageBrand: 'Scubapro',
-      secondStageModel: 'S600',
-      octopusBrand: 'Scubapro',
-      octopusModel: 'R195',
-      locationId: '550e8400-e29b-41d4-a716-446655440001',
-      notes: 'Premium regulator set'
-    }
   ]
 };
 
 // Initialize localStorage with mock data if not already initialized
 export const initializeMockData = () => {
   // Clear existing data to force re-initialization with correct structure
-  const keys = ['dcms_bookings', 'dcms_customers', 'dcms_equipment', 'dcms_boats', 'dcms_diveSites', 'dcms_locations', 'dcms_pricingConfig', 'dcms_governmentBonos', 'dcms_settings', 'dcms_users', 'dcms_boatPreps', 'dcms_materials'];
+  const keys = ['dcms_bookings', 'dcms_customers', 'dcms_equipment', 'dcms_boats', 'dcms_diveSites', 'dcms_locations', 'dcms_pricingConfig', 'dcms_governmentBonos', 'dcms_settings', 'dcms_users', 'dcms_boatPreps'];
   keys.forEach(key => localStorage.removeItem(key));
   
   // Initialize with correct data structure
@@ -2335,7 +2238,6 @@ export const initializeMockData = () => {
   localStorage.setItem('dcms_settings', JSON.stringify(initialMockData.settings));
   localStorage.setItem('dcms_users', JSON.stringify(initialMockData.users));
   localStorage.setItem('dcms_boatPreps', JSON.stringify([]));
-  localStorage.setItem('dcms_materials', JSON.stringify(initialMockData.materials || []));
 };
 
 export default initialMockData;
