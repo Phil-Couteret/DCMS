@@ -2112,6 +2112,7 @@ export const initialMockData = {
   ],
 
   users: [
+    // Admin Team (Owners Family) - Full access to everything
     {
       id: '550e8400-e29b-41d4-a716-446655440100',
       username: 'admin',
@@ -2120,99 +2121,126 @@ export const initialMockData = {
       role: 'admin',
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
+      // No locationAccess = global access to all locations
     },
+    
+    // Owner - Equipment & Boat Maintenance (both locations)
     {
-      id: '550e8400-e29b-41d4-a716-446655440103',
-      username: 'pilot1',
-      name: 'Juan Rodriguez',
-      email: 'juan@deep-blue-diving.com',
+      id: '550e8400-e29b-41d4-a716-446655440200',
+      username: 'owner',
+      name: 'Owner',
+      email: 'owner@deep-blue-diving.com',
       role: 'boat_pilot',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
     },
+    
+    // Site Managers - All rights on their site except maintenance and account creation
+    // Caleta Manager (has boat rights)
     {
-      id: '550e8400-e29b-41d4-a716-446655440101',
-      username: 'guide1',
-      name: 'Carlos Gomez',
-      email: 'carlos@deep-blue-diving.com',
-      role: 'guide',
-      isActive: true,
-      createdAt: '2025-01-01T00:00:00Z'
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440102',
-      username: 'guide2',
-      name: 'Maria Fernandez',
-      email: 'maria@deep-blue-diving.com',
-      role: 'guide',
-      isActive: true,
-      createdAt: '2025-01-01T00:00:00Z'
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440104',
-      username: 'trainer1',
-      name: 'Ana Martinez',
-      email: 'ana@deep-blue-diving.com',
-      role: 'trainer',
-      isActive: true,
-      createdAt: '2025-01-01T00:00:00Z'
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440105',
-      username: 'intern1',
-      name: 'Tom Wilson',
-      email: 'tom@deep-blue-diving.com',
-      role: 'intern',
-      isActive: true,
-      createdAt: '2025-01-01T00:00:00Z'
-    },
-    // Location-specific admin accounts
-    {
-      id: '550e8400-e29b-41d4-a716-446655440106',
-      username: 'caleta_admin',
+      id: '550e8400-e29b-41d4-a716-446655440300',
+      username: 'caleta_manager',
       name: 'Caleta Manager',
-      email: 'caleta@deep-blue-diving.com',
+      email: 'caleta.manager@deep-blue-diving.com',
       role: 'admin',
       locationAccess: ['550e8400-e29b-41d4-a716-446655440001'], // Caleta de Fuste only
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
     },
+    // Las Playitas Manager (no boat rights - no boats there)
     {
-      id: '550e8400-e29b-41d4-a716-446655440107',
-      username: 'playitas_admin',
+      id: '550e8400-e29b-41d4-a716-446655440301',
+      username: 'playitas_manager',
       name: 'Las Playitas Manager',
-      email: 'playitas@deep-blue-diving.com',
+      email: 'playitas.manager@deep-blue-diving.com',
       role: 'admin',
       locationAccess: ['550e8400-e29b-41d4-a716-446655440002'], // Las Playitas only
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
     },
+    
+    // Boat Captains (Caleta only - 2 accounts)
     {
-      id: '550e8400-e29b-41d4-a716-446655440108',
-      username: 'caleta_guide',
-      name: 'Caleta Guide',
-      email: 'caleta_guide@deep-blue-diving.com',
-      role: 'guide',
+      id: '550e8400-e29b-41d4-a716-446655440400',
+      username: 'captain1',
+      name: 'Boat Captain 1',
+      email: 'captain1@deep-blue-diving.com',
+      role: 'boat_pilot',
       locationAccess: ['550e8400-e29b-41d4-a716-446655440001'], // Caleta de Fuste only
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440109',
-      username: 'playitas_guide',
-      name: 'Las Playitas Guide',
-      email: 'playitas_guide@deep-blue-diving.com',
+      id: '550e8400-e29b-41d4-a716-446655440401',
+      username: 'captain2',
+      name: 'Boat Captain 2',
+      email: 'captain2@deep-blue-diving.com',
+      role: 'boat_pilot',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001'], // Caleta de Fuste only
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    
+    // Guides (access to both sites - 4 accounts)
+    {
+      id: '550e8400-e29b-41d4-a716-446655440500',
+      username: 'guide1',
+      name: 'Guide 1',
+      email: 'guide1@deep-blue-diving.com',
       role: 'guide',
-      locationAccess: ['550e8400-e29b-41d4-a716-446655440002'], // Las Playitas only
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440110',
-      username: 'multi_location',
-      name: 'Multi-Location Manager',
-      email: 'multi@deep-blue-diving.com',
-      role: 'admin',
+      id: '550e8400-e29b-41d4-a716-446655440501',
+      username: 'guide2',
+      name: 'Guide 2',
+      email: 'guide2@deep-blue-diving.com',
+      role: 'guide',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440502',
+      username: 'guide3',
+      name: 'Guide 3',
+      email: 'guide3@deep-blue-diving.com',
+      role: 'guide',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440503',
+      username: 'guide4',
+      name: 'Guide 4',
+      email: 'guide4@deep-blue-diving.com',
+      role: 'guide',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    
+    // Trainees (access to both sites - 2 accounts)
+    {
+      id: '550e8400-e29b-41d4-a716-446655440600',
+      username: 'trainee1',
+      name: 'Trainee 1',
+      email: 'trainee1@deep-blue-diving.com',
+      role: 'intern',
+      locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440601',
+      username: 'trainee2',
+      name: 'Trainee 2',
+      email: 'trainee2@deep-blue-diving.com',
+      role: 'intern',
       locationAccess: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'], // Both locations
       isActive: true,
       createdAt: '2025-01-01T00:00:00Z'

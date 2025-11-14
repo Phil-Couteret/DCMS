@@ -66,17 +66,57 @@ const Navigation = () => {
   }, [currentLocationId]);
   const hasBoats = boatsForLocation.length > 0;
   
+  // Build location menu items - organized by workflow
   const locationMenu = [
-    { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
-    { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings' },
-    { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings' },
-    { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'bookings' },
-    { text: hasBoats ? 'Boat Preparation' : 'Dive Preparation', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'bookings' },
-    { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers' },
-    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment' }
+    // Customer Service (Admin team)
+    { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.ADMIN] },
+    { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
+    { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
+    { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'stays', roles: [USER_ROLES.ADMIN] },
+    { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.ADMIN] },
+    
+    // Equipment & Operations (Owners, Trainers)
+    { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
+    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
+    { text: hasBoats ? 'Boat Preparation' : 'Dive Preparation', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
+    { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
+    { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
+    
+    // Dive Operations (Guides)
+    { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.GUIDE] },
+    { text: hasBoats ? 'Boat Preparation' : 'Dive Preparation', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.GUIDE] },
+    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment', roles: [USER_ROLES.GUIDE] },
+    { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.GUIDE] },
+    { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.GUIDE] },
+    
+    // Assist Mode (Trainees/Interns)
+    { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.INTERN] },
+    { text: hasBoats ? 'Boat Preparation' : 'Dive Preparation', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.INTERN] },
+    { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment', roles: [USER_ROLES.INTERN] },
+    { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.INTERN] },
+    { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.INTERN] }
   ];
+  // Filter menu items based on role and permissions
   const allMenuItems = scope === 'global' ? globalMenu : locationMenu;
-  const menuItems = allMenuItems.filter(item => currentUser && canAccess(item.permission));
+  const menuItems = allMenuItems.filter(item => {
+    if (!currentUser) return false;
+    
+    // Check permission first
+    if (!canAccess(item.permission)) return false;
+    
+    // If item has specific roles, check if current user's role matches
+    if (item.roles && item.roles.length > 0) {
+      return item.roles.includes(currentUser.role);
+    }
+    
+    // Otherwise, show if permission is granted
+    return true;
+  });
+  
+  // Remove duplicates (same path) - keep first occurrence, prioritizing by role order
+  const uniqueMenuItems = menuItems.filter((item, index, self) => 
+    index === self.findIndex(t => t.path === item.path)
+  );
 
   // Load locations and initialize selected location
   React.useEffect(() => {
@@ -227,7 +267,7 @@ const Navigation = () => {
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
           <List>
-            {menuItems.map((item) => (
+            {uniqueMenuItems.map((item) => (
               <ListItem 
                 button 
                 key={item.text}

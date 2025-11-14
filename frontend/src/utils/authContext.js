@@ -13,43 +13,54 @@ export const USER_ROLES = {
 };
 
 // Role permissions - which pages each role can access
+// Based on actual workflow:
+// - ADMIN: Customer service team (bookings, customers, stays)
+// - BOAT_PILOT/OWNER: Equipment management, boat operations, specialized training
+// - GUIDE: Equipment allocation, dive preparation
+// - TRAINER: Specialized training (similar to owners)
+// - INTERN: Assist guides with equipment
+
 export const ROLE_PERMISSIONS = {
   [USER_ROLES.ADMIN]: [
-    'dashboard',
-    'bookings',
-    'customers',
-    'equipment',
-    'settings',
-    'reports'
+    'dashboard',      // Customer service focused dashboard
+    'bookings',       // Full access - create/edit/cancel
+    'customers',      // Full access - customer service
+    'stays',          // Customer stays management
+    'settings'        // Limited - customer service settings
+    // No equipment or boat prep - not their responsibility
   ],
   [USER_ROLES.BOAT_PILOT]: [
-    'dashboard',
-    'bookings',
-    'customers',
-    'equipment'
-    // No access to settings or reports
+    'dashboard',      // Operational overview
+    'bookings',       // View only - see what's coming
+    'customers',      // View only - see who's diving
+    'equipment',      // Full CRUD - equipment management
+    'boatPrep',       // Full access - boat/dive preparation
+    'settings'        // Equipment-related settings
+    // No customer stays - admin responsibility
   ],
   [USER_ROLES.GUIDE]: [
-    'dashboard',
-    'bookings',
-    'customers', // Read-only for equipment preparation, can edit equipment sizes
-    'equipment'
-    // No access to settings or reports
+    'dashboard',      // Daily operations
+    'bookings',       // View only - see schedule
+    'customers',      // View + edit equipment sizes
+    'equipment',      // View + allocate (no CRUD)
+    'boatPrep'        // Full access - dive preparation
+    // No customer stays or settings
   ],
   [USER_ROLES.TRAINER]: [
-    'dashboard',
-    'bookings',
-    'customers',
-    'equipment'
-    // Trainers manage courses and students
-    // No access to settings or reports
+    'dashboard',      // Operational overview (similar to owners)
+    'bookings',       // View only
+    'customers',      // View only
+    'equipment',      // Full CRUD - equipment management
+    'boatPrep',       // Full access - for specialized training dives
+    'settings'        // Equipment-related settings
   ],
   [USER_ROLES.INTERN]: [
-    'dashboard',
-    'bookings',
-    'customers' // Read-only for equipment preparation, can edit equipment sizes
-    // Interns have limited access - can view bookings and customers for prep
-    // No access to settings, equipment management, or reports
+    'dashboard',      // Today's operations
+    'bookings',       // View only - see schedule
+    'customers',      // View + edit equipment sizes
+    'equipment',      // View + allocate (no CRUD)
+    'boatPrep'        // Assist mode - limited actions
+    // No customer stays or settings
   ]
 };
 

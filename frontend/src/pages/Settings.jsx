@@ -36,7 +36,8 @@ import {
   CardContent,
   CardHeader,
   Checkbox,
-  ListItemText
+  ListItemText,
+  InputAdornment
 } from '@mui/material';
 import { 
   Save as SaveIcon,
@@ -52,7 +53,9 @@ import {
   PersonPin as GuideIcon,
   School as TrainerIcon,
   Work as InternIcon,
-  AttachMoney as PricesIcon
+  AttachMoney as PricesIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES } from '../utils/authContext';
@@ -84,10 +87,14 @@ const Settings = () => {
     username: '',
     name: '',
     email: '',
+    password: '',
+    confirmPassword: '',
     role: USER_ROLES.GUIDE,
     isActive: true,
     locationAccess: [] // Array of location IDs
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -200,10 +207,14 @@ const Settings = () => {
       username: '',
       name: '',
       email: '',
+      password: '',
+      confirmPassword: '',
       role: USER_ROLES.GUIDE,
       isActive: true,
       locationAccess: []
     });
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setUserDialogOpen(true);
   };
 
@@ -214,24 +225,76 @@ const Settings = () => {
       username: user.username,
       name: user.name,
       email: user.email || '',
+      password: '',
+      confirmPassword: '',
       role: user.role,
       isActive: user.isActive,
       locationAccess: locationAccess
     });
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setUserDialogOpen(true);
   };
 
   const handleSaveUser = () => {
     try {
+      // Validate password fields
+      if (!editingUser) {
+        // New user: password is required
+        if (!userFormData.password || userFormData.password.trim() === '') {
+          setSnackbar({
+            open: true,
+            message: 'Password is required for new users',
+            severity: 'error'
+          });
+          return;
+        }
+      }
+      
+      // If password is provided (for new or existing user), validate it
+      if (userFormData.password && userFormData.password.trim() !== '') {
+        if (userFormData.password.length < 6) {
+          setSnackbar({
+            open: true,
+            message: 'Password must be at least 6 characters long',
+            severity: 'error'
+          });
+          return;
+        }
+        
+        if (userFormData.password !== userFormData.confirmPassword) {
+          setSnackbar({
+            open: true,
+            message: 'Passwords do not match',
+            severity: 'error'
+          });
+          return;
+        }
+      }
+
       // Convert "__ALL__" selection to empty array for global access
       const locationAccess = userFormData.locationAccess.includes('__ALL__') 
         ? [] 
         : userFormData.locationAccess;
       
+      // Prepare user data (exclude confirmPassword)
+      const { confirmPassword, ...userDataWithoutConfirm } = userFormData;
+      
       const userData = {
-        ...userFormData,
+        ...userDataWithoutConfirm,
         locationAccess: locationAccess
       };
+
+      // Only include password if it was provided
+      if (userFormData.password && userFormData.password.trim() !== '') {
+        userData.password = userFormData.password;
+      } else if (editingUser) {
+        // For existing users, if password is not provided, keep the existing one
+        const existingUser = users.find(u => u.id === editingUser.id);
+        if (existingUser && existingUser.password) {
+          userData.password = existingUser.password;
+        }
+      }
 
       if (editingUser) {
         // Update existing user
@@ -400,6 +463,53 @@ const Settings = () => {
               />
             </Grid>
             <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label={editingUser ? 'New Password (leave blank to keep current)' : 'Password'}
+                type={showPassword ? 'text' : 'password'}
+                value={userFormData.password}
+                onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                required={!editingUser}
+                helperText={editingUser ? 'Leave blank to keep current password' : 'Minimum 6 characters'}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Grid>
+            {(!editingUser || userFormData.password) && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Confirm Password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={userFormData.confirmPassword}
+                  onChange={(e) => setUserFormData({ ...userFormData, confirmPassword: e.target.value })}
+                  required={!editingUser || userFormData.password !== ''}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          edge="end"
+                        >
+                          {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
+              </Grid>
+            )}
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel>{t('settings.users.role') || 'Role'}</InputLabel>
                 <Select
@@ -480,7 +590,11 @@ const Settings = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUserDialogOpen(false)}>{t('common.cancel')}</Button>
-          <Button onClick={handleSaveUser} variant="contained" disabled={!userFormData.username || !userFormData.name}>
+          <Button 
+            onClick={handleSaveUser} 
+            variant="contained" 
+            disabled={!userFormData.username || !userFormData.name || (!editingUser && !userFormData.password)}
+          >
             {editingUser ? (t('common.update') || 'Update') : (t('settings.users.create') || 'Create')}
           </Button>
         </DialogActions>

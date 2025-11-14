@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../utils/languageContext';
-import { useAuth } from '../utils/authContext';
+import { useAuth, USER_ROLES } from '../utils/authContext';
 import dataService from '../services/dataService';
 import { format, parseISO, isBefore, addMonths } from 'date-fns';
 
@@ -47,6 +47,13 @@ const Equipment = () => {
   
   // Determine if user is Global admin (no locationAccess or empty array)
   const isGlobalAdmin = !currentUser?.locationAccess || (Array.isArray(currentUser.locationAccess) && currentUser.locationAccess.length === 0);
+  
+  // Determine if user can manage equipment (create/edit/delete)
+  // Owners (BOAT_PILOT, TRAINER) and Global Admins can manage equipment
+  // Guides and Interns can only view and toggle availability
+  const canManageEquipment = isGlobalAdmin || 
+    currentUser?.role === USER_ROLES.BOAT_PILOT || 
+    currentUser?.role === USER_ROLES.TRAINER;
   
   const [equipment, setEquipment] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -110,8 +117,8 @@ const Equipment = () => {
   };
 
   const handleAddEquipment = () => {
-    if (!isGlobalAdmin) {
-      setSnackbar({ open: true, message: 'Only Global admins can add equipment', severity: 'error' });
+    if (!canManageEquipment) {
+      setSnackbar({ open: true, message: 'You do not have permission to add equipment', severity: 'error' });
       return;
     }
     setFormData({
@@ -145,6 +152,10 @@ const Equipment = () => {
   };
 
   const handleEditEquipment = (item) => {
+    if (!canManageEquipment) {
+      setSnackbar({ open: true, message: 'You do not have permission to edit equipment', severity: 'error' });
+      return;
+    }
     setFormData(item);
     setEditingEquipment(item);
     setAddDialogOpen(true);
@@ -162,6 +173,11 @@ const Equipment = () => {
   };
 
   const handleSaveEquipment = () => {
+    if (!canManageEquipment) {
+      setSnackbar({ open: true, message: 'You do not have permission to save equipment', severity: 'error' });
+      return;
+    }
+    
     if (!formData.name || !formData.category || !formData.type) {
       setSnackbar({ open: true, message: 'Please fill in all required fields', severity: 'error' });
       return;
@@ -185,8 +201,8 @@ const Equipment = () => {
   };
 
   const handleDeleteEquipment = (id) => {
-    if (!isGlobalAdmin) {
-      setSnackbar({ open: true, message: 'Only Global admins can delete equipment', severity: 'error' });
+    if (!canManageEquipment) {
+      setSnackbar({ open: true, message: 'You do not have permission to delete equipment', severity: 'error' });
       return;
     }
     if (window.confirm('Are you sure you want to delete this equipment?')) {
@@ -289,15 +305,17 @@ const Equipment = () => {
         <Typography variant="h4">
           {isGlobalAdmin ? 'Global Equipment Inventory' : t('equipment.title')}
         </Typography>
-        {isGlobalAdmin && (
+        {canManageEquipment && (
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<UploadIcon />}
-              onClick={() => setBulkDialogOpen(true)}
-            >
-              {t('common.bulkImport')}
-            </Button>
+            {isGlobalAdmin && (
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                onClick={() => setBulkDialogOpen(true)}
+              >
+                {t('common.bulkImport')}
+              </Button>
+            )}
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -307,9 +325,9 @@ const Equipment = () => {
             </Button>
           </Box>
         )}
-        {!isGlobalAdmin && (
+        {!canManageEquipment && (
           <Alert severity="info" sx={{ maxWidth: 400 }}>
-            Equipment is managed by Global admin. You can only update availability status.
+            You can view equipment and update availability status. Equipment management is restricted to owners and administrators.
           </Alert>
         )}
       </Box>
@@ -498,7 +516,7 @@ const Equipment = () => {
                     />
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                    {isGlobalAdmin ? (
+                    {canManageEquipment ? (
                       <>
                         <Button
                           size="small"

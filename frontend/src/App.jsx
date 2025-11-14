@@ -58,10 +58,10 @@ function App() {
                     <Route path="/bookings" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
                     <Route path="/bookings/new" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
                     <Route path="/bookings/:id" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
-                    <Route path="/stays" element={<ProtectedRoute requiredPermission="bookings"><Stays /></ProtectedRoute>} />
+                    <Route path="/stays" element={<ProtectedRoute requiredPermission="stays"><Stays /></ProtectedRoute>} />
                     <Route path="/customers" element={<ProtectedRoute requiredPermission="customers"><Customers /></ProtectedRoute>} />
                     <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
-                    <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="bookings"><BoatPrep /></ProtectedRoute>} />
+                    <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="boatPrep"><BoatPrep /></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
                   </Routes>
                 </Box>
