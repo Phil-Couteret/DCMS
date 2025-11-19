@@ -1,7 +1,7 @@
 # DCMS - Dive Center Management System
 
 **Complete Planning & Development Repository**  
-**Target:** Deep Blue Diving, Fuerteventura  
+**Target:** Diving Center, Canary Islands  
 **License:** GPL-3.0
 
 ---
@@ -137,9 +137,9 @@ DCMS/
 ## 👤 **Role & Access Model**
 
 - **Admin (Owners Family / Customer Service):** Full access to bookings, customers, stays, account management.
-- **Owner / Boat Pilot:** Global equipment CRUD, boat & dive preparation, maintenance scheduling (both sites).
-- **Site Managers (Caleta, Las Playitas):** Complete control over their site operations; Las Playitas manager limited to shore dives (no boat controls).
-- **Boat Captains (Caleta):** Boat preparation with read access to bookings/customers for schedule context.
+- **Owners:** Global equipment CRUD, boat & dive preparation, maintenance scheduling (both sites).
+- **Site Managers (Site A, Site B):** Complete control over their site operations; Las Playitas manager limited to shore dives (no boat controls).
+- **Boat Captains (Site A):** Boat preparation with read access to bookings/customers for schedule context.
 - **Guides (Both Sites):** Dive preparation, equipment allocation, customer sizing updates.
 - **Trainees (Both Sites):** Assist mode—view equipment, update availability, follow guide instructions.
 
