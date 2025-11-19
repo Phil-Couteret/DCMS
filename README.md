@@ -11,7 +11,11 @@
 The Dive Center Management System (DCMS) is a comprehensive, cloud-based management system designed for multi-site dive center operations. This system handles bookings, customers, equipment, certifications, compliance, and more.
 
 **Key Features:**
-- ✅ **Flexible Equipment Rental** (individual equipment selection - BCD, Regulator, Mask, Fins, Boots, Wetsuit, Computer, Torch)
+- ✅ **Unified Equipment & Materials Inventory** (global account manages all equipment with site allocation and maintenance tracking)
+- ✅ **Flexible Equipment Rental** (individual equipment selection - BCD, Regulator, Mask, Fins, Boots, Wetsuit, Computer, Torch, Tanks including 10 L / 12 L / 15 L plus Nitrox variants)
+- ✅ **Dive Preparation Workflows** (Caleta boats vs Las Playitas shore dives, session availability enforced per site)
+- ✅ **Role-Based Access Control** (Admin, Owner/Boat Pilot, Site Managers, Boat Captains, Guides, Trainees with location-aware permissions)
+- ✅ Built-in account & password management (add / modify / delete from Settings)
 - ✅ Volume discount pricing (1 dive: €46, 2-3 dives: €44, 4-6 dives: €42, 7-8 dives: €40, 9+ dives: €38)
 - ✅ Multilingual support (Spanish, English, German, French, Italian)
 - ✅ Multi-currency support (EUR, GBP, USD)
@@ -21,7 +25,6 @@ The Dive Center Management System (DCMS) is a comprehensive, cloud-based managem
 - ✅ Regulatory compliance (Spanish maritime, GDPR, insurance)
 - ✅ Cross-period stay pricing
 - ✅ Advanced customer profiles
-- ✅ **Equipment Management** (60 pieces with detailed specifications)
 
 ---
 
@@ -131,25 +134,38 @@ DCMS/
 
 ---
 
-## 🏊‍♂️ **Equipment System**
+## 👤 **Role & Access Model**
 
-### **Flexible Equipment Rental (60 pieces)**
-- **Individual Selection:** Choose specific equipment to rent
-- **Equipment Types:** BCD, Regulator, Mask, Fins, Boots, Wetsuit, Computer, Torch
-- **Own Equipment:** Customer preference option
-- **Mixed Approach:** Combine own and rented equipment
-- **Detailed Specifications:** Brand, model, thickness, style, hood
+- **Admin (Owners Family / Customer Service):** Full access to bookings, customers, stays, account management.
+- **Owner / Boat Pilot:** Global equipment CRUD, boat & dive preparation, maintenance scheduling (both sites).
+- **Site Managers (Caleta, Las Playitas):** Complete control over their site operations; Las Playitas manager limited to shore dives (no boat controls).
+- **Boat Captains (Caleta):** Boat preparation with read access to bookings/customers for schedule context.
+- **Guides (Both Sites):** Dive preparation, equipment allocation, customer sizing updates.
+- **Trainees (Both Sites):** Assist mode—view equipment, update availability, follow guide instructions.
 
-### **Equipment Inventory:**
-- **BCDs:** 6 pieces (XS to XXL)
-- **Regulators:** 5 pieces
-- **Masks:** 5 pieces
-- **Fins:** 6 pieces (XS to XXL)
-- **Boots:** 6 pieces (XS to XXL)
-- **Wetsuits:** 20 pieces (various types/thicknesses)
-- **Semi-Dry Suits:** 4 pieces
-- **Dive Computers:** 5 pieces
-- **Dive Torches:** 6 pieces
+All permissions are centralized via `ROLE_PERMISSIONS` in `frontend/src/utils/authContext.js`, ensuring UI navigation and forms render only what each role is allowed to perform.
+
+---
+
+## 🏊‍♂️ **Equipment & Tank System**
+
+### **Unified Inventory (Global Account)**
+- **Single Source of Truth:** Equipment and materials merged into one dataset managed by the global admin/owner account
+- **Site Allocation:** Global users allocate gear to Caleta or Las Playitas; site managers have read-only visibility into assigned stock
+- **Comprehensive Fields:** Brand, model, serial, purchase date, warranty, last/next revision, notes, plus regulator-specific stages and octopus details
+- **Availability Control:** Global/owner/trainer roles perform full CRUD; guides and trainees can view + allocate; interns assist with availability toggles
+- **Type Filtering:** Dropdown filter to display specific categories (BCD, Regulator, Tanks, Suits, Accessories, etc.)
+
+### **Tank & Gas Management**
+- **Tank Sizes:** 10 L, 12 L, 15 L steel tanks tracked individually
+- **Nitrox Variants:** Dedicated Nitrox tanks with allocation and maintenance metadata
+- **Customer Preferences:** Tank size and gas preferences stored alongside diver profiles for dive preparation
+- **Dive Session Logic:** 10:15 session restricted to Caleta; Las Playitas offers shore-only dive prep
+
+### **Flexible Equipment Rental**
+- **Individual Selection:** Choose specific equipment to rent or mark as own gear
+- **Mixed Approach:** Combine owned and rented equipment per customer
+- **Detailed Specs:** Thickness, style, hood, condition, and maintenance indicators highlighted in UI
 
 ---
 
@@ -172,9 +188,10 @@ All planning and documentation is in the `/docs` folder:
 ## 🚀 **Current Status**
 
 ### **✅ COMPLETED**
-- **PWA Admin Frontend:** Complete with booking, customer, equipment management
-- **Public Website:** Complete with booking, dive sites, pricing
-- **Equipment System:** 60 pieces with flexible rental options
+- **PWA Admin Frontend:** Booking, customer, unified equipment + tank management, role-based access
+- **Public Website:** Booking, dive sites, pricing and marketing pages
+- **Equipment System:** Global inventory, tank sizes + Nitrox tracking, maintenance metadata, site allocation workflows
+- **Account Management:** Admin can add/modify/delete accounts and manage passwords directly in Settings
 - **Database Schema:** Complete PostgreSQL schema
 - **Documentation:** Comprehensive planning and technical docs
 
@@ -228,5 +245,5 @@ This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) 
 ---
 
 **Status:** Frontend Complete, Backend In Development  
-**Last Updated:** October 2025  
-**Equipment:** 60 pieces with flexible rental system
+**Last Updated:** November 2025  
+**Equipment:** Unified global inventory with tank size + Nitrox tracking
