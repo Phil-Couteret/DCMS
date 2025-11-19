@@ -13,10 +13,10 @@ The Dive Center Management System (DCMS) is a comprehensive, cloud-based managem
 **Key Features:**
 - ✅ **Unified Equipment & Materials Inventory** (global account manages all equipment with site allocation and maintenance tracking)
 - ✅ **Flexible Equipment Rental** (individual equipment selection - BCD, Regulator, Mask, Fins, Boots, Wetsuit, Computer, Torch, Tanks including 10 L / 12 L / 15 L plus Nitrox variants)
-- ✅ **Dive Preparation Workflows** (Caleta boats vs Las Playitas shore dives, session availability enforced per site)
-- ✅ **Role-Based Access Control** (Admin, Owner/Boat Pilot, Site Managers, Boat Captains, Guides, Trainees with location-aware permissions)
+- ✅ **Dive Preparation Workflows** (Site A boats vs Site B shore dives, session availability enforced per site)
+- ✅ **Role-Based Access Control** (Admin, Owners, Site Managers, Boat Captains, Guides, Trainees with location-aware permissions)
 - ✅ Built-in account & password management (add / modify / delete from Settings)
-- ✅ Volume discount pricing (1 dive: €46, 2-3 dives: €44, 4-6 dives: €42, 7-8 dives: €40, 9+ dives: €38)
+- ✅ Volume discount pricing
 - ✅ Multilingual support (Spanish, English, German, French, Italian)
 - ✅ Multi-currency support (EUR, GBP, USD)
 - ✅ Government bono system (Canary Islands resident discounts)
