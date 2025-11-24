@@ -13,12 +13,85 @@ import {
   FormControlLabel,
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  Checkbox,
+  FormGroup,
+  FormControl,
+  InputLabel,
+  Select,
+  FormLabel,
+  RadioGroup,
+  Radio
 } from '@mui/material';
 import { Save as SaveIcon, Cancel as CancelIcon, CheckCircle as VerifiedIcon } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dataService from '../../services/dataService';
 import { useAuth } from '../../utils/authContext';
+
+const EQUIPMENT_ITEMS = [
+  { key: 'mask', label: 'Mask' },
+  { key: 'snorkel', label: 'Snorkel' },
+  { key: 'fins', label: 'Fins' },
+  { key: 'boots', label: 'Boots' },
+  { key: 'wetsuit', label: 'Wetsuit' },
+  { key: 'hood', label: 'Hood' },
+  { key: 'bcd', label: 'BCD' },
+  { key: 'regulator', label: 'Regulator' },
+  { key: 'computer', label: 'Dive Computer' },
+  { key: 'torch', label: 'Torch' },
+  { key: 'camera', label: 'Camera' },
+  { key: 'weights', label: 'Weights' },
+  { key: 'tank', label: 'Tank' }
+];
+const EQUIPMENT_ITEMS_NO_TANK = EQUIPMENT_ITEMS.filter(item => item.key !== 'tank');
+
+const getDefaultEquipmentOwnership = () =>
+  EQUIPMENT_ITEMS.reduce((acc, item) => {
+    acc[item.key] = false;
+    return acc;
+  }, {});
+
+const getDefaultSuitPreferences = () => ({
+  style: 'full',
+  thickness: '5mm',
+  hood: false
+});
+
+const getDefaultPreferences = () => ({
+  bcdSize: 'M',
+  finsSize: 'M',
+  bootsSize: 'M',
+  wetsuitSize: 'M',
+  tankSize: '12L',
+  ownEquipment: false,
+  equipmentOwnership: getDefaultEquipmentOwnership(),
+  suitPreferences: getDefaultSuitPreferences()
+});
+
+const normalizePreferences = (prefs = {}) => {
+  const ownership = {
+    ...getDefaultEquipmentOwnership(),
+    ...(prefs.equipmentOwnership || {})
+  };
+  ownership.tank = false;
+  const suitPreferences = {
+    ...getDefaultSuitPreferences(),
+    ...(prefs.suitPreferences || {})
+  };
+  const ownEquipment = EQUIPMENT_ITEMS_NO_TANK.every(item => ownership[item.key]);
+  return {
+    ...getDefaultPreferences(),
+    ...prefs,
+    ownEquipment,
+    equipmentOwnership: ownership,
+    suitPreferences
+  };
+};
+
+const normalizeCustomerData = (customer) => ({
+  ...customer,
+  preferences: normalizePreferences(customer.preferences || {})
+});
 
 const CustomerForm = () => {
   const navigate = useNavigate();
@@ -36,14 +109,7 @@ const CustomerForm = () => {
     nationality: '',
     customerType: 'tourist',
     centerSkillLevel: 'beginner',
-    preferences: {
-      bcdSize: 'M',
-      finsSize: 'M',
-      bootsSize: 'M',
-      wetsuitSize: 'M',
-      tankSize: '12L',
-      ownEquipment: false
-    },
+    preferences: getDefaultPreferences(),
     medicalConditions: [],
     certifications: [],
     medicalCertificate: {
@@ -71,6 +137,8 @@ const CustomerForm = () => {
     expiryDate: ''
   });
   const [verifyingIndex, setVerifyingIndex] = useState(null);
+  const equipmentOwnership = formData.preferences?.equipmentOwnership || getDefaultEquipmentOwnership();
+  const suitPreferences = formData.preferences?.suitPreferences || getDefaultSuitPreferences();
 
   useEffect(() => {
     if (customerId) {
@@ -81,26 +149,34 @@ const CustomerForm = () => {
   const loadCustomer = () => {
     const customer = dataService.getById('customers', customerId);
     if (customer) {
-      setFormData(customer);
+      setFormData(normalizeCustomerData(customer));
     }
   };
 
   const handleChange = (field, value) => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-    } else {
+    if (!field.includes('.')) {
       setFormData(prev => ({
         ...prev,
         [field]: value
       }));
+      return;
     }
+
+    const path = field.split('.');
+    setFormData(prev => {
+      const updated = { ...prev };
+      let cursor = updated;
+      for (let i = 0; i < path.length - 1; i += 1) {
+        const key = path[i];
+        const currentValue = cursor[key];
+        cursor[key] = Array.isArray(currentValue)
+          ? [...currentValue]
+          : { ...(currentValue || {}) };
+        cursor = cursor[key];
+      }
+      cursor[path[path.length - 1]] = value;
+      return updated;
+    });
   };
 
   const handleVerifyCertification = (agency, certificationNumber, index) => {
@@ -162,6 +238,47 @@ const CustomerForm = () => {
       console.error('Error verifying certification:', error);
       alert('Error opening verification portal. Please try again.');
     }
+  };
+
+  const handleEquipmentOwnershipChange = (itemKey, checked) => {
+    if (itemKey === 'tank') {
+      return;
+    }
+    setFormData(prev => {
+      const normalizedPrefs = normalizePreferences(prev.preferences || {});
+      const ownership = {
+        ...normalizedPrefs.equipmentOwnership,
+        [itemKey]: checked
+      };
+      ownership.tank = false;
+      const ownEquipment = EQUIPMENT_ITEMS_NO_TANK.every(item => ownership[item.key]);
+      return {
+        ...prev,
+        preferences: {
+          ...normalizedPrefs,
+          equipmentOwnership: ownership,
+          ownEquipment
+        }
+      };
+    });
+  };
+
+  const handleOwnEquipmentToggle = (checked) => {
+    setFormData(prev => {
+      const normalizedPrefs = normalizePreferences(prev.preferences || {});
+      const ownership = { ...normalizedPrefs.equipmentOwnership };
+      EQUIPMENT_ITEMS.forEach(item => {
+        ownership[item.key] = item.key === 'tank' ? false : checked;
+      });
+      return {
+        ...prev,
+        preferences: {
+          ...normalizedPrefs,
+          ownEquipment: checked,
+          equipmentOwnership: ownership
+        }
+      };
+    });
   };
 
   const addCertification = () => {
@@ -347,108 +464,214 @@ const CustomerForm = () => {
 
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
-                Equipment Sizes
+                Equipment & Suit Preferences
               </Typography>
             </Grid>
 
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="BCD Size"
-                fullWidth
-                value={formData.preferences.bcdSize || 'M'}
-                onChange={(e) => handleChange('preferences.bcdSize', e.target.value)}
-              >
-                <MenuItem value="XS">XS</MenuItem>
-                <MenuItem value="S">S</MenuItem>
-                <MenuItem value="M">M</MenuItem>
-                <MenuItem value="L">L</MenuItem>
-                <MenuItem value="XL">XL</MenuItem>
-                <MenuItem value="XXL">XXL</MenuItem>
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Fins Size"
-                fullWidth
-                value={formData.preferences.finsSize || 'M'}
-                onChange={(e) => handleChange('preferences.finsSize', e.target.value)}
-              >
-                <MenuItem value="XS">XS</MenuItem>
-                <MenuItem value="S">S</MenuItem>
-                <MenuItem value="M">M</MenuItem>
-                <MenuItem value="L">L</MenuItem>
-                <MenuItem value="XL">XL</MenuItem>
-                <MenuItem value="XXL">XXL</MenuItem>
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Boots Size"
-                fullWidth
-                value={formData.preferences.bootsSize || 'M'}
-                onChange={(e) => handleChange('preferences.bootsSize', e.target.value)}
-              >
-                <MenuItem value="XS">XS</MenuItem>
-                <MenuItem value="S">S</MenuItem>
-                <MenuItem value="M">M</MenuItem>
-                <MenuItem value="L">L</MenuItem>
-                <MenuItem value="XL">XL</MenuItem>
-                <MenuItem value="XXL">XXL</MenuItem>
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Wetsuit Size"
-                fullWidth
-                value={formData.preferences.wetsuitSize || 'M'}
-                onChange={(e) => handleChange('preferences.wetsuitSize', e.target.value)}
-              >
-                <MenuItem value="XS">XS</MenuItem>
-                <MenuItem value="S">S</MenuItem>
-                <MenuItem value="M">M</MenuItem>
-                <MenuItem value="L">L</MenuItem>
-                <MenuItem value="XL">XL</MenuItem>
-                <MenuItem value="XXL">XXL</MenuItem>
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Tank Size"
-                fullWidth
-                value={formData.preferences.tankSize || '12L'}
-                onChange={(e) => handleChange('preferences.tankSize', e.target.value)}
-                helperText="Required for all dives"
-              >
-                <MenuItem value="10L">10L (Normal)</MenuItem>
-                <MenuItem value="12L">12L (Normal)</MenuItem>
-                <MenuItem value="15L">15L (Normal)</MenuItem>
-                <MenuItem value="Nitrox 10L">Nitrox 10L</MenuItem>
-                <MenuItem value="Nitrox 12L">Nitrox 12L</MenuItem>
-                <MenuItem value="Nitrox 15L">Nitrox 15L</MenuItem>
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <FormControlLabel
                 control={
                   <Switch
                     checked={formData.preferences.ownEquipment}
-                    onChange={(e) => handleChange('preferences.ownEquipment', e.target.checked)}
+                    onChange={(e) => handleOwnEquipmentToggle(e.target.checked)}
                     disabled={isReadOnly}
                   />
                 }
-                label="Customer brings own equipment"
+                label="Customer brings complete equipment setup"
               />
             </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>Gear customer brings</Typography>
+              <FormGroup>
+                <Grid container spacing={1}>
+                  {EQUIPMENT_ITEMS.map(item => (
+                    <Grid item xs={12} sm={6} md={4} key={item.key}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={equipmentOwnership[item.key] || false}
+                            onChange={(e) =>
+                              handleEquipmentOwnershipChange(item.key, e.target.checked)
+                            }
+                            disabled={isReadOnly || item.key === 'tank'}
+                          />
+                        }
+                        label={
+                          item.key === 'tank'
+                            ? `${item.label} (provided by center)`
+                            : item.label
+                        }
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </FormGroup>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth disabled={isReadOnly}>
+                <InputLabel id="tank-size-label">Tank Size</InputLabel>
+                <Select
+                  labelId="tank-size-label"
+                  value={formData.preferences.tankSize || '12L'}
+                  label="Tank Size"
+                  onChange={(e) => handleChange('preferences.tankSize', e.target.value)}
+                >
+                  <MenuItem value="10L">10 L</MenuItem>
+                  <MenuItem value="12L">12 L</MenuItem>
+                  <MenuItem value="15L">15 L</MenuItem>
+                  <MenuItem value="Nitrox 12L">Nitrox 12 L</MenuItem>
+                  <MenuItem value="Nitrox 15L">Nitrox 15 L</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {!equipmentOwnership.bcd && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="BCD Size"
+                  value={formData.preferences.bcdSize || 'M'}
+                  onChange={(e) => handleChange('preferences.bcdSize', e.target.value)}
+                  fullWidth
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value="XS">XS</MenuItem>
+                  <MenuItem value="S">S</MenuItem>
+                  <MenuItem value="M">M</MenuItem>
+                  <MenuItem value="L">L</MenuItem>
+                  <MenuItem value="XL">XL</MenuItem>
+                  <MenuItem value="XXL">XXL</MenuItem>
+                </TextField>
+              </Grid>
+            )}
+
+            {!equipmentOwnership.wetsuit && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Wetsuit Size"
+                  value={formData.preferences.wetsuitSize || 'M'}
+                  onChange={(e) => handleChange('preferences.wetsuitSize', e.target.value)}
+                  fullWidth
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value="XS">XS</MenuItem>
+                  <MenuItem value="S">S</MenuItem>
+                  <MenuItem value="M">M</MenuItem>
+                  <MenuItem value="L">L</MenuItem>
+                  <MenuItem value="XL">XL</MenuItem>
+                  <MenuItem value="XXL">XXL</MenuItem>
+                </TextField>
+              </Grid>
+            )}
+
+            {!equipmentOwnership.fins && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Fins Size"
+                  value={formData.preferences.finsSize || 'M'}
+                  onChange={(e) => handleChange('preferences.finsSize', e.target.value)}
+                  fullWidth
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value="XS">XS</MenuItem>
+                  <MenuItem value="S">S</MenuItem>
+                  <MenuItem value="M">M</MenuItem>
+                  <MenuItem value="L">L</MenuItem>
+                  <MenuItem value="XL">XL</MenuItem>
+                  <MenuItem value="XXL">XXL</MenuItem>
+                </TextField>
+              </Grid>
+            )}
+
+            {!equipmentOwnership.boots && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Boots Size"
+                  value={formData.preferences.bootsSize || 'M'}
+                  onChange={(e) => handleChange('preferences.bootsSize', e.target.value)}
+                  fullWidth
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value="XS">XS</MenuItem>
+                  <MenuItem value="S">S</MenuItem>
+                  <MenuItem value="M">M</MenuItem>
+                  <MenuItem value="L">L</MenuItem>
+                  <MenuItem value="XL">XL</MenuItem>
+                  <MenuItem value="XXL">XXL</MenuItem>
+                </TextField>
+              </Grid>
+            )}
+
+            {!equipmentOwnership.wetsuit ? (
+              <>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="subtitle1" gutterBottom>
+                    Suit Preferences
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl component="fieldset" fullWidth disabled={isReadOnly}>
+                    <FormLabel component="legend">Preferred Suit Style</FormLabel>
+                    <RadioGroup
+                      row
+                      value={suitPreferences.style}
+                      onChange={(e) =>
+                        handleChange('preferences.suitPreferences.style', e.target.value)
+                      }
+                    >
+                      <FormControlLabel value="full" control={<Radio />} label="Full" />
+                      <FormControlLabel value="shorty" control={<Radio />} label="Shorty" />
+                    </RadioGroup>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth disabled={isReadOnly}>
+                    <InputLabel id="suit-thickness-label">Thickness</InputLabel>
+                    <Select
+                      labelId="suit-thickness-label"
+                      value={suitPreferences.thickness}
+                      label="Thickness"
+                      onChange={(e) =>
+                        handleChange('preferences.suitPreferences.thickness', e.target.value)
+                      }
+                    >
+                      <MenuItem value="3mm">3 mm</MenuItem>
+                      <MenuItem value="5mm">5 mm</MenuItem>
+                      <MenuItem value="7mm">7 mm</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={suitPreferences.hood}
+                        onChange={(e) =>
+                          handleChange('preferences.suitPreferences.hood', e.target.checked)
+                        }
+                        disabled={isReadOnly}
+                      />
+                    }
+                    label="Include hood"
+                  />
+                </Grid>
+              </>
+            ) : (
+              <Grid item xs={12}>
+                <Alert severity="success">
+                  Customer brings their own suit, so suit preferences are hidden.
+                </Alert>
+              </Grid>
+            )}
 
             <Divider sx={{ my: 2, width: '100%' }} />
 

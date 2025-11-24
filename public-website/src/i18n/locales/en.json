@@ -53,6 +53,8 @@
     "step1": "Select Activity",
     "step2": "Enter Details",
     "step3": "Review & Confirm",
+    "step4": "Payment",
+    "step5": "Confirmation",
     "location": "Location",
     "date": "Date",
     "time": "Time",

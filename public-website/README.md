@@ -99,12 +99,40 @@ npm start
 
 ## 🎯 **Integration with DCMS**
 
-This public website will connect to the DCMS backend API to:
-- Get real-time availability
-- Process bookings
-- Store customer accounts
-- Track certifications
-- Generate confirmations
+This public website connects to the DCMS backend using localStorage (shared with admin system):
+- ✅ **Real-time availability checking** - Basic capacity validation
+- ✅ **Process bookings** - Full booking flow with payment (dummy payment system)
+- ✅ **Store customer accounts** - Auto-create/update customers on booking
+- ✅ **Sync with admin system** - Bookings appear in DCMS admin immediately
+- ✅ **Email preparation** - Email service ready for backend integration
+- ⏳ **Track certifications** - (Future feature)
+- ⏳ **Real email sending** - (Requires backend API integration)
 
-**Current Status:** Mock data integration (ready for backend connection)
+**Current Status:** Fully functional booking system with dummy payment. Bookings are stored in localStorage and sync with DCMS admin system.
+
+## 📝 **Booking Flow**
+
+1. **Step 1: Select Activity** - Choose activity type (Diving, Snorkeling, Discover Scuba, Orientation), location, date, time, and number of dives
+2. **Step 2: Enter Details** - Customer information (name, email, phone, special requirements)
+3. **Step 3: Review & Confirm** - Review all booking details and pricing
+4. **Step 4: Payment** - Dummy payment system (Card, PayPal placeholder, or Pay at Location)
+5. **Step 5: Confirmation** - Booking confirmed with booking ID and transaction details
+
+## 💳 **Payment System**
+
+Currently implements a **dummy payment system**:
+- **Credit/Debit Card** - Card form with validation (no real processing)
+- **PayPal** - Placeholder (coming soon)
+- **Pay at Location** - Option to pay at the dive center
+
+All payments are marked as "paid" and bookings are immediately confirmed. Real payment gateway integration can be added later.
+
+## 🔄 **Data Synchronization**
+
+Bookings created on the public website are stored in the same localStorage keys as the DCMS admin system:
+- `dcms_bookings` - All bookings
+- `dcms_customers` - Customer database
+- `dcms_locations` - Location data
+
+This ensures immediate synchronization between the public website and admin system when both are running in the same browser.
 
