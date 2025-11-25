@@ -11,6 +11,13 @@ initializeMockData();
 const saveAll = (resource, data) => {
   const key = `dcms_${resource}`;
   localStorage.setItem(key, JSON.stringify(data));
+  
+  // Sync to server if sync service is available
+  if (typeof window !== 'undefined' && window.syncService) {
+    window.syncService.syncToServer(resource, data).catch(err => {
+      console.warn('[MockDataService] Sync failed:', err);
+    });
+  }
 };
 
 const generateId = () => {

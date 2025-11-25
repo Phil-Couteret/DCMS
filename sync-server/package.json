@@ -1,0 +1,14 @@
+{
+  "name": "dcms-sync-server",
+  "version": "1.0.0",
+  "description": "Simple sync server for DCMS POC to share data between public website and admin portal",
+  "main": "sync-server.js",
+  "scripts": {
+    "start": "node sync-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}
+

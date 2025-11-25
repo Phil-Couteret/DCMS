@@ -237,8 +237,9 @@ export const getActiveStays = (days = 30) => {
   
   // Get stay summaries for each customer
   const activeStays = Object.keys(customerBookings).map(customerId => {
-    const customerBookingsList = customerBookings[customerId];
-    const stayStartDate = customerBookingsList[0].bookingDate;
+    const customerBookingsList = customerBookings[customerId]
+      .sort((a, b) => new Date(a.bookingDate) - new Date(b.bookingDate));
+    const stayStartDate = customerBookingsList[0]?.bookingDate;
     return getCustomerStaySummary(customerId, stayStartDate);
   });
   

@@ -63,7 +63,7 @@ import Prices from '../components/Settings/Prices';
 import { useTranslation } from '../utils/languageContext';
 
 const Settings = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(0);
   const [settings, setSettings] = useState({
@@ -334,17 +334,29 @@ const Settings = () => {
   const handleDeleteUser = (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        // Prevent deleting the last admin
+        // Prevent deleting the last admin or superadmin
         const userToDelete = users.find(u => u.id === userId);
-        if (userToDelete && userToDelete.role === USER_ROLES.ADMIN) {
-          const adminCount = users.filter(u => u.role === USER_ROLES.ADMIN).length;
-          if (adminCount <= 1) {
-            setSnackbar({
-              open: true,
-              message: 'Cannot delete the last admin user',
-              severity: 'error'
-            });
-            return;
+        if (userToDelete) {
+          if (userToDelete.role === USER_ROLES.SUPERADMIN) {
+            const superadminCount = users.filter(u => u.role === USER_ROLES.SUPERADMIN).length;
+            if (superadminCount <= 1) {
+              setSnackbar({
+                open: true,
+                message: 'Cannot delete the last superadmin user',
+                severity: 'error'
+              });
+              return;
+            }
+          } else if (userToDelete.role === USER_ROLES.ADMIN) {
+            const adminCount = users.filter(u => u.role === USER_ROLES.ADMIN || u.role === USER_ROLES.SUPERADMIN).length;
+            if (adminCount <= 1) {
+              setSnackbar({
+                open: true,
+                message: 'Cannot delete the last admin user',
+                severity: 'error'
+              });
+              return;
+            }
           }
         }
 
@@ -369,6 +381,8 @@ const Settings = () => {
   // Helper functions for role display
   const getRoleIcon = (role) => {
     switch (role) {
+      case USER_ROLES.SUPERADMIN:
+        return <VerifiedUserIcon />;
       case USER_ROLES.ADMIN:
         return <AdminIcon />;
       case USER_ROLES.BOAT_PILOT:
@@ -386,6 +400,8 @@ const Settings = () => {
 
   const getRoleColor = (role) => {
     switch (role) {
+      case USER_ROLES.SUPERADMIN:
+        return 'error'; // Red/prominent color for superadmin
       case USER_ROLES.ADMIN:
         return 'primary';
       case USER_ROLES.BOAT_PILOT:
@@ -403,6 +419,8 @@ const Settings = () => {
 
   const getRoleLabel = (role) => {
     switch (role) {
+      case USER_ROLES.SUPERADMIN:
+        return 'Superadmin';
       case USER_ROLES.ADMIN:
         return 'Admin';
       case USER_ROLES.BOAT_PILOT:
@@ -512,17 +530,21 @@ const Settings = () => {
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel>{t('settings.users.role') || 'Role'}</InputLabel>
-                <Select
-                  value={userFormData.role}
-                  onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
-                  label={t('settings.users.role') || 'Role'}
-                >
-                  <MenuItem value={USER_ROLES.ADMIN}>{t('settings.roles.admin') || 'Admin'}</MenuItem>
-                  <MenuItem value={USER_ROLES.BOAT_PILOT}>{t('settings.roles.boatPilot') || 'Boat Pilot'}</MenuItem>
-                  <MenuItem value={USER_ROLES.GUIDE}>{t('settings.roles.guide') || 'Guide'}</MenuItem>
-                  <MenuItem value={USER_ROLES.TRAINER}>{t('settings.roles.trainer') || 'Trainer'}</MenuItem>
-                  <MenuItem value={USER_ROLES.INTERN}>{t('settings.roles.intern') || 'Intern'}</MenuItem>
-                </Select>
+                  <Select
+                    value={userFormData.role}
+                    onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
+                    label={t('settings.users.role') || 'Role'}
+                    disabled={userFormData.role === USER_ROLES.SUPERADMIN && !isSuperAdmin()}
+                  >
+                    {isSuperAdmin() && (
+                      <MenuItem value={USER_ROLES.SUPERADMIN}>Superadmin</MenuItem>
+                    )}
+                    <MenuItem value={USER_ROLES.ADMIN}>{t('settings.roles.admin') || 'Admin'}</MenuItem>
+                    <MenuItem value={USER_ROLES.BOAT_PILOT}>{t('settings.roles.boatPilot') || 'Boat Pilot'}</MenuItem>
+                    <MenuItem value={USER_ROLES.GUIDE}>{t('settings.roles.guide') || 'Guide'}</MenuItem>
+                    <MenuItem value={USER_ROLES.TRAINER}>{t('settings.roles.trainer') || 'Trainer'}</MenuItem>
+                    <MenuItem value={USER_ROLES.INTERN}>{t('settings.roles.intern') || 'Intern'}</MenuItem>
+                  </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12}>
@@ -726,7 +748,7 @@ const Settings = () => {
 
       {activeTab === 2 && (
         <Box>
-          {/* User Management - Only visible to admins */}
+          {/* User Management - Only visible to admins and superadmins */}
           {isAdmin() && (
             <Accordion defaultExpanded sx={{ mb: 3 }}>
               <AccordionSummary
@@ -818,7 +840,11 @@ const Settings = () => {
                                   size="small"
                                   onClick={() => handleDeleteUser(user.id)}
                                   color="error"
-                                  disabled={user.role === USER_ROLES.ADMIN && users.filter(u => u.role === USER_ROLES.ADMIN).length === 1}
+                                  disabled={
+                                    (user.role === USER_ROLES.SUPERADMIN && users.filter(u => u.role === USER_ROLES.SUPERADMIN).length === 1) ||
+                                    (user.role === USER_ROLES.ADMIN && users.filter(u => u.role === USER_ROLES.ADMIN || u.role === USER_ROLES.SUPERADMIN).length === 1) ||
+                                    (user.role === USER_ROLES.SUPERADMIN && !isSuperAdmin())
+                                  }
                                 >
                                   <DeleteIcon />
                                 </IconButton>

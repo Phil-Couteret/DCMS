@@ -2112,6 +2112,19 @@ export const initialMockData = {
   ],
 
   users: [
+    // Superadmin - Full access to all features (equipment, boatPrep, and all admin features)
+    {
+      id: '550e8400-e29b-41d4-a716-446655440099',
+      username: 'superadmin',
+      name: 'Super Administrator',
+      email: 'superadmin@deep-blue-diving.com',
+      password: 'superadmin123', // Default password - should be changed
+      role: 'superadmin',
+      isActive: true,
+      createdAt: '2025-01-01T00:00:00Z'
+      // No locationAccess = global access to all locations
+    },
+    
     // Admin Team (Owners Family) - Full access to everything
     {
       id: '550e8400-e29b-41d4-a716-446655440100',
@@ -2250,22 +2263,88 @@ export const initialMockData = {
 
 // Initialize localStorage with mock data if not already initialized
 export const initializeMockData = () => {
-  // Clear existing data to force re-initialization with correct structure
-  const keys = ['dcms_bookings', 'dcms_customers', 'dcms_equipment', 'dcms_boats', 'dcms_diveSites', 'dcms_locations', 'dcms_pricingConfig', 'dcms_governmentBonos', 'dcms_settings', 'dcms_users', 'dcms_boatPreps'];
-  keys.forEach(key => localStorage.removeItem(key));
+  const ensureKey = (key, value) => {
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  };
+
+  const isMockCustomer = (customer) => {
+    return (
+      customer?.email === 'john.smith@example.com' ||
+      customer?.email === 'maria.garcia@example.com' ||
+      customer?.email === 'carlos.rodriguez@example.com' ||
+      (customer?.id && customer.id.toString().startsWith('cust-mock'))
+    );
+  };
+
+  const isMockBooking = (booking) => {
+    return booking?.id?.startsWith('550e8400-e29b-41d4-a716-44665544000');
+  };
+
+  const maybeResetResource = (key, predicate) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (Array.isArray(data) && data.some(predicate)) {
+        localStorage.removeItem(key);
+      }
+    } catch (err) {
+      console.warn(`[MockData] Failed to inspect ${key}:`, err);
+      localStorage.removeItem(key);
+    }
+  };
+
+  // Remove existing mock seed data once so real sync data can replace it
+  maybeResetResource('dcms_customers', isMockCustomer);
+  maybeResetResource('dcms_bookings', isMockBooking);
+
+  // Start bookings/customers empty so they can be synced from the public app
+  ensureKey('dcms_bookings', []);
+  ensureKey('dcms_customers', []);
+
+  // Seed reference data only when missing
+  ensureKey('dcms_equipment', initialMockData.equipment);
+  ensureKey('dcms_boats', initialMockData.boats);
+  ensureKey('dcms_diveSites', initialMockData.diveSites);
+  ensureKey('dcms_locations', initialMockData.locations);
+  ensureKey('dcms_pricingConfig', initialMockData.pricingConfig);
+  ensureKey('dcms_governmentBonos', initialMockData.governmentBonos);
+  ensureKey('dcms_settings', initialMockData.settings);
+  ensureKey('dcms_boatPreps', []);
   
-  // Initialize with correct data structure
-  localStorage.setItem('dcms_bookings', JSON.stringify(initialMockData.bookings));
-  localStorage.setItem('dcms_customers', JSON.stringify(initialMockData.customers));
-  localStorage.setItem('dcms_equipment', JSON.stringify(initialMockData.equipment));
-  localStorage.setItem('dcms_boats', JSON.stringify(initialMockData.boats));
-  localStorage.setItem('dcms_diveSites', JSON.stringify(initialMockData.diveSites));
-  localStorage.setItem('dcms_locations', JSON.stringify(initialMockData.locations));
-  localStorage.setItem('dcms_pricingConfig', JSON.stringify(initialMockData.pricingConfig));
-  localStorage.setItem('dcms_governmentBonos', JSON.stringify(initialMockData.governmentBonos));
-  localStorage.setItem('dcms_settings', JSON.stringify(initialMockData.settings));
-  localStorage.setItem('dcms_users', JSON.stringify(initialMockData.users));
-  localStorage.setItem('dcms_boatPreps', JSON.stringify([]));
+  // Ensure superadmin user exists (add if missing, even if other users exist)
+  const ensureSuperadmin = () => {
+    try {
+      const existingUsers = JSON.parse(localStorage.getItem('dcms_users') || '[]');
+      const superadminExists = existingUsers.some(u => u.role === 'superadmin' || u.username === 'superadmin');
+      
+      if (!superadminExists) {
+        const superadmin = {
+          id: '550e8400-e29b-41d4-a716-446655440099',
+          username: 'superadmin',
+          name: 'Super Administrator',
+          email: 'superadmin@deep-blue-diving.com',
+          password: 'superadmin123',
+          role: 'superadmin',
+          isActive: true,
+          createdAt: '2025-01-01T00:00:00Z'
+        };
+        existingUsers.unshift(superadmin); // Add at the beginning
+        localStorage.setItem('dcms_users', JSON.stringify(existingUsers));
+        console.log('[MockData] ✅ Superadmin user added');
+      }
+    } catch (error) {
+      console.error('[MockData] Error ensuring superadmin:', error);
+      // If there's an error, initialize with default users
+      ensureKey('dcms_users', initialMockData.users);
+    }
+  };
+  
+  // Initialize users, then ensure superadmin exists
+  ensureKey('dcms_users', initialMockData.users);
+  ensureSuperadmin();
 };
 
 export default initialMockData;

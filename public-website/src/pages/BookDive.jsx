@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -21,12 +21,38 @@ import {
   Radio,
   RadioGroup,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  FormGroup,
+  FormLabel
 } from '@mui/material';
 import { Save as SaveIcon, CreditCard as CreditCardIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import bookingService from '../services/bookingService';
+import { calculateDivePrice, calculateActivityPrice, getCustomerType } from '../services/pricingService';
+
+const EQUIPMENT_ITEMS = [
+  { key: 'mask', label: 'Mask' },
+  { key: 'fins', label: 'Fins' },
+  { key: 'boots', label: 'Boots' },
+  { key: 'wetsuit', label: 'Wetsuit' },
+  { key: 'bcd', label: 'BCD' },
+  { key: 'regulator', label: 'Regulator' },
+  { key: 'computer', label: 'Dive Computer' },
+  { key: 'torch', label: 'Torch' }
+];
+
+const getDefaultEquipmentOwnership = () =>
+  EQUIPMENT_ITEMS.reduce((acc, item) => {
+    acc[item.key] = false;
+    return acc;
+  }, {});
+
+const getDefaultSuitPreferences = () => ({
+  style: 'full', // 'shorty' | 'full'
+  thickness: '5mm', // '3mm' | '5mm' | '7mm'
+  hood: false
+});
 
 const BookDive = () => {
   const { t } = useTranslation();
@@ -37,21 +63,46 @@ const BookDive = () => {
   const [availability, setAvailability] = useState(null);
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingResult, setBookingResult] = useState(null);
+  const [bookingCreated, setBookingCreated] = useState(false);
   
-  const steps = [
-    t('booking.step1'), 
-    t('booking.step2'), 
-    t('booking.step3'), 
-    t('booking.step4') || 'Payment',
-    t('booking.step5') || 'Confirmation'
-  ];
+  // Check if user is registered
+  const isRegistered = !!localStorage.getItem('dcms_user_email');
+  const syncedEmailsRef = useRef(new Set());
+  
+  // For Scuba: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (equipment details)
+  // For Discovery: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (confirmation)
+  const getSteps = () => {
+    if (formData.activityType === 'diving') {
+      return [
+        t('booking.step1') || 'Select Activity',
+        t('booking.step2') || 'Your Information',
+        'Confirm Booking',
+        'Equipment Details',
+        t('booking.step5') || 'Confirmation'
+      ];
+    } else if (formData.activityType === 'discover') {
+      return [
+        t('booking.step1') || 'Select Activity',
+        t('booking.step2') || 'Your Information',
+        'Confirm Booking',
+        t('booking.step5') || 'Confirmation'
+      ];
+    } else {
+      return [
+        t('booking.step1') || 'Select Activity',
+        t('booking.step2') || 'Your Information',
+        'Confirm Booking',
+        t('booking.step5') || 'Confirmation'
+      ];
+    }
+  };
+
   const [formData, setFormData] = useState({
     location: 'caleta',
     date: '',
     time: '09:00',
     activityType: 'diving',
-    numberOfDives: 1,
-    experienceLevel: 'intermediate',
+    numberOfDives: 1, // For Scuba, always start with 1
     firstName: '',
     lastName: '',
     email: '',
@@ -62,10 +113,39 @@ const BookDive = () => {
     cardExpiry: '',
     cardCVC: '',
     cardName: '',
-    acceptTerms: false
+    acceptTerms: false,
+    // Equipment details (for Scuba only)
+    equipmentOwnership: getDefaultEquipmentOwnership(),
+    tankSize: '12L',
+    bcdSize: '',
+    finsSize: '',
+    bootsSize: '',
+    wetsuitSize: '',
+    suitPreferences: getDefaultSuitPreferences()
   });
 
-  // Get available times based on activity type (from official Deep Blue Diving website)
+  useEffect(() => {
+    const email = formData.email?.trim().toLowerCase();
+    if (!email || syncedEmailsRef.current.has(email)) {
+      return;
+    }
+    const existing = bookingService.getCustomerByEmail(email);
+    if (!existing) {
+      return;
+    }
+    if (typeof window !== 'undefined' && window.syncService?.syncNow) {
+      window.syncService
+        .syncNow()
+        .then(() => {
+          syncedEmailsRef.current.add(email);
+        })
+        .catch((err) => {
+          console.warn('[Booking] Failed to refresh customer before pricing:', err);
+        });
+    }
+  }, [formData.email]);
+
+  // Get available times based on activity type
   const getAvailableTimes = () => {
     switch (formData.activityType) {
       case 'diving':
@@ -100,41 +180,16 @@ const BookDive = () => {
       
       // Reset time when activity type changes
       if (field === 'activityType') {
-        const availableTimes = getAvailableTimesForActivity(value);
+        const availableTimes = getAvailableTimes();
         newData.time = availableTimes[0]?.value || '09:00';
+        // For Scuba, reset to 1 dive
+        if (value === 'diving') {
+          newData.numberOfDives = 1;
+        }
       }
       
       return newData;
     });
-  };
-
-  // Get available times for a specific activity type (from official Deep Blue Diving website)
-  const getAvailableTimesForActivity = (activityType) => {
-    switch (activityType) {
-      case 'diving':
-        return [
-          { value: '09:00', label: '9:00 AM' },
-          { value: '10:15', label: '10:15 AM (Additional)' },
-          { value: '12:00', label: '12:00 PM' }
-        ];
-      case 'snorkeling':
-        return [
-          { value: '10:00', label: '10:00 AM' },
-          { value: '11:00', label: '11:00 AM' },
-          { value: '13:00', label: '1:00 PM' },
-          { value: '14:00', label: '2:00 PM' }
-        ];
-      case 'discover':
-        return [
-          { value: '10:00', label: '10:00 AM' }
-        ];
-      case 'orientation':
-        return [
-          { value: '10:00', label: '10:00 AM' }
-        ];
-      default:
-        return [];
-    }
   };
 
   // Check availability when date/time/location changes
@@ -151,7 +206,9 @@ const BookDive = () => {
   }, [formData.date, formData.time, formData.location, formData.activityType]);
 
   const handleNext = () => {
-    // Validate current step before proceeding
+    setError(null);
+    
+    // Step 0: Activity selection
     if (activeStep === 0) {
       if (!formData.date || !formData.time || !formData.location) {
         setError('Please fill in all required fields');
@@ -161,55 +218,44 @@ const BookDive = () => {
         setError('This time slot is fully booked. Please select another time.');
         return;
       }
-    } else if (activeStep === 1) {
+      setActiveStep(1);
+    }
+    // Step 1: Basic information
+    else if (activeStep === 1) {
       if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
         setError('Please fill in all required fields');
         return;
       }
-      // Basic email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         setError('Please enter a valid email address');
         return;
       }
-    } else if (activeStep === 2) {
-      // Step 2 is review, no validation needed
-    } else if (activeStep === 3) {
-      // Payment step validation
-      if (formData.paymentMethod === 'card') {
-        if (!formData.cardNumber || !formData.cardExpiry || !formData.cardCVC || !formData.cardName) {
-          setError('Please fill in all payment details');
-          return;
-        }
-        if (!formData.acceptTerms) {
-          setError('Please accept the terms and conditions');
-          return;
-        }
+      setActiveStep(2); // Review/Confirm step
+    }
+    // Step 2: Review and create booking
+    else if (activeStep === 2) {
+      handleCreateBooking();
+    }
+    // Step 3: Equipment details (Scuba only) or Payment (Discovery)
+    else if (activeStep === 3) {
+      if (formData.activityType === 'diving') {
+        // Save equipment details
+        handleSaveEquipmentDetails();
+      } else {
+        // For Discovery, this is the payment step (but we'll skip it and go to confirmation)
+        setActiveStep(4);
       }
     }
-    
-    setError(null);
-    setActiveStep(prev => prev + 1);
   };
 
-  const handleBack = () => {
-    setError(null);
-    setActiveStep(prev => prev - 1);
-  };
-
-  const handlePayment = async () => {
+  const handleCreateBooking = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate payment processing (dummy)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Generate dummy transaction ID
-      const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Calculate final price
       const totalPrice = calculatePrice();
+      const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       // Create booking
       const result = bookingService.createBooking({
@@ -222,43 +268,94 @@ const BookDive = () => {
       });
       
       setBookingResult(result);
-      setBookingConfirmed(true);
-      setActiveStep(4); // Move to confirmation step
+      setBookingCreated(true);
+      
+      // Ensure new booking is immediately synced to the admin portal
+      if (typeof window !== 'undefined' && window.syncService) {
+        window.syncService.syncNow?.().catch(err => {
+          console.warn('[Booking] Failed to sync new booking immediately:', err);
+        });
+      }
+      
+      // For Scuba: go to equipment details step
+      // For Discovery: go to confirmation
+      if (formData.activityType === 'diving') {
+        setActiveStep(3);
+      } else {
+        setBookingConfirmed(true);
+        setActiveStep(3); // Confirmation step (index 3 for Discovery, 4 for Scuba)
+      }
       
     } catch (err) {
-      setError(err.message || 'Payment processing failed. Please try again.');
+      setError(err.message || 'Booking creation failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const calculatePrice = () => {
-    if (formData.activityType === 'snorkeling') {
-      // Snorkeling pricing: €38 per session (includes boat trip, suit, mask, snorkel, fins)
-      return 38 * formData.numberOfDives;
-    } else if (formData.activityType === 'discover') {
-      // Discover Scuba pricing: €100 per session (includes equipment and instructor)
-      return 100 * formData.numberOfDives;
-    } else if (formData.activityType === 'orientation') {
-      // Orientation Dives pricing: €32 per session (for certified divers)
-      return 32 * formData.numberOfDives;
-    } else {
-      // Diving pricing with volume discounts (from official 2025 pricelist)
-      let basePrice;
-      if (formData.numberOfDives <= 2) {
-        basePrice = 46;
-      } else if (formData.numberOfDives <= 5) {
-        basePrice = 44;
-      } else if (formData.numberOfDives <= 8) {
-        basePrice = 42;
-      } else if (formData.numberOfDives <= 12) {
-        basePrice = 40;
-      } else {
-        basePrice = 38;
+  const handleSaveEquipmentDetails = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Update customer profile with equipment details
+      const customer = bookingService.getCustomerByEmail(formData.email);
+      if (customer) {
+        bookingService.updateCustomerProfile(formData.email, {
+          preferences: {
+            ...customer.preferences,
+            equipmentOwnership: formData.equipmentOwnership,
+            tankSize: formData.tankSize,
+            bcdSize: formData.bcdSize,
+            finsSize: formData.finsSize,
+            bootsSize: formData.bootsSize,
+            wetsuitSize: formData.wetsuitSize,
+            suitPreferences: formData.suitPreferences
+          }
+        });
       }
-      return basePrice * formData.numberOfDives;
+      
+      setBookingConfirmed(true);
+      setActiveStep(4); // Confirmation step
+      
+    } catch (err) {
+      setError(err.message || 'Failed to save equipment details. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleBack = () => {
+    setError(null);
+    if (activeStep > 0) {
+      setActiveStep(prev => prev - 1);
+    }
+  };
+
+  const calculatePrice = () => {
+    // Map location name to locationId (UUID)
+    const locationId = formData.location === 'caleta' 
+      ? '550e8400-e29b-41d4-a716-446655440001' // Caleta de Fuste
+      : '550e8400-e29b-41d4-a716-446655440002'; // Las Playitas
+    
+    // Get customer if they exist (for registered divers)
+    let customer = null;
+    if (formData.email) {
+      customer = bookingService.getCustomerByEmail(formData.email);
+    }
+    
+    const customerType = getCustomerType(customer);
+    
+    if (formData.activityType === 'diving') {
+      return calculateDivePrice(locationId, customerType, formData.numberOfDives);
+    } else {
+      return calculateActivityPrice(formData.activityType, formData.numberOfDives);
+    }
+  };
+
+  const steps = getSteps();
+  const isScuba = formData.activityType === 'diving';
+  const isDiscovery = formData.activityType === 'discover';
 
   return (
     <Container sx={{ py: 6 }}>
@@ -266,15 +363,22 @@ const BookDive = () => {
         {t('booking.title')}
       </Typography>
 
+      {isRegistered && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          You are logged in. For faster booking, please use the booking feature in <Button href="/my-account" size="small">My Account</Button>
+        </Alert>
+      )}
+
       <Stepper activeStep={activeStep} sx={{ mb: 4, mt: 4 }}>
-        {steps.map((label) => (
-          <Step key={label}>
+        {steps.map((label, index) => (
+          <Step key={index}>
             <StepLabel>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
 
       <Paper sx={{ p: 4 }}>
+        {/* Step 0: Activity Selection */}
         {activeStep === 0 && (
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
@@ -312,6 +416,7 @@ const BookDive = () => {
                 onChange={(e) => handleChange('date', e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 required
+                inputProps={{ min: new Date().toISOString().split('T')[0] }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -329,30 +434,20 @@ const BookDive = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label={formData.activityType === 'diving' ? t('booking.numberOfDives') : t('booking.numberOfSessions')}
-                type="number"
-                fullWidth
-                value={formData.numberOfDives}
-                onChange={(e) => handleChange('numberOfDives', parseInt(e.target.value) || 1)}
-                inputProps={{ min: 1, max: 10 }}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>{t('booking.experienceLevel')}</InputLabel>
-                <Select
-                  value={formData.experienceLevel}
-                  onChange={(e) => handleChange('experienceLevel', e.target.value)}
-                >
-                  <MenuItem value="beginner">{t('booking.experienceLevels.beginner')}</MenuItem>
-                  <MenuItem value="intermediate">{t('booking.experienceLevels.intermediate')}</MenuItem>
-                  <MenuItem value="advanced">{t('booking.experienceLevels.advanced')}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            {isScuba && (
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label={t('booking.numberOfDives')}
+                  type="number"
+                  fullWidth
+                  value={formData.numberOfDives}
+                  onChange={(e) => handleChange('numberOfDives', parseInt(e.target.value) || 1)}
+                  inputProps={{ min: 1, max: 10 }}
+                  required
+                  helperText="For your first booking, we recommend starting with 1 dive"
+                />
+              </Grid>
+            )}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
                 {t('booking.estimatedPrice')} €{calculatePrice().toFixed(2)}
@@ -371,8 +466,22 @@ const BookDive = () => {
           </Grid>
         )}
 
+        {/* Step 1: Basic Information */}
         {activeStep === 1 && (
           <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>
+                {isDiscovery 
+                  ? 'Please provide your contact information for your Discovery Dive'
+                  : 'Please provide your contact information'
+                }
+              </Typography>
+              {isDiscovery && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  No prior diving experience needed! Our instructor will guide you through everything.
+                </Alert>
+              )}
+            </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 label={t('booking.firstName')}
@@ -418,16 +527,18 @@ const BookDive = () => {
                 fullWidth
                 value={formData.specialRequirements}
                 onChange={(e) => handleChange('specialRequirements', e.target.value)}
+                placeholder={isDiscovery ? "Any medical conditions or special requirements we should know about?" : ""}
               />
             </Grid>
           </Grid>
         )}
 
+        {/* Step 2: Review and Confirm Booking */}
         {activeStep === 2 && (
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
-                {t('booking.bookingSummary')}
+                Review Your Booking
               </Typography>
               <Card variant="outlined" sx={{ mt: 2, mb: 2 }}>
                 <CardContent>
@@ -448,12 +559,11 @@ const BookDive = () => {
                   <Typography variant="body2" gutterBottom>
                     <strong>{t('booking.time')}:</strong> {getAvailableTimes().find(t => t.value === formData.time)?.label || formData.time}
                   </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>{formData.activityType === 'diving' ? t('booking.numberOfDives') : t('booking.numberOfSessions')}:</strong> {formData.numberOfDives}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>{t('booking.experienceLevel')}:</strong> {t(`booking.experienceLevels.${formData.experienceLevel}`)}
-                  </Typography>
+                  {isScuba && (
+                    <Typography variant="body2" gutterBottom>
+                      <strong>{t('booking.numberOfDives')}:</strong> {formData.numberOfDives}
+                    </Typography>
+                  )}
                   <Typography variant="body2" gutterBottom>
                     <strong>{t('booking.name')}:</strong> {formData.firstName} {formData.lastName}
                   </Typography>
@@ -480,194 +590,298 @@ const BookDive = () => {
                     : 'This time slot is fully booked'}
                 </Alert>
               )}
+              {isScuba && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  After confirming your booking, you'll be asked to provide equipment details (sizes, preferences, etc.)
+                </Alert>
+              )}
             </Grid>
           </Grid>
         )}
 
-        {activeStep === 3 && (
+        {/* Step 3: Equipment Details (Scuba only) or Payment (Discovery) */}
+        {activeStep === 3 && isScuba && (
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
-                Payment Information
+                Equipment Details
               </Typography>
-              <FormControl component="fieldset" sx={{ mb: 3 }}>
-                <RadioGroup
-                  value={formData.paymentMethod}
-                  onChange={(e) => handleChange('paymentMethod', e.target.value)}
-                >
-                  <FormControlLabel value="card" control={<Radio />} label="Credit/Debit Card" />
-                  <FormControlLabel value="paypal" control={<Radio />} label="PayPal (Coming Soon)" disabled />
-                  <FormControlLabel value="cash" control={<Radio />} label="Pay at Location" />
-                </RadioGroup>
-              </FormControl>
+              <Alert severity="info" sx={{ mb: 3 }}>
+                Please let us know about your equipment preferences. This helps us prepare everything for your dive.
+              </Alert>
 
-              {formData.paymentMethod === 'card' && (
-                <>
-                  <TextField
-                    label="Cardholder Name"
-                    fullWidth
-                    value={formData.cardName}
-                    onChange={(e) => handleChange('cardName', e.target.value)}
-                    required
-                    sx={{ mb: 2 }}
-                  />
-                  <TextField
-                    label="Card Number"
-                    fullWidth
-                    value={formData.cardNumber}
-                    onChange={(e) => handleChange('cardNumber', e.target.value.replace(/\D/g, '').slice(0, 16))}
-                    placeholder="1234 5678 9012 3456"
-                    required
-                    sx={{ mb: 2 }}
-                  />
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <TextField
-                        label="Expiry Date"
-                        fullWidth
-                        value={formData.cardExpiry}
-                        onChange={(e) => handleChange('cardExpiry', e.target.value.replace(/\D/g, '').slice(0, 4).replace(/(\d{2})(\d{0,2})/, '$1/$2'))}
-                        placeholder="MM/YY"
-                        required
+              {/* Equipment Ownership */}
+              <FormGroup sx={{ mb: 3 }}>
+                <FormLabel component="legend" sx={{ mb: 2 }}>Which equipment do you bring?</FormLabel>
+                {EQUIPMENT_ITEMS.map((item) => (
+                  <FormControlLabel
+                    key={item.key}
+                    control={
+                      <Checkbox
+                        checked={formData.equipmentOwnership[item.key] || false}
+                        onChange={(e) => {
+                          const newOwnership = {
+                            ...formData.equipmentOwnership,
+                            [item.key]: e.target.checked
+                          };
+                          setFormData(prev => ({
+                            ...prev,
+                            equipmentOwnership: newOwnership
+                          }));
+                        }}
                       />
+                    }
+                    label={item.label}
+                  />
+                ))}
+              </FormGroup>
+
+              {/* Tank Size (always provided by center) */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Tank Size</InputLabel>
+                    <Select
+                      value={formData.tankSize}
+                      onChange={(e) => handleChange('tankSize', e.target.value)}
+                    >
+                      <MenuItem value="10L">10L</MenuItem>
+                      <MenuItem value="12L">12L</MenuItem>
+                      <MenuItem value="15L">15L</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Typography variant="caption" color="text.secondary">
+                    Tank is always provided by the center
+                  </Typography>
+                </Grid>
+              </Grid>
+
+              {/* Equipment Sizes (only if not bringing own) */}
+              {!formData.equipmentOwnership.bcd && (
+                <Grid item xs={12} sm={6} sx={{ mb: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>BCD Size</InputLabel>
+                    <Select
+                      value={formData.bcdSize}
+                      onChange={(e) => handleChange('bcdSize', e.target.value)}
+                    >
+                      <MenuItem value="XS">XS</MenuItem>
+                      <MenuItem value="S">S</MenuItem>
+                      <MenuItem value="M">M</MenuItem>
+                      <MenuItem value="L">L</MenuItem>
+                      <MenuItem value="XL">XL</MenuItem>
+                      <MenuItem value="XXL">XXL</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+
+              {!formData.equipmentOwnership.wetsuit && (
+                <>
+                  <Grid item xs={12} sm={6} sx={{ mb: 2 }}>
+                    <FormControl fullWidth>
+                      <InputLabel>Wetsuit Size</InputLabel>
+                      <Select
+                        value={formData.wetsuitSize}
+                        onChange={(e) => handleChange('wetsuitSize', e.target.value)}
+                      >
+                        <MenuItem value="XS">XS</MenuItem>
+                        <MenuItem value="S">S</MenuItem>
+                        <MenuItem value="M">M</MenuItem>
+                        <MenuItem value="L">L</MenuItem>
+                        <MenuItem value="XL">XL</MenuItem>
+                        <MenuItem value="XXL">XXL</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  {/* Suit Preferences (only if renting wetsuit) */}
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={12} sm={4}>
+                      <FormControl fullWidth>
+                        <InputLabel>Suit Style</InputLabel>
+                        <Select
+                          value={formData.suitPreferences.style}
+                          onChange={(e) => handleChange('suitPreferences', {
+                            ...formData.suitPreferences,
+                            style: e.target.value
+                          })}
+                        >
+                          <MenuItem value="shorty">Shorty</MenuItem>
+                          <MenuItem value="full">Full</MenuItem>
+                        </Select>
+                      </FormControl>
                     </Grid>
-                    <Grid item xs={6}>
-                      <TextField
-                        label="CVC"
-                        fullWidth
-                        value={formData.cardCVC}
-                        onChange={(e) => handleChange('cardCVC', e.target.value.replace(/\D/g, '').slice(0, 3))}
-                        placeholder="123"
-                        required
+                    <Grid item xs={12} sm={4}>
+                      <FormControl fullWidth>
+                        <InputLabel>Thickness</InputLabel>
+                        <Select
+                          value={formData.suitPreferences.thickness}
+                          onChange={(e) => handleChange('suitPreferences', {
+                            ...formData.suitPreferences,
+                            thickness: e.target.value
+                          })}
+                        >
+                          <MenuItem value="3mm">3mm</MenuItem>
+                          <MenuItem value="5mm">5mm</MenuItem>
+                          <MenuItem value="7mm">7mm</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.suitPreferences.hood}
+                            onChange={(e) => handleChange('suitPreferences', {
+                              ...formData.suitPreferences,
+                              hood: e.target.checked
+                            })}
+                          />
+                        }
+                        label="With Hood"
                       />
                     </Grid>
                   </Grid>
-                  <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-                    This is a demo payment system. No real payment will be processed.
-                  </Alert>
                 </>
               )}
 
-              {formData.paymentMethod === 'cash' && (
-                <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-                  You will pay at the dive center location on the day of your booking.
-                </Alert>
+              {!formData.equipmentOwnership.fins && (
+                <Grid item xs={12} sm={6} sx={{ mb: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Fins Size</InputLabel>
+                    <Select
+                      value={formData.finsSize}
+                      onChange={(e) => handleChange('finsSize', e.target.value)}
+                    >
+                      <MenuItem value="XS">XS</MenuItem>
+                      <MenuItem value="S">S</MenuItem>
+                      <MenuItem value="M">M</MenuItem>
+                      <MenuItem value="L">L</MenuItem>
+                      <MenuItem value="XL">XL</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
               )}
 
-              <Box sx={{ mt: 3 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formData.acceptTerms}
-                      onChange={(e) => handleChange('acceptTerms', e.target.checked)}
-                    />
-                  }
-                  label="I accept the terms and conditions and cancellation policy"
-                />
-              </Box>
-
-              <Card variant="outlined" sx={{ mt: 3, bgcolor: 'grey.50' }}>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total Amount
-                  </Typography>
-                  <Typography variant="h5" color="primary.main">
-                    €{calculatePrice().toFixed(2)}
-                  </Typography>
-                </CardContent>
-              </Card>
+              {!formData.equipmentOwnership.boots && (
+                <Grid item xs={12} sm={6} sx={{ mb: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Boots Size</InputLabel>
+                    <Select
+                      value={formData.bootsSize}
+                      onChange={(e) => handleChange('bootsSize', e.target.value)}
+                    >
+                      <MenuItem value="XS">XS</MenuItem>
+                      <MenuItem value="S">S</MenuItem>
+                      <MenuItem value="M">M</MenuItem>
+                      <MenuItem value="L">L</MenuItem>
+                      <MenuItem value="XL">XL</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
             </Grid>
           </Grid>
         )}
 
-        {activeStep === 4 && bookingConfirmed && bookingResult && (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
-                <Typography variant="h4" gutterBottom color="success.main">
-                  Booking Confirmed!
-                </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                  Your booking has been successfully confirmed. A confirmation email will be sent to {formData.email}.
-                </Typography>
-                
-                <Card variant="outlined" sx={{ maxWidth: 600, mx: 'auto', mb: 3 }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Booking Details
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Booking ID:</strong> {bookingResult.booking.id}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Transaction ID:</strong> {bookingResult.booking.paymentTransactionId}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Activity:</strong> {
-                        formData.activityType === 'diving' ? t('booking.activities.diving') : 
-                        formData.activityType === 'snorkeling' ? t('booking.activities.snorkeling') : 
-                        formData.activityType === 'discover' ? t('booking.activities.discover') :
-                        t('booking.activities.orientation')
-                      }
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Date:</strong> {formData.date}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Time:</strong> {getAvailableTimes().find(t => t.value === formData.time)?.label || formData.time}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Location:</strong> {formData.location === 'caleta' ? t('booking.locations.caleta') : t('booking.locations.playitas')}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Total Paid:</strong> €{calculatePrice().toFixed(2)}
-                    </Typography>
-                  </CardContent>
-                </Card>
+        {/* Step 3/4: Confirmation */}
+        {(activeStep === 3 && !isScuba) || (activeStep === 4 && isScuba) ? (
+          bookingConfirmed && bookingResult ? (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+                  <Typography variant="h4" gutterBottom color="success.main">
+                    Booking Confirmed!
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                    Your booking has been successfully confirmed. A confirmation email will be sent to {formData.email}.
+                  </Typography>
+                  
+                  <Card variant="outlined" sx={{ maxWidth: 600, mx: 'auto', mb: 3 }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Booking Details
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Booking ID:</strong> {bookingResult.booking.id}
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Activity:</strong> {
+                          formData.activityType === 'diving' ? t('booking.activities.diving') : 
+                          formData.activityType === 'snorkeling' ? t('booking.activities.snorkeling') : 
+                          formData.activityType === 'discover' ? t('booking.activities.discover') :
+                          t('booking.activities.orientation')
+                        }
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Date:</strong> {formData.date}
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Time:</strong> {getAvailableTimes().find(t => t.value === formData.time)?.label || formData.time}
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Location:</strong> {formData.location === 'caleta' ? t('booking.locations.caleta') : t('booking.locations.playitas')}
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Total:</strong> €{calculatePrice().toFixed(2)}
+                      </Typography>
+                    </CardContent>
+                  </Card>
 
-                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 3 }}>
-                  <Button
-                    variant="contained"
-                    onClick={() => navigate('/my-account')}
-                  >
-                    View My Bookings
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      // Reset form
-                      setFormData({
-                        location: 'caleta',
-                        date: '',
-                        time: '09:00',
-                        activityType: 'diving',
-                        numberOfDives: 1,
-                        experienceLevel: 'intermediate',
-                        firstName: '',
-                        lastName: '',
-                        email: '',
-                        phone: '',
-                        specialRequirements: '',
-                        paymentMethod: 'card',
-                        cardNumber: '',
-                        cardExpiry: '',
-                        cardCVC: '',
-                        cardName: '',
-                        acceptTerms: false
-                      });
-                      setActiveStep(0);
-                      setBookingConfirmed(false);
-                      setBookingResult(null);
-                    }}
-                  >
-                    Book Another Dive
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 3 }}>
+                    <Button
+                      variant="contained"
+                      onClick={() => {
+                        localStorage.setItem('dcms_user_email', formData.email);
+                        navigate('/my-account');
+                      }}
+                    >
+                      View My Bookings
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setFormData({
+                          location: 'caleta',
+                          date: '',
+                          time: '09:00',
+                          activityType: 'diving',
+                          numberOfDives: 1,
+                          firstName: '',
+                          lastName: '',
+                          email: '',
+                          phone: '',
+                          specialRequirements: '',
+                          paymentMethod: 'card',
+                          cardNumber: '',
+                          cardExpiry: '',
+                          cardCVC: '',
+                          cardName: '',
+                          acceptTerms: false,
+                          equipmentOwnership: getDefaultEquipmentOwnership(),
+                          tankSize: '12L',
+                          bcdSize: '',
+                          finsSize: '',
+                          bootsSize: '',
+                          wetsuitSize: '',
+                          suitPreferences: getDefaultSuitPreferences()
+                        });
+                        setActiveStep(0);
+                        setBookingConfirmed(false);
+                        setBookingResult(null);
+                        setBookingCreated(false);
+                      }}
+                    >
+                      Book Another Dive
+                    </Button>
+                  </Box>
                 </Box>
-              </Box>
+              </Grid>
             </Grid>
-          </Grid>
-        )}
+          ) : null
+        ) : null}
 
         {error && (
           <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
@@ -675,7 +889,7 @@ const BookDive = () => {
           </Alert>
         )}
 
-        {activeStep < 4 && (
+        {activeStep < steps.length - 1 && (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
             <Button
               disabled={activeStep === 0 || loading}
@@ -683,24 +897,21 @@ const BookDive = () => {
             >
               {t('common.back')}
             </Button>
-            {activeStep === 3 ? (
-              <Button
-                variant="contained"
-                onClick={handlePayment}
-                disabled={loading || !formData.acceptTerms}
-                startIcon={loading ? <CircularProgress size={20} /> : <CreditCardIcon />}
-              >
-                {loading ? 'Processing Payment...' : 'Pay & Confirm Booking'}
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                disabled={loading}
-              >
-                {t('common.next')}
-              </Button>
-            )}
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} /> : (activeStep === 2 ? <SaveIcon /> : null)}
+            >
+              {loading 
+                ? 'Processing...' 
+                : activeStep === 2 
+                  ? 'Confirm Booking' 
+                  : activeStep === 3 && isScuba
+                    ? 'Save Equipment Details'
+                    : t('common.next')
+              }
+            </Button>
           </Box>
         )}
       </Paper>
@@ -709,4 +920,3 @@ const BookDive = () => {
 };
 
 export default BookDive;
-

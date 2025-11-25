@@ -5,6 +5,7 @@ const AuthContext = createContext(null);
 
 // User roles
 export const USER_ROLES = {
+  SUPERADMIN: 'superadmin',
   ADMIN: 'admin',
   BOAT_PILOT: 'boat_pilot',
   GUIDE: 'guide',
@@ -14,6 +15,7 @@ export const USER_ROLES = {
 
 // Role permissions - which pages each role can access
 // Based on actual workflow:
+// - SUPERADMIN: Full access to all features (user management, all pages)
 // - ADMIN: Customer service team (bookings, customers, stays)
 // - BOAT_PILOT/OWNER: Equipment management, boat operations, specialized training
 // - GUIDE: Equipment allocation, dive preparation
@@ -21,13 +23,23 @@ export const USER_ROLES = {
 // - INTERN: Assist guides with equipment
 
 export const ROLE_PERMISSIONS = {
+  [USER_ROLES.SUPERADMIN]: [
+    'dashboard',      // Full access to all dashboards
+    'bookings',       // Full access - create/edit/cancel
+    'customers',      // Full access - customer service
+    'stays',          // Customer stays management
+    'equipment',      // Full CRUD - equipment management
+    'boatPrep',       // Full access - boat/dive preparation
+    'settings'        // Full access - all settings including user management
+  ],
   [USER_ROLES.ADMIN]: [
     'dashboard',      // Customer service focused dashboard
     'bookings',       // Full access - create/edit/cancel
     'customers',      // Full access - customer service
     'stays',          // Customer stays management
-    'settings'        // Limited - customer service settings
-    // No equipment or boat prep - not their responsibility
+    'equipment',      // Full access - equipment management
+    'boatPrep',       // Full access - boat/dive preparation
+    'settings'        // Full access - all settings including user management
   ],
   [USER_ROLES.BOAT_PILOT]: [
     'dashboard',      // Operational overview
@@ -66,6 +78,10 @@ export const ROLE_PERMISSIONS = {
 
 // Check if user has permission to access a route
 export const hasPermission = (userRole, route) => {
+  // Superadmin has access to everything
+  if (userRole === USER_ROLES.SUPERADMIN) {
+    return true;
+  }
   const permissions = ROLE_PERMISSIONS[userRole] || [];
   return permissions.includes(route);
 };
@@ -99,12 +115,18 @@ export const AuthProvider = ({ children }) => {
 
   const isAuthenticated = () => !!currentUser;
   
-  const isAdmin = () => currentUser?.role === USER_ROLES.ADMIN;
+  const isSuperAdmin = () => currentUser?.role === USER_ROLES.SUPERADMIN;
+  
+  const isAdmin = () => currentUser?.role === USER_ROLES.ADMIN || isSuperAdmin();
   
   const isGuide = () => currentUser?.role === USER_ROLES.GUIDE;
 
   const canAccess = (route) => {
     if (!currentUser) return false;
+    // Superadmin has access to everything
+    if (isSuperAdmin()) {
+      return true;
+    }
     // Settings are only visible/accessible to global admins (no or empty locationAccess)
     if (route === 'settings') {
       const isGlobal = !currentUser.locationAccess || (Array.isArray(currentUser.locationAccess) && currentUser.locationAccess.length === 0);
@@ -118,6 +140,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     isAuthenticated,
+    isSuperAdmin,
     isAdmin,
     isGuide,
     canAccess,

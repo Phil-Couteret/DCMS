@@ -104,6 +104,11 @@ const Navigation = () => {
     // Check permission first
     if (!canAccess(item.permission)) return false;
     
+    // Superadmin sees all items they have permission for
+    if (currentUser.role === USER_ROLES.SUPERADMIN) {
+      return true;
+    }
+    
     // If item has specific roles, check if current user's role matches
     if (item.roles && item.roles.length > 0) {
       return item.roles.includes(currentUser.role);
@@ -221,6 +226,7 @@ const Navigation = () => {
                 icon={<PersonIcon />}
                 label={currentUser.name}
                 color={
+                  currentUser.role === USER_ROLES.SUPERADMIN ? 'error' :
                   currentUser.role === USER_ROLES.ADMIN ? 'primary' :
                   currentUser.role === USER_ROLES.BOAT_PILOT ? 'info' :
                   currentUser.role === USER_ROLES.GUIDE ? 'secondary' :

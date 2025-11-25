@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import {
   Person as PersonIcon,
+  VerifiedUser as SuperAdminIcon,
   AdminPanelSettings as AdminIcon,
   DirectionsBoat as BoatIcon,
   PersonPin as GuideIcon,
@@ -44,6 +45,8 @@ const UserSelector = ({ open, onClose }) => {
 
   const getRoleIcon = (role) => {
     switch (role) {
+      case USER_ROLES.SUPERADMIN:
+        return <SuperAdminIcon />;
       case USER_ROLES.ADMIN:
         return <AdminIcon />;
       case USER_ROLES.BOAT_PILOT:
@@ -61,6 +64,8 @@ const UserSelector = ({ open, onClose }) => {
 
   const getRoleColor = (role) => {
     switch (role) {
+      case USER_ROLES.SUPERADMIN:
+        return 'error'; // Red/prominent color for superadmin
       case USER_ROLES.ADMIN:
         return 'primary';
       case USER_ROLES.BOAT_PILOT:
@@ -78,6 +83,8 @@ const UserSelector = ({ open, onClose }) => {
 
   const getRoleLabel = (role) => {
     switch (role) {
+      case USER_ROLES.SUPERADMIN:
+        return 'Superadmin';
       case USER_ROLES.ADMIN:
         return 'Admin';
       case USER_ROLES.BOAT_PILOT:

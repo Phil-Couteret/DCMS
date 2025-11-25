@@ -95,11 +95,16 @@ const Dashboard = () => {
         setTabScope(newLoc || 'all');
       }
     };
+    const onBookingCreated = () => {
+      loadStats();
+    };
     window.addEventListener('dcms_location_changed', onLocChange);
     window.addEventListener('storage', onLocChange);
+    window.addEventListener('dcms_booking_created', onBookingCreated);
     return () => {
       window.removeEventListener('dcms_location_changed', onLocChange);
       window.removeEventListener('storage', onLocChange);
+      window.removeEventListener('dcms_booking_created', onBookingCreated);
     };
   }, [currentUser]);
 

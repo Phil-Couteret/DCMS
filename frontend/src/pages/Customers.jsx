@@ -22,7 +22,8 @@ import {
   CheckCircle as VerifiedIcon,
   Pending as PendingIcon,
   Error as ErrorIcon,
-  ExpandMore as ExpandMoreIcon
+  ExpandMore as ExpandMoreIcon,
+  Sync as SyncIcon
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerForm from '../components/Customer/CustomerForm';
@@ -47,6 +48,53 @@ const Customers = () => {
     }
   }, [mode, customerId]);
 
+  // Refresh list when customers are created or updated
+  useEffect(() => {
+    const onCustomerUpdate = (event) => {
+      console.log('[Admin] Customer event received:', event.type, event.detail);
+      if (!mode && !customerId) {
+        console.log('[Admin] Refreshing customers list...');
+        loadCustomers();
+      }
+    };
+    const onStorageChange = (event) => {
+      if (event.key === 'dcms_customers' || !event.key) {
+        console.log('[Admin] Storage event received for customers');
+        if (!mode && !customerId) loadCustomers();
+      }
+    };
+    
+    // Listen for sync events
+    const onSync = () => {
+      if (!mode && !customerId) {
+        loadCustomers();
+      }
+    };
+    window.addEventListener('dcms_customers_synced', onSync);
+    
+    // Poll for changes every 2 seconds (since different ports = separate localStorage)
+    const pollInterval = setInterval(() => {
+      if (!mode && !customerId) {
+        const currentCount = dataService.getAll('customers').length;
+        if (currentCount !== customers.length) {
+          console.log('[Admin] Customer count changed, refreshing...');
+          loadCustomers();
+        }
+      }
+    }, 2000);
+    
+    window.addEventListener('dcms_customer_created', onCustomerUpdate);
+    window.addEventListener('dcms_customer_updated', onCustomerUpdate);
+    window.addEventListener('storage', onStorageChange);
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('dcms_customer_created', onCustomerUpdate);
+      window.removeEventListener('dcms_customer_updated', onCustomerUpdate);
+      window.removeEventListener('storage', onStorageChange);
+      window.removeEventListener('dcms_customers_synced', onSync);
+    };
+  }, [mode, customerId, customers.length]);
+
   const loadCustomers = () => {
     const allCustomers = dataService.getAll('customers');
     console.log('Loaded customers:', allCustomers.length, allCustomers);
@@ -55,6 +103,24 @@ const Customers = () => {
       console.log(`${customer.firstName} ${customer.lastName}:`, customer.certifications);
     });
     setCustomers(allCustomers);
+  };
+
+  const handleSyncFromServer = async () => {
+    try {
+      console.log('[Admin] Manually syncing customers from server...');
+      if (typeof window !== 'undefined' && window.syncService) {
+        // Force pull from server
+        await window.syncService.syncAll();
+        // Reload customers after sync
+        setTimeout(() => {
+          loadCustomers();
+        }, 500);
+      } else {
+        console.error('[Admin] Sync service not available');
+      }
+    } catch (error) {
+      console.error('[Admin] Sync error:', error);
+    }
   };
 
   const handleSearch = (query) => {
@@ -77,15 +143,32 @@ const Customers = () => {
         <Typography variant="h4">
           {t('customers.title')}
         </Typography>
-        {isAdmin() && (
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/customers?mode=new')}
+            variant="outlined"
+            startIcon={<SyncIcon />}
+            onClick={handleSyncFromServer}
+            sx={{ minWidth: 'auto' }}
           >
-            {t('customers.new')}
+            Sync from Public Site
           </Button>
-        )}
+          <Button
+            variant="outlined"
+            onClick={loadCustomers}
+            sx={{ minWidth: 'auto' }}
+          >
+            Refresh
+          </Button>
+          {isAdmin() && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/customers?mode=new')}
+            >
+              {t('customers.new')}
+            </Button>
+          )}
+        </Box>
       </Box>
 
       <Box sx={{ mb: 3 }}>

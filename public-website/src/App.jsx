@@ -4,6 +4,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 import Navigation from './components/Navigation';
 import Footer from './components/Footer';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import Home from './pages/Home';
 import BookDive from './pages/BookDive';
 import DiveSites from './pages/DiveSites';
@@ -45,6 +46,7 @@ function App() {
             </Routes>
           </main>
           <Footer />
+          <PWAInstallPrompt />
         </div>
       </Router>
     </ThemeProvider>

@@ -41,9 +41,12 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Logout as LogoutIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import bookingService from '../services/bookingService';
+import RegisteredDiverBooking from '../components/RegisteredDiverBooking';
 
 const EQUIPMENT_ITEMS = [
   { key: 'mask', label: 'Mask' },
@@ -102,7 +105,15 @@ const defaultCertForm = {
   verified: false
 };
 
+const LOCATION_LABELS = {
+  caleta: 'Caleta de Fuste',
+  playitas: 'Las Playitas',
+  '550e8400-e29b-41d4-a716-446655440001': 'Caleta de Fuste',
+  '550e8400-e29b-41d4-a716-446655440002': 'Las Playitas'
+};
+
 const MyAccount = () => {
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [bookings, setBookings] = useState([]);
   const [customer, setCustomer] = useState(null);
@@ -117,6 +128,20 @@ const MyAccount = () => {
     message: '',
     severity: 'success'
   });
+  const [cancelDialog, setCancelDialog] = useState({ open: false, booking: null });
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('dcms_user_email');
+      window.dispatchEvent(new CustomEvent('dcms_customer_logged_out'));
+    }
+    setUserEmail('');
+    setCustomer(null);
+    setBookings([]);
+    navigate('/login');
+  };
 
   const mapCustomerToForm = (customerData) => ({
     firstName: customerData?.firstName || '',
@@ -163,6 +188,9 @@ const MyAccount = () => {
       return;
     }
 
+    // Migrate existing customers on first load (ensures they have required fields)
+    bookingService.migrateExistingCustomers();
+
     const loadBookings = () => {
       const userBookings = bookingService.getCustomerBookings(userEmail);
       setBookings(userBookings);
@@ -171,17 +199,49 @@ const MyAccount = () => {
     const loadCustomerProfile = () => {
       setLoadingCustomer(true);
       const customerData = bookingService.getCustomerByEmail(userEmail);
-      setCustomer(customerData);
-      if (customerData) {
-        setProfileForm(mapCustomerToForm(customerData));
+      
+      // Only set defaults if customerType/centerSkillLevel are truly missing (null/undefined)
+      // Don't overwrite existing values - they may have been set by admin
+      if (customerData && (customerData.customerType === null || customerData.customerType === undefined || 
+          customerData.centerSkillLevel === null || customerData.centerSkillLevel === undefined)) {
+        bookingService.updateCustomerProfile(userEmail, {
+          customerType: customerData.customerType ?? 'tourist',
+          centerSkillLevel: customerData.centerSkillLevel ?? 'beginner'
+        });
+        // Reload after update
+        const updated = bookingService.getCustomerByEmail(userEmail);
+        setCustomer(updated);
+        if (updated) {
+          setProfileForm(mapCustomerToForm(updated));
+        }
+      } else {
+        setCustomer(customerData);
+        if (customerData) {
+          setProfileForm(mapCustomerToForm(customerData));
+        }
       }
       setLoadingCustomer(false);
     };
 
-    loadBookings();
-    loadCustomerProfile();
+    // Manual sync when opening My Account to get fresh data (especially customer updates from admin)
+    if (typeof window !== 'undefined' && window.syncService) {
+      window.syncService.syncNow().then(() => {
+        loadBookings();
+        loadCustomerProfile();
+      }).catch(err => {
+        console.warn('[MyAccount] Sync failed, loading local data:', err);
+        loadBookings();
+        loadCustomerProfile();
+      });
+    } else {
+      loadBookings();
+      loadCustomerProfile();
+    }
 
     const handleBookingCreated = () => {
+      loadBookings();
+    };
+    const handleBookingUpdated = () => {
       loadBookings();
     };
 
@@ -194,24 +254,34 @@ const MyAccount = () => {
       }
     };
 
-    const handleStorageChange = () => {
-      loadCustomerProfile();
+    // Listen to custom events only - don't listen to storage events (they cause too many refreshes)
+    // Storage events fire for cross-tab communication, but we use custom events for same-tab updates
+    window.addEventListener('dcms_booking_created', handleBookingCreated);
+    window.addEventListener('dcms_booking_updated', handleBookingUpdated);
+    window.addEventListener('dcms_customer_updated', handleCustomerUpdated);
+    
+    // Listen to sync events (only when data actually changes from server)
+    const handleBookingsSynced = (event) => {
       loadBookings();
     };
-
-    window.addEventListener('dcms_booking_created', handleBookingCreated);
-    window.addEventListener('dcms_customer_updated', handleCustomerUpdated);
-    window.addEventListener('storage', handleStorageChange);
+    const handleCustomersSynced = (event) => {
+      loadCustomerProfile();
+    };
+    
+    window.addEventListener('dcms_bookings_synced', handleBookingsSynced);
+    window.addEventListener('dcms_customers_synced', handleCustomersSynced);
 
     return () => {
       window.removeEventListener('dcms_booking_created', handleBookingCreated);
+      window.removeEventListener('dcms_booking_updated', handleBookingUpdated);
       window.removeEventListener('dcms_customer_updated', handleCustomerUpdated);
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('dcms_bookings_synced', handleBookingsSynced);
+      window.removeEventListener('dcms_customers_synced', handleCustomersSynced);
     };
   }, [userEmail]);
 
   const getLocationName = (locationId) =>
-    locationId === 'caleta' ? 'Caleta de Fuste' : 'Las Playitas';
+    LOCATION_LABELS[locationId] || 'Las Playitas';
 
   const getStatusColor = (status) => {
     const colors = {
@@ -221,6 +291,53 @@ const MyAccount = () => {
       completed: 'info'
     };
     return colors[status] || 'default';
+  };
+
+  const canCancelBooking = (booking) => ['confirmed', 'pending'].includes(booking.status);
+
+  const openCancelDialog = (booking) => {
+    setCancelDialog({ open: true, booking });
+    setCancelReason('');
+  };
+
+  const closeCancelDialog = () => {
+    if (cancelLoading) return;
+    setCancelDialog({ open: false, booking: null });
+    setCancelReason('');
+  };
+
+  const handleConfirmCancelBooking = () => {
+    if (!cancelDialog.booking) return;
+    setCancelLoading(true);
+    try {
+      const updated = bookingService.cancelBooking(cancelDialog.booking.id, {
+        reason: cancelReason.trim(),
+        cancelledBy: 'customer'
+      });
+      if (updated) {
+        setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+        setSnackbar({
+          open: true,
+          message: 'Booking cancelled successfully.',
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Unable to cancel booking. Please try again.',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to cancel booking.',
+        severity: 'error'
+      });
+    } finally {
+      setCancelLoading(false);
+      closeCancelDialog();
+    }
   };
 
   const certifications = useMemo(
@@ -432,6 +549,65 @@ const MyAccount = () => {
     });
   };
 
+  const handleSyncToServer = async () => {
+    try {
+      setSnackbar({
+        open: true,
+        message: 'Syncing to server...',
+        severity: 'info'
+      });
+      const result = await bookingService.syncAllCustomersToServer();
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: `Successfully synced ${result.count} customer(s) to server.`,
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: `Sync failed: ${result.error || 'Unknown error'}`,
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: `Sync error: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  };
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const handleDeleteAccount = () => {
+    if (!userEmail) return;
+    
+    try {
+      const result = bookingService.deleteCustomerAccount(userEmail);
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: 'Account deleted successfully. Redirecting...',
+          severity: 'success'
+        });
+        setDeleteDialogOpen(false);
+        // Redirect to home after a short delay
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: `Error deleting account: ${error.message}`,
+        severity: 'error'
+      });
+      setDeleteDialogOpen(false);
+    }
+  };
+
   const renderLoginPrompt = () => (
     <Card>
       <CardContent sx={{ textAlign: 'center', py: 4 }}>
@@ -447,9 +623,21 @@ const MyAccount = () => {
 
   return (
     <Container sx={{ py: 6 }}>
-      <Typography variant="h3" gutterBottom>
-        My Account
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
+        <Typography variant="h3" gutterBottom sx={{ mb: 0 }}>
+          My Account
+        </Typography>
+        {userEmail && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<LogoutIcon />}
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
+        )}
+      </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
         <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
@@ -468,9 +656,15 @@ const MyAccount = () => {
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                 <Typography variant="h5">My Bookings</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} href="/book-dive">
-                  Book a Dive
-                </Button>
+                {customer && (
+                  <RegisteredDiverBooking 
+                    customer={customer} 
+                    onBookingCreated={() => {
+                      const userBookings = bookingService.getCustomerBookings(userEmail);
+                      setBookings(userBookings);
+                    }}
+                  />
+                )}
               </Box>
 
               {bookings.length === 0 ? (
@@ -482,9 +676,15 @@ const MyAccount = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                       {`Bookings for ${userEmail}`}
                     </Typography>
-                    <Button variant="contained" startIcon={<AddIcon />} href="/book-dive">
-                      Book a Dive
-                    </Button>
+                    {customer && (
+                      <RegisteredDiverBooking 
+                        customer={customer} 
+                        onBookingCreated={() => {
+                          const userBookings = bookingService.getCustomerBookings(userEmail);
+                          setBookings(userBookings);
+                        }}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               ) : (
@@ -498,6 +698,7 @@ const MyAccount = () => {
                         <TableCell align="right"><strong>Dives/Sessions</strong></TableCell>
                         <TableCell><strong>Status</strong></TableCell>
                         <TableCell align="right"><strong>Total</strong></TableCell>
+                        <TableCell align="right"><strong>Actions</strong></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -515,6 +716,16 @@ const MyAccount = () => {
                             />
                           </TableCell>
                           <TableCell align="right">€{booking.totalPrice?.toFixed(2) || '0.00'}</TableCell>
+                          <TableCell align="right">
+                            <Button
+                              size="small"
+                              color="error"
+                              disabled={!canCancelBooking(booking)}
+                              onClick={() => openCancelDialog(booking)}
+                            >
+                              Cancel
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -570,14 +781,6 @@ const MyAccount = () => {
                       <Grid item xs={12} sm={4}>
                         <Typography variant="body2" color="text.secondary">Nationality</Typography>
                         <Typography variant="body1" gutterBottom>{customer.nationality || '-'}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="body2" color="text.secondary">Customer Type</Typography>
-                        <Typography variant="body1" gutterBottom>{customer.customerType || 'tourist'}</Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Typography variant="body2" color="text.secondary">Center Skill Level</Typography>
-                        <Typography variant="body1" gutterBottom>{customer.centerSkillLevel || 'beginner'}</Typography>
                       </Grid>
                     </Grid>
 
@@ -692,6 +895,24 @@ const MyAccount = () => {
                         <Typography variant="body1">{customer.notes}</Typography>
                       </>
                     )}
+
+                    <Divider sx={{ my: 4 }} />
+                    
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Account Management</Typography>
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => setDeleteDialogOpen(true)}
+                        disabled={!customer}
+                      >
+                        Delete Account
+                      </Button>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Deleting your account will permanently remove all your data and bookings.
+                    </Typography>
                   </>
                 )}
               </CardContent>
@@ -811,38 +1032,6 @@ const MyAccount = () => {
                 onChange={(e) => handleProfileFieldChange('nationality', e.target.value)}
                 fullWidth
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel id="customer-type-label">Customer Type</InputLabel>
-                <Select
-                  labelId="customer-type-label"
-                  value={profileForm.customerType}
-                  label="Customer Type"
-                  onChange={(e) => handleProfileFieldChange('customerType', e.target.value)}
-                >
-                  <MenuItem value="tourist">Tourist</MenuItem>
-                  <MenuItem value="local">Local</MenuItem>
-                  <MenuItem value="recurrent">Recurrent</MenuItem>
-                  <MenuItem value="resident">Resident</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel id="skill-level-label">Center Skill Level</InputLabel>
-                <Select
-                  labelId="skill-level-label"
-                  value={profileForm.centerSkillLevel}
-                  label="Center Skill Level"
-                  onChange={(e) => handleProfileFieldChange('centerSkillLevel', e.target.value)}
-                >
-                  <MenuItem value="beginner">Beginner</MenuItem>
-                  <MenuItem value="intermediate">Intermediate</MenuItem>
-                  <MenuItem value="advanced">Advanced</MenuItem>
-                  <MenuItem value="professional">Professional</MenuItem>
-                </Select>
-              </FormControl>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -1100,10 +1289,46 @@ const MyAccount = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Delete Account Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Account</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2" gutterBottom>
+              <strong>Warning:</strong> This action cannot be undone.
+            </Typography>
+            <Typography variant="body2">
+              Deleting your account will permanently remove:
+            </Typography>
+            <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 20 }}>
+              <li>Your personal information</li>
+              <li>All your bookings</li>
+              <li>Your certifications</li>
+              <li>Your preferences</li>
+            </ul>
+          </Alert>
+          <Typography variant="body1">
+            Are you sure you want to delete your account?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDeleteAccount}
+            startIcon={<DeleteIcon />}
+          >
+            Delete Account
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
@@ -1113,6 +1338,38 @@ const MyAccount = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <Dialog open={cancelDialog.open} onClose={closeCancelDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Cancel Booking</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {cancelDialog.booking
+              ? `Are you sure you want to cancel the booking on ${cancelDialog.booking.bookingDate} at ${getLocationName(cancelDialog.booking.locationId)}?`
+              : 'Are you sure you want to cancel this booking?'}
+          </Typography>
+          <TextField
+            label="Reason (optional)"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCancelDialog} disabled={cancelLoading}>
+            Back
+          </Button>
+          <Button
+            onClick={handleConfirmCancelBooking}
+            color="error"
+            variant="contained"
+            disabled={cancelLoading}
+          >
+            {cancelLoading ? 'Cancelling...' : 'Confirm Cancel'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

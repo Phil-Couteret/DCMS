@@ -8,17 +8,21 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Paper
+  Paper,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { 
   Add as AddIcon, 
   Event as EventIcon,
   ExpandMore as ExpandMoreIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  PriceChange as PriceChangeIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import BookingForm from '../components/Booking/BookingForm';
 import dataService from '../services/dataService';
+import { recalculateAllBookingPrices } from '../services/bookingRepricingService';
 import { useTranslation } from '../utils/languageContext';
 
 const Bookings = () => {
@@ -32,6 +36,8 @@ const Bookings = () => {
   
   const [bookings, setBookings] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [recalculating, setRecalculating] = useState(false);
 
   useEffect(() => {
     if (!isNewMode && !id) {
@@ -39,18 +45,56 @@ const Bookings = () => {
     }
   }, [isNewMode, id]);
 
-  // Refresh list when location changes from top tabs
+  // Refresh list when location changes from top tabs or new bookings are created
   useEffect(() => {
     const onLocChange = () => {
       if (!isNewMode && !id) loadBookings();
     };
-    window.addEventListener('dcms_location_changed', onLocChange);
-    window.addEventListener('storage', onLocChange);
-    return () => {
-      window.removeEventListener('dcms_location_changed', onLocChange);
-      window.removeEventListener('storage', onLocChange);
+    const onBookingCreated = (event) => {
+      console.log('[Admin] Booking event received:', event.type, event.detail);
+      if (!isNewMode && !id) {
+        console.log('[Admin] Refreshing bookings list...');
+        loadBookings();
+      }
     };
-  }, [isNewMode, id]);
+    const onStorageChange = (event) => {
+      if (event.key === 'dcms_bookings' || !event.key) {
+        console.log('[Admin] Storage event received for bookings');
+        if (!isNewMode && !id) loadBookings();
+      }
+    };
+    
+    // Poll for changes every 2 seconds (since different ports = separate localStorage)
+    // This is a workaround - in production, use a shared backend API
+    const pollInterval = setInterval(() => {
+      if (!isNewMode && !id) {
+        const currentBookings = dataService.getAll('bookings');
+        if (currentBookings.length !== bookings.length) {
+          console.log('[Admin] Booking count changed, refreshing...', currentBookings.length, 'vs', bookings.length);
+          loadBookings();
+        }
+      }
+    }, 2000);
+    
+    window.addEventListener('dcms_location_changed', onLocChange);
+    window.addEventListener('storage', onStorageChange);
+    window.addEventListener('dcms_booking_created', onBookingCreated);
+    // Listen for sync events
+    const onSync = () => {
+      if (!isNewMode && !id) {
+        loadBookings();
+      }
+    };
+    window.addEventListener('dcms_bookings_synced', onSync);
+    
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('dcms_location_changed', onLocChange);
+      window.removeEventListener('storage', onStorageChange);
+      window.removeEventListener('dcms_booking_created', onBookingCreated);
+      window.removeEventListener('dcms_bookings_synced', onSync);
+    };
+  }, [isNewMode, id, bookings.length]);
 
   const loadBookings = () => {
     const allBookings = dataService.getAll('bookings');
@@ -59,6 +103,34 @@ const Bookings = () => {
     const filtered = currentLocationId ? allBookings.filter(b => b.locationId === currentLocationId) : allBookings;
     setBookings(filtered);
     setCustomers(allCustomers);
+  };
+
+  const handleRecalculatePrices = () => {
+    if (recalculating) return;
+    const confirmed = window.confirm('Recalculate all booking prices using the latest customer types and price table?');
+    if (!confirmed) return;
+
+    try {
+      setRecalculating(true);
+      const result = recalculateAllBookingPrices();
+      loadBookings();
+      setSnackbar({
+        open: true,
+        severity: 'success',
+        message: result.updated > 0
+          ? `Recalculated ${result.updated} booking${result.updated === 1 ? '' : 's'}`
+          : 'No bookings required price updates'
+      });
+    } catch (error) {
+      console.error('[Admin] Failed to recalculate booking prices:', error);
+      setSnackbar({
+        open: true,
+        severity: 'error',
+        message: 'Failed to recalculate prices. Please try again.'
+      });
+    } finally {
+      setRecalculating(false);
+    }
   };
 
   const getCustomerName = (customerId) => {
@@ -87,13 +159,31 @@ const Bookings = () => {
         <Typography variant="h4">
           {t('bookings.title')}
         </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/bookings/new')}
-        >
-          {t('bookings.new')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={loadBookings}
+            sx={{ minWidth: 'auto' }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<PriceChangeIcon />}
+            onClick={handleRecalculatePrices}
+            disabled={recalculating}
+            sx={{ minWidth: 'auto' }}
+          >
+            {recalculating ? 'Repricing…' : 'Reprice Bookings'}
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/bookings/new')}
+          >
+            {t('bookings.new')}
+          </Button>
+        </Box>
       </Box>
 
       {bookings.length === 0 ? (
@@ -248,6 +338,20 @@ const Bookings = () => {
           </Box>
         </Paper>
       )}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

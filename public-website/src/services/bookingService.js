@@ -57,7 +57,9 @@ const dispatchBrowserEvent = (eventName, detail) => {
     typeof window !== 'undefined' &&
     typeof window.dispatchEvent === 'function'
   ) {
-    window.dispatchEvent(new CustomEvent(eventName, { detail }));
+    const event = new CustomEvent(eventName, { detail, bubbles: true });
+    window.dispatchEvent(event);
+    console.log(`[DCMS Public] Dispatched event: ${eventName}`, detail);
   }
 };
 
@@ -113,6 +115,11 @@ const getAll = (resource) => {
 const saveAll = (resource, data) => {
   const key = `dcms_${resource}`;
   localStorage.setItem(key, JSON.stringify(data));
+  
+  // Mark resource as changed (will be synced in next batch)
+  if (typeof window !== 'undefined' && window.syncService) {
+    window.syncService.markChanged(resource);
+  }
 };
 
 // Find or create customer
@@ -129,26 +136,52 @@ export const findOrCreateCustomer = (customerData) => {
       firstName: customerData.firstName,
       lastName: customerData.lastName,
       email: customerData.email,
-      phone: customerData.phone,
+      phone: customerData.phone || '',
+      password: customerData.password, // Store password (in production, should be hashed)
+      nationality: customerData.nationality || '',
+      customerType: customerData.customerType || 'tourist', // Default to tourist
+      centerSkillLevel: customerData.centerSkillLevel || 'beginner', // Default to beginner
       preferences: mergePreferences(getDefaultPreferences(), customerData.preferences || {}),
-      certifications: [],
-      notes: customerData.specialRequirements || '',
+      certifications: customerData.certifications || [],
+      medicalConditions: customerData.medicalConditions || [],
+      notes: customerData.specialRequirements || customerData.notes || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     customers.push(customer);
     saveAll('customers', customers);
+    
+    // Dispatch events to notify admin system (if running)
+    dispatchBrowserEvent('dcms_customer_created', customer);
+    dispatchBrowserEvent('dcms_customer_updated', customer);
+    
+    console.log('[DCMS] Customer created:', customer.email, 'Total customers:', customers.length);
   } else {
     // Update existing customer if new info provided
+    // IMPORTANT: Preserve existing customerType and centerSkillLevel - don't overwrite with defaults
     if (customerData.phone && !customer.phone) {
       customer.phone = customerData.phone;
     }
     if (customerData.specialRequirements && !customer.notes) {
       customer.notes = customerData.specialRequirements;
     }
+    if (customerData.password && !customer.password) {
+      customer.password = customerData.password;
+    }
+    // Only update customerType if explicitly provided in customerData
+    if (customerData.customerType) {
+      customer.customerType = customerData.customerType;
+    }
+    // Only update centerSkillLevel if explicitly provided in customerData
+    if (customerData.centerSkillLevel) {
+      customer.centerSkillLevel = customerData.centerSkillLevel;
+    }
     customer.updatedAt = new Date().toISOString();
     saveAll('customers', customers);
+    
+    // Dispatch event to notify admin system
+    dispatchBrowserEvent('dcms_customer_updated', customer);
   }
   
   return customer;
@@ -157,7 +190,10 @@ export const findOrCreateCustomer = (customerData) => {
 // Check availability (basic validation)
 export const checkAvailability = (date, time, location, activityType) => {
   const bookings = getAll('bookings');
-  const locationId = location === 'caleta' ? 'caleta' : 'playitas';
+  // Map location name to locationId (using same UUIDs as admin portal)
+  const locationId = location === 'caleta' 
+    ? '550e8400-e29b-41d4-a716-446655440001' // Caleta de Fuste
+    : '550e8400-e29b-41d4-a716-446655440002'; // Las Playitas
   
   // Get bookings for the same date, time, and location
   const conflictingBookings = bookings.filter(booking => {
@@ -190,8 +226,10 @@ export const createBooking = (bookingData) => {
     specialRequirements: bookingData.specialRequirements
   });
   
-  // Map location name to locationId
-  const locationId = bookingData.location === 'caleta' ? 'caleta' : 'playitas';
+  // Map location name to locationId (using same UUIDs as admin portal)
+  const locationId = bookingData.location === 'caleta' 
+    ? '550e8400-e29b-41d4-a716-446655440001' // Caleta de Fuste
+    : '550e8400-e29b-41d4-a716-446655440002'; // Las Playitas
   
   // Map activity type to booking format
   const activityType = bookingData.activityType;
@@ -237,6 +275,17 @@ export const createBooking = (bookingData) => {
   bookings.push(booking);
   saveAll('bookings', bookings);
   
+  // Immediately push to sync server
+  if (typeof window !== 'undefined' && window.syncService) {
+    window.syncService.markChanged('bookings');
+    // Force immediate push
+    setTimeout(() => {
+      window.syncService.pushPendingChanges().catch(err => {
+        console.warn('[DCMS] Failed to push booking immediately:', err);
+      });
+    }, 100);
+  }
+  
   // Store user email for MyAccount page
   if (bookingData.email) {
     localStorage.setItem('dcms_user_email', bookingData.email);
@@ -248,14 +297,48 @@ export const createBooking = (bookingData) => {
     // Don't fail the booking if email fails
   });
   
-  // Dispatch event to notify admin system (if running)
+  // Dispatch events to notify admin system (if running)
   dispatchBrowserEvent('dcms_booking_created', booking);
+  
+  console.log('[DCMS] Booking created:', booking.id, 'for customer:', customer.email, 'Total bookings:', bookings.length);
+
+  // Ensure the sync server receives the brand-new booking, even if the calling component forgets
+  if (typeof window !== 'undefined' && window.syncService?.syncNow) {
+    window.syncService.syncNow().catch(err => {
+      console.warn('[DCMS] Failed to run immediate sync after booking creation:', err);
+    });
+  }
   
   return {
     success: true,
     booking,
     customer
   };
+};
+
+export const cancelBooking = (bookingId, options = {}) => {
+  if (!bookingId) return null;
+  const bookings = getAll('bookings');
+  const idx = bookings.findIndex((b) => b.id === bookingId);
+  if (idx === -1) {
+    return null;
+  }
+
+  const booking = bookings[idx];
+  bookings[idx] = {
+    ...booking,
+    status: 'cancelled',
+    cancellationReason: options.reason || 'Cancelled by diver',
+    cancellationNotes: options.notes || '',
+    cancelledBy: options.cancelledBy || 'customer',
+    paymentStatus: booking.paymentStatus === 'paid' ? 'refund_pending' : booking.paymentStatus,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveAll('bookings', bookings);
+  dispatchBrowserEvent('dcms_booking_updated', bookings[idx]);
+  console.log('[DCMS] Booking cancelled:', bookings[idx].id);
+  return bookings[idx];
 };
 
 // Get customer bookings
@@ -325,10 +408,33 @@ export const updateCustomerProfile = (email, updates = {}) => {
   }
 
   const customer = customers[idx];
+  
+  // Ensure required fields exist (for backward compatibility with existing customers)
+  // IMPORTANT: Preserve existing customerType and centerSkillLevel unless explicitly updated with a valid value
+  const preservedCustomerType = (updates.hasOwnProperty('customerType') && updates.customerType) 
+    ? updates.customerType 
+    : (customer.customerType || 'tourist');
+  const preservedCenterSkillLevel = (updates.hasOwnProperty('centerSkillLevel') && updates.centerSkillLevel)
+    ? updates.centerSkillLevel
+    : (customer.centerSkillLevel || 'beginner');
+  
+  // Log if customerType is being changed
+  if (customer.customerType && customer.customerType !== preservedCustomerType && updates.hasOwnProperty('customerType')) {
+    console.warn(`[DCMS] CustomerType changed from "${customer.customerType}" to "${preservedCustomerType}" for ${email}`);
+  }
+  
   const merged = {
     ...customer,
     ...updates,
+    // Preserve existing customerType unless explicitly provided with a valid value in updates
+    customerType: preservedCustomerType,
+    // Preserve existing centerSkillLevel unless explicitly provided with a valid value in updates
+    centerSkillLevel: preservedCenterSkillLevel,
+    nationality: updates.nationality || customer.nationality || '',
+    phone: updates.phone || customer.phone || '',
     preferences: mergePreferences(customer.preferences || getDefaultPreferences(), updates.preferences),
+    certifications: updates.certifications || customer.certifications || [],
+    medicalConditions: updates.medicalConditions || customer.medicalConditions || [],
     medicalCertificate: mergeNestedObject(
       customer.medicalCertificate,
       updates.medicalCertificate
@@ -343,8 +449,44 @@ export const updateCustomerProfile = (email, updates = {}) => {
   customers[idx] = merged;
   saveAll('customers', customers);
   dispatchBrowserEvent('dcms_customer_updated', merged);
+  
+  console.log('[DCMS] Customer updated:', merged.email);
 
   return merged;
+};
+
+// Migration function to upgrade existing customers with missing fields
+export const migrateExistingCustomers = () => {
+  const customers = getAll('customers');
+  let updated = false;
+  
+  const migrated = customers.map(customer => {
+    const needsUpdate = !customer.customerType || !customer.centerSkillLevel;
+    
+    if (needsUpdate) {
+      updated = true;
+      return {
+        ...customer,
+        customerType: customer.customerType || 'tourist',
+        centerSkillLevel: customer.centerSkillLevel || 'beginner',
+        nationality: customer.nationality || '',
+        medicalConditions: customer.medicalConditions || [],
+        certifications: customer.certifications || [],
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return customer;
+  });
+  
+  if (updated) {
+    saveAll('customers', migrated);
+    // Dispatch events for all migrated customers
+    migrated.forEach(customer => {
+      dispatchBrowserEvent('dcms_customer_updated', customer);
+    });
+  }
+  
+  return { migrated: updated, count: migrated.length };
 };
 
 export const addOrUpdateCertification = (email, certification) => {
@@ -422,16 +564,71 @@ export const deleteCertification = (email, certificationId) => {
   return updatedCustomer;
 };
 
+// Delete customer account (and all their bookings)
+export const deleteCustomerAccount = (email) => {
+  const customers = getAll('customers');
+  const bookings = getAll('bookings');
+  
+  // Find customer
+  const customerIndex = customers.findIndex(c => c.email?.toLowerCase() === email?.toLowerCase());
+  if (customerIndex === -1) {
+    throw new Error('Customer not found');
+  }
+  
+  const customer = customers[customerIndex];
+  
+  // Delete customer
+  customers.splice(customerIndex, 1);
+  saveAll('customers', customers);
+  
+  // Delete all bookings for this customer
+  const customerBookings = bookings.filter(b => b.customerId === customer.id);
+  const remainingBookings = bookings.filter(b => b.customerId !== customer.id);
+  saveAll('bookings', remainingBookings);
+  
+  // Clear user session
+  if (localStorage.getItem('dcms_user_email')?.toLowerCase() === email?.toLowerCase()) {
+    localStorage.removeItem('dcms_user_email');
+  }
+  
+  // Dispatch events
+  dispatchBrowserEvent('dcms_customer_updated', { email, deleted: true });
+  
+  console.log(`[DCMS] Deleted customer account: ${email} (${customerBookings.length} bookings removed)`);
+  
+  return { success: true, deletedBookings: customerBookings.length };
+};
+
+// Manually sync all customers to server (for existing customers that weren't synced)
+export const syncAllCustomersToServer = async () => {
+  const customers = getAll('customers');
+  
+  if (typeof window !== 'undefined' && window.syncService) {
+    console.log(`[DCMS] Manually syncing ${customers.length} customers to server...`);
+    window.syncService.markChanged('customers');
+    await window.syncService.pushPendingChanges();
+    console.log(`[DCMS] ✅ Synced ${customers.length} customers to server`);
+    return { success: true, count: customers.length };
+  } else {
+    console.warn('[DCMS] Sync service not available');
+    return { success: false, error: 'Sync service not available' };
+  }
+};
+
 // Default export
 const bookingServiceAPI = {
   findOrCreateCustomer,
   checkAvailability,
   createBooking,
+  cancelBooking,
   getCustomerBookings,
   getCustomerByEmail,
   updateCustomerProfile,
   addOrUpdateCertification,
-  deleteCertification
+  deleteCertification,
+  migrateExistingCustomers,
+  deleteCustomerAccount,
+  syncAllCustomersToServer
 };
 
 export default bookingServiceAPI;
