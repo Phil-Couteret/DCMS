@@ -25,7 +25,7 @@ import {
   School as TrainerIcon,
   Work as InternIcon
 } from '@mui/icons-material';
-import { useAuth, USER_ROLES } from '../../utils/authContext';
+import { useAuth, USER_ROLES, AVAILABLE_PERMISSIONS } from '../../utils/authContext';
 import dataService from '../../services/dataService';
 
 const UserSelector = ({ open, onClose }) => {
@@ -132,11 +132,39 @@ const UserSelector = ({ open, onClose }) => {
                         <Typography variant="body1" fontWeight="medium">
                           {user.name}
                         </Typography>
-                        <Chip
-                          label={getRoleLabel(user.role)}
-                          size="small"
-                          color={getRoleColor(user.role)}
-                        />
+                        {user.role === USER_ROLES.SUPERADMIN ? (
+                          <Chip
+                            label="Superadmin (Full Access)"
+                            size="small"
+                            color={getRoleColor(user.role)}
+                          />
+                        ) : user.permissions && user.permissions.length > 0 ? (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {user.permissions.slice(0, 2).map((perm) => (
+                              <Chip
+                                key={perm}
+                                label={AVAILABLE_PERMISSIONS[perm]}
+                                size="small"
+                                variant="outlined"
+                              />
+                            ))}
+                            {user.permissions.length > 2 && (
+                              <Chip
+                                label={`+${user.permissions.length - 2}`}
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                              />
+                            )}
+                          </Box>
+                        ) : (
+                          <Chip
+                            label="No permissions"
+                            size="small"
+                            color="default"
+                            variant="outlined"
+                          />
+                        )}
                       </Box>
                     }
                     secondary={user.email || user.username}

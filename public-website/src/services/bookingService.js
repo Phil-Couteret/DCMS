@@ -213,6 +213,32 @@ export const checkAvailability = (date, time, location, activityType) => {
   };
 };
 
+// Check if medical certificate is required for an activity
+export const requiresMedicalCertificate = (activityType) => {
+  return ['diving', 'discover', 'orientation'].includes(activityType);
+};
+
+// Check if customer has valid medical certificate
+export const hasValidMedicalCertificate = (customer) => {
+  if (!customer || !customer.medicalCertificate) {
+    return false;
+  }
+  const cert = customer.medicalCertificate;
+  // Check if certificate exists and is valid
+  if (!cert.hasCertificate) {
+    return false;
+  }
+  // Check if certificate has expiration date and if it's still valid
+  if (cert.expirationDate) {
+    const expiration = new Date(cert.expirationDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expiration >= today;
+  }
+  // If no expiration date, assume it's valid if hasCertificate is true
+  return true;
+};
+
 // Create booking
 export const createBooking = (bookingData) => {
   const bookings = getAll('bookings');
@@ -225,6 +251,15 @@ export const createBooking = (bookingData) => {
     phone: bookingData.phone,
     specialRequirements: bookingData.specialRequirements
   });
+  
+  // Validate medical certificate checkbox for diving activities
+  // Only check if checkbox is checked - actual certificate details will be provided later in profile
+  // Registered divers can skip this check as they can update their profile
+  if (requiresMedicalCertificate(bookingData.activityType) && !bookingData.isRegisteredDiver) {
+    if (bookingData.hasMedicalCertificate !== true) {
+      throw new Error('A valid medical certificate is required for diving activities. Please confirm that you have a valid medical certificate.');
+    }
+  }
   
   // Map location name to locationId (using same UUIDs as admin portal)
   const locationId = bookingData.location === 'caleta' 
@@ -266,7 +301,7 @@ export const createBooking = (bookingData) => {
     paymentStatus: 'paid',
     paymentTransactionId: bookingData.paymentTransactionId || `TXN-${generateId()}`,
     equipmentNeeded: activityType === 'diving' ? ['BCD', 'Regulator', 'Mask', 'Fins', 'Boots', 'Wetsuit', 'Tank'] : [],
-    ownEquipment: false,
+    ownEquipment: Boolean(bookingData.ownEquipment),
     notes: bookingData.specialRequirements || '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -314,6 +349,35 @@ export const createBooking = (bookingData) => {
     booking,
     customer
   };
+};
+
+export const updateBookingEquipmentDetails = (bookingId, updates = {}) => {
+  if (!bookingId) return null;
+
+  const bookings = getAll('bookings');
+  const idx = bookings.findIndex((b) => b.id === bookingId);
+  if (idx === -1) {
+    return null;
+  }
+
+  const updatedBooking = {
+    ...bookings[idx],
+    ...updates,
+    updatedAt: new Date().toISOString()
+  };
+
+  bookings[idx] = updatedBooking;
+  saveAll('bookings', bookings);
+  dispatchBrowserEvent('dcms_booking_updated', updatedBooking);
+
+  if (typeof window !== 'undefined' && window.syncService) {
+    window.syncService.markChanged('bookings');
+    window.syncService.pushPendingChanges?.().catch(err => {
+      console.warn('[DCMS] Failed to sync booking updates immediately:', err);
+    });
+  }
+
+  return updatedBooking;
 };
 
 export const cancelBooking = (bookingId, options = {}) => {
@@ -620,6 +684,7 @@ const bookingServiceAPI = {
   findOrCreateCustomer,
   checkAvailability,
   createBooking,
+  updateBookingEquipmentDetails,
   cancelBooking,
   getCustomerBookings,
   getCustomerByEmail,

@@ -88,9 +88,34 @@ const normalizePreferences = (prefs = {}) => {
   };
 };
 
+const getDefaultMedicalCertificate = () => ({
+  hasCertificate: false,
+  certificateNumber: '',
+  issueDate: '',
+  expiryDate: '',
+  verified: false
+});
+
+const getDefaultDivingInsurance = () => ({
+  hasInsurance: false,
+  insuranceProvider: '',
+  policyNumber: '',
+  issueDate: '',
+  expiryDate: '',
+  verified: false
+});
+
 const normalizeCustomerData = (customer) => ({
   ...customer,
-  preferences: normalizePreferences(customer.preferences || {})
+  preferences: normalizePreferences(customer.preferences || {}),
+  medicalCertificate: {
+    ...getDefaultMedicalCertificate(),
+    ...(customer.medicalCertificate || {})
+  },
+  divingInsurance: {
+    ...getDefaultDivingInsurance(),
+    ...(customer.divingInsurance || {})
+  }
 });
 
 const CustomerForm = () => {
@@ -112,21 +137,8 @@ const CustomerForm = () => {
     preferences: getDefaultPreferences(),
     medicalConditions: [],
     certifications: [],
-    medicalCertificate: {
-      hasCertificate: false,
-      certificateNumber: '',
-      issueDate: '',
-      expiryDate: '',
-      verified: false
-    },
-    divingInsurance: {
-      hasInsurance: false,
-      insuranceProvider: '',
-      policyNumber: '',
-      issueDate: '',
-      expiryDate: '',
-      verified: false
-    }
+    medicalCertificate: getDefaultMedicalCertificate(),
+    divingInsurance: getDefaultDivingInsurance()
   });
   const [saved, setSaved] = useState(false);
   const [newCertification, setNewCertification] = useState({

@@ -58,7 +58,7 @@ import {
   VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
-import { useAuth, USER_ROLES } from '../utils/authContext';
+import { useAuth, USER_ROLES, AVAILABLE_PERMISSIONS, ALL_PERMISSIONS } from '../utils/authContext';
 import Prices from '../components/Settings/Prices';
 import { useTranslation } from '../utils/languageContext';
 
@@ -89,7 +89,8 @@ const Settings = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: USER_ROLES.GUIDE,
+    role: USER_ROLES.ADMIN, // Default role (kept for backward compatibility)
+    permissions: [], // Array of permission keys
     isActive: true,
     locationAccess: [] // Array of location IDs
   });
@@ -209,7 +210,8 @@ const Settings = () => {
       email: '',
       password: '',
       confirmPassword: '',
-      role: USER_ROLES.GUIDE,
+      role: USER_ROLES.ADMIN,
+      permissions: [],
       isActive: true,
       locationAccess: []
     });
@@ -227,7 +229,8 @@ const Settings = () => {
       email: user.email || '',
       password: '',
       confirmPassword: '',
-      role: user.role,
+      role: user.role || USER_ROLES.ADMIN,
+      permissions: user.permissions || [],
       isActive: user.isActive,
       locationAccess: locationAccess
     });
@@ -527,26 +530,60 @@ const Settings = () => {
                 />
               </Grid>
             )}
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>{t('settings.users.role') || 'Role'}</InputLabel>
-                  <Select
-                    value={userFormData.role}
-                    onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
-                    label={t('settings.users.role') || 'Role'}
-                    disabled={userFormData.role === USER_ROLES.SUPERADMIN && !isSuperAdmin()}
-                  >
-                    {isSuperAdmin() && (
-                      <MenuItem value={USER_ROLES.SUPERADMIN}>Superadmin</MenuItem>
-                    )}
-                    <MenuItem value={USER_ROLES.ADMIN}>{t('settings.roles.admin') || 'Admin'}</MenuItem>
-                    <MenuItem value={USER_ROLES.BOAT_PILOT}>{t('settings.roles.boatPilot') || 'Boat Pilot'}</MenuItem>
-                    <MenuItem value={USER_ROLES.GUIDE}>{t('settings.roles.guide') || 'Guide'}</MenuItem>
-                    <MenuItem value={USER_ROLES.TRAINER}>{t('settings.roles.trainer') || 'Trainer'}</MenuItem>
-                    <MenuItem value={USER_ROLES.INTERN}>{t('settings.roles.intern') || 'Intern'}</MenuItem>
-                  </Select>
-              </FormControl>
-            </Grid>
+            {/* Only show role for superadmin (cannot be changed) */}
+            {userFormData.role === USER_ROLES.SUPERADMIN && (
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  This is a Superadmin account with full access to all features.
+                </Alert>
+              </Grid>
+            )}
+            
+            {/* Permissions Selection - Only for non-superadmin users */}
+            {userFormData.role !== USER_ROLES.SUPERADMIN && (
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
+                  {t('settings.users.permissions') || 'Permissions'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                  Select the features this user can access. You can grant access from "almost everything" to "only boat preparation" and all options in between.
+                </Typography>
+                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                  <Grid container spacing={2}>
+                    {ALL_PERMISSIONS.map((permission) => (
+                      <Grid item xs={12} sm={6} md={4} key={permission}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={userFormData.permissions.includes(permission)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setUserFormData({
+                                    ...userFormData,
+                                    permissions: [...userFormData.permissions, permission]
+                                  });
+                                } else {
+                                  setUserFormData({
+                                    ...userFormData,
+                                    permissions: userFormData.permissions.filter(p => p !== permission)
+                                  });
+                                }
+                              }}
+                            />
+                          }
+                          label={AVAILABLE_PERMISSIONS[permission]}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                  {userFormData.permissions.length === 0 && (
+                    <Alert severity="warning" sx={{ mt: 2 }}>
+                      No permissions selected. This user will not be able to access any features.
+                    </Alert>
+                  )}
+                </Box>
+              </Grid>
+            )}
             <Grid item xs={12}>
               <Typography variant="subtitle2" gutterBottom>{t('settings.users.locationAccess') || 'Location Access'}</Typography>
               <FormControlLabel
@@ -766,7 +803,7 @@ const Settings = () => {
                   <Box>
                     <Typography variant="h6">User Management</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Create and manage admin and guide accounts
+                      Create and manage user accounts with granular permissions
                     </Typography>
                   </Box>
                 </Box>
@@ -775,7 +812,7 @@ const Settings = () => {
                 <Box sx={{ pt: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="body2" color="text.secondary">
-                      {t('settings.users.manageHelp') || 'Manage system users and their roles. Admins have full access, guides can access bookings, customers, and equipment.'}
+                      {t('settings.users.manageHelp') || 'Create accounts for each person and assign granular permissions. Grant access from "almost everything" to "only boat preparation" and all options in between.'}
                     </Typography>
                     <Button
                       variant="contained"
@@ -793,7 +830,7 @@ const Settings = () => {
                           <TableCell>{t('settings.users.name') || 'Name'}</TableCell>
                           <TableCell>{t('settings.users.username') || 'Username'}</TableCell>
                           <TableCell>{'Email'}</TableCell>
-                          <TableCell>{t('settings.users.role') || 'Role'}</TableCell>
+                          <TableCell>{t('settings.users.permissions') || 'Permissions'}</TableCell>
                           <TableCell>{t('settings.users.status') || 'Status'}</TableCell>
                           <TableCell align="right">{t('settings.users.actions') || 'Actions'}</TableCell>
                         </TableRow>
@@ -814,12 +851,40 @@ const Settings = () => {
                               <TableCell>{user.username}</TableCell>
                               <TableCell>{user.email || '-'}</TableCell>
                               <TableCell>
-                                <Chip
-                                  icon={getRoleIcon(user.role)}
-                                  label={getRoleLabel(user.role)}
-                                  color={getRoleColor(user.role)}
-                                  size="small"
-                                />
+                                {user.role === USER_ROLES.SUPERADMIN ? (
+                                  <Chip
+                                    icon={getRoleIcon(user.role)}
+                                    label="Superadmin (Full Access)"
+                                    color={getRoleColor(user.role)}
+                                    size="small"
+                                  />
+                                ) : user.permissions && user.permissions.length > 0 ? (
+                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {user.permissions.slice(0, 3).map((perm) => (
+                                      <Chip
+                                        key={perm}
+                                        label={AVAILABLE_PERMISSIONS[perm]}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    ))}
+                                    {user.permissions.length > 3 && (
+                                      <Chip
+                                        label={`+${user.permissions.length - 3} more`}
+                                        size="small"
+                                        variant="outlined"
+                                        color="primary"
+                                      />
+                                    )}
+                                  </Box>
+                                ) : (
+                                  <Chip
+                                    label="No permissions"
+                                    size="small"
+                                    color="default"
+                                    variant="outlined"
+                                  />
+                                )}
                               </TableCell>
                               <TableCell>
                                 <Chip

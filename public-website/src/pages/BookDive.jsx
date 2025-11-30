@@ -28,7 +28,7 @@ import {
 import { Save as SaveIcon, CreditCard as CreditCardIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import bookingService from '../services/bookingService';
+import bookingService, { requiresMedicalCertificate, hasValidMedicalCertificate } from '../services/bookingService';
 import { calculateDivePrice, calculateActivityPrice, getCustomerType } from '../services/pricingService';
 
 const EQUIPMENT_ITEMS = [
@@ -47,6 +47,32 @@ const getDefaultEquipmentOwnership = () =>
     acc[item.key] = false;
     return acc;
   }, {});
+
+const getFullEquipmentOwnership = () =>
+  EQUIPMENT_ITEMS.reduce((acc, item) => {
+    acc[item.key] = true;
+    return acc;
+  }, {});
+
+const EQUIPMENT_LABEL_MAP = {
+  mask: 'Mask',
+  fins: 'Fins',
+  boots: 'Boots',
+  wetsuit: 'Wetsuit',
+  bcd: 'BCD',
+  regulator: 'Regulator',
+  computer: 'Dive Computer',
+  torch: 'Torch'
+};
+
+const mapOwnershipToEquipmentNeeded = (ownership = {}) => {
+  const needed = Object.entries(EQUIPMENT_LABEL_MAP)
+    .filter(([key]) => !ownership[key])
+    .map(([, label]) => label);
+  // Tanks are always provided by the center
+  needed.push('Tank');
+  return needed;
+};
 
 const getDefaultSuitPreferences = () => ({
   style: 'full', // 'shorty' | 'full'
@@ -69,8 +95,8 @@ const BookDive = () => {
   const isRegistered = !!localStorage.getItem('dcms_user_email');
   const syncedEmailsRef = useRef(new Set());
   
-  // For Scuba: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (equipment details)
-  // For Discovery: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (confirmation)
+  // For Scuba: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (equipment details), Step 4 (confirmation)
+  // For Discovery/Orientation: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (confirmation)
   const getSteps = () => {
     if (formData.activityType === 'diving') {
       return [
@@ -78,13 +104,6 @@ const BookDive = () => {
         t('booking.step2') || 'Your Information',
         'Confirm Booking',
         'Equipment Details',
-        t('booking.step5') || 'Confirmation'
-      ];
-    } else if (formData.activityType === 'discover') {
-      return [
-        t('booking.step1') || 'Select Activity',
-        t('booking.step2') || 'Your Information',
-        'Confirm Booking',
         t('booking.step5') || 'Confirmation'
       ];
     } else {
@@ -114,8 +133,15 @@ const BookDive = () => {
     cardCVC: '',
     cardName: '',
     acceptTerms: false,
+    hasMedicalCertificate: false, // For diving activities
+    // Medical certificate details
+    medicalCertificateNumber: '',
+    medicalCertificateIssuedDate: '',
+    medicalCertificateExpirationDate: '',
+    medicalCertificateIssuedBy: '',
     // Equipment details (for Scuba only)
     equipmentOwnership: getDefaultEquipmentOwnership(),
+    ownEquipment: false,
     tankSize: '12L',
     bcdSize: '',
     finsSize: '',
@@ -235,15 +261,23 @@ const BookDive = () => {
     }
     // Step 2: Review and create booking
     else if (activeStep === 2) {
+      // Check medical certificate checkbox for diving activities
+      if (requiresMedicalCertificate(formData.activityType)) {
+        // Only check if checkbox is checked - actual certificate details will be provided later in profile
+        if (!formData.hasMedicalCertificate) {
+          setError('A valid medical certificate is required for diving activities. Please confirm that you have a valid medical certificate.');
+          return;
+        }
+      }
       handleCreateBooking();
     }
-    // Step 3: Equipment details (Scuba only) or Payment (Discovery)
+    // Step 3: Equipment details (Scuba only)
     else if (activeStep === 3) {
       if (formData.activityType === 'diving') {
         // Save equipment details
         handleSaveEquipmentDetails();
       } else {
-        // For Discovery, this is the payment step (but we'll skip it and go to confirmation)
+        // For other activities, go to confirmation
         setActiveStep(4);
       }
     }
@@ -278,12 +312,13 @@ const BookDive = () => {
       }
       
       // For Scuba: go to equipment details step
-      // For Discovery: go to confirmation
+      // For Discovery/Orientation: go directly to confirmation (medical certificate will be added in profile later)
+      // For other activities: go to confirmation
       if (formData.activityType === 'diving') {
         setActiveStep(3);
       } else {
         setBookingConfirmed(true);
-        setActiveStep(3); // Confirmation step (index 3 for Discovery, 4 for Scuba)
+        setActiveStep(3); // Confirmation step
       }
       
     } catch (err) {
@@ -305,6 +340,7 @@ const BookDive = () => {
           preferences: {
             ...customer.preferences,
             equipmentOwnership: formData.equipmentOwnership,
+            ownEquipment: formData.ownEquipment,
             tankSize: formData.tankSize,
             bcdSize: formData.bcdSize,
             finsSize: formData.finsSize,
@@ -313,6 +349,17 @@ const BookDive = () => {
             suitPreferences: formData.suitPreferences
           }
         });
+      }
+
+      const equipmentNeeded = mapOwnershipToEquipmentNeeded(formData.equipmentOwnership);
+      if (bookingResult?.booking?.id) {
+        const updatedBooking = bookingService.updateBookingEquipmentDetails(bookingResult.booking.id, {
+          ownEquipment: formData.ownEquipment,
+          equipmentNeeded
+        });
+        if (updatedBooking) {
+          setBookingResult(prev => prev ? { ...prev, booking: updatedBooking } : prev);
+        }
       }
       
       setBookingConfirmed(true);
@@ -325,10 +372,11 @@ const BookDive = () => {
     }
   };
 
+
   const handleBack = () => {
     setError(null);
     if (activeStep > 0) {
-      setActiveStep(prev => prev - 1);
+    setActiveStep(prev => prev - 1);
     }
   };
 
@@ -435,18 +483,18 @@ const BookDive = () => {
               </FormControl>
             </Grid>
             {isScuba && (
-              <Grid item xs={12} md={6}>
-                <TextField
+            <Grid item xs={12} md={6}>
+              <TextField
                   label={t('booking.numberOfDives')}
-                  type="number"
-                  fullWidth
-                  value={formData.numberOfDives}
-                  onChange={(e) => handleChange('numberOfDives', parseInt(e.target.value) || 1)}
-                  inputProps={{ min: 1, max: 10 }}
-                  required
+                type="number"
+                fullWidth
+                value={formData.numberOfDives}
+                onChange={(e) => handleChange('numberOfDives', parseInt(e.target.value) || 1)}
+                inputProps={{ min: 1, max: 10 }}
+                required
                   helperText="For your first booking, we recommend starting with 1 dive"
-                />
-              </Grid>
+              />
+            </Grid>
             )}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
@@ -530,6 +578,27 @@ const BookDive = () => {
                 placeholder={isDiscovery ? "Any medical conditions or special requirements we should know about?" : ""}
               />
             </Grid>
+            {/* Medical Certificate Checkbox for Diving Activities */}
+            {(formData.activityType === 'diving' || formData.activityType === 'discover' || formData.activityType === 'orientation') && (
+              <Grid item xs={12}>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  A valid medical certificate is required for diving activities. You can provide the details after booking.
+                </Alert>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.hasMedicalCertificate}
+                      onChange={(e) => handleChange('hasMedicalCertificate', e.target.checked)}
+                      required
+                    />
+                  }
+                  label="I have a valid medical certificate for diving"
+                />
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1, ml: 4 }}>
+                  You can provide your medical certificate details in your profile after booking.
+                </Typography>
+              </Grid>
+            )}
           </Grid>
         )}
 
@@ -542,34 +611,34 @@ const BookDive = () => {
               </Typography>
               <Card variant="outlined" sx={{ mt: 2, mb: 2 }}>
                 <CardContent>
-                  <Typography variant="body2" gutterBottom>
+              <Typography variant="body2" gutterBottom>
                     <strong>{t('booking.activity')}:</strong> {
-                      formData.activityType === 'diving' ? t('booking.activities.diving') : 
-                      formData.activityType === 'snorkeling' ? t('booking.activities.snorkeling') : 
-                      formData.activityType === 'discover' ? t('booking.activities.discover') :
-                      t('booking.activities.orientation')
-                    }
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>{t('booking.location')}:</strong> {formData.location === 'caleta' ? t('booking.locations.caleta') : t('booking.locations.playitas')}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>{t('booking.date')}:</strong> {formData.date}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
+                  formData.activityType === 'diving' ? t('booking.activities.diving') : 
+                  formData.activityType === 'snorkeling' ? t('booking.activities.snorkeling') : 
+                  formData.activityType === 'discover' ? t('booking.activities.discover') :
+                  t('booking.activities.orientation')
+                }
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>{t('booking.location')}:</strong> {formData.location === 'caleta' ? t('booking.locations.caleta') : t('booking.locations.playitas')}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>{t('booking.date')}:</strong> {formData.date}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
                     <strong>{t('booking.time')}:</strong> {getAvailableTimes().find(t => t.value === formData.time)?.label || formData.time}
                   </Typography>
                   {isScuba && (
                     <Typography variant="body2" gutterBottom>
                       <strong>{t('booking.numberOfDives')}:</strong> {formData.numberOfDives}
-                    </Typography>
+              </Typography>
                   )}
-                  <Typography variant="body2" gutterBottom>
-                    <strong>{t('booking.name')}:</strong> {formData.firstName} {formData.lastName}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>{t('booking.email')}:</strong> {formData.email}
-                  </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>{t('booking.name')}:</strong> {formData.firstName} {formData.lastName}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>{t('booking.email')}:</strong> {formData.email}
+              </Typography>
                   <Typography variant="body2" gutterBottom>
                     <strong>Phone:</strong> {formData.phone}
                   </Typography>
@@ -579,7 +648,7 @@ const BookDive = () => {
                     </Typography>
                   )}
                   <Typography variant="h6" sx={{ mt: 3, mb: 1, color: 'primary.main' }}>
-                    {t('common.totalPrice')} €{calculatePrice().toFixed(2)}
+                {t('common.totalPrice')} €{calculatePrice().toFixed(2)}
                   </Typography>
                 </CardContent>
               </Card>
@@ -599,7 +668,7 @@ const BookDive = () => {
           </Grid>
         )}
 
-        {/* Step 3: Equipment Details (Scuba only) or Payment (Discovery) */}
+        {/* Step 3: Equipment Details (Scuba only) */}
         {activeStep === 3 && isScuba && (
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -610,6 +679,30 @@ const BookDive = () => {
                 Please let us know about your equipment preferences. This helps us prepare everything for your dive.
               </Alert>
 
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.ownEquipment}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setFormData(prev => ({
+                        ...prev,
+                        ownEquipment: checked,
+                        equipmentOwnership: checked
+                          ? getFullEquipmentOwnership()
+                          : getDefaultEquipmentOwnership()
+                      }));
+                    }}
+                  />
+                }
+                label="I will bring my own equipment (except tank)"
+                sx={{ mb: 1 }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {formData.ownEquipment
+                  ? 'All gear has been marked as provided. Uncheck any items below if you still need us to supply something.'
+                  : 'Let us know which items you already have so we can prepare the remaining gear.'}
+              </Typography>
               {/* Equipment Ownership */}
               <FormGroup sx={{ mb: 3 }}>
                 <FormLabel component="legend" sx={{ mb: 2 }}>Which equipment do you bring?</FormLabel>
@@ -624,9 +717,11 @@ const BookDive = () => {
                             ...formData.equipmentOwnership,
                             [item.key]: e.target.checked
                           };
+                          const ownsAll = EQUIPMENT_ITEMS.every((equipment) => newOwnership[equipment.key]);
                           setFormData(prev => ({
                             ...prev,
-                            equipmentOwnership: newOwnership
+                            equipmentOwnership: newOwnership,
+                            ownEquipment: ownsAll
                           }));
                         }}
                       />
@@ -840,7 +935,7 @@ const BookDive = () => {
                     >
                       View My Bookings
                     </Button>
-                    <Button
+          <Button
                       variant="outlined"
                       onClick={() => {
                         setFormData({
@@ -860,7 +955,13 @@ const BookDive = () => {
                           cardCVC: '',
                           cardName: '',
                           acceptTerms: false,
+                          hasMedicalCertificate: false,
+                          medicalCertificateNumber: '',
+                          medicalCertificateIssuedDate: '',
+                          medicalCertificateExpirationDate: '',
+                          medicalCertificateIssuedBy: '',
                           equipmentOwnership: getDefaultEquipmentOwnership(),
+                          ownEquipment: false,
                           tankSize: '12L',
                           bcdSize: '',
                           finsSize: '',
@@ -875,7 +976,7 @@ const BookDive = () => {
                       }}
                     >
                       Book Another Dive
-                    </Button>
+          </Button>
                   </Box>
                 </Box>
               </Grid>
@@ -913,7 +1014,7 @@ const BookDive = () => {
               }
             </Button>
           </Box>
-        )}
+          )}
       </Paper>
     </Container>
   );

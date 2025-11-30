@@ -1,9 +1,9 @@
-// Authentication Context - User roles and permissions
+// Authentication Context - Permission-based access control
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
-// User roles
+// User roles (kept for backward compatibility, but permissions are now primary)
 export const USER_ROLES = {
   SUPERADMIN: 'superadmin',
   ADMIN: 'admin',
@@ -13,77 +13,37 @@ export const USER_ROLES = {
   INTERN: 'intern'
 };
 
-// Role permissions - which pages each role can access
-// Based on actual workflow:
-// - SUPERADMIN: Full access to all features (user management, all pages)
-// - ADMIN: Customer service team (bookings, customers, stays)
-// - BOAT_PILOT/OWNER: Equipment management, boat operations, specialized training
-// - GUIDE: Equipment allocation, dive preparation
-// - TRAINER: Specialized training (similar to owners)
-// - INTERN: Assist guides with equipment
-
-export const ROLE_PERMISSIONS = {
-  [USER_ROLES.SUPERADMIN]: [
-    'dashboard',      // Full access to all dashboards
-    'bookings',       // Full access - create/edit/cancel
-    'customers',      // Full access - customer service
-    'stays',          // Customer stays management
-    'equipment',      // Full CRUD - equipment management
-    'boatPrep',       // Full access - boat/dive preparation
-    'settings'        // Full access - all settings including user management
-  ],
-  [USER_ROLES.ADMIN]: [
-    'dashboard',      // Customer service focused dashboard
-    'bookings',       // Full access - create/edit/cancel
-    'customers',      // Full access - customer service
-    'stays',          // Customer stays management
-    'equipment',      // Full access - equipment management
-    'boatPrep',       // Full access - boat/dive preparation
-    'settings'        // Full access - all settings including user management
-  ],
-  [USER_ROLES.BOAT_PILOT]: [
-    'dashboard',      // Operational overview
-    'bookings',       // View only - see what's coming
-    'customers',      // View only - see who's diving
-    'equipment',      // Full CRUD - equipment management
-    'boatPrep',       // Full access - boat/dive preparation
-    'settings'        // Equipment-related settings
-    // No customer stays - admin responsibility
-  ],
-  [USER_ROLES.GUIDE]: [
-    'dashboard',      // Daily operations
-    'bookings',       // View only - see schedule
-    'customers',      // View + edit equipment sizes
-    'equipment',      // View + allocate (no CRUD)
-    'boatPrep'        // Full access - dive preparation
-    // No customer stays or settings
-  ],
-  [USER_ROLES.TRAINER]: [
-    'dashboard',      // Operational overview (similar to owners)
-    'bookings',       // View only
-    'customers',      // View only
-    'equipment',      // Full CRUD - equipment management
-    'boatPrep',       // Full access - for specialized training dives
-    'settings'        // Equipment-related settings
-  ],
-  [USER_ROLES.INTERN]: [
-    'dashboard',      // Today's operations
-    'bookings',       // View only - see schedule
-    'customers',      // View + edit equipment sizes
-    'equipment',      // View + allocate (no CRUD)
-    'boatPrep'        // Assist mode - limited actions
-    // No customer stays or settings
-  ]
+// Available permissions - granular access control
+export const AVAILABLE_PERMISSIONS = {
+  dashboard: 'Dashboard',
+  bookings: 'Bookings',
+  customers: 'Customers',
+  stays: 'Customer Stays',
+  equipment: 'Equipment',
+  boatPrep: 'Boat Preparation',
+  settings: 'Settings'
 };
 
+// Get all permission keys
+export const ALL_PERMISSIONS = Object.keys(AVAILABLE_PERMISSIONS);
+
 // Check if user has permission to access a route
-export const hasPermission = (userRole, route) => {
+export const hasPermission = (user, route) => {
+  if (!user) return false;
+  
   // Superadmin has access to everything
-  if (userRole === USER_ROLES.SUPERADMIN) {
+  if (user.role === USER_ROLES.SUPERADMIN) {
     return true;
   }
-  const permissions = ROLE_PERMISSIONS[userRole] || [];
-  return permissions.includes(route);
+  
+  // Check if user has the permission in their permissions array
+  if (user.permissions && Array.isArray(user.permissions)) {
+    return user.permissions.includes(route);
+  }
+  
+  // Fallback: if no permissions array, check role (for backward compatibility)
+  // This should be removed once all users are migrated to permission-based
+  return false;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -130,9 +90,13 @@ export const AuthProvider = ({ children }) => {
     // Settings are only visible/accessible to global admins (no or empty locationAccess)
     if (route === 'settings') {
       const isGlobal = !currentUser.locationAccess || (Array.isArray(currentUser.locationAccess) && currentUser.locationAccess.length === 0);
-      return currentUser.role === USER_ROLES.ADMIN && isGlobal;
+      // Check if user has settings permission
+      if (hasPermission(currentUser, 'settings')) {
+        return isGlobal;
+      }
+      return false;
     }
-    return hasPermission(currentUser.role, route);
+    return hasPermission(currentUser, route);
   };
 
   const value = {
@@ -195,4 +159,3 @@ export const isMultiLocationUser = (user) => {
   // Check if user has access to multiple locations
   return user.locationAccess.length > 1;
 };
-

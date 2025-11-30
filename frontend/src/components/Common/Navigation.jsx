@@ -31,12 +31,14 @@ import {
   Person as PersonIcon,
   Receipt as StaysIcon,
   AttachMoney as PricesIcon,
-  DirectionsBoat as BoatPrepIcon
+  DirectionsBoat as BoatPrepIcon,
+  LockReset as LockResetIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from '../../utils/languageContext';
 import { useAuth, USER_ROLES } from '../../utils/authContext';
 import dataService from '../../services/dataService';
+import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
 
 const drawerWidth = 240;
 
@@ -48,6 +50,7 @@ const Navigation = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [locations, setLocations] = useState([]);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   // Build menu items by scope
   const userHasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
@@ -101,21 +104,8 @@ const Navigation = () => {
   const menuItems = allMenuItems.filter(item => {
     if (!currentUser) return false;
     
-    // Check permission first
-    if (!canAccess(item.permission)) return false;
-    
-    // Superadmin sees all items they have permission for
-    if (currentUser.role === USER_ROLES.SUPERADMIN) {
-      return true;
-    }
-    
-    // If item has specific roles, check if current user's role matches
-    if (item.roles && item.roles.length > 0) {
-      return item.roles.includes(currentUser.role);
-    }
-    
-    // Otherwise, show if permission is granted
-    return true;
+    // Check permission - this now uses the permission-based system
+    return canAccess(item.permission);
   });
   
   // Remove duplicates (same path) - keep first occurrence, prioritizing by role order
@@ -176,6 +166,11 @@ const Navigation = () => {
 
   const handleUserMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleChangePassword = () => {
+    setShowPasswordDialog(true);
+    handleUserMenuClose();
   };
 
   const handleLogout = () => {
@@ -247,6 +242,12 @@ const Navigation = () => {
                     {currentUser.name} ({currentUser.role})
                   </Typography>
                 </MenuItem>
+                <MenuItem onClick={handleChangePassword}>
+                  <ListItemIcon>
+                    <LockResetIcon fontSize="small" />
+                  </ListItemIcon>
+                  Change Password
+                </MenuItem>
                 <MenuItem onClick={handleLogout}>
                   <ListItemIcon>
                     <LogoutIcon fontSize="small" />
@@ -295,6 +296,11 @@ const Navigation = () => {
           </Box>
         </Box>
       </Drawer>
+
+      <ChangePasswordDialog
+        open={showPasswordDialog}
+        onClose={() => setShowPasswordDialog(false)}
+      />
     </>
   );
 };

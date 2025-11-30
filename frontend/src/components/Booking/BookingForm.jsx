@@ -19,6 +19,7 @@ import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import dataService from '../../services/dataService';
 import stayService from '../../services/stayService';
+import { calculateActivityPrice, calculateDivePrice, getCustomerType } from '../../services/pricingService';
 import VolumeDiscountCalculator from './VolumeDiscountCalculator';
 import { useAuth } from '../../utils/authContext';
 
@@ -34,6 +35,7 @@ const BookingForm = ({ bookingId = null }) => {
     diveSiteId: '',
     bookingDate: new Date().toISOString().split('T')[0],
     activityType: 'diving',
+    numberOfDives: 1, // For non-diving activities
     diveSessions: {
       morning: false,  // 9:00 AM dive
       afternoon: false, // 12:00 PM dive
@@ -101,8 +103,11 @@ const BookingForm = ({ bookingId = null }) => {
   }, [bookingId]);
 
   useEffect(() => {
-    calculatePrice();
-  }, [formData.diveSessions, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment, settings]);
+    // Only calculate if settings are loaded
+    if (settings) {
+      calculatePrice();
+    }
+  }, [formData.diveSessions, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment, formData.numberOfDives, formData.activityType, formData.customerId, formData.locationId, formData.routeType, settings]);
 
   const loadData = () => {
     try {
@@ -155,16 +160,98 @@ const BookingForm = ({ bookingId = null }) => {
   const loadBooking = () => {
     const booking = dataService.getById('bookings', bookingId);
     if (booking) {
-      setFormData(booking);
+      // Normalize activity types: try_dive and discovery should both be "discover"
+      const normalizedActivityType = booking.activityType === 'try_dive' || booking.activityType === 'discovery' 
+        ? 'discover' 
+        : booking.activityType;
+      
+      const normalizedBooking = {
+        ...booking,
+        activityType: normalizedActivityType,
+        // Ensure numberOfDives is set for non-diving activities
+        numberOfDives: normalizedActivityType !== 'diving' 
+          ? (booking.numberOfDives || 1)
+          : undefined,
+        // Ensure diveSessions is properly structured
+        diveSessions: booking.diveSessions || {
+          morning: false,
+          afternoon: false,
+          night: false
+        }
+      };
+      setFormData(normalizedBooking);
     }
   };
 
-  const calculatePrice = () => {
+  const calculatePrice = (dataToUse = null) => {
     // Return early if settings not loaded yet
     if (!settings) {
       return;
     }
     
+    // Use provided data or current formData
+    const data = dataToUse || formData;
+    
+    // Get location info
+    const allLocations = dataService.getAll('locations') || [];
+    const storedLocation = localStorage.getItem('dcms_current_location');
+    const effectiveLocationId = formData.locationId || storedLocation || allLocations[0]?.id;
+    const location = allLocations.find(l => l.id === effectiveLocationId);
+    const locPricing = location?.pricing || {};
+    
+    // Get customer info for pricing
+    let customer = null;
+    if (formData.customerId) {
+      customer = dataService.getById('customers', formData.customerId);
+    }
+    const customerType = getCustomerType(customer);
+    
+    // Handle non-diving activities (snorkeling, discover, orientation)
+    if (formData.activityType !== 'diving') {
+      // For non-diving activities, use numberOfDives from form or default to 1
+      const numberOfDives = formData.numberOfDives || 1;
+      
+      // Calculate base price using pricing service
+      const basePrice = calculateActivityPrice(formData.activityType, numberOfDives, effectiveLocationId);
+      
+      // Non-diving activities (discover, snorkeling, orientation) don't have:
+      // - night dives, equipment rental, or transfer fees
+      // - dive insurance (insurance is typically included in the activity price or not required)
+      let diveInsurance = 0;
+      
+      // Apply bono discount to base price only (not insurance)
+      let discount = 0;
+      let governmentPayment = 0;
+      if (formData.bonoId) {
+        const bono = bonos.find(b => b.id === formData.bonoId);
+        if (bono && bono.type === 'discount_code') {
+          discount = (basePrice * bono.discountPercentage) / 100;
+          discount = Math.min(discount, bono.maxAmount || Infinity);
+          governmentPayment = discount;
+        }
+      }
+      
+      // Calculate final prices: discount applies to base price, insurance is added after
+      const discountedBasePrice = basePrice - discount;
+      const totalPrice = discountedBasePrice + diveInsurance;
+      const customerPayment = totalPrice;
+
+      setFormData(prev => ({
+        ...prev,
+        price: basePrice,
+        discount,
+        totalPrice,
+        governmentPayment,
+        customerPayment,
+        equipmentRental: 0,
+        diveInsurance,
+        transferFee: 0,
+        cumulativePricing: null
+      }));
+      return;
+    }
+    
+    // Diving activity pricing (existing logic)
     // Calculate number of dives based on selected sessions
     const numberOfDives = (formData.diveSessions.morning ? 1 : 0) + (formData.diveSessions.afternoon ? 1 : 0) + (formData.diveSessions.night ? 1 : 0);
     
@@ -176,13 +263,6 @@ const BookingForm = ({ bookingId = null }) => {
       cumulativePricing = stayService.getCumulativeStayPricing(formData.customerId, formData.bookingDate);
       pricePerDive = cumulativePricing.pricePerDive;
     }
-    
-    // Determine route-based pricing overrides (especially for Las Playitas)
-    const allLocations = dataService.getAll('locations') || [];
-    const storedLocation = localStorage.getItem('dcms_current_location');
-    const effectiveLocationId = formData.locationId || storedLocation || allLocations[0]?.id;
-    const location = allLocations.find(l => l.id === effectiveLocationId);
-    const locPricing = location?.pricing || {};
 
     let basePrice = 0;
     // If Playitas location, apply specific rules
@@ -223,8 +303,8 @@ const BookingForm = ({ bookingId = null }) => {
         basePrice = numberOfDives * pricePerDive;
       }
     } else {
-      // Non-Playitas or unknown: use cumulative pricing
-      basePrice = numberOfDives * pricePerDive;
+      // Use pricing service for diving
+      basePrice = calculateDivePrice(effectiveLocationId, customerType, numberOfDives);
     }
     
     // Resolve location-specific pricing
@@ -257,7 +337,14 @@ const BookingForm = ({ bookingId = null }) => {
     // Calculate equipment rental cost
     let equipmentRental = 0;
     
-    if (!formData.ownEquipment && formData.rentedEquipment) {
+    // If customer brings own equipment, equipment rental is always 0
+    if (formData.ownEquipment) {
+      equipmentRental = 0;
+    } else {
+      // Only calculate equipment rental if at least one piece of equipment is rented
+      const hasRentedEquipment = formData.rentedEquipment && Object.values(formData.rentedEquipment).some(value => value === true);
+      
+      if (hasRentedEquipment) {
       // Check if customer has already used 8 dives worth of complete equipment
       let previousCompleteEquipmentDives = 0;
       if (formData.customerId) {
@@ -307,6 +394,7 @@ const BookingForm = ({ bookingId = null }) => {
           equipmentRental += equipmentPrices[equipment] * numberOfDives;
         }
       });
+      }
     }
     
     // Calculate dive insurance (mandatory for all divers)
@@ -350,10 +438,55 @@ const BookingForm = ({ bookingId = null }) => {
   };
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // When activity type changes, reset dive sessions and numberOfDives appropriately
+      if (field === 'activityType') {
+        if (value === 'diving') {
+          // For diving, reset dive sessions and clear numberOfDives
+          updated.diveSessions = {
+            morning: false,
+            afternoon: false,
+            night: false
+          };
+          updated.numberOfDives = undefined;
+        } else {
+          // For non-diving activities, clear dive sessions and set numberOfDives to 1
+          updated.diveSessions = {
+            morning: false,
+            afternoon: false,
+            night: false
+          };
+          updated.numberOfDives = prev.numberOfDives || 1;
+        }
+      }
+      
+      // When ownEquipment is set to true, clear all rented equipment
+      if (field === 'ownEquipment' && value === true) {
+        updated.rentedEquipment = {
+          completeEquipment: false,
+          Suit: false,
+          BCD: false,
+          Regulator: false,
+          Torch: false,
+          Computer: false,
+          UWCamera: false,
+          Mask: false,
+          Fins: false,
+          Boots: false
+        };
+      }
+      
+      return updated;
+    });
+    
+    // Trigger immediate recalculation when ownEquipment changes
+    if (field === 'ownEquipment' && settings) {
+      setTimeout(() => {
+        calculatePrice();
+      }, 50);
+    }
   };
 
   const handleAddonChange = (addon, checked) => {
@@ -389,11 +522,64 @@ const BookingForm = ({ bookingId = null }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (bookingId) {
-      dataService.update('bookings', bookingId, formData);
-    } else {
-      dataService.create('bookings', formData);
+    // Validate: For diving, at least one dive session must be selected
+    if (formData.activityType === 'diving') {
+      if (!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night) {
+        alert('Please select at least one dive session for diving activities.');
+        return;
+      }
     }
+    
+    // Validate: For non-diving activities, numberOfDives must be at least 1
+    if (formData.activityType !== 'diving' && (!formData.numberOfDives || formData.numberOfDives < 1)) {
+      alert('Please enter a valid number of sessions (at least 1).');
+      return;
+    }
+    
+    // Recalculate price one final time before saving to ensure it's correct
+    // This is especially important when ownEquipment changes
+    if (settings) {
+      calculatePrice();
+    }
+    
+    // Use a small delay to ensure calculatePrice has updated formData
+    setTimeout(() => {
+      // Prepare booking data with current formData (which should have latest calculated prices)
+      const bookingData = { ...formData };
+      
+      // For non-diving activities, ensure numberOfDives is set
+      if (bookingData.activityType !== 'diving') {
+        bookingData.numberOfDives = bookingData.numberOfDives || 1;
+        // Clear dive sessions for non-diving activities
+        bookingData.diveSessions = {
+          morning: false,
+          afternoon: false,
+          night: false
+        };
+      }
+      
+      // Ensure equipmentRental is 0 if ownEquipment is true
+      if (bookingData.ownEquipment) {
+        bookingData.equipmentRental = 0;
+        // Recalculate totalPrice without equipment rental
+        const basePrice = bookingData.price || 0;
+        const diveInsurance = bookingData.diveInsurance || 0;
+        const discount = bookingData.discount || 0;
+        bookingData.totalPrice = basePrice + 0 + diveInsurance - discount;
+        bookingData.customerPayment = bookingData.totalPrice;
+      }
+      
+      if (bookingId) {
+        dataService.update('bookings', bookingId, bookingData);
+      } else {
+        dataService.create('bookings', bookingData);
+      }
+      
+      setSaved(true);
+      setTimeout(() => {
+        navigate('/bookings');
+      }, 1500);
+    }, 100);
     
     setSaved(true);
     setTimeout(() => {
@@ -475,52 +661,69 @@ const BookingForm = ({ bookingId = null }) => {
 
             {/* Boat and Dive Site will be selected after the dive for Spanish regulation compliance */}
 
-            {/* Dive Sessions */}
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                Dive Sessions
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Select which dive sessions the customer will participate in:
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={formData.diveSessions?.morning || false}
-                      onChange={(e) => handleDiveSessionChange('morning', e.target.checked)}
-                    />
-                  }
-                  label="Morning Dive (9:00 AM)"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={formData.diveSessions?.afternoon || false}
-                      onChange={(e) => handleDiveSessionChange('afternoon', e.target.checked)}
-                    />
-                  }
-                  label="Afternoon Dive (12:00 PM)"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={formData.diveSessions?.night || false}
-                      onChange={(e) => handleDiveSessionChange('night', e.target.checked)}
-                    />
-                  }
-                  label="Night Dive (+€20)"
-                />
-              </Box>
-              {!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night && (
-                <Typography variant="caption" color="error">
-                  Please select at least one dive session
+            {/* Dive Sessions (only for diving activity) */}
+            {formData.activityType === 'diving' && (
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom>
+                  Dive Sessions
                 </Typography>
-              )}
-            </Grid>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Select which dive sessions the customer will participate in:
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.diveSessions?.morning || false}
+                        onChange={(e) => handleDiveSessionChange('morning', e.target.checked)}
+                      />
+                    }
+                    label="Morning Dive (9:00 AM)"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.diveSessions?.afternoon || false}
+                        onChange={(e) => handleDiveSessionChange('afternoon', e.target.checked)}
+                      />
+                    }
+                    label="Afternoon Dive (12:00 PM)"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.diveSessions?.night || false}
+                        onChange={(e) => handleDiveSessionChange('night', e.target.checked)}
+                      />
+                    }
+                    label="Night Dive (+€20)"
+                  />
+                </Box>
+                {!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night && (
+                  <Typography variant="caption" color="error">
+                    Please select at least one dive session
+                  </Typography>
+                )}
+              </Grid>
+            )}
 
-          {/* Route Type for Las Playitas */}
-          {(() => {
+            {/* Number of Sessions (for non-diving activities) */}
+            {formData.activityType !== 'diving' && (
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Number of Sessions"
+                  type="number"
+                  fullWidth
+                  value={formData.numberOfDives || 1}
+                  onChange={(e) => handleChange('numberOfDives', parseInt(e.target.value) || 1)}
+                  inputProps={{ min: 1 }}
+                  helperText="Enter the number of sessions for this activity"
+                />
+              </Grid>
+            )}
+
+          {/* Route Type for Las Playitas (only for diving) */}
+          {formData.activityType === 'diving' && (() => {
             const currentLoc = locations.find(l => l.id === formData.locationId);
             const isPlayitas = currentLoc && currentLoc.name?.toLowerCase().includes('playitas');
             return isPlayitas ? (
@@ -576,8 +779,8 @@ const BookingForm = ({ bookingId = null }) => {
                 >
                   <MenuItem value="diving">Diving</MenuItem>
                   <MenuItem value="snorkeling">Snorkeling</MenuItem>
-                  <MenuItem value="try_dive">Try Dive</MenuItem>
-                  <MenuItem value="discovery">Discovery</MenuItem>
+                  <MenuItem value="discover">Discovery / Try Dive</MenuItem>
+                  <MenuItem value="orientation">Orientation Dive</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -639,21 +842,58 @@ const BookingForm = ({ bookingId = null }) => {
               </FormControl>
             </Grid>
 
-            {/* Own Equipment */}
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.ownEquipment}
-                    onChange={(e) => handleChange('ownEquipment', e.target.checked)}
-                  />
-                }
-                label="Customer brings own equipment (no equipment rental fee)"
-              />
+            {/* Booking Status */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Booking Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => handleChange('status', e.target.value)}
+                  required
+                >
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="confirmed">Confirmed</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                  <MenuItem value="no_show">No Show</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
 
-            {/* Individual Equipment Rental */}
-            {!formData.ownEquipment && (
+            {/* Payment Status */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Payment Status</InputLabel>
+                <Select
+                  value={formData.paymentStatus}
+                  onChange={(e) => handleChange('paymentStatus', e.target.value)}
+                  required
+                >
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="paid">Paid</MenuItem>
+                  <MenuItem value="refunded">Refunded</MenuItem>
+                  <MenuItem value="partial">Partial</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Own Equipment (only for diving) */}
+            {formData.activityType === 'diving' && (
+              <>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.ownEquipment}
+                        onChange={(e) => handleChange('ownEquipment', e.target.checked)}
+                      />
+                    }
+                    label="Customer brings own equipment (no equipment rental fee)"
+                  />
+                </Grid>
+
+                {/* Individual Equipment Rental */}
+                {!formData.ownEquipment && (
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
                   Equipment Rental Selection
@@ -800,18 +1040,22 @@ const BookingForm = ({ bookingId = null }) => {
                   </Grid>
                 </Grid>
               </Grid>
+                )}
+              </>
             )}
 
             <Divider sx={{ my: 2, width: '100%' }} />
 
-            {/* Volume Discount Calculator */}
-            <Grid item xs={12}>
-              <VolumeDiscountCalculator 
-                numberOfDives={(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0) + (formData.diveSessions?.night ? 1 : 0)}
-                addons={formData.addons || {}}
-                bono={bonos.find(b => b.id === formData.bonoId)}
-              />
-            </Grid>
+            {/* Volume Discount Calculator (only for diving) */}
+            {formData.activityType === 'diving' && (
+              <Grid item xs={12}>
+                <VolumeDiscountCalculator 
+                  numberOfDives={(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0) + (formData.diveSessions?.night ? 1 : 0)}
+                  addons={formData.addons || {}}
+                  bono={bonos.find(b => b.id === formData.bonoId)}
+                />
+              </Grid>
+            )}
 
 
             {/* Actions */}
