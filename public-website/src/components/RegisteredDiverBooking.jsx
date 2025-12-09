@@ -72,7 +72,6 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
   // Available time slots for diving (can select multiple)
   const availableTimes = [
     { value: '09:00', label: '9:00 AM' },
-    { value: '10:15', label: '10:15 AM (Additional)' },
     { value: '12:00', label: '12:00 PM' }
   ];
 

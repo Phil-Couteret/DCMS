@@ -197,7 +197,10 @@ const BoatPrep = () => {
   
   // Per-boat dive site assignments: { boatId: diveSiteId }
   const [boatDiveSites, setBoatDiveSites] = useState({});
+  // Per-boat dive site validation status: { boatId: { confirmed: boolean, completed: boolean } }
+  const [boatDiveSiteStatus, setBoatDiveSiteStatus] = useState({});
   const [allocateRental, setAllocateRental] = useState(true);
+  const [showAllBoats, setShowAllBoats] = useState(false);
   
   // Get dive site suggestions for a specific boat based on its divers
   const getBoatDiveSiteSuggestions = (boatId) => {
@@ -216,7 +219,107 @@ const BoatPrep = () => {
     return boatDiveSites[boatId] || '';
   };
 
+  const getBoatDiveSiteStatus = (boatId) => {
+    return boatDiveSiteStatus[boatId] || { confirmed: false, completed: false };
+  };
+
+  const setBoatDiveSiteStatusValue = (boatId, status) => {
+    setBoatDiveSiteStatus(prev => ({
+      ...prev,
+      [boatId]: { ...prev[boatId], ...status }
+    }));
+  };
+
+  // Calculate how many boats are needed based on total divers
+  const calculateBoatsNeeded = useMemo(() => {
+    const totalDivers = customersWithBookings.length;
+    if (totalDivers === 0) return 0;
+    
+    // Calculate total capacity needed (accounting for staff)
+    // We'll use average staff per boat: 1 captain + 1 guide = 2 staff
+    // So available capacity per boat = boat.capacity - 2
+    const avgStaffPerBoat = 2;
+    const avgDiverCapacityPerBoat = boats.length > 0 
+      ? Math.max(1, boats[0].capacity - avgStaffPerBoat) 
+      : 8; // Default if no boats
+    
+    // Calculate minimum boats needed
+    const boatsNeeded = Math.ceil(totalDivers / avgDiverCapacityPerBoat);
+    
+    // Also consider already assigned divers - we need at least enough boats for current assignments
+    const assignedDiversCount = Object.values(boatAssignments).flat().length;
+    const boatsWithAssignments = Object.keys(boatAssignments).filter(
+      boatId => (boatAssignments[boatId] || []).length > 0
+    ).length;
+    
+    // Return max of calculated need and boats with assignments (but at least 1 if there are divers)
+    return Math.max(
+      boatsNeeded,
+      boatsWithAssignments || (assignedDiversCount > 0 ? 1 : 0),
+      assignedDiversCount > 0 ? 1 : 0
+    );
+  }, [customersWithBookings.length, boats, boatAssignments]);
+
+  // Get only the boats we need to display
+  const boatsToDisplay = useMemo(() => {
+    // If user wants to see all boats, show them all
+    if (showAllBoats) {
+      return boats;
+    }
+    
+    const boatsNeeded = calculateBoatsNeeded;
+    const boatsWithDivers = boats.filter(boat => {
+      const assigned = boatAssignments[boat.id] || [];
+      return assigned.length > 0;
+    });
+    
+    // If we have boats with divers assigned, show those + any additional needed
+    // Otherwise, show just the minimum needed
+    if (boatsWithDivers.length > 0) {
+      // Show boats with divers + empty boats up to the needed count
+      const displayedIds = new Set(boatsWithDivers.map(b => b.id));
+      let count = boatsWithDivers.length;
+      
+      for (const boat of boats) {
+        if (count >= boatsNeeded) break;
+        if (!displayedIds.has(boat.id)) {
+          displayedIds.add(boat.id);
+          count++;
+        }
+      }
+      
+      return boats.filter(b => displayedIds.has(b.id));
+    } else {
+      // No divers assigned yet - show minimum needed (at least 1)
+      return boats.slice(0, Math.max(1, boatsNeeded));
+    }
+  }, [boats, calculateBoatsNeeded, boatAssignments, showAllBoats]);
+
   const assignDiverToBoat = (customerId, boatId) => {
+    // If assigning to a boat and we're not showing all boats, check if we need to show it
+    if (boatId && !showAllBoats) {
+      // Check if this boat would be in the displayed set
+      // If not, automatically show all boats
+      const boatExists = boats.find(b => b.id === boatId);
+      if (boatExists) {
+        // Calculate if this boat would be displayed
+        const boatsWithDivers = boats.filter(boat => {
+          const assigned = boatAssignments[boat.id] || [];
+          return assigned.length > 0;
+        });
+        const boatsNeeded = calculateBoatsNeeded;
+        
+        // If boat has divers or we need more boats, it will be shown
+        // Otherwise, if we're assigning to a boat that wouldn't be shown, show all
+        const wouldBeShown = boatsWithDivers.some(b => b.id === boatId) || 
+                             boats.slice(0, Math.max(1, boatsNeeded)).some(b => b.id === boatId);
+        
+        if (!wouldBeShown) {
+          setShowAllBoats(true);
+        }
+      }
+    }
+    
     setBoatAssignments(prev => {
       const newAssignments = { ...prev };
       // Remove from any existing boat
@@ -523,17 +626,53 @@ const BoatPrep = () => {
         return;
       }
       
+      // Validate dive sites are confirmed before saving
+      const diveSiteValidationErrors = [];
+      Object.keys(boatAssignments).forEach(boatId => {
+        const diverIds = boatAssignments[boatId] || [];
+        if (diverIds.length > 0) {
+          const diveSiteId = getBoatDiveSite(boatId);
+          const siteStatus = getBoatDiveSiteStatus(boatId);
+          
+          if (!diveSiteId) {
+            const boat = boats.find(b => b.id === boatId);
+            diveSiteValidationErrors.push(`${boat?.name || 'Boat'}: Dive site not selected`);
+          } else if (!siteStatus.confirmed && !siteStatus.completed) {
+            const boat = boats.find(b => b.id === boatId);
+            diveSiteValidationErrors.push(`${boat?.name || 'Boat'}: Dive site not confirmed. Please confirm the dive site before saving.`);
+          }
+        }
+      });
+      
+      if (diveSiteValidationErrors.length > 0) {
+        const proceed = window.confirm(
+          'Some boats have unconfirmed dive sites:\n\n' + 
+          diveSiteValidationErrors.join('\n') + 
+          '\n\nDo you want to proceed anyway? (You can confirm dive sites later)'
+        );
+        if (!proceed) {
+          return;
+        }
+      }
+      
       Object.keys(boatAssignments).forEach(boatId => {
         const diverIds = boatAssignments[boatId] || [];
         if (diverIds.length > 0) {
           const staff = getBoatStaff(boatId);
           const diveSiteId = getBoatDiveSite(boatId);
+          const siteStatus = getBoatDiveSiteStatus(boatId);
           const payload = {
             date,
             session,
             boatId,
             diverIds,
             diveSiteId: diveSiteId,
+            diveSiteStatus: {
+              confirmed: siteStatus.confirmed,
+              completed: siteStatus.completed,
+              confirmedAt: siteStatus.confirmed ? new Date().toISOString() : null,
+              completedAt: siteStatus.completed ? new Date().toISOString() : null
+            },
             staff: {
               captain: staff.captain,
               guides: staff.guides,
@@ -689,8 +828,41 @@ const BoatPrep = () => {
         {/* Boats Grid or Shore Dive Group */}
         <Grid item xs={12}>
           {hasBoats ? (
-            <Grid container spacing={2}>
-              {boats.map(boat => {
+            <>
+              {boats.length > boatsToDisplay.length && !showAllBoats && (
+                <Alert 
+                  severity="info" 
+                  sx={{ mb: 2 }}
+                  action={
+                    <Button 
+                      size="small" 
+                      onClick={() => setShowAllBoats(true)}
+                    >
+                      Show All {boats.length} Boats
+                    </Button>
+                  }
+                >
+                  Showing {boatsToDisplay.length} of {boats.length} boats (based on {customersWithBookings.length} divers)
+                </Alert>
+              )}
+              {showAllBoats && boats.length > calculateBoatsNeeded && (
+                <Alert 
+                  severity="info" 
+                  sx={{ mb: 2 }}
+                  action={
+                    <Button 
+                      size="small" 
+                      onClick={() => setShowAllBoats(false)}
+                    >
+                      Show Only Needed Boats
+                    </Button>
+                  }
+                >
+                  Showing all {boats.length} boats (only {calculateBoatsNeeded} needed for {customersWithBookings.length} divers)
+                </Alert>
+              )}
+              <Grid container spacing={2}>
+                {boatsToDisplay.map(boat => {
               const boatCustomers = getBoatCustomers(boat.id);
               const staff = getBoatStaff(boat.id);
               const totalCapacity = boat.capacity || 10;
@@ -890,14 +1062,27 @@ const BoatPrep = () => {
                     {/* Dive Site Assignment - Step 2 */}
                     <Divider sx={{ my: 1 }} />
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      2. Assign Dive Site
+                      2. Assign Dive Site {getBoatDiveSiteStatus(boat.id).confirmed && '✓'} {getBoatDiveSiteStatus(boat.id).completed && '✓ Completed'}
                     </Typography>
                     {(() => {
                       const boatSiteSuggestions = getBoatDiveSiteSuggestions(boat.id);
                       const selectedSiteId = getBoatDiveSite(boat.id);
+                      const siteStatus = getBoatDiveSiteStatus(boat.id);
+                      const allDiveSites = dataService.getAll('diveSites').filter(s => s.locationId === locationId);
+                      const selectedSite = allDiveSites.find(s => s.id === selectedSiteId);
                       
                       return (
                         <Box sx={{ mb: 2 }}>
+                          {siteStatus.completed && (
+                            <Alert severity="success" sx={{ mb: 1 }}>
+                              Dive completed at {selectedSite?.name || 'selected site'}
+                            </Alert>
+                          )}
+                          {siteStatus.confirmed && !siteStatus.completed && (
+                            <Alert severity="info" sx={{ mb: 1 }}>
+                              Dive site confirmed. You can still modify it if conditions change.
+                            </Alert>
+                          )}
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                             Suggested sites for this boat's divers:
                           </Typography>
@@ -906,7 +1091,13 @@ const BoatPrep = () => {
                               <Chip
                                 key={s.id}
                                 label={s.name}
-                                onClick={() => setBoatDiveSite(boat.id, s.id)}
+                                onClick={() => {
+                                  setBoatDiveSite(boat.id, s.id);
+                                  // Reset confirmation if site changes
+                                  if (siteStatus.confirmed) {
+                                    setBoatDiveSiteStatusValue(boat.id, { confirmed: false });
+                                  }
+                                }}
                                 color={selectedSiteId === s.id ? 'primary' : 'default'}
                                 variant={selectedSiteId === s.id ? 'filled' : 'outlined'}
                                 size="small"
@@ -914,9 +1105,56 @@ const BoatPrep = () => {
                             ))}
                           </Box>
                           {selectedSiteId && (
-                            <Typography variant="caption" color="primary">
-                              Selected: {boatSiteSuggestions.find(s => s.id === selectedSiteId)?.name || 'Unknown site'}
-                            </Typography>
+                            <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                              <Typography variant="caption" color="primary">
+                                Selected: {selectedSite?.name || 'Unknown site'}
+                              </Typography>
+                              {!siteStatus.confirmed && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  onClick={() => setBoatDiveSiteStatusValue(boat.id, { confirmed: true })}
+                                >
+                                  Confirm Site
+                                </Button>
+                              )}
+                              {siteStatus.confirmed && !siteStatus.completed && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="success"
+                                  onClick={() => setBoatDiveSiteStatusValue(boat.id, { completed: true })}
+                                >
+                                  Mark Dive Completed
+                                </Button>
+                              )}
+                              {siteStatus.confirmed && (
+                                <FormControl size="small" sx={{ minWidth: 200 }}>
+                                  <Select
+                                    value={selectedSiteId}
+                                    displayEmpty
+                                    onChange={(e) => {
+                                      const newSiteId = e.target.value;
+                                      if (newSiteId && newSiteId !== selectedSiteId) {
+                                        setBoatDiveSite(boat.id, newSiteId);
+                                        // Reset confirmation if site changes
+                                        setBoatDiveSiteStatusValue(boat.id, { confirmed: false, completed: false });
+                                      }
+                                    }}
+                                  >
+                                    <MenuItem value={selectedSiteId}>
+                                      <em>Change site...</em>
+                                    </MenuItem>
+                                    {allDiveSites.map(site => (
+                                      <MenuItem key={site.id} value={site.id}>
+                                        {site.name}
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              )}
+                            </Box>
                           )}
                         </Box>
                       );
@@ -956,7 +1194,8 @@ const BoatPrep = () => {
                 </Grid>
               );
             })}
-            </Grid>
+              </Grid>
+            </>
           ) : (
             /* Shore Dive Preparation (No Boats) */
             <Paper sx={{ p: 3 }}>
@@ -1167,8 +1406,8 @@ const BoatPrep = () => {
             
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Box display="flex" gap={1} mb={2}>
-                  {boats.map(boat => (
+                <Box display="flex" gap={1} mb={2} flexWrap="wrap">
+                  {boatsToDisplay.map(boat => (
                     <Button
                       key={boat.id}
                       variant="outlined"
@@ -1197,6 +1436,16 @@ const BoatPrep = () => {
                       Add to {boat.name}
                     </Button>
                   ))}
+                  {!showAllBoats && boats.length > boatsToDisplay.length && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="secondary"
+                      onClick={() => setShowAllBoats(true)}
+                    >
+                      Show All Boats ({boats.length})
+                    </Button>
+                  )}
                 </Box>
               </Grid>
               
@@ -1207,7 +1456,7 @@ const BoatPrep = () => {
                       {renderDiverItem(customer)}
                       <Box display="flex" gap={0.5} mt={0.5} flexWrap="wrap">
                         {hasBoats ? (
-                          boats.map(boat => {
+                          boatsToDisplay.map(boat => {
                             const boatCustomers = getBoatCustomers(boat.id);
                             const boatStaff = getBoatStaff(boat.id);
                             const staffCount = (boatStaff.captain ? 1 : 0) + (boatStaff.guides?.length || 0) + (boatStaff.trainees?.length || 0);

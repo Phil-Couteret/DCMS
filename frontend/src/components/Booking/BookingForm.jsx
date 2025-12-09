@@ -668,8 +668,14 @@ const BookingForm = ({ bookingId = null }) => {
                   Dive Sessions
                 </Typography>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Select which dive sessions the customer will participate in:
+                  Select which dive sessions the customer will participate in today:
                 </Typography>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="caption">
+                    <strong>Maximum 3 dives per day:</strong> Morning (9:00 AM), Afternoon (12:00 PM), and Night dive.
+                    Volume discounts apply to <strong>cumulative dives across multiple days</strong> of the customer's stay.
+                  </Typography>
+                </Alert>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <FormControlLabel
                     control={
@@ -678,7 +684,7 @@ const BookingForm = ({ bookingId = null }) => {
                         onChange={(e) => handleDiveSessionChange('morning', e.target.checked)}
                       />
                     }
-                    label="Morning Dive (9:00 AM)"
+                    label="Morning Dive (9:00 AM) - 1 dive"
                   />
                   <FormControlLabel
                     control={
@@ -687,7 +693,7 @@ const BookingForm = ({ bookingId = null }) => {
                         onChange={(e) => handleDiveSessionChange('afternoon', e.target.checked)}
                       />
                     }
-                    label="Afternoon Dive (12:00 PM)"
+                    label="Afternoon Dive (12:00 PM) - 1 dive"
                   />
                   <FormControlLabel
                     control={
@@ -696,11 +702,21 @@ const BookingForm = ({ bookingId = null }) => {
                         onChange={(e) => handleDiveSessionChange('night', e.target.checked)}
                       />
                     }
-                    label="Night Dive (+€20)"
+                    label="Night Dive (+€20) - 1 dive"
                   />
                 </Box>
+                {(() => {
+                  const selectedCount = (formData.diveSessions?.morning ? 1 : 0) + 
+                                       (formData.diveSessions?.afternoon ? 1 : 0) + 
+                                       (formData.diveSessions?.night ? 1 : 0);
+                  return (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      {selectedCount > 0 ? `${selectedCount} dive${selectedCount > 1 ? 's' : ''} selected for today` : 'Please select at least one dive session'}
+                    </Typography>
+                  );
+                })()}
                 {!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night && (
-                  <Typography variant="caption" color="error">
+                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
                     Please select at least one dive session
                   </Typography>
                 )}
@@ -750,19 +766,28 @@ const BookingForm = ({ bookingId = null }) => {
               <Grid item xs={12}>
                 <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
                   <Typography variant="h6" gutterBottom>
-                    Cumulative Stay Pricing
+                    Cumulative Stay Pricing (Volume Discount Applied)
+                  </Typography>
+                  <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
+                    Volume discounts are calculated based on <strong>total dives across all days</strong> of the customer's stay.
+                    Maximum 3 dives per day (Morning, Afternoon, Night).
                   </Typography>
                   <Typography variant="body2" gutterBottom>
-                    <strong>Total dives in stay:</strong> {formData.cumulativePricing.totalDives} dives
+                    <strong>Total dives in stay:</strong> {formData.cumulativePricing.totalDives} dives (across multiple days)
                   </Typography>
                   <Typography variant="body2" gutterBottom>
                     <strong>Price per dive:</strong> €{formData.cumulativePricing.pricePerDive.toFixed(2)}
+                    {formData.cumulativePricing.totalDives > 3 && (
+                      <span style={{ marginLeft: '8px', opacity: 0.9 }}>
+                        (discounted from €46.00)
+                      </span>
+                    )}
                   </Typography>
                   <Typography variant="body2" gutterBottom>
                     <strong>Total stay price:</strong> €{formData.cumulativePricing.totalPrice.toFixed(2)}
                   </Typography>
-                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    All dives in this stay are priced at the same rate based on total volume
+                  <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.9 }}>
+                    All dives in this stay are priced at the same rate based on total volume across all booking days
                   </Typography>
                 </Paper>
               </Grid>

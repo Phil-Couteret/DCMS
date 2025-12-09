@@ -9,7 +9,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip
+  Chip,
+  Alert
 } from '@mui/material';
 import { TrendingDown as TrendingDownIcon } from '@mui/icons-material';
 
@@ -86,9 +87,16 @@ const VolumeDiscountCalculator = ({ numberOfDives, addons = {}, bono }) => {
         </Typography>
       </Box>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        The more dives you book, the lower the price per dive. Discount is calculated automatically.
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Volume discounts apply to <strong>cumulative dives across multiple days</strong> of the customer's stay. 
+        The more total dives booked during their stay, the lower the price per dive.
       </Typography>
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <Typography variant="caption">
+          <strong>Note:</strong> Maximum 3 dives per day (Morning, Afternoon, Night). 
+          Discounts are calculated based on the total number of dives across all booking days.
+        </Typography>
+      </Alert>
 
       <TableContainer>
         <Table size="small">

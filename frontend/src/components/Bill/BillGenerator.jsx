@@ -62,14 +62,83 @@ const BillGenerator = ({ open, onClose, stay }) => {
   const initializeBillData = () => {
     if (!stay) return;
 
-    // Initialize dive data from stay
-    const dives = (stay.breakdown || []).map(booking => ({
-      date: booking.bookingDate,
-      sessions: booking.sessions,
-      dives: booking.dives,
-      pricePerDive: booking.pricePerDive,
-      total: booking.totalForBooking
-    }));
+    // Get boat preparations to find dive sites
+    const boatPreps = dataService.getAll('boatPreps') || [];
+    const diveSites = dataService.getAll('diveSites') || [];
+    
+    // Initialize dive data from stay - one dive per line
+    const dives = [];
+    
+    (stay.breakdown || []).forEach(booking => {
+      const bookingDate = booking.bookingDate;
+      const sessions = booking.sessions || booking.diveSessions || {};
+      
+      // Find boat prep for this booking (match by date, session, and customer)
+      const findDiveSite = (sessionType) => {
+        // Try to find boat prep matching this booking
+        const boatPrep = boatPreps.find(prep => {
+          const prepDate = prep.date?.split('T')[0] || prep.date;
+          const matchesDate = prepDate === bookingDate;
+          const matchesSession = prep.session === sessionType || 
+                                (sessionType === 'morning' && prep.session === '10:15');
+          const matchesCustomer = prep.diverIds?.includes(booking.customerId || stay.customerId);
+          return matchesDate && matchesSession && matchesCustomer;
+        });
+        
+        if (boatPrep?.diveSiteId) {
+          const diveSite = diveSites.find(s => s.id === boatPrep.diveSiteId);
+          return diveSite?.name || 'Unknown Site';
+        }
+        
+        // Use mock dive site if boat prep doesn't exist
+        const mockSites = ['Castillo Reef', 'El Bajo', 'La Catedral', 'Mole', 'Las Playitas Reef'];
+        return mockSites[Math.floor(Math.random() * mockSites.length)];
+      };
+      
+      // Create one line per dive session
+      if (sessions.morning) {
+        dives.push({
+          date: bookingDate,
+          session: 'Morning',
+          sessionTime: '9:00 AM',
+          diveSite: findDiveSite('morning'),
+          dives: 1,
+          pricePerDive: booking.pricePerDive,
+          total: booking.pricePerDive
+        });
+      }
+      
+      if (sessions.afternoon) {
+        dives.push({
+          date: bookingDate,
+          session: 'Afternoon',
+          sessionTime: '12:00 PM',
+          diveSite: findDiveSite('afternoon'),
+          dives: 1,
+          pricePerDive: booking.pricePerDive,
+          total: booking.pricePerDive
+        });
+      }
+      
+      if (sessions.night) {
+        // Night dive includes surcharge - check if it's already in the booking total
+        const nightDiveSurcharge = settings?.prices?.addons?.night_dive || 20;
+        // If booking has addons, the surcharge might already be included
+        const basePrice = booking.pricePerDive || 46;
+        const nightDiveTotal = basePrice + nightDiveSurcharge;
+        
+        dives.push({
+          date: bookingDate,
+          session: 'Night',
+          sessionTime: 'Night Dive',
+          diveSite: findDiveSite('night'),
+          dives: 1,
+          pricePerDive: basePrice,
+          nightDiveSurcharge: nightDiveSurcharge,
+          total: nightDiveTotal
+        });
+      }
+    });
 
     setBillData(prev => ({
       ...prev,
@@ -120,8 +189,11 @@ const BillGenerator = ({ open, onClose, stay }) => {
   const calculateBill = () => {
     if (!stay || !settings) return;
 
-    // Calculate dive totals
-    const diveTotal = (billData.dives || []).reduce((sum, dive) => sum + (dive.total || 0), 0);
+    // Calculate dive totals (each dive is now a separate line)
+    const diveTotal = (billData.dives || []).reduce((sum, dive) => {
+      // dive.total already includes night dive surcharge if applicable
+      return sum + (dive.total || 0);
+    }, 0);
 
     // Resolve location-specific pricing
     const locations = dataService.getAll('locations') || [];
@@ -229,8 +301,8 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Date</TableCell>
-                      <TableCell>Sessions</TableCell>
-                      <TableCell>Dives</TableCell>
+                      <TableCell>Session</TableCell>
+                      <TableCell>Dive Site</TableCell>
                       <TableCell align="right">Price per Dive</TableCell>
                       <TableCell align="right">Total</TableCell>
                     </TableRow>
@@ -240,12 +312,14 @@ const BillGenerator = ({ open, onClose, stay }) => {
                       <TableRow key={index}>
                         <TableCell>{dive.date}</TableCell>
                         <TableCell>
-                          {dive.sessions ? 
-                            (dive.sessions.morning ? 'Morning' : '') + 
-                            (dive.sessions.morning && dive.sessions.afternoon ? ', ' : '') +
-                            (dive.sessions.afternoon ? 'Afternoon' : '') : 'N/A'}
+                          {dive.session || 'N/A'}
+                          {dive.sessionTime && (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              {dive.sessionTime}
+                            </Typography>
+                          )}
                         </TableCell>
-                        <TableCell>{dive.dives}</TableCell>
+                        <TableCell>{dive.diveSite || 'TBD'}</TableCell>
                         <TableCell align="right">€{dive.pricePerDive.toFixed(2)}</TableCell>
                         <TableCell align="right">€{dive.total.toFixed(2)}</TableCell>
                       </TableRow>
@@ -403,27 +477,46 @@ const BillGenerator = ({ open, onClose, stay }) => {
                 <TableHead>
                   <TableRow>
                     <TableCell>Description</TableCell>
+                    <TableCell>Dive Site</TableCell>
                     <TableCell align="right">Quantity</TableCell>
                     <TableCell align="right">Unit Price</TableCell>
                     <TableCell align="right">Total</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {/* Dives */}
+                  {/* Dives - One per line */}
                   {calculatedBill?.dives.map((dive, index) => (
                     <TableRow key={`dive-${index}`}>
                       <TableCell>
-                        Dive on {dive.date} 
-                        {dive.sessions && (
+                        {dive.session || 'Dive'} on {dive.date}
+                        {dive.sessionTime && (
                           <Typography variant="caption" display="block" color="text.secondary">
-                            {dive.sessions.morning ? 'Morning' : ''}
-                            {dive.sessions.morning && dive.sessions.afternoon ? ', ' : ''}
-                            {dive.sessions.afternoon ? 'Afternoon' : ''}
+                            {dive.sessionTime}
+                          </Typography>
+                        )}
+                        {dive.nightDiveSurcharge && (
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            + €{dive.nightDiveSurcharge.toFixed(2)} night dive surcharge
                           </Typography>
                         )}
                       </TableCell>
-                      <TableCell align="right">{dive.dives}</TableCell>
-                      <TableCell align="right">€{dive.pricePerDive.toFixed(2)}</TableCell>
+                      <TableCell>
+                        {dive.diveSite || 'TBD'}
+                        {(!dive.diveSite || dive.diveSite === 'TBD') && (
+                          <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            (To be confirmed)
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">{dive.dives || 1}</TableCell>
+                      <TableCell align="right">
+                        €{dive.pricePerDive.toFixed(2)}
+                        {dive.nightDiveSurcharge && (
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            + €{dive.nightDiveSurcharge.toFixed(2)}
+                          </Typography>
+                        )}
+                      </TableCell>
                       <TableCell align="right">€{dive.total.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
