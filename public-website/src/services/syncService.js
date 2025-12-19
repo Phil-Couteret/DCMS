@@ -32,9 +32,8 @@ class SyncService {
         }
 
         if (!this.isEnabled) {
-          console.log('[Sync] Connected to sync server (push-only mode)');
+          this.isEnabled = true;
         }
-        this.isEnabled = true;
 
         if (this.connectionRetryTimer) {
           clearTimeout(this.connectionRetryTimer);
@@ -98,8 +97,7 @@ class SyncService {
       });
       
       if (response.ok) {
-        const result = await response.json();
-        console.log(`[Sync] ✅ Pushed ${resource} to server:`, data.length, 'items', result);
+        await response.json();
       } else {
         console.error(`[Sync] ❌ Failed to push ${resource}:`, response.status, response.statusText);
       }
@@ -150,7 +148,7 @@ class SyncService {
       if (localData) {
         try {
           const data = JSON.parse(localData);
-          console.log(`[Sync] 🔄 Pushing entire ${resource} dataset (${data.length} items)`);
+          // Pushing entire dataset
           await this.syncToServer(resource, data);
         } catch (err) {
           console.warn(`[Sync] Error during full push for ${resource}:`, err);
@@ -161,14 +159,12 @@ class SyncService {
 
   // Mark a resource as having pending changes (called when data is modified)
   markChanged(resource) {
-    console.log(`[Sync] 📝 Marked ${resource} as changed`);
     this.pendingChanges.add(resource);
     // Ensure we try to connect whenever data changes
     this.ensureConnection();
     // Immediately push if enabled (don't wait for interval)
     if (this.isEnabled) {
       setTimeout(() => {
-        console.log(`[Sync] 🚀 Pushing ${resource} immediately...`);
         this.pushPendingChanges().catch(err => {
           console.warn('[Sync] Immediate push failed, will retry on interval:', err);
           // Re-add to pending if push failed
@@ -248,12 +244,6 @@ class SyncService {
             localStorage.setItem(key, JSON.stringify(merged));
             
             if (oldValue !== JSON.stringify(merged)) {
-              console.log(`[Sync] ✅ Pulled ${resource}: ${newItems.length} new, ${updatedItems.length} updated (total: ${merged.length})`);
-              if (updatedItems.length > 0 && resource === 'customers') {
-                updatedItems.forEach(item => {
-                  console.log(`[Sync] Updated customer: ${item.email} (customerType: ${item.customerType})`);
-                });
-              }
               window.dispatchEvent(new CustomEvent(`dcms_${resource}_synced`, { detail: merged }));
             }
           }

@@ -68,20 +68,25 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
     }
   }
   
-  if (!customerPricing) {
-    console.warn(`Pricing config not found for customer type: ${customerType}, using fallback pricing`);
-    return {
-      totalDives,
-      pricePerDive: 46,
-      totalPrice: totalDives * 46,
-      breakdown: [],
-      stayBookings
-    };
-  }
-  
+  // Use fallback pricing if location pricing not found
   let pricePerDive;
-  
-  if (customerPricing.tiers) {
+  if (!customerPricing) {
+    console.warn(`Pricing config not found for customer type: ${customerType} at location, using fallback pricing`);
+    // Use fallback pricing based on customer type
+    if (customerType === 'recurrent') {
+      pricePerDive = 32.00; // Recurrent customer fallback
+    } else if (customerType === 'local') {
+      pricePerDive = 35.00; // Local customer fallback
+    } else {
+      // Tourist - use tiered fallback
+      let tierPrice = 46.00;
+      if (totalDives >= 13) tierPrice = 38.00;
+      else if (totalDives >= 9) tierPrice = 40.00;
+      else if (totalDives >= 6) tierPrice = 42.00;
+      else if (totalDives >= 3) tierPrice = 44.00;
+      pricePerDive = tierPrice;
+    }
+  } else if (customerPricing.tiers) {
     // Tourist pricing - use tiered system
     // Find the appropriate tier based on total dives
     let tier = null;

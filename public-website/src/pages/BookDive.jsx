@@ -126,6 +126,8 @@ const BookDive = () => {
     lastName: '',
     email: '',
     phone: '',
+    password: '', // For new customers
+    confirmPassword: '', // For new customers
     specialRequirements: '',
     paymentMethod: 'card',
     cardNumber: '',
@@ -150,20 +152,33 @@ const BookDive = () => {
     suitPreferences: getDefaultSuitPreferences()
   });
 
+  // Check if customer exists (to determine if password is needed)
+  const [existingCustomer, setExistingCustomer] = useState(null);
+
   useEffect(() => {
     const email = formData.email?.trim().toLowerCase();
-    if (!email || syncedEmailsRef.current.has(email)) {
+    if (!email) {
+      setExistingCustomer(null);
       return;
     }
+    
+    // Check if customer exists
     const existing = bookingService.getCustomerByEmail(email);
-    if (!existing) {
+    setExistingCustomer(existing);
+    
+    if (!existing || syncedEmailsRef.current.has(email)) {
       return;
     }
+    
+    // If customer exists, sync to get latest data
     if (typeof window !== 'undefined' && window.syncService?.syncNow) {
       window.syncService
         .syncNow()
         .then(() => {
           syncedEmailsRef.current.add(email);
+          // Refresh customer data after sync
+          const refreshed = bookingService.getCustomerByEmail(email);
+          setExistingCustomer(refreshed);
         })
         .catch((err) => {
           console.warn('[Booking] Failed to refresh customer before pricing:', err);
@@ -256,6 +271,25 @@ const BookDive = () => {
         setError('Please enter a valid email address');
         return;
       }
+      
+      // If customer doesn't exist, require password
+      const email = formData.email?.trim().toLowerCase();
+      const customer = bookingService.getCustomerByEmail(email);
+      if (!customer) {
+        // New customer - password is required
+        if (!formData.password || formData.password.length < 6) {
+          setError('Password is required and must be at least 6 characters long');
+          return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+          setError('Passwords do not match');
+          return;
+        }
+      } else {
+        // Existing customer - clear password fields (not needed)
+        setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
+      }
+      
       setActiveStep(2); // Review/Confirm step
     }
     // Step 2: Review and create booking
@@ -290,9 +324,10 @@ const BookDive = () => {
       const totalPrice = calculatePrice();
       const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create booking
+      // Create booking (include password for new customers)
       const result = bookingService.createBooking({
         ...formData,
+        password: formData.password || undefined, // Only include if provided (new customers)
         price: totalPrice,
         totalPrice: totalPrice,
         discount: 0,
@@ -566,6 +601,44 @@ const BookDive = () => {
                 required
               />
             </Grid>
+            {/* Password fields for new customers */}
+            {!existingCustomer && (
+              <>
+                <Grid item xs={12}>
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Create a password to access your bookings and account later
+                  </Alert>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Password"
+                    type="password"
+                    fullWidth
+                    value={formData.password}
+                    onChange={(e) => handleChange('password', e.target.value)}
+                    required
+                    helperText="At least 6 characters"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Confirm Password"
+                    type="password"
+                    fullWidth
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                    required
+                  />
+                </Grid>
+              </>
+            )}
+            {existingCustomer && (
+              <Grid item xs={12}>
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Welcome back, {existingCustomer.firstName}! You're already registered. You can log in later with your email and password.
+                </Alert>
+              </Grid>
+            )}
             <Grid item xs={12}>
               <TextField
                 label={t('booking.specialRequirementsLabel')}

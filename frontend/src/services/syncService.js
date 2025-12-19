@@ -2,7 +2,7 @@
 // Syncs data between public website and admin portal
 
 const SYNC_SERVER_URL = 'http://localhost:3002/api/sync';
-const SYNC_INTERVAL = 2000; // Sync every 2 seconds
+const SYNC_INTERVAL = 30000; // Sync every 30 seconds (safety fallback - public page pushes immediately)
 
 class SyncService {
   constructor() {
@@ -31,15 +31,15 @@ class SyncService {
         }
 
         if (!this.isEnabled) {
-          console.log('[Sync] Connected to sync server');
+          this.isEnabled = true;
         }
-        this.isEnabled = true;
 
         if (this.connectionRetryTimer) {
           clearTimeout(this.connectionRetryTimer);
           this.connectionRetryTimer = null;
         }
 
+        // Push local data to server first (in case sync server was restarted)
         await this.syncAll();
       } catch (e) {
         if (this.isEnabled) {
@@ -92,12 +92,25 @@ class SyncService {
         body: JSON.stringify(data)
       });
       
-      if (response.ok) {
-        console.log(`[Sync] Synced ${resource} to server:`, data.length, 'items');
-      }
+      // Data synced to server
     } catch (e) {
       console.warn(`[Sync] Failed to sync ${resource}:`, e.message);
     }
+  }
+
+  async getLastUpdate(resource) {
+    if (!this.isEnabled) return null;
+    
+    try {
+      const response = await fetch(`${SYNC_SERVER_URL}/${resource}/lastUpdate`);
+      if (response.ok) {
+        const result = await response.json();
+        return result.lastUpdate;
+      }
+    } catch (e) {
+      // Ignore errors - will fall back to full sync
+    }
+    return null;
   }
 
   async syncFromServer(resource) {
@@ -129,14 +142,19 @@ class SyncService {
     setTimeout(() => this.syncAll(), 1000);
   }
 
-  async syncAll() {
+  // Manual sync trigger (called explicitly when needed)
+  async syncNow() {
+    await this.syncAll(true);
+  }
+
+  async syncAll(manual = false) {
     const connected = await this.ensureConnection();
     if (!connected) {
       console.warn('[Sync] Sync service is disabled (waiting for server)');
       return;
     }
     
-    console.log('[Sync] Starting full sync...');
+    // Sync triggered (manual or periodic)
     
     // Sync to server (push local changes)
     const resources = ['bookings', 'customers', 'locations', 'equipment'];
@@ -161,17 +179,40 @@ class SyncService {
     }
     
     // Sync from server (pull remote changes)
+    // Check last update time first to avoid unnecessary data transfer
     for (const resource of resources) {
+      const key = `dcms_${resource}`;
+      let serverLastUpdate = null;
       try {
+        // Check if data has changed on server (optimization)
+        serverLastUpdate = await this.getLastUpdate(resource);
+        const localLastSync = this.lastSync[key];
+        
+        // Skip if we've synced recently and server hasn't changed (unless manual sync)
+        if (!manual && serverLastUpdate && localLastSync && serverLastUpdate <= localLastSync) {
+          continue;
+        }
+        
         const serverData = await this.syncFromServer(resource);
         if (!serverData || !Array.isArray(serverData)) {
           continue;
         }
 
-        const key = `dcms_${resource}`;
         const localDataStr = localStorage.getItem(key);
         const localData = localDataStr ? JSON.parse(localDataStr) : [];
         
+        // IMPORTANT: Don't overwrite local data if server is empty (sync server restart scenario)
+        // Only sync if server has data OR if we're intentionally syncing empty state from another client
+        if (serverData.length === 0 && localData.length > 0) {
+          // Server has no data, preserving local data and pushing to server
+          try {
+            await this.syncToServer(resource, localData);
+          } catch (e) {
+            console.warn(`[Sync] Failed to push local ${resource} to server:`, e);
+          }
+          continue; // Skip this resource, move to next
+        }
+
         // Check if server has new items by comparing IDs
         const localIds = new Set(localData.map(item => item.id));
         const serverIds = new Set(serverData.map(item => item.id));
@@ -180,22 +221,53 @@ class SyncService {
         const hasDifferentLength = serverData.length !== localData.length;
         
         // Also check if any existing items have been updated (compare by JSON string)
+        // For customers, merge server data with local data to preserve admin-only fields
         const localMap = new Map(localData.map(item => [item.id, item]));
-        const hasUpdatedItems = serverData.some(serverItem => {
-          const localItem = localMap.get(serverItem.id);
-          return localItem && JSON.stringify(localItem) !== JSON.stringify(serverItem);
+        let mergedData = serverData;
+        
+        if (resource === 'customers') {
+          // Merge server data with local data to preserve admin-only fields
+          mergedData = serverData.map(serverItem => {
+            const localItem = localMap.get(serverItem.id);
+            if (localItem) {
+              // Preserve admin-only fields from local data - ALWAYS prefer local values
+              const mergedItem = {
+                ...serverItem,
+                // ALWAYS use local customerType if it exists (admin-managed field)
+                ...(localItem.customerType !== undefined && localItem.customerType !== null 
+                  ? { customerType: localItem.customerType } 
+                  : {}),
+                // ALWAYS use local centerSkillLevel if it exists (admin-managed field)
+                ...(localItem.centerSkillLevel !== undefined && localItem.centerSkillLevel !== null 
+                  ? { centerSkillLevel: localItem.centerSkillLevel } 
+                  : {}),
+              };
+              
+              // Only set defaults if they don't exist in either local or server
+              if (!mergedItem.customerType) {
+                mergedItem.customerType = serverItem.customerType || 'tourist';
+              }
+              if (!mergedItem.centerSkillLevel) {
+                mergedItem.centerSkillLevel = serverItem.centerSkillLevel || 'beginner';
+              }
+              
+              return mergedItem;
+            }
+            return serverItem;
+          });
+        }
+        
+        const hasUpdatedItems = mergedData.some((item) => {
+          const localItem = localMap.get(item.id);
+          return localItem && JSON.stringify(localItem) !== JSON.stringify(item);
         });
 
         if (hasNewItems || hasRemovedItems || hasDifferentLength || hasUpdatedItems) {
-          localStorage.setItem(key, JSON.stringify(serverData));
-          console.log(`[Sync] ✅ Synced ${resource} from server (${serverData.length} items, was ${localData.length})`);
-          if (hasNewItems) {
-            const newIds = [...serverIds].filter(id => !localIds.has(id));
-            console.log(`[Sync] New ${resource} IDs:`, newIds.slice(0, 5));
-          }
-          window.dispatchEvent(new CustomEvent(`dcms_${resource}_synced`, { detail: serverData }));
+          localStorage.setItem(key, JSON.stringify(mergedData));
+          this.lastSync[key] = serverLastUpdate || Date.now(); // Update last sync time
+          window.dispatchEvent(new CustomEvent(`dcms_${resource}_synced`, { detail: mergedData }));
         } else {
-          console.log(`[Sync] 📊 ${resource}: server=${serverData.length}, local=${localData.length} (no changes)`);
+          this.lastSync[key] = serverLastUpdate || Date.now(); // Update even if no changes
         }
       } catch (e) {
         console.warn(`[Sync] Error pulling ${resource}:`, e);

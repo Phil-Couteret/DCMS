@@ -2300,9 +2300,14 @@ export const initializeMockData = () => {
   maybeResetResource('dcms_customers', isMockCustomer);
   maybeResetResource('dcms_bookings', isMockBooking);
 
-  // Start bookings/customers empty so they can be synced from the public app
-  ensureKey('dcms_bookings', []);
-  ensureKey('dcms_customers', []);
+  // Ensure bookings/customers keys exist, but DON'T overwrite existing data
+  // Data should persist in localStorage - sync server is just a bridge
+  if (!localStorage.getItem('dcms_bookings')) {
+    localStorage.setItem('dcms_bookings', JSON.stringify([]));
+  }
+  if (!localStorage.getItem('dcms_customers')) {
+    localStorage.setItem('dcms_customers', JSON.stringify([]));
+  }
 
   // Seed reference data only when missing
   ensureKey('dcms_equipment', initialMockData.equipment);

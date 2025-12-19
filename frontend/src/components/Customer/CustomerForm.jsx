@@ -23,7 +23,7 @@ import {
   RadioGroup,
   Radio
 } from '@mui/material';
-import { Save as SaveIcon, Cancel as CancelIcon, CheckCircle as VerifiedIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Cancel as CancelIcon, CheckCircle as VerifiedIcon, CloudUpload as CloudUploadIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dataService from '../../services/dataService';
 import { useAuth } from '../../utils/authContext';
@@ -132,6 +132,7 @@ const CustomerForm = () => {
     phone: '',
     dob: '',
     nationality: '',
+    gender: '',
     customerType: 'tourist',
     centerSkillLevel: 'beginner',
     preferences: getDefaultPreferences(),
@@ -151,6 +152,72 @@ const CustomerForm = () => {
   const [verifyingIndex, setVerifyingIndex] = useState(null);
   const equipmentOwnership = formData.preferences?.equipmentOwnership || getDefaultEquipmentOwnership();
   const suitPreferences = formData.preferences?.suitPreferences || getDefaultSuitPreferences();
+  const uploadedDocuments = formData.uploadedDocuments || [];
+
+  // File upload handler
+  const handleFileUpload = async (event, documentType) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    // Convert file to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result.split(',')[1];
+      const documentData = {
+        id: Date.now().toString(),
+        type: documentType,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        fileData: base64String,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: 'admin'
+      };
+
+      const updatedDocuments = [...uploadedDocuments, documentData];
+      setFormData(prev => ({
+        ...prev,
+        uploadedDocuments: updatedDocuments
+      }));
+    };
+
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  // Download file
+  const handleFileDownload = (document) => {
+    const byteCharacters = atob(document.fileData);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: document.mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = document.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Delete file
+  const handleFileDelete = (documentId) => {
+    const updatedDocuments = uploadedDocuments.filter(doc => doc.id !== documentId);
+    setFormData(prev => ({
+      ...prev,
+      uploadedDocuments: updatedDocuments
+    }));
+  };
 
   useEffect(() => {
     if (customerId) {
@@ -161,7 +228,11 @@ const CustomerForm = () => {
   const loadCustomer = () => {
     const customer = dataService.getById('customers', customerId);
     if (customer) {
-      setFormData(normalizeCustomerData(customer));
+      const normalized = normalizeCustomerData(customer);
+      setFormData({
+        ...normalized,
+        uploadedDocuments: customer.uploadedDocuments || []
+      });
     }
   };
 
@@ -440,6 +511,23 @@ const CustomerForm = () => {
                 onChange={(e) => handleChange('nationality', e.target.value)}
                 disabled={isReadOnly}
               />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Gender</InputLabel>
+                <Select
+                  label="Gender"
+                  value={formData.gender || ''}
+                  onChange={(e) => handleChange('gender', e.target.value)}
+                  disabled={isReadOnly}
+                >
+                  <MenuItem value="">Not specified</MenuItem>
+                  <MenuItem value="male">Male</MenuItem>
+                  <MenuItem value="female">Female</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -897,10 +985,80 @@ const CustomerForm = () => {
                         )}
                       </Box>
                     </Grid>
+                    <Grid item xs={12}>
+                      <Box sx={{ mt: 2 }}>
+                        <input
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          style={{ display: 'none' }}
+                          id="upload-medical-certificate-admin"
+                          type="file"
+                          onChange={(e) => handleFileUpload(e, 'medical_certificate')}
+                          disabled={isReadOnly}
+                        />
+                        <label htmlFor="upload-medical-certificate-admin">
+                          <Button
+                            component="span"
+                            variant="outlined"
+                            size="small"
+                            startIcon={<CloudUploadIcon />}
+                            disabled={isReadOnly}
+                            sx={{ mr: 1 }}
+                          >
+                            Upload Document
+                          </Button>
+                        </label>
+                        {uploadedDocuments.filter(doc => doc.type === 'medical_certificate').map(doc => (
+                          <Chip
+                            key={doc.id}
+                            label={doc.fileName}
+                            onDelete={isReadOnly ? undefined : () => handleFileDelete(doc.id)}
+                            onClick={() => handleFileDownload(doc)}
+                            icon={<FileDownloadIcon />}
+                            sx={{ mr: 1, mb: 1 }}
+                            clickable
+                          />
+                        ))}
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Box sx={{ mt: 2 }}>
+                        <input
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          style={{ display: 'none' }}
+                          id="upload-diving-insurance-admin"
+                          type="file"
+                          onChange={(e) => handleFileUpload(e, 'diving_insurance')}
+                          disabled={isReadOnly}
+                        />
+                        <label htmlFor="upload-diving-insurance-admin">
+                          <Button
+                            component="span"
+                            variant="outlined"
+                            size="small"
+                            startIcon={<CloudUploadIcon />}
+                            disabled={isReadOnly}
+                            sx={{ mr: 1 }}
+                          >
+                            Upload Document
+                          </Button>
+                        </label>
+                        {uploadedDocuments.filter(doc => doc.type === 'diving_insurance').map(doc => (
+                          <Chip
+                            key={doc.id}
+                            label={doc.fileName}
+                            onDelete={isReadOnly ? undefined : () => handleFileDelete(doc.id)}
+                            onClick={() => handleFileDownload(doc)}
+                            icon={<FileDownloadIcon />}
+                            sx={{ mr: 1, mb: 1 }}
+                            clickable
+                          />
+                        ))}
+                      </Box>
+                    </Grid>
                   </>
                 )}
 
-                <Divider sx={{ my: 2, width: '100%' }} />
+            <Divider sx={{ my: 2, width: '100%' }} />
 
                 {/* Diving Insurance Section */}
                 <Grid item xs={12}>

@@ -44,9 +44,9 @@ const BookingForm = ({ bookingId = null }) => {
     price: 46.00,
     discount: 0,
     totalPrice: 46.00,
-    status: 'pending',
-    paymentMethod: 'cash',
-    paymentStatus: 'pending',
+    status: 'confirmed', // Admin-created bookings are automatically confirmed
+    paymentMethod: 'account', // Known customer - payment handled via account
+    paymentStatus: 'paid', // Known customer - payment handled separately
     bonoId: '',
     governmentPayment: 0,
     customerPayment: 0,
@@ -101,6 +101,21 @@ const BookingForm = ({ bookingId = null }) => {
       loadBooking();
     }
   }, [bookingId]);
+
+  // Load customer preferences when customer is selected
+  useEffect(() => {
+    if (formData.customerId && !bookingId) {
+      const customer = dataService.getById('customers', formData.customerId);
+      if (customer) {
+        // Load customer's ownEquipment preference
+        const customerOwnEquipment = customer.preferences?.ownEquipment || false;
+        setFormData(prev => ({
+          ...prev,
+          ownEquipment: customerOwnEquipment
+        }));
+      }
+    }
+  }, [formData.customerId, bookingId]);
 
   useEffect(() => {
     // Only calculate if settings are loaded
@@ -255,27 +270,40 @@ const BookingForm = ({ bookingId = null }) => {
     // Calculate number of dives based on selected sessions
     const numberOfDives = (formData.diveSessions.morning ? 1 : 0) + (formData.diveSessions.afternoon ? 1 : 0) + (formData.diveSessions.night ? 1 : 0);
     
-    // Get cumulative pricing for this customer's stay
+    // Get cumulative pricing for this customer's stay (only for tourist customers)
     let cumulativePricing = null;
     let pricePerDive = 46; // Default price
     
-    if (formData.customerId) {
+    // For recurrent/local customers, use fixed pricing - no cumulative pricing needed
+    if (formData.customerId && (customerType === 'recurrent' || customerType === 'local')) {
+      // Use pricing service which handles recurrent/local fixed pricing correctly
+      const singleDivePrice = calculateDivePrice(effectiveLocationId, customerType, 1);
+      pricePerDive = singleDivePrice;
+      // Don't use cumulative pricing for recurrent/local customers
+    } else if (formData.customerId && customerType === 'tourist') {
+      // Only use cumulative pricing for tourist customers (volume discounts)
       cumulativePricing = stayService.getCumulativeStayPricing(formData.customerId, formData.bookingDate);
       pricePerDive = cumulativePricing.pricePerDive;
     }
 
     let basePrice = 0;
-    // If Playitas location, apply specific rules
+    // If Playitas location, apply specific rules (but respect customer type pricing)
     if (location && location.name?.toLowerCase().includes('playitas')) {
       const route = formData.routeType;
-      if (route === 'playitas_local') {
+      
+      // For recurrent/local customers, use their fixed pricing regardless of route
+      if (customerType === 'recurrent' || customerType === 'local') {
+        basePrice = numberOfDives * pricePerDive;
+      } else if (route === 'playitas_local') {
+        // Playitas local dive - fixed price
         pricePerDive = 35;
         basePrice = numberOfDives * pricePerDive;
       } else if (route === 'dive_trip') {
+        // Dive trip - fixed price
         pricePerDive = 45;
         basePrice = numberOfDives * pricePerDive;
       } else if (route === 'caleta_from_playitas') {
-        // Determine tier based on cumulative Caleta-from-Playitas dives for this customer
+        // Caleta from Playitas - tiered pricing for tourist customers only
         const tiers = locPricing.customerTypes?.tourist?.diveTiers || [];
         let previousCaletaDives = 0;
         if (formData.customerId) {
@@ -299,11 +327,11 @@ const BookingForm = ({ bookingId = null }) => {
         pricePerDive = tierPrice;
         basePrice = numberOfDives * pricePerDive;
       } else {
-        // Fallback to cumulative pricing
+        // Fallback to cumulative pricing (for tourist customers)
         basePrice = numberOfDives * pricePerDive;
       }
     } else {
-      // Use pricing service for diving
+      // Use pricing service for diving (handles all customer types correctly)
       basePrice = calculateDivePrice(effectiveLocationId, customerType, numberOfDives);
     }
     
@@ -433,7 +461,8 @@ const BookingForm = ({ bookingId = null }) => {
       equipmentRental,
       diveInsurance,
       transferFee,
-      cumulativePricing // Store cumulative pricing info for display
+      cumulativePricing, // Store cumulative pricing info for display (null for recurrent/local)
+      pricePerDive // Store price per dive for display (used for recurrent/local customers)
     }));
   };
 
@@ -761,37 +790,88 @@ const BookingForm = ({ bookingId = null }) => {
             ) : null;
           })()}
 
-            {/* Cumulative Pricing Information */}
-            {formData.customerId && formData.cumulativePricing && (
-              <Grid item xs={12}>
-                <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
-                  <Typography variant="h6" gutterBottom>
-                    Cumulative Stay Pricing (Volume Discount Applied)
-                  </Typography>
-                  <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
-                    Volume discounts are calculated based on <strong>total dives across all days</strong> of the customer's stay.
-                    Maximum 3 dives per day (Morning, Afternoon, Night).
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Total dives in stay:</strong> {formData.cumulativePricing.totalDives} dives (across multiple days)
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Price per dive:</strong> €{formData.cumulativePricing.pricePerDive.toFixed(2)}
-                    {formData.cumulativePricing.totalDives > 3 && (
-                      <span style={{ marginLeft: '8px', opacity: 0.9 }}>
-                        (discounted from €46.00)
-                      </span>
+            {/* Pricing Information */}
+            {formData.customerId && (() => {
+              const customer = dataService.getById('customers', formData.customerId);
+              const customerType = getCustomerType(customer);
+              const isRecurrent = customerType === 'recurrent';
+              const isLocal = customerType === 'local';
+              const isTourist = customerType === 'tourist';
+              
+              // For recurrent/local, use pricePerDive from formData (calculated from pricing service)
+              // For tourist, use cumulativePricing if available
+              const displayPricePerDive = isRecurrent || isLocal 
+                ? formData.pricePerDive || (isRecurrent ? 32.00 : 35.00)
+                : (formData.cumulativePricing?.pricePerDive || formData.pricePerDive || 46.00);
+              
+              const displayTotalDives = formData.cumulativePricing?.totalDives || 0;
+              const displayTotalPrice = formData.cumulativePricing?.totalPrice || formData.totalPrice || 0;
+              
+              // Get base price for comparison (first tier for tourist, fixed price for others)
+              let basePrice = 46.00; // Default tourist first tier
+              if (isRecurrent) {
+                basePrice = 32.00; // Recurrent customer price
+              } else if (isLocal) {
+                basePrice = 35.00; // Local customer price
+              }
+              
+              const showDiscount = isTourist && formData.cumulativePricing && formData.cumulativePricing.totalDives > 3;
+              
+              // Calculate current booking dives
+              const currentDives = (formData.diveSessions?.morning ? 1 : 0) + 
+                                   (formData.diveSessions?.afternoon ? 1 : 0) + 
+                                   (formData.diveSessions?.night ? 1 : 0);
+              
+              return (
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
+                    <Typography variant="h6" gutterBottom>
+                      {isRecurrent || isLocal 
+                        ? `${customerType.charAt(0).toUpperCase() + customerType.slice(1)} Customer Pricing` 
+                        : 'Cumulative Stay Pricing (Volume Discount Applied)'}
+                    </Typography>
+                    <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
+                      {isRecurrent || isLocal 
+                        ? `${customerType.charAt(0).toUpperCase() + customerType.slice(1)} customers have fixed pricing per dive.`
+                        : <>Volume discounts are calculated based on <strong>total dives across all days</strong> of the customer's stay. Maximum 3 dives per day (Morning, Afternoon, Night).</>}
+                    </Typography>
+                    {isTourist && formData.cumulativePricing && (
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Total dives in stay:</strong> {displayTotalDives} dives (across multiple days)
+                      </Typography>
                     )}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Total stay price:</strong> €{formData.cumulativePricing.totalPrice.toFixed(2)}
-                  </Typography>
-                  <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.9 }}>
-                    All dives in this stay are priced at the same rate based on total volume across all booking days
-                  </Typography>
-                </Paper>
-              </Grid>
-            )}
+                    {isRecurrent || isLocal ? (
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Dives in this booking:</strong> {currentDives} dive{currentDives !== 1 ? 's' : ''}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Price per dive:</strong> €{displayPricePerDive.toFixed(2)}
+                      {showDiscount && (
+                        <span style={{ marginLeft: '8px', opacity: 0.9 }}>
+                          (discounted from €{basePrice.toFixed(2)})
+                        </span>
+                      )}
+                      {!showDiscount && (isRecurrent || isLocal) && (
+                        <span style={{ marginLeft: '8px', opacity: 0.9 }}>
+                          ({customerType} customer rate)
+                        </span>
+                      )}
+                    </Typography>
+                    {isTourist && formData.cumulativePricing ? (
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Total stay price:</strong> €{displayTotalPrice.toFixed(2)}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.9 }}>
+                      {isRecurrent || isLocal 
+                        ? `All dives are priced at the ${customerType} customer rate (€${displayPricePerDive.toFixed(2)} per dive)`
+                        : 'All dives in this stay are priced at the same rate based on total volume across all booking days'}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              );
+            })()}
 
             {/* Activity Type */}
             <Grid item xs={12} md={6}>
@@ -848,25 +928,6 @@ const BookingForm = ({ bookingId = null }) => {
               </FormControl>
             </Grid>
 
-            {/* Payment Method */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Payment Method</InputLabel>
-                <Select
-                  value={formData.paymentMethod}
-                  onChange={(e) => handleChange('paymentMethod', e.target.value)}
-                  required
-                >
-                  <MenuItem value="cash">Cash</MenuItem>
-                  <MenuItem value="card">Card</MenuItem>
-                  <MenuItem value="stripe">Stripe</MenuItem>
-                  <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-                  <MenuItem value="voucher">Voucher</MenuItem>
-                  <MenuItem value="government_bono">Government Bono</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
             {/* Booking Status */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
@@ -885,22 +946,6 @@ const BookingForm = ({ bookingId = null }) => {
               </FormControl>
             </Grid>
 
-            {/* Payment Status */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Payment Status</InputLabel>
-                <Select
-                  value={formData.paymentStatus}
-                  onChange={(e) => handleChange('paymentStatus', e.target.value)}
-                  required
-                >
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="paid">Paid</MenuItem>
-                  <MenuItem value="refunded">Refunded</MenuItem>
-                  <MenuItem value="partial">Partial</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
 
             {/* Own Equipment (only for diving) */}
             {formData.activityType === 'diving' && (

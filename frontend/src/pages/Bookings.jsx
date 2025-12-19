@@ -98,10 +98,11 @@ const Bookings = () => {
 
   const loadBookings = () => {
     const allBookings = dataService.getAll('bookings');
-    const currentLocationId = localStorage.getItem('dcms_current_location');
     const allCustomers = dataService.getAll('customers');
-    const filtered = currentLocationId ? allBookings.filter(b => b.locationId === currentLocationId) : allBookings;
-    setBookings(filtered);
+    
+    // Show all bookings regardless of location
+    // (Location filtering is handled in other views like Dashboard)
+    setBookings(allBookings);
     setCustomers(allCustomers);
   };
 

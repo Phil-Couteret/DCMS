@@ -15,6 +15,14 @@ const sharedStorage = {
   dcms_equipment: []
 };
 
+// Track last update time for each resource
+const lastUpdate = {
+  dcms_bookings: null,
+  dcms_customers: null,
+  dcms_locations: null,
+  dcms_equipment: null
+};
+
 app.use(cors());
 app.use(express.json());
 
@@ -23,11 +31,20 @@ app.get('/api/sync/all', (req, res) => {
   res.json(sharedStorage);
 });
 
+// Get last update timestamp for a resource (to check if data changed without downloading)
+// This must be defined BEFORE the generic /:resource route to avoid route conflicts
+app.get('/api/sync/:resource/lastUpdate', (req, res) => {
+  const { resource } = req.params;
+  const key = `dcms_${resource}`;
+  res.json({ lastUpdate: lastUpdate[key] || null });
+});
+
 // Get specific resource
 app.get('/api/sync/:resource', (req, res) => {
   const { resource } = req.params;
   const key = `dcms_${resource}`;
-  res.json(sharedStorage[key] || []);
+  const data = sharedStorage[key] || [];
+  res.json(data);
 });
 
 // Set specific resource
@@ -37,9 +54,10 @@ app.post('/api/sync/:resource', (req, res) => {
   const data = req.body;
   
   sharedStorage[key] = data;
-  console.log(`[Sync Server] Updated ${key}:`, data.length || 0, 'items');
+  lastUpdate[key] = Date.now(); // Track when this resource was updated
+  console.log(`[Sync Server] ✅ Updated ${key}:`, data.length || 0, 'items');
   
-  res.json({ success: true, count: data.length || 0 });
+  res.json({ success: true, count: data.length || 0, lastUpdate: lastUpdate[key] });
 });
 
 // Health check

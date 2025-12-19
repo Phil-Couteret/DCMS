@@ -18,7 +18,8 @@ export const recalculateAllBookingPrices = () => {
   // to recompute the correct total for each booking in their stay.
   customers.forEach((customer) => {
     const staySummary = getCustomerStaySummary(customer.id);
-    if (!staySummary?.breakdown?.length) {
+    // Only skip if there are no bookings at all
+    if (!staySummary || !staySummary.breakdown || staySummary.breakdown.length === 0) {
       return;
     }
 

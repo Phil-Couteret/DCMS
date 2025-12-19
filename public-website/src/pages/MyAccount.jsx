@@ -42,7 +42,9 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  CloudUpload as CloudUploadIcon,
+  FileDownload as FileDownloadIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import bookingService from '../services/bookingService';
@@ -82,6 +84,7 @@ const defaultProfileForm = {
   lastName: '',
   phone: '',
   nationality: '',
+  gender: '',
   customerType: 'tourist',
   centerSkillLevel: 'beginner',
   notes: '',
@@ -121,8 +124,14 @@ const MyAccount = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [certDialogOpen, setCertDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(defaultProfileForm);
   const [certForm, setCertForm] = useState(defaultCertForm);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -131,6 +140,113 @@ const MyAccount = () => {
   const [cancelDialog, setCancelDialog] = useState({ open: false, booking: null });
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [uploadedDocuments, setUploadedDocuments] = useState([]);
+
+  // File upload handler
+  const handleFileUpload = async (event, documentType) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: 'File size must be less than 10MB',
+        severity: 'error'
+      });
+      return;
+    }
+
+    // Convert file to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result.split(',')[1]; // Remove data:image/png;base64, prefix
+      const documentData = {
+        id: Date.now().toString(),
+        type: documentType, // 'medical_certificate', 'diving_insurance', 'other'
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        fileData: base64String,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: 'customer'
+      };
+
+      // Get current customer
+      const currentCustomer = bookingService.getCustomerByEmail(userEmail);
+      if (!currentCustomer) {
+        setSnackbar({
+          open: true,
+          message: 'Customer profile not found',
+          severity: 'error'
+        });
+        return;
+      }
+
+      // Add document to customer's uploadedDocuments array
+      const existingDocuments = currentCustomer.uploadedDocuments || [];
+      const updatedDocuments = [...existingDocuments, documentData];
+
+      // Update customer profile
+      bookingService.updateCustomerProfile(userEmail, {
+        uploadedDocuments: updatedDocuments
+      });
+
+      // Refresh customer data
+      const updated = bookingService.getCustomerByEmail(userEmail);
+      setCustomer(updated);
+      setUploadedDocuments(updatedDocuments);
+
+      setSnackbar({
+        open: true,
+        message: 'File uploaded successfully',
+        severity: 'success'
+      });
+    };
+
+    reader.readAsDataURL(file);
+    event.target.value = ''; // Reset file input
+  };
+
+  // Download file
+  const handleFileDownload = (document) => {
+    const byteCharacters = atob(document.fileData);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: document.mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = document.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Delete file
+  const handleFileDelete = (documentId) => {
+    const currentCustomer = bookingService.getCustomerByEmail(userEmail);
+    if (!currentCustomer) return;
+
+    const updatedDocuments = (currentCustomer.uploadedDocuments || []).filter(doc => doc.id !== documentId);
+    bookingService.updateCustomerProfile(userEmail, {
+      uploadedDocuments: updatedDocuments
+    });
+
+    const updated = bookingService.getCustomerByEmail(userEmail);
+    setCustomer(updated);
+    setUploadedDocuments(updatedDocuments);
+
+    setSnackbar({
+      open: true,
+      message: 'File deleted successfully',
+      severity: 'success'
+    });
+  };
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -148,9 +264,12 @@ const MyAccount = () => {
     lastName: customerData?.lastName || '',
     phone: customerData?.phone || '',
     nationality: customerData?.nationality || '',
+    gender: customerData?.gender || '',
     customerType: customerData?.customerType || 'tourist',
     centerSkillLevel: customerData?.centerSkillLevel || 'beginner',
     notes: customerData?.notes || '',
+    medicalCertificate: customerData?.medicalCertificate || { hasCertificate: false },
+    divingInsurance: customerData?.divingInsurance || { hasInsurance: false },
   preferences: (() => {
     const ownership = {
       ...getDefaultEquipmentOwnership(),
@@ -514,6 +633,71 @@ const MyAccount = () => {
     }
   };
 
+  const handleChangePassword = () => {
+    if (!userEmail || !customer) return;
+    
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Please fill in all password fields.',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    // Verify current password
+    if (customer.password && customer.password !== passwordForm.currentPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Current password is incorrect.',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    // Check new password length
+    if (passwordForm.newPassword.length < 6) {
+      setSnackbar({
+        open: true,
+        message: 'New password must be at least 6 characters long.',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    // Check passwords match
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'New passwords do not match.',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    // Update password
+    const updated = bookingService.updateCustomerProfile(userEmail, {
+      password: passwordForm.newPassword
+    });
+    
+    if (updated) {
+      setCustomer(updated);
+      setPasswordDialogOpen(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setSnackbar({
+        open: true,
+        message: 'Password changed successfully.',
+        severity: 'success'
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: 'Unable to change password.',
+        severity: 'error'
+      });
+    }
+  };
+
   const handleAddCertification = () => {
     if (!userEmail) return;
     if (!certForm.agency || !certForm.level || !certForm.certificationNumber) {
@@ -782,6 +966,12 @@ const MyAccount = () => {
                         <Typography variant="body2" color="text.secondary">Nationality</Typography>
                         <Typography variant="body1" gutterBottom>{customer.nationality || '-'}</Typography>
                       </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="body2" color="text.secondary">Gender</Typography>
+                        <Typography variant="body1" gutterBottom>
+                          {customer.gender ? (customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1)) : '-'}
+                        </Typography>
+                      </Grid>
                     </Grid>
 
                     <Divider sx={{ my: 3 }} />
@@ -899,7 +1089,14 @@ const MyAccount = () => {
                     <Divider sx={{ my: 4 }} />
                     
                     <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Account Management</Typography>
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                      <Button
+                        variant="outlined"
+                        onClick={() => setPasswordDialogOpen(true)}
+                        disabled={!customer}
+                      >
+                        Change Password
+                      </Button>
                       <Button
                         variant="outlined"
                         color="error"
@@ -913,6 +1110,172 @@ const MyAccount = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                       Deleting your account will permanently remove all your data and bookings.
                     </Typography>
+                    
+                    <Divider sx={{ my: 4 }} />
+                    
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Medical Certificate & Insurance</Typography>
+                    {customer?.medicalCertificate?.hasCertificate ? (
+                      <Card sx={{ mb: 2 }}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                            <Typography variant="subtitle1">Medical Certificate</Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<EditIcon />}
+                              onClick={() => setProfileDialogOpen(true)}
+                            >
+                              Edit
+                            </Button>
+                          </Box>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="body2" color="text.secondary">Certificate Number</Typography>
+                              <Typography variant="body1">{customer.medicalCertificate.certificateNumber || '-'}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="body2" color="text.secondary">Issue Date</Typography>
+                              <Typography variant="body1">{customer.medicalCertificate.issueDate || '-'}</Typography>
+                            </Grid>
+                            {customer.medicalCertificate.expiryDate && (
+                              <Grid item xs={12} sm={6}>
+                                <Typography variant="body2" color="text.secondary">Expiry Date</Typography>
+                                <Typography variant="body1">{customer.medicalCertificate.expiryDate}</Typography>
+                              </Grid>
+                            )}
+                            {customer.medicalCertificate.verified && (
+                              <Grid item xs={12}>
+                                <Chip label="Verified" color="success" size="small" />
+                              </Grid>
+                            )}
+                          </Grid>
+                          <Box sx={{ mt: 2 }}>
+                            <input
+                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                              style={{ display: 'none' }}
+                              id="upload-medical-certificate"
+                              type="file"
+                              onChange={(e) => handleFileUpload(e, 'medical_certificate')}
+                            />
+                            <label htmlFor="upload-medical-certificate">
+                              <Button
+                                component="span"
+                                variant="outlined"
+                                size="small"
+                                startIcon={<CloudUploadIcon />}
+                                sx={{ mr: 1 }}
+                              >
+                                Upload Document
+                              </Button>
+                            </label>
+                            {(customer?.uploadedDocuments || uploadedDocuments).filter(doc => doc.type === 'medical_certificate').map(doc => (
+                              <Chip
+                                key={doc.id}
+                                label={doc.fileName}
+                                onDelete={() => handleFileDelete(doc.id)}
+                                onClick={() => handleFileDownload(doc)}
+                                icon={<FileDownloadIcon />}
+                                sx={{ mr: 1, mb: 1 }}
+                                clickable
+                              />
+                            ))}
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        <Typography variant="body2" gutterBottom>
+                          No medical certificate details provided. Please add your medical certificate information.
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => setProfileDialogOpen(true)}
+                          sx={{ mt: 1 }}
+                        >
+                          Add Medical Certificate Details
+                        </Button>
+                      </Alert>
+                    )}
+                    
+                    {customer?.divingInsurance?.hasInsurance ? (
+                      <Card>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                            <Typography variant="subtitle1">Diving Insurance</Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<EditIcon />}
+                              onClick={() => setProfileDialogOpen(true)}
+                            >
+                              Edit
+                            </Button>
+                          </Box>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="body2" color="text.secondary">Provider</Typography>
+                              <Typography variant="body1">{customer.divingInsurance.insuranceProvider || '-'}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="body2" color="text.secondary">Policy Number</Typography>
+                              <Typography variant="body1">{customer.divingInsurance.policyNumber || '-'}</Typography>
+                            </Grid>
+                            {customer.divingInsurance.expiryDate && (
+                              <Grid item xs={12} sm={6}>
+                                <Typography variant="body2" color="text.secondary">Expiry Date</Typography>
+                                <Typography variant="body1">{customer.divingInsurance.expiryDate}</Typography>
+                              </Grid>
+                            )}
+                          </Grid>
+                          <Box sx={{ mt: 2 }}>
+                            <input
+                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                              style={{ display: 'none' }}
+                              id="upload-diving-insurance"
+                              type="file"
+                              onChange={(e) => handleFileUpload(e, 'diving_insurance')}
+                            />
+                            <label htmlFor="upload-diving-insurance">
+                              <Button
+                                component="span"
+                                variant="outlined"
+                                size="small"
+                                startIcon={<CloudUploadIcon />}
+                                sx={{ mr: 1 }}
+                              >
+                                Upload Document
+                              </Button>
+                            </label>
+                            {(customer?.uploadedDocuments || uploadedDocuments).filter(doc => doc.type === 'diving_insurance').map(doc => (
+                              <Chip
+                                key={doc.id}
+                                label={doc.fileName}
+                                onDelete={() => handleFileDelete(doc.id)}
+                                onClick={() => handleFileDownload(doc)}
+                                icon={<FileDownloadIcon />}
+                                sx={{ mr: 1, mb: 1 }}
+                                clickable
+                              />
+                            ))}
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Alert severity="info">
+                        <Typography variant="body2" gutterBottom>
+                          No diving insurance details provided. Please add your insurance information.
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => setProfileDialogOpen(true)}
+                          sx={{ mt: 1 }}
+                        >
+                          Add Insurance Details
+                        </Button>
+                      </Alert>
+                    )}
                   </>
                 )}
               </CardContent>
@@ -1032,6 +1395,21 @@ const MyAccount = () => {
                 onChange={(e) => handleProfileFieldChange('nationality', e.target.value)}
                 fullWidth
               />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Gender</InputLabel>
+                <Select
+                  label="Gender"
+                  value={profileForm.gender || ''}
+                  onChange={(e) => handleProfileFieldChange('gender', e.target.value)}
+                >
+                  <MenuItem value="">Not specified</MenuItem>
+                  <MenuItem value="male">Male</MenuItem>
+                  <MenuItem value="female">Female</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -1215,6 +1593,193 @@ const MyAccount = () => {
                 </Alert>
               </Grid>
             )}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle1" gutterBottom>
+                Medical Certificate
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={profileForm.medicalCertificate?.hasCertificate || false}
+                    onChange={(e) => {
+                      const medicalCert = {
+                        ...(profileForm.medicalCertificate || {}),
+                        hasCertificate: e.target.checked
+                      };
+                      setProfileForm(prev => ({
+                        ...prev,
+                        medicalCertificate: medicalCert
+                      }));
+                    }}
+                  />
+                }
+                label="I have a valid medical certificate"
+              />
+            </Grid>
+            {profileForm.medicalCertificate?.hasCertificate && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Certificate Number"
+                    value={profileForm.medicalCertificate?.certificateNumber || ''}
+                    onChange={(e) => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        medicalCertificate: {
+                          ...(prev.medicalCertificate || {}),
+                          certificateNumber: e.target.value,
+                          hasCertificate: true
+                        }
+                      }));
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Issue Date"
+                    type="date"
+                    value={profileForm.medicalCertificate?.issueDate || ''}
+                    onChange={(e) => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        medicalCertificate: {
+                          ...(prev.medicalCertificate || {}),
+                          issueDate: e.target.value,
+                          hasCertificate: true
+                        }
+                      }));
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Expiry Date"
+                    type="date"
+                    value={profileForm.medicalCertificate?.expiryDate || ''}
+                    onChange={(e) => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        medicalCertificate: {
+                          ...(prev.medicalCertificate || {}),
+                          expiryDate: e.target.value,
+                          hasCertificate: true
+                        }
+                      }));
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+              </>
+            )}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle1" gutterBottom>
+                Diving Insurance
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={profileForm.divingInsurance?.hasInsurance || false}
+                    onChange={(e) => {
+                      const insurance = {
+                        ...(profileForm.divingInsurance || {}),
+                        hasInsurance: e.target.checked
+                      };
+                      setProfileForm(prev => ({
+                        ...prev,
+                        divingInsurance: insurance
+                      }));
+                    }}
+                  />
+                }
+                label="I have diving insurance"
+              />
+            </Grid>
+            {profileForm.divingInsurance?.hasInsurance && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Insurance Provider"
+                    value={profileForm.divingInsurance?.insuranceProvider || ''}
+                    onChange={(e) => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        divingInsurance: {
+                          ...(prev.divingInsurance || {}),
+                          insuranceProvider: e.target.value,
+                          hasInsurance: true
+                        }
+                      }));
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Policy Number"
+                    value={profileForm.divingInsurance?.policyNumber || ''}
+                    onChange={(e) => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        divingInsurance: {
+                          ...(prev.divingInsurance || {}),
+                          policyNumber: e.target.value,
+                          hasInsurance: true
+                        }
+                      }));
+                    }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Issue Date"
+                    type="date"
+                    value={profileForm.divingInsurance?.issueDate || ''}
+                    onChange={(e) => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        divingInsurance: {
+                          ...(prev.divingInsurance || {}),
+                          issueDate: e.target.value,
+                          hasInsurance: true
+                        }
+                      }));
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Expiry Date"
+                    type="date"
+                    value={profileForm.divingInsurance?.expiryDate || ''}
+                    onChange={(e) => {
+                      setProfileForm(prev => ({
+                        ...prev,
+                        divingInsurance: {
+                          ...(prev.divingInsurance || {}),
+                          expiryDate: e.target.value,
+                          hasInsurance: true
+                        }
+                      }));
+                    }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+              </>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -1290,6 +1855,54 @@ const MyAccount = () => {
       </Dialog>
 
       {/* Delete Account Confirmation Dialog */}
+      {/* Change Password Dialog */}
+      <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Change Password</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12}>
+              <TextField
+                label="Current Password"
+                type="password"
+                fullWidth
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="New Password"
+                type="password"
+                fullWidth
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                helperText="At least 6 characters"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Confirm New Password"
+                type="password"
+                fullWidth
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setPasswordDialogOpen(false);
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          }}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleChangePassword}>
+            Change Password
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>Delete Account</DialogTitle>
         <DialogContent>

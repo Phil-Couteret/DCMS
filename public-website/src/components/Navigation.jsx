@@ -11,12 +11,9 @@ import {
   ListItem,
   ListItemText,
   useMediaQuery,
-  useTheme,
-  Menu,
-  MenuItem
+  useTheme
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { AccountCircle } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -24,7 +21,6 @@ import LanguageSwitcher from './LanguageSwitcher';
 const Navigation = () => {
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -41,14 +37,6 @@ const Navigation = () => {
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
-  };
-
-  const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
   };
 
   const drawer = (
@@ -96,9 +84,17 @@ const Navigation = () => {
 
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <LanguageSwitcher />
-            <IconButton color="inherit" onClick={handleProfileMenuOpen}>
-              <AccountCircle />
-            </IconButton>
+            <Button
+              color="inherit"
+              onClick={() => navigate('/my-account')}
+              sx={{ 
+                textTransform: 'none',
+                border: '1px solid rgba(255, 255, 255, 0.5)',
+                borderBottom: location.pathname === '/my-account' ? '2px solid white' : '1px solid rgba(255, 255, 255, 0.5)'
+              }}
+            >
+              {t('nav.myAccount') || 'My Account'}
+            </Button>
             {isMobile && (
               <IconButton color="inherit" onClick={handleDrawerToggle}>
                 <MenuIcon />
@@ -118,19 +114,6 @@ const Navigation = () => {
         {drawer}
       </Drawer>
 
-      {/* Profile Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => { navigate('/my-account'); handleMenuClose(); }}>
-          {t('nav.myAccount')}
-        </MenuItem>
-        <MenuItem onClick={() => { navigate('/login'); handleMenuClose(); }}>
-          {t('nav.login')}
-        </MenuItem>
-      </Menu>
     </>
   );
 };

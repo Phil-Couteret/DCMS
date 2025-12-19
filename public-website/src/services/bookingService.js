@@ -59,7 +59,6 @@ const dispatchBrowserEvent = (eventName, detail) => {
   ) {
     const event = new CustomEvent(eventName, { detail, bubbles: true });
     window.dispatchEvent(event);
-    console.log(`[DCMS Public] Dispatched event: ${eventName}`, detail);
   }
 };
 
@@ -155,8 +154,6 @@ export const findOrCreateCustomer = (customerData) => {
     // Dispatch events to notify admin system (if running)
     dispatchBrowserEvent('dcms_customer_created', customer);
     dispatchBrowserEvent('dcms_customer_updated', customer);
-    
-    console.log('[DCMS] Customer created:', customer.email, 'Total customers:', customers.length);
   } else {
     // Update existing customer if new info provided
     // IMPORTANT: Preserve existing customerType and centerSkillLevel - don't overwrite with defaults
@@ -243,12 +240,13 @@ export const hasValidMedicalCertificate = (customer) => {
 export const createBooking = (bookingData) => {
   const bookings = getAll('bookings');
   
-  // Find or create customer
+  // Find or create customer (include password if provided for new customers)
   const customer = findOrCreateCustomer({
     firstName: bookingData.firstName,
     lastName: bookingData.lastName,
     email: bookingData.email,
     phone: bookingData.phone,
+    password: bookingData.password, // Include password for new customers
     specialRequirements: bookingData.specialRequirements
   });
   
@@ -334,8 +332,6 @@ export const createBooking = (bookingData) => {
   
   // Dispatch events to notify admin system (if running)
   dispatchBrowserEvent('dcms_booking_created', booking);
-  
-  console.log('[DCMS] Booking created:', booking.id, 'for customer:', customer.email, 'Total bookings:', bookings.length);
 
   // Ensure the sync server receives the brand-new booking, even if the calling component forgets
   if (typeof window !== 'undefined' && window.syncService?.syncNow) {
@@ -401,7 +397,6 @@ export const cancelBooking = (bookingId, options = {}) => {
 
   saveAll('bookings', bookings);
   dispatchBrowserEvent('dcms_booking_updated', bookings[idx]);
-  console.log('[DCMS] Booking cancelled:', bookings[idx].id);
   return bookings[idx];
 };
 
@@ -513,8 +508,6 @@ export const updateCustomerProfile = (email, updates = {}) => {
   customers[idx] = merged;
   saveAll('customers', customers);
   dispatchBrowserEvent('dcms_customer_updated', merged);
-  
-  console.log('[DCMS] Customer updated:', merged.email);
 
   return merged;
 };
@@ -551,6 +544,44 @@ export const migrateExistingCustomers = () => {
   }
   
   return { migrated: updated, count: migrated.length };
+};
+
+// Migration function to normalize booking locationIds (convert 'caleta'/'playitas' strings to UUIDs)
+export const migrateBookingLocationIds = () => {
+  const bookings = getAll('bookings');
+  let updated = false;
+  
+  const locationMapping = {
+    'caleta': '550e8400-e29b-41d4-a716-446655440001',
+    'playitas': '550e8400-e29b-41d4-a716-446655440002',
+    'las playitas': '550e8400-e29b-41d4-a716-446655440002'
+  };
+  
+  const migrated = bookings.map(booking => {
+    // Check if locationId is a string name instead of UUID
+    if (booking.locationId && !booking.locationId.includes('-')) {
+      const normalized = locationMapping[booking.locationId.toLowerCase()];
+      if (normalized) {
+        updated = true;
+        return {
+          ...booking,
+          locationId: normalized,
+          updatedAt: new Date().toISOString()
+        };
+      }
+    }
+    return booking;
+  });
+  
+  if (updated) {
+    saveAll('bookings', migrated);
+    // Dispatch events for all migrated bookings
+    migrated.forEach(booking => {
+      dispatchBrowserEvent('dcms_booking_updated', booking);
+    });
+  }
+  
+  return { migrated: updated, count: migrated.filter((b, i) => b !== bookings[i]).length };
 };
 
 export const addOrUpdateCertification = (email, certification) => {
@@ -692,6 +723,7 @@ const bookingServiceAPI = {
   addOrUpdateCertification,
   deleteCertification,
   migrateExistingCustomers,
+  migrateBookingLocationIds,
   deleteCustomerAccount,
   syncAllCustomersToServer
 };
