@@ -23,7 +23,7 @@ CREATE TYPE restriction_level AS ENUM ('none', 'restricted', 'banned');
 CREATE TYPE contact_type AS ENUM ('emergency', 'veterinary', 'chamber', 'coast_guard', 'medical', 'police', 'ambulance', 'fire_dept', 'other');
 CREATE TYPE data_type AS ENUM ('customer_data', 'booking_data', 'financial_data', 'equipment_data', 'staff_data', 'certification_data', 'medical_data');
 CREATE TYPE deletion_trigger AS ENUM ('retention_policy', 'customer_request', 'business_requirement', 'legal_requirement');
-CREATE TYPE consent_type AS ENUM ('marketing', 'data_processing', 'photo_video', 'medical_clearance');
+CREATE TYPE consent_type AS ENUM ('marketing', 'data_processing', 'photo_video', 'medical_clearance', 'medical_data');
 CREATE TYPE consent_method AS ENUM ('online', 'paper', 'verbal', 'implied');
 CREATE TYPE withdrawal_method AS ENUM ('online', 'paper', 'email', 'verbal');
 CREATE TYPE breach_type AS ENUM ('unauthorized_access', 'data_loss', 'data_disclosure', 'data_modification', 'other');
@@ -202,28 +202,18 @@ CREATE TABLE bookings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 11. PRICING_CONFIGS
+-- 11. PRICING_CONFIGS (Unified pricing table - standard prices, promotions, and discounts)
 CREATE TABLE pricing_configs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     location_id UUID REFERENCES locations(id),
-    activity_type activity_type NOT NULL,
+    pricing_type VARCHAR(50) NOT NULL DEFAULT 'standard', -- 'standard', 'promotion', 'discount', 'override'
+    activity_type activity_type, -- NULL for general promotions that apply across activities
+    activity_reference_id UUID, -- References courses.id, equipment.id, etc. if applicable
     name VARCHAR(100) NOT NULL,
-    valid_from DATE NOT NULL,
-    valid_until DATE,
-    pricing_rules JSONB NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 12. SPECIAL_PRICING
-CREATE TABLE special_pricing (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    location_id UUID REFERENCES locations(id),
-    name VARCHAR(100) NOT NULL,
-    conditions JSONB NOT NULL,
-    discount_percentage DECIMAL(5,2),
-    fixed_price DECIMAL(10,2),
+    description TEXT,
+    pricing_rules JSONB NOT NULL, -- Flexible structure: base_price, discount_percentage, fixed_price, tiers, etc.
+    conditions JSONB DEFAULT '{}', -- Conditions for applying: customer_type, date_range, min_quantity, etc.
+    priority INTEGER DEFAULT 0, -- Higher priority overrides lower (for promotions over standard prices)
     valid_from DATE NOT NULL,
     valid_until DATE,
     is_active BOOLEAN DEFAULT true,
@@ -231,7 +221,7 @@ CREATE TABLE special_pricing (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 13. GOVERNMENT_BONOS
+-- 12. GOVERNMENT_BONOS
 CREATE TABLE government_bonos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
@@ -257,6 +247,22 @@ CREATE TABLE bono_usage (
     usage_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 15. CUSTOMER_CONSENTS (GDPR Compliance)
+CREATE TABLE customer_consents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    consent_type consent_type NOT NULL,
+    consent_given BOOLEAN NOT NULL,
+    consent_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    consent_method consent_method NOT NULL DEFAULT 'online',
+    ip_address INET,
+    user_agent TEXT,
+    withdrawal_date TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
@@ -276,6 +282,15 @@ CREATE INDEX idx_certifications_customer ON customer_certifications(customer_id)
 CREATE INDEX idx_bookings_customer ON bookings(customer_id);
 CREATE INDEX idx_bookings_date ON bookings(booking_date);
 CREATE INDEX idx_bookings_status ON bookings(status);
+CREATE INDEX idx_pricing_configs_location ON pricing_configs(location_id);
+CREATE INDEX idx_pricing_configs_activity_type ON pricing_configs(activity_type);
+CREATE INDEX idx_pricing_configs_pricing_type ON pricing_configs(pricing_type);
+CREATE INDEX idx_pricing_configs_active ON pricing_configs(is_active);
+CREATE INDEX idx_pricing_configs_dates ON pricing_configs(valid_from, valid_until);
+CREATE INDEX idx_customer_consents_customer ON customer_consents(customer_id);
+CREATE INDEX idx_customer_consents_type ON customer_consents(consent_type);
+CREATE INDEX idx_customer_consents_active ON customer_consents(is_active);
+CREATE INDEX idx_customer_consents_customer_type_active ON customer_consents(customer_id, consent_type, is_active);
 
 -- ============================================================================
 -- TRIGGERS
@@ -301,8 +316,8 @@ CREATE TRIGGER update_certification_agencies_updated_at BEFORE UPDATE ON certifi
 CREATE TRIGGER update_customer_certifications_updated_at BEFORE UPDATE ON customer_certifications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_bookings_updated_at BEFORE UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_pricing_configs_updated_at BEFORE UPDATE ON pricing_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_special_pricing_updated_at BEFORE UPDATE ON special_pricing FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_government_bonos_updated_at BEFORE UPDATE ON government_bonos FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_customer_consents_updated_at BEFORE UPDATE ON customer_consents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
 -- COMMENTS
@@ -318,7 +333,7 @@ COMMENT ON TABLE customer_stays IS 'Track customer stays for volume discount pri
 COMMENT ON TABLE certification_agencies IS 'Certification agencies (SSI, PADI, CMAS, VDST)';
 COMMENT ON TABLE customer_certifications IS 'Customer certification tracking with agency validation';
 COMMENT ON TABLE bookings IS 'All bookings including diving activities';
-COMMENT ON TABLE pricing_configs IS 'Pricing configurations and volume discount tiers';
-COMMENT ON TABLE special_pricing IS 'Special pricing rules and discounts';
+COMMENT ON TABLE pricing_configs IS 'Unified pricing table: standard prices, promotions, discounts, and overrides. Supports all pricing types including dives, courses, equipment, and addons';
 COMMENT ON TABLE government_bonos IS 'Canary Islands resident discount vouchers';
+COMMENT ON TABLE customer_consents IS 'GDPR consent management - tracks all customer consents for data processing, marketing, medical data, etc.';
 

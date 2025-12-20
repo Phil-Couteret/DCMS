@@ -85,7 +85,10 @@ const Footer = () => {
 
         <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.1)', mt: 4, pt: 3, textAlign: 'center' }}>
           <Typography variant="body2" color="rgba(255,255,255,0.7)">
-            © 2024 Deep Blue Fuerteventura. All rights reserved.
+            © 2024 Deep Blue Fuerteventura. All rights reserved. |{' '}
+            <Link href="/privacy-policy" color="inherit" underline="hover">
+              Privacy Policy
+            </Link>
           </Typography>
         </Box>
       </Container>

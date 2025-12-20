@@ -34,13 +34,9 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
   const pricing = getLocationPricing(locationId);
   const customerTypePricing = pricing.customerTypes || {};
   
-  console.log('[Pricing] Calculating price:', { locationId, customerType, numberOfDives, pricing, customerTypePricing });
-  
   // Recurrent customers: fixed price per dive
   if (customerType === 'recurrent' && customerTypePricing.recurrent?.pricePerDive) {
-    const price = customerTypePricing.recurrent.pricePerDive * numberOfDives;
-    console.log('[Pricing] Using recurrent pricing:', price);
-    return price;
+    return customerTypePricing.recurrent.pricePerDive * numberOfDives;
   }
   
   // Local customers: fixed price per dive
@@ -68,7 +64,6 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
   }
   
   // Fallback: use hardcoded tourist pricing if no config found
-  console.warn('[Pricing] No pricing config found, using fallback pricing');
   let basePrice = 46;
   if (numberOfDives <= 2) {
     basePrice = 46;
@@ -86,20 +81,30 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
 
 /**
  * Calculate price for other activity types
+ * @param {string} activityType - Type of activity ('snorkeling', 'discover', 'orientation')
+ * @param {number} numberOfDives - Number of dives/activities (default: 1)
+ * @param {string} locationId - Location ID for location-specific pricing
+ * @returns {number} Total price
  */
-export const calculateActivityPrice = (activityType, numberOfDives = 1) => {
-  // These might also be configurable in the future, but for now use fixed prices
+export const calculateActivityPrice = (activityType, numberOfDives = 1, locationId) => {
+  // Get location-specific pricing if locationId is provided
+  const locations = JSON.parse(localStorage.getItem('dcms_locations') || '[]');
+  const location = locationId 
+    ? locations.find(l => l.id === locationId) 
+    : locations[0]; // Use first location as default if no locationId
+  const pricing = location?.pricing || {};
+  
   switch (activityType) {
     case 'snorkeling':
       return 38 * numberOfDives;
-    case 'discover':
-      return 100 * numberOfDives;
-    case 'orientation':
-      // Check if orientation price is configured for tourist
-      const locations = JSON.parse(localStorage.getItem('dcms_locations') || '[]');
-      const location = locations[0]; // Use first location as default
-      const orientationPrice = location?.pricing?.customerTypes?.tourist?.orientationDive;
-      return orientationPrice ? orientationPrice * numberOfDives : 32 * numberOfDives;
+    case 'discover': {
+      const discoverPrice = pricing.customerTypes?.tourist?.discoverDive;
+      return (discoverPrice || 100) * numberOfDives;
+    }
+    case 'orientation': {
+      const orientationPrice = pricing.customerTypes?.tourist?.orientationDive;
+      return (orientationPrice || 32) * numberOfDives;
+    }
     default:
       return 0;
   }

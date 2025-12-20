@@ -8,7 +8,11 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: [
+      process.env.CORS_ORIGIN || 'http://localhost:3000',
+      'http://localhost:3000', // Public website
+      'http://localhost:3001', // Admin portal
+    ],
     credentials: true,
   });
 
@@ -32,12 +36,16 @@ async function bootstrap() {
     .addTag('bookings')
     .addTag('customers')
     .addTag('equipment')
+    .addTag('consents')
+    .addTag('audit')
+    .addTag('dsar')
+    .addTag('breaches')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.PORT || 3003;
   await app.listen(port);
   console.log(`🚀 DCMS Backend API is running on: http://localhost:${port}`);
   console.log(`📚 Swagger documentation: http://localhost:${port}/api`);

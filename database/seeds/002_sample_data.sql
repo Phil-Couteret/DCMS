@@ -85,9 +85,13 @@ INSERT INTO pricing_configs (location_id, activity_type, name, valid_from, valid
    }
  }', true);
 
--- Special Pricing
-INSERT INTO special_pricing (location_id, name, conditions, discount_percentage, valid_from, valid_until, is_active) VALUES
-('550e8400-e29b-41d4-a716-446655440001', 'Weekend Special', '{"day": "weekend"}', 10, '2025-01-01', '2025-12-31', true);
+-- Special Pricing (now part of unified pricing_configs)
+INSERT INTO pricing_configs (location_id, pricing_type, activity_type, name, description, pricing_rules, conditions, priority, valid_from, valid_until, is_active) VALUES
+('550e8400-e29b-41d4-a716-446655440001', 'promotion', 'diving', 'Weekend Special', '10% discount on weekends', 
+ '{"discount_percentage": 10}', 
+ '{"day": "weekend"}', 
+ 100, -- Higher priority than standard pricing
+ '2025-01-01', '2025-12-31', true);
 
 -- Government Bonos (Canary Islands)
 INSERT INTO government_bonos (code, type, discount_percentage, max_amount, valid_from, valid_until, usage_limit, is_active) VALUES

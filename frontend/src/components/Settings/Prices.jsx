@@ -265,7 +265,7 @@ const Prices = () => {
                     />
                     <CardContent>
                       {/* Orientation Dive Price */}
-                      <Box sx={{ mb: 3 }}>
+                      <Box sx={{ mb: 2 }}>
                         <TextField
                           label="Orientation Dive Price"
                           type="number"
@@ -277,6 +277,21 @@ const Prices = () => {
                             startAdornment: '€'
                           }}
                           helperText="Special price for orientation dive"
+                        />
+                      </Box>
+                      {/* Discovery Dive Price */}
+                      <Box sx={{ mb: 3 }}>
+                        <TextField
+                          label="Discovery Dive Price"
+                          type="number"
+                          value={locPricing.customerTypes?.tourist?.discoverDive || 100.00}
+                          onChange={(e) => handleCustomerTypePriceChange('tourist', 'discoverDive', parseFloat(e.target.value) || 0)}
+                          fullWidth
+                          size="small"
+                          InputProps={{
+                            startAdornment: '€'
+                          }}
+                          helperText="Price for discovery dive (try diving)"
                         />
                       </Box>
                       <TableContainer>

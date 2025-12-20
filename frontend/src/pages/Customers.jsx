@@ -77,7 +77,6 @@ const Customers = () => {
       if (!mode && !customerId) {
         const currentCount = dataService.getAll('customers').length;
         if (currentCount !== customers.length) {
-          console.log('[Admin] Customer count changed, refreshing...');
           loadCustomers();
         }
       }
@@ -97,17 +96,11 @@ const Customers = () => {
 
   const loadCustomers = () => {
     const allCustomers = dataService.getAll('customers');
-    console.log('Loaded customers:', allCustomers.length, allCustomers);
-    // Debug: Check if customers have certifications
-    allCustomers.forEach(customer => {
-      console.log(`${customer.firstName} ${customer.lastName}:`, customer.certifications);
-    });
     setCustomers(allCustomers);
   };
 
   const handleSyncFromServer = async () => {
     try {
-      console.log('[Admin] Manually syncing customers from server...');
       if (typeof window !== 'undefined' && window.syncService) {
         // Force pull from server
         await window.syncService.syncAll();
@@ -115,8 +108,6 @@ const Customers = () => {
         setTimeout(() => {
           loadCustomers();
         }, 500);
-      } else {
-        console.error('[Admin] Sync service not available');
       }
     } catch (error) {
       console.error('[Admin] Sync error:', error);

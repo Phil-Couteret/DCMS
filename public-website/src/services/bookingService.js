@@ -659,8 +659,10 @@ export const deleteCertification = (email, certificationId) => {
   return updatedCustomer;
 };
 
-// Delete customer account (and all their bookings)
-export const deleteCustomerAccount = (email) => {
+// Delete customer account with soft delete and anonymization
+// Personal data is anonymized, but booking/financial records are retained for 7 years (legal requirement)
+export const deleteCustomerAccount = (email, reason = 'User requested') => {
+  const { anonymizeCustomer, anonymizeBooking } = require('./anonymizationService');
   const customers = getAll('customers');
   const bookings = getAll('bookings');
   
@@ -672,14 +674,31 @@ export const deleteCustomerAccount = (email) => {
   
   const customer = customers[customerIndex];
   
-  // Delete customer
-  customers.splice(customerIndex, 1);
+  // Check if already deleted
+  if (customer.deletedAt) {
+    console.warn(`[DCMS] Customer ${email} is already deleted`);
+    return { success: true, alreadyDeleted: true };
+  }
+  
+  // Soft delete: Anonymize customer data instead of deleting
+  const anonymizedCustomer = anonymizeCustomer({
+    ...customer,
+    deletionReason: reason,
+  });
+  
+  customers[customerIndex] = anonymizedCustomer;
   saveAll('customers', customers);
   
-  // Delete all bookings for this customer
-  const customerBookings = bookings.filter(b => b.customerId === customer.id);
-  const remainingBookings = bookings.filter(b => b.customerId !== customer.id);
-  saveAll('bookings', remainingBookings);
+  // Anonymize bookings (remove personal details, keep financial data for accounting)
+  let anonymizedBookingsCount = 0;
+  const updatedBookings = bookings.map(booking => {
+    if (booking.customerId === customer.id) {
+      anonymizedBookingsCount++;
+      return anonymizeBooking(booking);
+    }
+    return booking;
+  });
+  saveAll('bookings', updatedBookings);
   
   // Clear user session
   if (localStorage.getItem('dcms_user_email')?.toLowerCase() === email?.toLowerCase()) {
@@ -687,11 +706,21 @@ export const deleteCustomerAccount = (email) => {
   }
   
   // Dispatch events
-  dispatchBrowserEvent('dcms_customer_updated', { email, deleted: true });
+  dispatchBrowserEvent('dcms_customer_updated', { 
+    email, 
+    deleted: true, 
+    anonymized: true,
+    customerId: customer.id 
+  });
   
-  console.log(`[DCMS] Deleted customer account: ${email} (${customerBookings.length} bookings removed)`);
+  console.log(`[DCMS] Anonymized customer account: ${email} (${anonymizedBookingsCount} bookings anonymized, data retained for 7 years for legal/accounting)`);
   
-  return { success: true, deletedBookings: customerBookings.length };
+  return { 
+    success: true, 
+    anonymizedBookings: anonymizedBookingsCount,
+    customerId: customer.id,
+    message: 'Account anonymized. Financial records retained for 7 years per legal requirements.'
+  };
 };
 
 // Manually sync all customers to server (for existing customers that weren't synced)

@@ -42,9 +42,6 @@ export const prepareBookingConfirmationEmail = (booking, customer) => {
     }
   };
 
-  // Log email data (in production, this would be sent via API)
-  console.log('Email prepared:', emailData);
-  
   // TODO: Integrate with email service API
   // Example:
   // await fetch('/api/send-email', {

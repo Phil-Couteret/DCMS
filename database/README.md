@@ -84,7 +84,7 @@ SELECT * FROM staff;
 - `certification_agencies` - SSI, PADI, CMAS, VDST
 - `customer_certifications` - Customer certifications
 - `pricing_configs` - Volume discount pricing
-- `special_pricing` - Special pricing rules
+- `pricing_configs` - Unified pricing table (standard prices, promotions, discounts)
 - `government_bonos` - Canary Islands resident discounts
 
 ---

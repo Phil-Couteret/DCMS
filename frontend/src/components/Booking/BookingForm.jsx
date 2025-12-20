@@ -823,53 +823,53 @@ const BookingForm = ({ bookingId = null }) => {
                                    (formData.diveSessions?.night ? 1 : 0);
               
               return (
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
-                    <Typography variant="h6" gutterBottom>
+              <Grid item xs={12}>
+                <Paper sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
+                  <Typography variant="h6" gutterBottom>
                       {isRecurrent || isLocal 
                         ? `${customerType.charAt(0).toUpperCase() + customerType.slice(1)} Customer Pricing` 
                         : 'Cumulative Stay Pricing (Volume Discount Applied)'}
-                    </Typography>
-                    <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
+                  </Typography>
+                  <Typography variant="body2" gutterBottom sx={{ mb: 1 }}>
                       {isRecurrent || isLocal 
                         ? `${customerType.charAt(0).toUpperCase() + customerType.slice(1)} customers have fixed pricing per dive.`
                         : <>Volume discounts are calculated based on <strong>total dives across all days</strong> of the customer's stay. Maximum 3 dives per day (Morning, Afternoon, Night).</>}
-                    </Typography>
+                  </Typography>
                     {isTourist && formData.cumulativePricing && (
-                      <Typography variant="body2" gutterBottom>
+                  <Typography variant="body2" gutterBottom>
                         <strong>Total dives in stay:</strong> {displayTotalDives} dives (across multiple days)
-                      </Typography>
+                  </Typography>
                     )}
                     {isRecurrent || isLocal ? (
-                      <Typography variant="body2" gutterBottom>
+                  <Typography variant="body2" gutterBottom>
                         <strong>Dives in this booking:</strong> {currentDives} dive{currentDives !== 1 ? 's' : ''}
                       </Typography>
                     ) : null}
                     <Typography variant="body2" gutterBottom>
                       <strong>Price per dive:</strong> €{displayPricePerDive.toFixed(2)}
                       {showDiscount && (
-                        <span style={{ marginLeft: '8px', opacity: 0.9 }}>
+                      <span style={{ marginLeft: '8px', opacity: 0.9 }}>
                           (discounted from €{basePrice.toFixed(2)})
                         </span>
                       )}
                       {!showDiscount && (isRecurrent || isLocal) && (
                         <span style={{ marginLeft: '8px', opacity: 0.9 }}>
                           ({customerType} customer rate)
-                        </span>
-                      )}
-                    </Typography>
+                      </span>
+                    )}
+                  </Typography>
                     {isTourist && formData.cumulativePricing ? (
-                      <Typography variant="body2" gutterBottom>
+                  <Typography variant="body2" gutterBottom>
                         <strong>Total stay price:</strong> €{displayTotalPrice.toFixed(2)}
-                      </Typography>
+                  </Typography>
                     ) : null}
-                    <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.9 }}>
+                  <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.9 }}>
                       {isRecurrent || isLocal 
                         ? `All dives are priced at the ${customerType} customer rate (€${displayPricePerDive.toFixed(2)} per dive)`
                         : 'All dives in this stay are priced at the same rate based on total volume across all booking days'}
-                    </Typography>
-                  </Paper>
-                </Grid>
+                  </Typography>
+                </Paper>
+              </Grid>
               );
             })()}
 

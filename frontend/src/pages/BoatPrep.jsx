@@ -270,7 +270,7 @@ const BoatPrep = () => {
           // Also handle case where diveSessions[session] might be truthy but not exactly true
           const sessionValue = diveSessionsObj[session];
           sessionMatch = sessionValue === true || sessionValue === 1 || sessionValue === 'true';
-        }
+      }
       } else if (!diveSessionsObj && b.numberOfDives) {
         // Fallback: if diveSessions doesn't exist but numberOfDives does, 
         // treat as morning session for backward compatibility
@@ -387,8 +387,8 @@ const BoatPrep = () => {
   const setBoatDiveSiteStatusValue = (boatId, status) => {
     setBoatDiveSiteStatus(prev => {
       const newStatus = {
-        ...prev,
-        [boatId]: { ...prev[boatId], ...status }
+      ...prev,
+      [boatId]: { ...prev[boatId], ...status }
       };
       
       // When marking as completed, initialize actual dive site to planned dive site if not already set
@@ -821,10 +821,10 @@ const BoatPrep = () => {
         const diverIds = boatAssignments[boatId] || [];
         // Only validate boats that have divers assigned
         if (diverIds.length > 0) {
-          const errors = getStaffValidationErrors(boatId);
-          if (errors.length > 0) {
-            const boat = boats.find(b => b.id === boatId);
-            errors.forEach(err => validationErrors.push(`${boat?.name || 'Boat'}: ${err}`));
+        const errors = getStaffValidationErrors(boatId);
+        if (errors.length > 0) {
+          const boat = boats.find(b => b.id === boatId);
+          errors.forEach(err => validationErrors.push(`${boat?.name || 'Boat'}: ${err}`));
           }
         }
       });
@@ -850,7 +850,7 @@ const BoatPrep = () => {
       
       if (diveSiteValidationErrors.length > 0) {
         alert('Please select dive sites for all boats with assigned divers:\n\n' + diveSiteValidationErrors.join('\n'));
-        return;
+          return;
       }
       
       Object.keys(boatAssignments).forEach(boatId => {
@@ -1233,23 +1233,23 @@ const BoatPrep = () => {
 
       {activeTab === 0 && (
         <>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="h5">
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h5">
               {shouldUseBoatPrep ? 'Boat Preparation' : 'Shore Dive Preparation'}
-            </Typography>
+        </Typography>
             {shouldUseBoatPrep && (
-              <Box display="flex" gap={1}>
-                <Button variant="outlined" startIcon={<AutoAwesomeIcon />} onClick={autoAssignDivers}>
-                  Auto-Assign
-                </Button>
-                <Button variant="outlined" color="error" onClick={clearAllAssignments}>
-                  Clear All
-                </Button>
-              </Box>
-            )}
+          <Box display="flex" gap={1}>
+            <Button variant="outlined" startIcon={<AutoAwesomeIcon />} onClick={autoAssignDivers}>
+              Auto-Assign
+            </Button>
+            <Button variant="outlined" color="error" onClick={clearAllAssignments}>
+              Clear All
+            </Button>
           </Box>
+        )}
+      </Box>
 
-          <Grid container spacing={2}>
+      <Grid container spacing={2}>
         {/* Plan Section */}
         <Grid item xs={12}>
           <Paper sx={{ p: 2, mb: 2 }}>
@@ -1542,39 +1542,39 @@ const BoatPrep = () => {
                       return (
                         <Box sx={{ mb: 2 }}>
                           {boatSiteSuggestions.length > 0 && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                               Suggested sites for this boat's divers: {boatSiteSuggestions.map(s => s.name).join(', ')}
-                            </Typography>
+                          </Typography>
                           )}
                           <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                             <InputLabel>Select Dive Site</InputLabel>
-                            <Select
+                                  <Select
                               value={selectedSiteId || ''}
                               label="Select Dive Site"
-                              onChange={(e) => {
-                                const newSiteId = e.target.value;
-                                setBoatDiveSite(boat.id, newSiteId);
-                                // Reset confirmation if site changes
+                                    onChange={(e) => {
+                                      const newSiteId = e.target.value;
+                                        setBoatDiveSite(boat.id, newSiteId);
+                                        // Reset confirmation if site changes
                                 if (siteStatus.confirmed || siteStatus.completed) {
-                                  setBoatDiveSiteStatusValue(boat.id, { confirmed: false, completed: false });
-                                }
-                              }}
-                            >
+                                        setBoatDiveSiteStatusValue(boat.id, { confirmed: false, completed: false });
+                                      }
+                                    }}
+                                  >
                               <MenuItem value="">
                                 <em>None selected</em>
-                              </MenuItem>
-                              {allDiveSites.map(site => (
-                                <MenuItem key={site.id} value={site.id}>
-                                  {site.name}
+                                    </MenuItem>
+                                    {allDiveSites.map(site => (
+                                      <MenuItem key={site.id} value={site.id}>
+                                        {site.name}
                                   {site.difficultyLevel && (
                                     <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
                                       ({site.difficultyLevel})
                                     </Typography>
                                   )}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
                           {selectedSiteId && (
                             <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" mt={1}>
                               <Typography variant="caption" color="primary">
@@ -1585,7 +1585,7 @@ const BoatPrep = () => {
                               </Typography>
                             </Box>
                           )}
-                                                  </Box>
+                        </Box>
                       );
                     })()}
                     
@@ -1711,9 +1711,9 @@ const BoatPrep = () => {
               </Typography>
               <Box sx={{ mb: 3 }}>
                 {shoreDiveSiteSuggestions.length > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                     Suggested sites for assigned divers: {shoreDiveSiteSuggestions.map(s => s.name).join(', ')}
-                  </Typography>
+                </Typography>
                 )}
                 <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                   <InputLabel>Select Dive Site</InputLabel>
@@ -1736,7 +1736,7 @@ const BoatPrep = () => {
                             </Typography>
                           )}
                         </MenuItem>
-                      ))}
+                  ))}
                   </Select>
                 </FormControl>
                 {shoreDiveSiteId && (
@@ -1984,7 +1984,7 @@ const BoatPrep = () => {
                 size="small"
                 InputLabelProps={{ shrink: true }}
               />
-            </Box>
+    </Box>
           </Box>
 
           <Alert severity="info" sx={{ mb: 3 }}>

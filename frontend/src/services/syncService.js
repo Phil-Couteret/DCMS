@@ -212,7 +212,7 @@ class SyncService {
           }
           continue; // Skip this resource, move to next
         }
-
+        
         // Check if server has new items by comparing IDs
         const localIds = new Set(localData.map(item => item.id));
         const serverIds = new Set(serverData.map(item => item.id));
@@ -228,7 +228,7 @@ class SyncService {
         if (resource === 'customers') {
           // Merge server data with local data to preserve admin-only fields
           mergedData = serverData.map(serverItem => {
-            const localItem = localMap.get(serverItem.id);
+          const localItem = localMap.get(serverItem.id);
             if (localItem) {
               // Preserve admin-only fields from local data - ALWAYS prefer local values
               const mergedItem = {

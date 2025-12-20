@@ -9,10 +9,17 @@ import {
   Tabs,
   Tab,
   Link,
-  Alert
+  Alert,
+  FormControlLabel,
+  Checkbox,
+  Box
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import bookingService from '../services/bookingService';
+import consentService from '../services/consentService';
+import passwordMigrationService from '../services/passwordMigrationService';
+import passwordHash from '../utils/passwordHash';
+import PasswordChangeDialog from '../components/PasswordChangeDialog';
 
 const Login = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -26,6 +33,13 @@ const Login = () => {
     lastName: '',
     phone: ''
   });
+  const [consents, setConsents] = useState({
+    dataProcessing: true, // Required for service
+    medicalData: true, // Required for diving
+    marketing: false // Optional
+  });
+  const [passwordChangeDialogOpen, setPasswordChangeDialogOpen] = useState(false);
+  const [customerNeedingPasswordChange, setCustomerNeedingPasswordChange] = useState(null);
   const navigate = useNavigate();
 
   const handleChange = (field, value) => {
@@ -55,19 +69,54 @@ const Login = () => {
           return;
         }
 
-        // Check password (stored in customer data)
-        // For now, we'll check if password exists and matches
-        // In production, this would be hashed and verified securely
+        // Clean up expired accounts before login
+        passwordMigrationService.cleanupExpiredAccounts();
+
+        // Verify password (handles both plaintext and hashed)
         if (!customer.password) {
           // Customer exists but no password set - allow login (legacy accounts)
-          // Set password for future logins
+          // Set password for future logins (will be hashed)
+          const hashedPassword = await passwordHash.storeHashedPassword(formData.password);
           bookingService.updateCustomerProfile(formData.email, {
-            password: formData.password // In production, this should be hashed
+            password: hashedPassword
           });
-        } else if (customer.password !== formData.password) {
-          setError('Incorrect password. Please try again.');
-          setLoading(false);
-          return;
+        } else {
+          // Verify password (supports both plaintext legacy and hashed)
+          const isValid = await passwordMigrationService.verifyPassword(
+            formData.password,
+            customer.password
+          );
+
+          if (!isValid) {
+            setError('Incorrect password. Please try again.');
+            setLoading(false);
+            return;
+          }
+
+          // Check if password change is required (plaintext password detected)
+          if (passwordMigrationService.isPasswordChangeRequired(customer)) {
+            // Check if account should be deleted
+            if (passwordMigrationService.shouldDeleteAccount(customer)) {
+              // Account expired - delete it
+              bookingService.deleteCustomerAccount(formData.email);
+              consentService.deleteCustomerConsents(customer.id);
+              setError('Your account has been deleted due to security requirements. Please register a new account.');
+              setLoading(false);
+              return;
+            }
+
+            // Mark password change as required if not already marked
+            passwordMigrationService.markPasswordChangeRequired(formData.email);
+            
+            // Reload customer to get updated timestamp
+            customer = bookingService.getCustomerByEmail(formData.email);
+            
+            // Show password change dialog
+            setCustomerNeedingPasswordChange(customer);
+            setPasswordChangeDialogOpen(true);
+            setLoading(false);
+            return;
+          }
         }
 
         // Login successful
@@ -118,6 +167,13 @@ const Login = () => {
           return;
         }
 
+        // Validate required consents
+        if (!consents.dataProcessing || !consents.medicalData) {
+          setError('Please accept the required consents to create an account.');
+          setLoading(false);
+          return;
+        }
+
         // Check if customer already exists
         const existingCustomer = bookingService.getCustomerByEmail(formData.email);
         if (existingCustomer) {
@@ -126,13 +182,16 @@ const Login = () => {
           return;
         }
 
+        // Hash password before storing
+        const hashedPassword = await passwordHash.storeHashedPassword(formData.password);
+
         // Create new customer account
         const customerData = {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
           phone: formData.phone || '',
-          password: formData.password, // In production, this should be hashed
+          password: hashedPassword, // Store hashed password
           preferences: {
             ownEquipment: false,
             tankSize: '12L',
@@ -147,12 +206,26 @@ const Login = () => {
         };
 
         // Find or create customer (this will create if doesn't exist)
-        bookingService.findOrCreateCustomer(customerData);
+        const customer = bookingService.findOrCreateCustomer(customerData);
         
-        // Update with password
+        // Update with hashed password (in case findOrCreateCustomer didn't use it)
         bookingService.updateCustomerProfile(formData.email, {
-          password: formData.password // In production, this should be hashed
+          password: hashedPassword
         });
+
+        // Record GDPR consents
+        const customerId = customer.id;
+        const ipAddress = null; // Could be retrieved from request if available
+        const userAgent = navigator.userAgent;
+
+        // Record required consents (data processing and medical data)
+        consentService.recordConsent(customerId, 'data_processing', consents.dataProcessing, 'online', ipAddress, userAgent);
+        consentService.recordConsent(customerId, 'medical_data', consents.medicalData, 'online', ipAddress, userAgent);
+        
+        // Record optional marketing consent
+        if (consents.marketing) {
+          consentService.recordConsent(customerId, 'marketing', true, 'online', ipAddress, userAgent);
+        }
 
         // Registration successful - log them in
         localStorage.setItem('dcms_user_email', formData.email);
@@ -288,16 +361,95 @@ const Login = () => {
                   type="password"
                   fullWidth
                   required
-                  sx={{ mb: 3 }}
+                  sx={{ mb: 2 }}
                   value={formData.confirmPassword}
                   onChange={(e) => handleChange('confirmPassword', e.target.value)}
                 />
+                
+                {/* GDPR Consent Section */}
+                <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Privacy & Consent
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    We need your consent to process your personal data. Learn more in our{' '}
+                    <Link href="/privacy-policy" target="_blank" underline="always">
+                      Privacy Policy
+                    </Link>.
+                  </Typography>
+                  
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={consents.dataProcessing}
+                        onChange={(e) => setConsents(prev => ({ ...prev, dataProcessing: e.target.checked }))}
+                        required
+                        disabled={loading}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        <strong>Data Processing (Required):</strong> I consent to the processing of my personal data 
+                        to provide dive booking services and manage my account.
+                      </Typography>
+                    }
+                    sx={{ mb: 1, display: 'block' }}
+                  />
+                  
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={consents.medicalData}
+                        onChange={(e) => setConsents(prev => ({ ...prev, medicalData: e.target.checked }))}
+                        required
+                        disabled={loading}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        <strong>Medical Data (Required):</strong> I consent to the processing of my medical information 
+                        and certificates for diving safety purposes as required by Spanish maritime regulations.
+                      </Typography>
+                    }
+                    sx={{ mb: 1, display: 'block' }}
+                  />
+                  
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={consents.marketing}
+                        onChange={(e) => setConsents(prev => ({ ...prev, marketing: e.target.checked }))}
+                        disabled={loading}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        <strong>Marketing (Optional):</strong> I consent to receive promotional emails and newsletters 
+                        about dive offers and updates. You can withdraw this consent at any time.
+                      </Typography>
+                    }
+                    sx={{ display: 'block' }}
+                  />
+                </Box>
+                
+                {!consents.dataProcessing && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    Data processing consent is required to create an account.
+                  </Alert>
+                )}
+                
+                {!consents.medicalData && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    Medical data processing consent is required for diving services.
+                  </Alert>
+                )}
+                
                 <Button 
                   type="submit" 
                   variant="contained" 
                   fullWidth 
                   size="large"
-                  disabled={loading}
+                  disabled={loading || !consents.dataProcessing || !consents.medicalData}
                 >
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Button>
@@ -306,6 +458,31 @@ const Login = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Password Change Dialog */}
+      <PasswordChangeDialog
+        open={passwordChangeDialogOpen}
+        customer={customerNeedingPasswordChange}
+        onClose={() => {
+          setPasswordChangeDialogOpen(false);
+          setCustomerNeedingPasswordChange(null);
+        }}
+        onSuccess={() => {
+          setPasswordChangeDialogOpen(false);
+          setCustomerNeedingPasswordChange(null);
+          // Login successful after password change
+          localStorage.setItem('dcms_user_email', customerNeedingPasswordChange.email);
+          
+          // Pull latest customer data
+          if (typeof window !== 'undefined' && window.syncService) {
+            window.syncService.pullChanges().then(() => {
+              navigate('/my-account');
+            });
+          } else {
+            navigate('/my-account');
+          }
+        }}
+      />
     </Container>
   );
 };

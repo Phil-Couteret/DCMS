@@ -20,6 +20,7 @@ import {
   FormLabel,
   Grid,
   InputLabel,
+  Link,
   MenuItem,
   Paper,
   Radio,
@@ -49,6 +50,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import bookingService from '../services/bookingService';
 import RegisteredDiverBooking from '../components/RegisteredDiverBooking';
+import consentService from '../services/consentService';
+import dataExportService from '../services/dataExportService';
+import passwordMigrationService from '../services/passwordMigrationService';
+import passwordHash from '../utils/passwordHash';
+import dataRetentionService from '../services/dataRetentionService';
+import auditService from '../services/auditService';
+import dsarService from '../services/dsarService';
 
 const EQUIPMENT_ITEMS = [
   { key: 'mask', label: 'Mask' },
@@ -141,6 +149,15 @@ const MyAccount = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
+  const [consents, setConsents] = useState({
+    dataProcessing: false,
+    medicalData: false,
+    marketing: false
+  });
+  const [exporting, setExporting] = useState(false);
+  const [dsarRequests, setDsarRequests] = useState([]);
+  const [dsarLoading, setDsarLoading] = useState(false);
+  const [dsarStats, setDsarStats] = useState({ total: 0, pending: 0, completed: 0, overdue: 0 });
 
   // File upload handler
   const handleFileUpload = async (event, documentType) => {
@@ -259,6 +276,125 @@ const MyAccount = () => {
     navigate('/login');
   };
 
+  const handleConsentChange = async (consentType, given) => {
+    if (!customer) return;
+    
+    const customerId = customer.id;
+    const ipAddress = null; // Could be retrieved from request if available
+    const userAgent = navigator.userAgent;
+    
+    consentService.recordConsent(customerId, consentType, given, 'online', ipAddress, userAgent);
+    
+    setConsents(prev => ({ ...prev, [consentType === 'data_processing' ? 'dataProcessing' : consentType === 'medical_data' ? 'medicalData' : 'marketing']: given }));
+    
+    setSnackbar({
+      open: true,
+      message: given ? 'Consent updated successfully' : 'Consent withdrawn successfully',
+      severity: 'success'
+    });
+  };
+
+  // Calculate retention info for display
+  const retentionInfo = useMemo(() => {
+    if (!customer) return null;
+    
+    const lastActivity = dataRetentionService.getLastActivityDate(customer);
+    const retentionPolicies = dataRetentionService.getRetentionPolicies();
+    let retentionDate = null;
+    
+    if (lastActivity) {
+      const activityDate = new Date(lastActivity);
+      retentionDate = new Date(activityDate);
+      retentionDate.setDate(retentionDate.getDate() + retentionPolicies.customerInactive.days);
+    }
+    
+    return {
+      lastActivity,
+      retentionPolicies,
+      retentionDate
+    };
+  }, [customer]);
+
+  const handleCreateDsarRequest = async () => {
+    if (!customer) return;
+    
+    setDsarLoading(true);
+    try {
+      const dsar = await dsarService.createDsarRequest(customer.id, {
+        requestType: 'access',
+        requestedBy: customer.email,
+        responseFormat: 'json',
+        responseDeliveryMethod: 'portal',
+      });
+      
+      // Reload DSAR requests
+      const [requests, stats] = await Promise.all([
+        dsarService.getCustomerDsars(customer.id),
+        dsarService.getDsarStatistics(customer.id),
+      ]);
+      setDsarRequests(requests);
+      setDsarStats(stats);
+      
+      // Log audit event
+      await auditService.logAuditEvent(
+        'customer',
+        customer.id,
+        'create',
+        'dsar',
+        dsar.id,
+        { requestType: 'access' }
+      );
+      
+      setSnackbar({
+        open: true,
+        message: 'DSAR request submitted successfully. We will respond within 30 days.',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: `Error submitting DSAR request: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setDsarLoading(false);
+    }
+  };
+
+  const handleExportData = async (format = 'json') => {
+    if (!userEmail || !customer) return;
+    
+    setExporting(true);
+    try {
+      if (format === 'json') {
+        dataExportService.downloadCustomerDataAsJSON(userEmail);
+        setSnackbar({
+          open: true,
+          message: 'Data exported successfully as JSON',
+          severity: 'success'
+        });
+      } else {
+        dataExportService.downloadCustomerDataAsCSV(userEmail);
+        setSnackbar({
+          open: true,
+          message: 'Data exported successfully as CSV',
+          severity: 'success'
+        });
+      }
+      
+      // Log audit event
+      await auditService.logDataExport(customer.id, customer.id, format);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error exporting data: ' + error.message,
+        severity: 'error'
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const mapCustomerToForm = (customerData) => ({
     firstName: customerData?.firstName || '',
     lastName: customerData?.lastName || '',
@@ -298,6 +434,14 @@ const MyAccount = () => {
   useEffect(() => {
     const storedEmail = localStorage.getItem('dcms_user_email') || '';
     setUserEmail(storedEmail);
+    
+    // Clean up expired accounts on app load
+    passwordMigrationService.cleanupExpiredAccounts();
+    
+    // Run data retention cleanup (with delay to not block UI)
+    setTimeout(() => {
+      dataRetentionService.runDataRetentionCleanup();
+    }, 1000);
   }, []);
 
   useEffect(() => {
@@ -318,6 +462,16 @@ const MyAccount = () => {
     const loadCustomerProfile = () => {
       setLoadingCustomer(true);
       const customerData = bookingService.getCustomerByEmail(userEmail);
+      
+      // Load consent status
+      if (customerData) {
+        const customerId = customerData.id;
+        setConsents({
+          dataProcessing: consentService.hasConsent(customerId, 'data_processing'),
+          medicalData: consentService.hasConsent(customerId, 'medical_data'),
+          marketing: consentService.hasConsent(customerId, 'marketing')
+        });
+      }
       
       // Only set defaults if customerType/centerSkillLevel are truly missing (null/undefined)
       // Don't overwrite existing values - they may have been set by admin
@@ -601,8 +755,8 @@ const MyAccount = () => {
     });
   };
 
-  const handleSaveProfile = () => {
-    if (!userEmail) {
+  const handleSaveProfile = async () => {
+    if (!userEmail || !customer) {
       setSnackbar({
         open: true,
         message: 'Please log in first.',
@@ -616,6 +770,15 @@ const MyAccount = () => {
     });
 
     if (updated) {
+      // Log audit event for profile update
+      const changedFields = {};
+      Object.keys(profileForm).forEach(key => {
+        if (customer[key] !== profileForm[key]) {
+          changedFields[key] = { old: customer[key], new: profileForm[key] };
+        }
+      });
+      await auditService.logProfileUpdate(customer.id, customer.id, changedFields);
+      
       setCustomer(updated);
       setProfileForm(mapCustomerToForm(updated));
       setProfileDialogOpen(false);
@@ -633,7 +796,7 @@ const MyAccount = () => {
     }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!userEmail || !customer) return;
     
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
@@ -645,54 +808,71 @@ const MyAccount = () => {
       return;
     }
     
-    // Verify current password
-    if (customer.password && customer.password !== passwordForm.currentPassword) {
-      setSnackbar({
-        open: true,
-        message: 'Current password is incorrect.',
-        severity: 'error'
+    try {
+      // Verify current password (handles both plaintext and hashed)
+      const isValid = await passwordMigrationService.verifyPassword(
+        passwordForm.currentPassword,
+        customer.password
+      );
+
+      if (!isValid) {
+        setSnackbar({
+          open: true,
+          message: 'Current password is incorrect.',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // Check new password length
+      if (passwordForm.newPassword.length < 6) {
+        setSnackbar({
+          open: true,
+          message: 'New password must be at least 6 characters long.',
+          severity: 'warning'
+        });
+        return;
+      }
+      
+      // Check passwords match
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        setSnackbar({
+          open: true,
+          message: 'New passwords do not match.',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // Hash new password
+      const hashedPassword = await passwordHash.storeHashedPassword(passwordForm.newPassword);
+      
+      // Update password with hash (and clear passwordChangeRequiredAt if it exists)
+      const updated = bookingService.updateCustomerProfile(userEmail, {
+        password: hashedPassword,
+        passwordChangeRequiredAt: null // Clear password change requirement
       });
-      return;
-    }
-    
-    // Check new password length
-    if (passwordForm.newPassword.length < 6) {
+      
+      if (updated) {
+        setCustomer(updated);
+        setPasswordDialogOpen(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setSnackbar({
+          open: true,
+          message: 'Password changed successfully.',
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Unable to change password.',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
       setSnackbar({
         open: true,
-        message: 'New password must be at least 6 characters long.',
-        severity: 'warning'
-      });
-      return;
-    }
-    
-    // Check passwords match
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setSnackbar({
-        open: true,
-        message: 'New passwords do not match.',
-        severity: 'error'
-      });
-      return;
-    }
-    
-    // Update password
-    const updated = bookingService.updateCustomerProfile(userEmail, {
-      password: passwordForm.newPassword
-    });
-    
-    if (updated) {
-      setCustomer(updated);
-      setPasswordDialogOpen(false);
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setSnackbar({
-        open: true,
-        message: 'Password changed successfully.',
-        severity: 'success'
-      });
-    } else {
-      setSnackbar({
-        open: true,
-        message: 'Unable to change password.',
+        message: 'Error changing password: ' + error.message,
         severity: 'error'
       });
     }
@@ -765,10 +945,16 @@ const MyAccount = () => {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const handleDeleteAccount = () => {
-    if (!userEmail) return;
+  const handleDeleteAccount = async () => {
+    if (!userEmail || !customer) return;
     
     try {
+      // Log audit event before deletion
+      await auditService.logAccountDeletion(customer.id, customer.id, {
+        email: customer.email,
+        deletionReason: 'User requested',
+      });
+      
       const result = bookingService.deleteCustomerAccount(userEmail);
       if (result.success) {
         setSnackbar({
@@ -828,6 +1014,7 @@ const MyAccount = () => {
           <Tab label="Bookings" />
           <Tab label="Profile" />
           <Tab label="Certifications" />
+          <Tab label="Privacy & Data" />
         </Tabs>
       </Box>
 
@@ -1354,6 +1541,359 @@ const MyAccount = () => {
                   )})}
                 </Grid>
               )}
+            </Box>
+          )}
+
+          {/* Privacy & Data Tab */}
+          {tabValue === 3 && (
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Privacy & Data Management
+              </Typography>
+
+              {/* Data Export Section */}
+              <Card sx={{ mb: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Export My Data (GDPR Right to Data Portability)
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    You have the right to receive a copy of all your personal data in a structured, 
+                    machine-readable format. This includes your profile, bookings, certifications, and consent records.
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<FileDownloadIcon />}
+                      onClick={() => handleExportData('json')}
+                      disabled={exporting || !customer}
+                    >
+                      Export as JSON
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<FileDownloadIcon />}
+                      onClick={() => handleExportData('csv')}
+                      disabled={exporting || !customer}
+                    >
+                      Export as CSV
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              {/* DSAR Requests Section */}
+              <Card sx={{ mb: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Data Subject Access Requests (DSAR)
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    Submit a formal request to access your personal data. We will respond within 30 days as required by GDPR Article 15.
+                  </Typography>
+                  
+                  {dsarStats.total > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Active Requests:</strong> {dsarStats.pending} pending, {dsarStats.completed} completed
+                        {dsarStats.overdue > 0 && (
+                          <Chip 
+                            label={`${dsarStats.overdue} overdue`} 
+                            color="error" 
+                            size="small" 
+                            sx={{ ml: 1 }} 
+                          />
+                        )}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleCreateDsarRequest}
+                    disabled={dsarLoading || !customer}
+                    sx={{ mt: 1 }}
+                  >
+                    Submit New DSAR Request
+                  </Button>
+
+                  {dsarRequests.length > 0 && (
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="subtitle1" gutterBottom>
+                        Your DSAR Requests
+                      </Typography>
+                      {dsarRequests.map((dsar) => (
+                        <Card key={dsar.id} sx={{ mt: 2 }}>
+                          <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <Box>
+                                <Typography variant="h6" gutterBottom>
+                                  Request #{dsar.id.substring(0, 8)}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Type:</strong> {dsar.request_type === 'access' ? 'Data Access' : dsar.request_type}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Status:</strong>{' '}
+                                  <Chip 
+                                    label={dsar.status.toUpperCase()} 
+                                    size="small"
+                                    color={
+                                      dsar.status === 'completed' ? 'success' :
+                                      dsar.status === 'rejected' ? 'error' :
+                                      dsar.status === 'in_progress' ? 'warning' : 'default'
+                                    }
+                                  />
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Requested:</strong> {new Date(dsar.requested_at).toLocaleDateString()}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Deadline:</strong> {new Date(dsar.deadline).toLocaleDateString()}
+                                  {dsarService.isDsarOverdue(dsar) && (
+                                    <Chip label="OVERDUE" color="error" size="small" sx={{ ml: 1 }} />
+                                  )}
+                                  {!dsarService.isDsarOverdue(dsar) && dsar.status !== 'completed' && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                      ({dsarService.getDaysUntilDeadline(dsar.deadline)} days remaining)
+                                    </Typography>
+                                  )}
+                                </Typography>
+                                {dsar.completed_at && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Completed:</strong> {new Date(dsar.completed_at).toLocaleDateString()}
+                                  </Typography>
+                                )}
+                                {dsar.rejection_reason && (
+                                  <Alert severity="error" sx={{ mt: 1 }}>
+                                    <strong>Rejected:</strong> {dsar.rejection_reason}
+                                  </Alert>
+                                )}
+                                {dsar.status === 'completed' && dsar.response_data && (
+                                  <Alert severity="success" sx={{ mt: 1 }}>
+                                    Your data has been prepared. You can download it from the export section above.
+                                  </Alert>
+                                )}
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Consent Management Section */}
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Manage Your Consents
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    You can withdraw your consent at any time. Some consents are required for our services to function.
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    Learn more in our{' '}
+                    <Link href="/privacy-policy" target="_blank" underline="always">
+                      Privacy Policy
+                    </Link>.
+                  </Typography>
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Data Processing Consent (Required) */}
+                  <Box sx={{ mb: 3 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={consents.dataProcessing}
+                          onChange={(e) => {
+                            if (!e.target.checked) {
+                              setSnackbar({
+                                open: true,
+                                message: 'Data processing consent is required for our services. If you wish to delete your account, please contact us.',
+                                severity: 'warning'
+                              });
+                            } else {
+                              handleConsentChange('data_processing', true);
+                            }
+                          }}
+                          disabled={!customer}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body1" component="span">
+                            <strong>Data Processing (Required)</strong>
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" display="block">
+                            Required to provide dive booking services and manage your account. Cannot be withdrawn while you have an active account.
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </Box>
+
+                  {/* Medical Data Consent (Required) */}
+                  <Box sx={{ mb: 3 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={consents.medicalData}
+                          onChange={(e) => {
+                            if (!e.target.checked) {
+                              setSnackbar({
+                                open: true,
+                                message: 'Medical data processing is required for diving safety as per Spanish maritime regulations.',
+                                severity: 'warning'
+                              });
+                            } else {
+                              handleConsentChange('medical_data', true);
+                            }
+                          }}
+                          disabled={!customer}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body1" component="span">
+                            <strong>Medical Data Processing (Required)</strong>
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" display="block">
+                            Required for diving safety and compliance with Spanish maritime regulations. Cannot be withdrawn while you book dives.
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </Box>
+
+                  {/* Marketing Consent (Optional) */}
+                  <Box>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={consents.marketing}
+                          onChange={(e) => handleConsentChange('marketing', e.target.checked)}
+                          disabled={!customer}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body1" component="span">
+                            <strong>Marketing Communications (Optional)</strong>
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" display="block">
+                            Receive promotional emails about dive offers and updates. You can withdraw this consent at any time.
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+
+              {/* Data Retention Information Section */}
+              <Card sx={{ mt: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Data Retention Policies
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    Your data is retained according to our retention policies for legal and business requirements. 
+                    Learn more in our{' '}
+                    <Link href="/privacy-policy" target="_blank" underline="always">
+                      Privacy Policy
+                    </Link>.
+                  </Typography>
+                  
+                  {retentionInfo && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Your Account Status
+                      </Typography>
+                      {retentionInfo.lastActivity ? (
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            Last activity: {new Date(retentionInfo.lastActivity).toLocaleDateString()}
+                          </Typography>
+                          {retentionInfo.retentionDate && retentionInfo.retentionDate > new Date() && (
+                            <Alert severity="info" sx={{ mt: 1 }}>
+                              Your account data will be automatically deleted on{' '}
+                              <strong>{retentionInfo.retentionDate.toLocaleDateString()}</strong> if you remain inactive 
+                              (7 years after last activity).
+                            </Alert>
+                          )}
+                        </>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          Activity information not available
+                        </Typography>
+                      )}
+                      
+                      <Divider sx={{ my: 2 }} />
+                      
+                      <Typography variant="subtitle2" gutterBottom>
+                        Retention Periods
+                      </Typography>
+                      <Typography component="div" variant="body2" color="text.secondary">
+                        <ul style={{ marginTop: 8, marginBottom: 8 }}>
+                          <li><strong>Customer Accounts:</strong> {retentionInfo.retentionPolicies.customerInactive.years} years after last activity</li>
+                          <li><strong>Booking Records:</strong> {retentionInfo.retentionPolicies.bookings.years} years from booking date</li>
+                          <li><strong>Medical Certificates:</strong> {retentionInfo.retentionPolicies.medicalCertificates.years} years after expiry</li>
+                          <li><strong>Marketing Consent:</strong> Until withdrawn or {retentionInfo.retentionPolicies.marketingConsent.years} years inactive</li>
+                        </ul>
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Account Deletion Section */}
+              <Card sx={{ mt: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom color="error">
+                    Delete My Account
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    You have the right to request deletion of your personal data. This will permanently delete 
+                    your account, profile, and all associated data. Some data may be retained for legal/accounting 
+                    purposes as required by law.
+                  </Typography>
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    <strong>Warning:</strong> This action cannot be undone. All your bookings, certifications, 
+                    and profile data will be permanently deleted.
+                  </Alert>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                        try {
+                          bookingService.deleteCustomerAccount(userEmail);
+                          consentService.deleteCustomerConsents(customer.id);
+                          handleLogout();
+                          setSnackbar({
+                            open: true,
+                            message: 'Account deleted successfully',
+                            severity: 'success'
+                          });
+                        } catch (error) {
+                          setSnackbar({
+                            open: true,
+                            message: 'Error deleting account: ' + error.message,
+                            severity: 'error'
+                          });
+                        }
+                      }
+                    }}
+                    disabled={!customer}
+                  >
+                    Delete My Account
+                  </Button>
+                </CardContent>
+              </Card>
             </Box>
           )}
         </>

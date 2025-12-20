@@ -1058,7 +1058,7 @@ const CustomerForm = () => {
                   </>
                 )}
 
-            <Divider sx={{ my: 2, width: '100%' }} />
+                <Divider sx={{ my: 2, width: '100%' }} />
 
                 {/* Diving Insurance Section */}
                 <Grid item xs={12}>

@@ -6,7 +6,7 @@ const getLocations = () => {
   try {
     return JSON.parse(localStorage.getItem('dcms_locations') || '[]');
   } catch (error) {
-    console.warn('[Admin Pricing] Failed to parse locations:', error);
+    // Failed to parse locations
     return [];
   }
 };
@@ -16,12 +16,12 @@ export const getLocationPricing = (locationId) => {
   const location = locations.find((loc) => loc.id === locationId);
 
   if (!location) {
-    console.warn('[Admin Pricing] Location not found for pricing:', locationId);
+    // Location not found for pricing
     return {};
   }
 
   if (!location.pricing) {
-    console.warn('[Admin Pricing] No pricing configured for location:', location.name);
+    // No pricing configured for location
     return {};
   }
 
@@ -75,13 +75,16 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
 };
 
 export const calculateActivityPrice = (activityType, numberOfDives = 1, locationId) => {
+  const pricing = getLocationPricing(locationId);
+  
   switch (activityType) {
     case 'snorkeling':
       return 38 * numberOfDives;
-    case 'discover':
-      return 100 * numberOfDives;
+    case 'discover': {
+      const discoverPrice = pricing.customerTypes?.tourist?.discoverDive;
+      return (discoverPrice || 100) * numberOfDives;
+    }
     case 'orientation': {
-      const pricing = getLocationPricing(locationId);
       const orientationPrice = pricing.customerTypes?.tourist?.orientationDive;
       return (orientationPrice || 32) * numberOfDives;
     }

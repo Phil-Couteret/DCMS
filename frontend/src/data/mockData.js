@@ -1803,6 +1803,7 @@ export const initialMockData = {
             description: "Visiting divers with volume discounts",
             pricing: "tiered",
             orientationDive: 32.00,
+            discoverDive: 100.00,
             diveTiers: [
               { dives: 1, price: 46.00, description: "1-2 dives" },
               { dives: 3, price: 44.00, description: "3-5 dives" },
@@ -1885,6 +1886,7 @@ export const initialMockData = {
             pricing: "tiered",
             // Playitas Dive
             orientationDive: 35.00,
+            discoverDive: 100.00,
             diveTiers: [
               // Caleta Dive from Playitas
               { dives: 1, price: 45.00, description: "1-2 dives" },

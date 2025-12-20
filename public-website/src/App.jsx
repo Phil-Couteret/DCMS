@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
@@ -13,6 +13,9 @@ import Pricing from './pages/Pricing';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
 import MyAccount from './pages/MyAccount';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import passwordMigrationService from './services/passwordMigrationService';
+import dataRetentionService from './services/dataRetentionService';
 
 const theme = createTheme({
   palette: {
@@ -27,6 +30,20 @@ const theme = createTheme({
 });
 
 function App() {
+  // Clean up expired accounts and run data retention on app startup
+  useEffect(() => {
+    // Clean up accounts that exceeded password change deadline
+    passwordMigrationService.cleanupExpiredAccounts();
+    
+    // Run data retention cleanup (checks for inactive customers, old bookings, etc.)
+    // Run with a slight delay to avoid blocking app startup
+    const cleanupTimer = setTimeout(() => {
+      dataRetentionService.runDataRetentionCleanup();
+    }, 2000); // Wait 2 seconds after app loads
+    
+    return () => clearTimeout(cleanupTimer);
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -43,6 +60,7 @@ function App() {
               <Route path="/contact" element={<Contact />} />
               <Route path="/login" element={<Login />} />
               <Route path="/my-account" element={<MyAccount />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             </Routes>
           </main>
           <Footer />

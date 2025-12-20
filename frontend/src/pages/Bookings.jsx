@@ -51,15 +51,12 @@ const Bookings = () => {
       if (!isNewMode && !id) loadBookings();
     };
     const onBookingCreated = (event) => {
-      console.log('[Admin] Booking event received:', event.type, event.detail);
       if (!isNewMode && !id) {
-        console.log('[Admin] Refreshing bookings list...');
         loadBookings();
       }
     };
     const onStorageChange = (event) => {
       if (event.key === 'dcms_bookings' || !event.key) {
-        console.log('[Admin] Storage event received for bookings');
         if (!isNewMode && !id) loadBookings();
       }
     };
@@ -70,7 +67,6 @@ const Bookings = () => {
       if (!isNewMode && !id) {
         const currentBookings = dataService.getAll('bookings');
         if (currentBookings.length !== bookings.length) {
-          console.log('[Admin] Booking count changed, refreshing...', currentBookings.length, 'vs', bookings.length);
           loadBookings();
         }
       }
