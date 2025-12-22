@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,12 +17,16 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Global exception filter to catch and log all errors
+  app.useGlobalFilters(new AllExceptionsFilter());
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Temporarily disabled to allow interfaces without decorators
       transform: true,
+      disableErrorMessages: false,
     }),
   );
 

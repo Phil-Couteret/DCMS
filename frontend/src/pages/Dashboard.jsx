@@ -71,23 +71,35 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Load locations and initial selection
-    const locs = dataService.getAll('locations') || [];
-    setLocations(locs);
-    const stored = localStorage.getItem('dcms_current_location');
-    setSelectedLocationId(stored || (locs[0]?.id || null));
-    // Determine access: global admins can view all; local managers forced to their location
-    const hasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
-    const scopeFlag = localStorage.getItem('dcms_dashboard_scope');
-    const wantGlobal = scopeFlag === 'global';
-    if (hasGlobalAccess && wantGlobal) {
-      setTabScope('all');
-    } else {
-      setTabScope(stored || locs[0]?.id || 'all');
-    }
+    const loadLocations = async () => {
+      try {
+        const locs = await dataService.getAll('locations') || [];
+        if (!Array.isArray(locs)) return;
+        
+        setLocations(locs);
+        const stored = localStorage.getItem('dcms_current_location');
+        setSelectedLocationId(stored || (locs[0]?.id || null));
+        // Determine access: global admins can view all; local managers forced to their location
+        const hasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
+        const scopeFlag = localStorage.getItem('dcms_dashboard_scope');
+        const wantGlobal = scopeFlag === 'global';
+        if (hasGlobalAccess && wantGlobal) {
+          setTabScope('all');
+        } else {
+          setTabScope(stored || locs[0]?.id || 'all');
+        }
+      } catch (error) {
+        console.error('[Dashboard] Error loading locations:', error);
+      }
+    };
+    
+    loadLocations();
+    
     const onLocChange = (e) => {
       const detail = e && e.detail;
       const newLoc = (typeof detail === 'string' ? detail : (detail && detail.locationId)) || localStorage.getItem('dcms_current_location');
       setSelectedLocationId(newLoc || null);
+      const hasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
       const scope = localStorage.getItem('dcms_dashboard_scope');
       if (hasGlobalAccess && scope === 'global') {
         setTabScope('all');
@@ -96,7 +108,9 @@ const Dashboard = () => {
       }
     };
     const onBookingCreated = () => {
-      loadStats();
+      // loadStats will be defined in the next useEffect
+      // This event listener will trigger a reload
+      window.location.reload();
     };
     window.addEventListener('dcms_location_changed', onLocChange);
     window.addEventListener('storage', onLocChange);
@@ -109,52 +123,73 @@ const Dashboard = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    const loadStats = () => {
-      // Base datasets
-      const statistics = dataService.getStatistics();
-      const allBookingsData = dataService.getAll('bookings') || [];
-      const allCustomers = dataService.getAll('customers') || [];
+    const loadStats = async () => {
+      try {
+        // Base datasets - all async in API mode
+        const statistics = await dataService.getStatistics();
+        const allBookingsData = await dataService.getAll('bookings') || [];
+        const allCustomers = await dataService.getAll('customers') || [];
 
-      // Determine filtering based on tab scope
-      let locationFilteredBookings = allBookingsData;
-      if (tabScope !== 'all' && tabScope) {
-        locationFilteredBookings = allBookingsData.filter(b => b.locationId === tabScope);
+        // Ensure we have arrays
+        if (!Array.isArray(allBookingsData) || !Array.isArray(allCustomers)) {
+          console.warn('[Dashboard] Invalid data format:', { allBookingsData, allCustomers });
+          return;
+        }
+
+        // Determine filtering based on tab scope
+        let locationFilteredBookings = allBookingsData;
+        if (tabScope !== 'all' && tabScope) {
+          locationFilteredBookings = allBookingsData.filter(b => {
+            const locationId = b.locationId || b.location_id;
+            return locationId === tabScope;
+          });
+        }
+
+        // Upcoming bookings with days filter
+        const cutoff = new Date();
+        const end = new Date();
+        end.setDate(end.getDate() + daysToShow);
+        const upcoming = locationFilteredBookings.filter(b => {
+          const bookingDate = b.bookingDate || b.booking_date;
+          const d = new Date(bookingDate);
+          return d >= cutoff && d <= end;
+        }).sort((a,b)=> {
+          const dateA = new Date(a.bookingDate || a.booking_date);
+          const dateB = new Date(b.bookingDate || b.booking_date);
+          return dateA - dateB;
+        });
+
+        // Compute stats from filtered bookings
+        const todayStr = new Date().toISOString().slice(0,10);
+        const todays = locationFilteredBookings.filter(b => {
+          const bookingDate = b.bookingDate || b.booking_date;
+          return bookingDate === todayStr;
+        });
+        const todaysRevenue = todays.reduce((sum, b) => sum + parseFloat(b.totalPrice || b.total_price || 0), 0);
+        const totalRevenue = locationFilteredBookings.reduce((sum, b) => sum + parseFloat(b.totalPrice || b.total_price || 0), 0);
+        const pending = locationFilteredBookings.filter(b => (b.status || 'pending') === 'pending').length;
+        const confirmed = locationFilteredBookings.filter(b => (b.status || 'pending') === 'confirmed').length;
+
+        setStats({
+          totalBookings: locationFilteredBookings.length,
+          todaysBookings: todays.length,
+          totalRevenue,
+          todaysRevenue,
+          pendingBookings: pending,
+          confirmedBookings: confirmed
+        });
+
+        setAllBookings(locationFilteredBookings);
+        setAllBookingsGlobal(allBookingsData);
+        setUpcomingBookings(upcoming);
+        setCustomers(allCustomers);
+      } catch (error) {
+        console.error('[Dashboard] Error loading stats:', error);
       }
-
-      // Upcoming bookings with days filter
-      const cutoff = new Date();
-      const end = new Date();
-      end.setDate(end.getDate() + daysToShow);
-      const upcoming = locationFilteredBookings.filter(b => {
-        const d = new Date(b.bookingDate);
-        return d >= cutoff && d <= end;
-      }).sort((a,b)=> new Date(a.bookingDate)-new Date(b.bookingDate));
-
-      // Compute stats from filtered bookings
-      const todayStr = new Date().toISOString().slice(0,10);
-      const todays = locationFilteredBookings.filter(b => b.bookingDate === todayStr);
-      const todaysRevenue = todays.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
-      const totalRevenue = locationFilteredBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
-      const pending = locationFilteredBookings.filter(b => b.status === 'pending').length;
-      const confirmed = locationFilteredBookings.filter(b => b.status === 'confirmed').length;
-
-      setStats({
-        totalBookings: locationFilteredBookings.length,
-        todaysBookings: todays.length,
-        totalRevenue,
-        todaysRevenue,
-        pendingBookings: pending,
-        confirmedBookings: confirmed
-      });
-
-      setAllBookings(locationFilteredBookings);
-      setAllBookingsGlobal(allBookingsData);
-      setUpcomingBookings(upcoming);
-      setCustomers(allCustomers);
     };
 
     loadStats();
-    const interval = setInterval(loadStats, 5000);
+    const interval = setInterval(() => loadStats(), 5000);
     return () => clearInterval(interval);
   }, [daysToShow, tabScope, selectedLocationId]);
 

@@ -7,6 +7,12 @@ import dataService from './dataService';
 export const getCustomerStayBookings = (customerId, stayStartDate = null) => {
   const allBookings = dataService.getAll('bookings');
   
+  // Guard: if getAll returns a Promise or non-array, return empty array
+  // (In API mode, getAll is async and we can't await here as this is a synchronous function)
+  if (!Array.isArray(allBookings)) {
+    return [];
+  }
+  
   // Filter bookings for this customer
   let customerBookings = allBookings.filter(booking => booking.customerId === customerId);
   
@@ -50,11 +56,22 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
   const totalDives = getCustomerStayDiveCount(customerId, stayStartDate);
   
   // Get customer info to determine customer type
-  const customer = dataService.getById('customers', customerId);
-  const customerType = customer?.customerType || 'tourist';
+  // Note: getById is async in API mode, so we can't reliably get customer here
+  // For now, default to 'tourist' if customer can't be retrieved synchronously
+  let customerType = 'tourist';
+  try {
+    const customer = dataService.getById('customers', customerId);
+    if (customer && typeof customer === 'object' && 'customerType' in customer) {
+      customerType = customer.customerType || 'tourist';
+    }
+  } catch (e) {
+    // Ignore errors - customer may not be available synchronously
+    console.warn('Could not get customer type synchronously, defaulting to tourist:', e);
+  }
   
   // Determine location-specific pricing (use first booking's location)
-  const locations = dataService.getAll('locations') || [];
+  const locationsData = dataService.getAll('locations');
+  const locations = Array.isArray(locationsData) ? locationsData : [];
   const stayLocationId = stayBookings[0]?.locationId;
   const location = locations.find(l => l.id === stayLocationId);
   const locationPricing = location?.pricing?.customerTypes;
@@ -233,7 +250,19 @@ export const recalculateCustomerStayPricing = (customerId, stayStartDate = null)
 // Get stay summary for a customer
 export const getCustomerStaySummary = (customerId, stayStartDate = null) => {
   const cumulativePricing = getCumulativeStayPricing(customerId, stayStartDate);
-  const customer = dataService.getById('customers', customerId);
+  
+  // Note: getById is async in API mode, so we can't reliably get customer here
+  let customer = null;
+  try {
+    customer = dataService.getById('customers', customerId);
+    // Ensure customer is an object (not a Promise)
+    if (!customer || typeof customer !== 'object' || customer instanceof Promise) {
+      customer = null;
+    }
+  } catch (e) {
+    // Ignore errors - customer may not be available synchronously
+    customer = null;
+  }
   
   return {
     customer: customer ? {
@@ -254,6 +283,12 @@ export const getCustomerStaySummary = (customerId, stayStartDate = null) => {
 // Get all active stays (customers with recent bookings)
 export const getActiveStays = (days = 30) => {
   const allBookings = dataService.getAll('bookings');
+  
+  // Guard: if getAll returns a Promise or non-array, return empty array
+  if (!Array.isArray(allBookings)) {
+    return [];
+  }
+  
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
   

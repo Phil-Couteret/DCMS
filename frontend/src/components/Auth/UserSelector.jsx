@@ -33,9 +33,17 @@ const UserSelector = ({ open, onClose }) => {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    // Load all users from localStorage
-    const allUsers = dataService.getAll('users');
-    setUsers(allUsers);
+    // Load all users - in API mode, this falls back to localStorage for users
+    const loadUsers = async () => {
+      try {
+        const allUsers = await dataService.getAll('users') || [];
+        setUsers(Array.isArray(allUsers) ? allUsers : []);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        setUsers([]);
+      }
+    };
+    loadUsers();
   }, []);
 
   const handleUserSelect = (user) => {

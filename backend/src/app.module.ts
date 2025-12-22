@@ -6,11 +6,12 @@ import { ConsentsModule } from './consents/consents.module';
 import { AuditModule } from './audit/audit.module';
 import { DsarModule } from './dsar/dsar.module';
 import { BreachesModule } from './breaches/breaches.module';
-// Import modules (to be created)
-// import { BookingsModule } from './modules/bookings/bookings.module';
-// import { CustomersModule } from './modules/customers/customers.module';
-// import { EquipmentModule } from './modules/equipment/equipment.module';
-// import { LocationsModule } from './modules/locations/locations.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { CustomersModule } from './customers/customers.module';
+import { EquipmentModule } from './equipment/equipment.module';
+import { LocationsModule } from './locations/locations.module';
+import { BoatsModule } from './boats/boats.module';
+import { StatisticsModule } from './statistics/statistics.module';
 
 @Module({
   imports: [
@@ -22,10 +23,12 @@ import { BreachesModule } from './breaches/breaches.module';
     AuditModule,
     DsarModule,
     BreachesModule,
-    // BookingsModule,
-    // CustomersModule,
-    // EquipmentModule,
-    // LocationsModule,
+    BookingsModule,
+    CustomersModule,
+    EquipmentModule,
+    LocationsModule,
+    BoatsModule,
+    StatisticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

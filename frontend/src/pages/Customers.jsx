@@ -41,6 +41,26 @@ const Customers = () => {
 
   const [customers, setCustomers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [locations, setLocations] = useState([]);
+  const [isBikeRental, setIsBikeRental] = useState(false);
+
+  // Check if current location is bike rental
+  useEffect(() => {
+    const checkLocation = async () => {
+      try {
+        const allLocations = await dataService.getAll('locations') || [];
+        if (Array.isArray(allLocations)) {
+          setLocations(allLocations);
+          const currentLocationId = localStorage.getItem('dcms_current_location');
+          const currentLocation = allLocations.find(l => l.id === currentLocationId);
+          setIsBikeRental(currentLocation?.type === 'bike_rental');
+        }
+      } catch (error) {
+        console.error('Error loading locations:', error);
+      }
+    };
+    checkLocation();
+  }, []);
 
   useEffect(() => {
     if (!mode && !customerId) {
@@ -73,11 +93,16 @@ const Customers = () => {
     window.addEventListener('dcms_customers_synced', onSync);
     
     // Poll for changes every 2 seconds (since different ports = separate localStorage)
-    const pollInterval = setInterval(() => {
+    const pollInterval = setInterval(async () => {
       if (!mode && !customerId) {
-        const currentCount = dataService.getAll('customers').length;
-        if (currentCount !== customers.length) {
-          loadCustomers();
+        try {
+          const allCustomers = await dataService.getAll('customers');
+          const currentCount = Array.isArray(allCustomers) ? allCustomers.length : 0;
+          if (currentCount !== customers.length) {
+            loadCustomers();
+          }
+        } catch (error) {
+          // Ignore polling errors
         }
       }
     }, 2000);
@@ -94,9 +119,19 @@ const Customers = () => {
     };
   }, [mode, customerId, customers.length]);
 
-  const loadCustomers = () => {
-    const allCustomers = dataService.getAll('customers');
-    setCustomers(allCustomers);
+  const loadCustomers = async () => {
+    try {
+      const allCustomers = await dataService.getAll('customers');
+      // Ensure we have an array
+      if (Array.isArray(allCustomers)) {
+        setCustomers(allCustomers);
+      } else {
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      setCustomers([]);
+    }
   };
 
   const handleSyncFromServer = async () => {
@@ -114,11 +149,20 @@ const Customers = () => {
     }
   };
 
-  const handleSearch = (query) => {
+  const handleSearch = async (query) => {
     setSearchQuery(query);
     if (query.trim()) {
-      const results = dataService.searchCustomers(query);
-      setCustomers(results);
+      try {
+        const results = await dataService.searchCustomers(query);
+        if (Array.isArray(results)) {
+          setCustomers(results);
+        } else {
+          setCustomers([]);
+        }
+      } catch (error) {
+        console.error('Error searching customers:', error);
+        setCustomers([]);
+      }
     } else {
       loadCustomers();
     }
@@ -178,7 +222,7 @@ const Customers = () => {
         />
       </Box>
 
-      {customers.length === 0 ? (
+      {!Array.isArray(customers) || customers.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <PeopleIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -202,7 +246,7 @@ const Customers = () => {
       ) : (
         <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {customers.map((customer) => (
+            {Array.isArray(customers) && customers.map((customer) => (
               <Accordion key={customer.id}>
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
@@ -213,54 +257,67 @@ const Customers = () => {
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 2 }}>
-                    <Typography variant="body1" fontWeight="medium">
-                      {customer.firstName} {customer.lastName}
+                    <Typography variant="body1" fontWeight="medium" sx={{ color: 'text.primary' }}>
+                      {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.email || 'Unknown Customer'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Chip 
-                        label={customer.customerType || 'tourist'} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                      <Chip 
-                        label={`Skill: ${customer.centerSkillLevel || 'beginner'}`}
-                        size="small"
-                        color="info"
-                        variant="outlined"
-                      />
-                      <Chip 
-                        label={customer.isApproved ? 'Approved' : 'Pending'}
-                        size="small"
-                        color={customer.isApproved ? 'success' : 'warning'}
-                        variant={customer.isApproved ? 'filled' : 'outlined'}
-                        icon={customer.isApproved ? <VerifiedIcon /> : <PendingIcon />}
-                      />
-                      {isAdmin() && (
-                        <Button
-                          size="small"
-                          variant={customer.isApproved ? 'outlined' : 'contained'}
-                          color={customer.isApproved ? 'error' : 'success'}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Get fresh customer data to preserve all fields
-                            const freshCustomer = dataService.getById('customers', customer.id);
-                            if (freshCustomer) {
-                              const updatedCustomer = {
-                                ...freshCustomer, // Preserve all existing fields
-                                isApproved: !freshCustomer.isApproved,
-                                updatedAt: new Date().toISOString()
-                              };
-                              dataService.update('customers', customer.id, updatedCustomer);
-                              // Reload after a short delay to ensure update is saved
-                              setTimeout(() => {
-                                loadCustomers();
-                              }, 100);
-                            }
-                          }}
-                          sx={{ minWidth: '100px' }}
-                        >
-                          {customer.isApproved ? 'Revoke' : 'Approve'}
-                        </Button>
+                      {/* Customer Type and Skill Level - only for diving locations */}
+                      {!isBikeRental && (
+                        <>
+                          <Chip 
+                            label={customer.customerType || 'tourist'} 
+                            size="small" 
+                            variant="outlined"
+                          />
+                          <Chip 
+                            label={`Skill: ${customer.centerSkillLevel || 'beginner'}`}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        </>
+                      )}
+                      {/* Approval status - only for diving locations */}
+                      {!isBikeRental && (
+                        <>
+                          <Chip 
+                            label={customer.isApproved ? 'Approved' : 'Pending'}
+                            size="small"
+                            color={customer.isApproved ? 'success' : 'warning'}
+                            variant={customer.isApproved ? 'filled' : 'outlined'}
+                            icon={customer.isApproved ? <VerifiedIcon /> : <PendingIcon />}
+                          />
+                          {isAdmin() && (
+                            <Button
+                              size="small"
+                              variant={customer.isApproved ? 'outlined' : 'contained'}
+                              color={customer.isApproved ? 'error' : 'success'}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  // Get fresh customer data to preserve all fields
+                                  const freshCustomer = await dataService.getById('customers', customer.id);
+                                  if (freshCustomer) {
+                                    const updatedCustomer = {
+                                      ...freshCustomer, // Preserve all existing fields
+                                      isApproved: !freshCustomer.isApproved,
+                                      updatedAt: new Date().toISOString()
+                                    };
+                                    await dataService.update('customers', customer.id, updatedCustomer);
+                                    // Reload after update
+                                    await loadCustomers();
+                                  }
+                                } catch (error) {
+                                  console.error('Error updating customer approval:', error);
+                                  alert('Error updating customer approval. Please try again.');
+                                }
+                              }}
+                              sx={{ minWidth: '100px' }}
+                            >
+                              {customer.isApproved ? 'Revoke' : 'Approve'}
+                            </Button>
+                          )}
+                        </>
                       )}
                       <Typography variant="body2" color="text.secondary">
                         {customer.email}
@@ -291,12 +348,15 @@ const Customers = () => {
                       {t('customers.nationality')}: {customer.nationality}
                     </Typography>
                   )}
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {t('customers.type')}: {customer.customerType || 'tourist'}
-                  </Typography>
+                  {/* Customer Type - only for diving locations */}
+                  {!isBikeRental && (
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {t('customers.type')}: {customer.customerType || 'tourist'}
+                    </Typography>
+                  )}
                   
-                  {/* Medical Certificate Status */}
-                  {customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
+                  {/* Medical Certificate Status - only for diving locations */}
+                  {!isBikeRental && customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                         {t('customers.medicalCertificate') || 'Medical Certificate'}:
@@ -335,8 +395,8 @@ const Customers = () => {
                     </Box>
                       )}
 
-                      {/* Diving Insurance Status */}
-                      {customer.divingInsurance && customer.divingInsurance.hasInsurance && (
+                      {/* Diving Insurance Status - only for diving locations */}
+                      {!isBikeRental && customer.divingInsurance && customer.divingInsurance.hasInsurance && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                         {t('customers.divingInsurance') || 'Diving Insurance'}:
@@ -375,8 +435,8 @@ const Customers = () => {
                     </Box>
                       )}
                       
-                      {/* Certifications */}
-                      {customer.certifications && customer.certifications.length > 0 && (
+                      {/* Certifications - only for diving locations */}
+                      {!isBikeRental && customer.certifications && customer.certifications.length > 0 && (
                         <Box sx={{ mt: 2 }}>
                           <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                             {t('customers.certifications') || 'Certifications'}:

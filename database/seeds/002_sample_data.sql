@@ -14,9 +14,9 @@ INSERT INTO locations (id, name, type, address, contact_info) VALUES
 ('550e8400-e29b-41d4-a716-446655440002', 'Las Playitas', 'diving',
  '{"street": "Hotel Gran Resort Las Playitas", "city": "Las Playitas", "postal_code": "35610", "country": "Spain"}',
  '{"phone": "+34 653 512 638", "email": "playitas@deep-blue-diving.com", "website": "deep-blue-diving.com"}'),
-('550e8400-e29b-41d4-a716-446655440003', 'Hotel Mar', 'bike_rental',
- '{"street": "Hotel Mar", "city": "Fuerteventura", "postal_code": "35610", "country": "Spain"}',
- '{"phone": "+34 928 123 458", "email": "hotelmar@deep-blue-diving.com", "website": "deep-blue-diving.com"}');
+('550e8400-e29b-41d4-a716-446655440003', 'Bike Rental', 'bike_rental',
+ '{"street": "Bike Rental Location", "city": "Fuerteventura", "postal_code": "35610", "country": "Spain"}',
+ '{"phone": "+34 928 123 458", "email": "bikerental@deep-blue-cycling.com", "website": "deep-blue-cycling.com"}');
 
 -- Boats (Deep Blue Diving - 4 Bombard Explorer boats, capacity 10 each)
 INSERT INTO boats (location_id, name, capacity, equipment_onboard) VALUES

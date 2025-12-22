@@ -23,7 +23,8 @@ import {
   FormControlLabel
 } from '@mui/material';
 import {
-  ScubaDiving as EquipmentIcon,
+  ScubaDiving as DivingEquipmentIcon,
+  DirectionsBike as BikeEquipmentIcon,
   Search as SearchIcon,
   CheckCircle as AvailableIcon,
   Cancel as UnavailableIcon,
@@ -57,6 +58,7 @@ const Equipment = () => {
   
   const [equipment, setEquipment] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [currentLocation, setCurrentLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -94,22 +96,97 @@ const Equipment = () => {
   useEffect(() => {
     loadEquipment();
     loadLocations();
+    loadCurrentLocation();
   }, [currentLocationId, isGlobalAdmin]);
 
-  const loadEquipment = () => {
-    const allEquipment = dataService.getAll('equipment');
-    // For site managers, only show equipment for their location
-    const filteredEquipment = isGlobalAdmin 
-      ? allEquipment 
-      : allEquipment.filter(eq => eq.locationId === currentLocationId);
-    setEquipment(filteredEquipment);
+  const loadCurrentLocation = async () => {
+    try {
+      if (currentLocationId) {
+        const allLocations = await dataService.getAll('locations') || [];
+        const loc = allLocations.find(l => l.id === currentLocationId);
+        setCurrentLocation(loc);
+      }
+    } catch (error) {
+      console.error('Error loading current location:', error);
+    }
   };
 
-  const loadLocations = () => {
-    if (isGlobalAdmin) {
-      const allLocations = dataService.getAll('locations');
-      setLocations(allLocations);
+  const loadEquipment = async () => {
+    try {
+      const allEquipment = await dataService.getAll('equipment') || [];
+      // For site managers, only show equipment for their location
+      const filteredEquipment = isGlobalAdmin 
+        ? allEquipment 
+        : allEquipment.filter(eq => (eq.locationId || eq.location_id) === currentLocationId);
+      setEquipment(Array.isArray(filteredEquipment) ? filteredEquipment : []);
+    } catch (error) {
+      console.error('Error loading equipment:', error);
+      setEquipment([]);
     }
+  };
+
+  const loadLocations = async () => {
+    try {
+      if (isGlobalAdmin) {
+        const allLocations = await dataService.getAll('locations') || [];
+        setLocations(Array.isArray(allLocations) ? allLocations : []);
+      }
+    } catch (error) {
+      console.error('Error loading locations:', error);
+      setLocations([]);
+    }
+  };
+
+  // Check if current location is bike rental
+  const isBikeRental = currentLocation?.type === 'bike_rental';
+  
+  // Get bike rental equipment from location pricing
+  const getBikeRentalEquipment = () => {
+    if (!isBikeRental || !currentLocation) return [];
+    
+    const pricing = currentLocation.pricing || currentLocation.settings?.pricing || {};
+    const bikeTypes = pricing.bikeTypes || {};
+    const rentalEquipment = pricing.equipment || {};
+    
+    const items = [];
+    
+    // Add bike types
+    Object.entries(bikeTypes).forEach(([key, bikeType]) => {
+      items.push({
+        id: `bike-type-${key}`,
+        name: bikeType.name || key,
+        category: 'bike_type',
+        type: 'bike_type',
+        description: bikeType.description || '',
+        locationId: currentLocationId,
+        isAvailable: true,
+        isBikeType: true,
+        bikeTypeKey: key
+      });
+    });
+    
+    // Add rental equipment
+    Object.entries(rentalEquipment).forEach(([key, price]) => {
+      const equipmentNames = {
+        click_pedals: 'Click Pedals',
+        helmet: 'Helmet',
+        gps_computer: 'GPS Computer'
+      };
+      items.push({
+        id: `rental-equipment-${key}`,
+        name: equipmentNames[key] || key,
+        category: 'rental_equipment',
+        type: 'rental_equipment',
+        description: `Rental equipment - Charged once per rental`,
+        price: price,
+        locationId: currentLocationId,
+        isAvailable: true,
+        isRentalEquipment: true,
+        equipmentKey: key
+      });
+    });
+    
+    return items;
   };
 
   const handleSearch = (query) => {
@@ -123,12 +200,12 @@ const Equipment = () => {
     }
     setFormData({
       name: '',
-      category: '',
-      type: '',
+      category: isBikeRental ? 'bike_equipment' : 'diving',
+      type: isBikeRental ? 'bike_accessory' : '',
       size: '',
       serialNumber: '',
       condition: 'excellent',
-      locationId: '',
+      locationId: isGlobalAdmin ? '' : currentLocationId,
       isAvailable: true,
       notes: '',
       brand: '',
@@ -161,9 +238,9 @@ const Equipment = () => {
     setAddDialogOpen(true);
   };
 
-  const handleToggleAvailability = (item) => {
+  const handleToggleAvailability = async (item) => {
     const updated = { ...item, isAvailable: !item.isAvailable };
-    dataService.update('equipment', item.id, updated);
+    await dataService.update('equipment', item.id, updated);
     setSnackbar({ 
       open: true, 
       message: `Equipment marked as ${!item.isAvailable ? 'available' : 'unavailable'}`, 
@@ -172,7 +249,7 @@ const Equipment = () => {
     loadEquipment();
   };
 
-  const handleSaveEquipment = () => {
+  const handleSaveEquipment = async () => {
     if (!canManageEquipment) {
       setSnackbar({ open: true, message: 'You do not have permission to save equipment', severity: 'error' });
       return;
@@ -188,27 +265,37 @@ const Equipment = () => {
       return;
     }
 
-    if (editingEquipment) {
-      dataService.update('equipment', editingEquipment.id, formData);
-      setSnackbar({ open: true, message: 'Equipment updated successfully', severity: 'success' });
-    } else {
-      dataService.create('equipment', formData);
-      setSnackbar({ open: true, message: 'Equipment added successfully', severity: 'success' });
-    }
+    try {
+      if (editingEquipment) {
+        await dataService.update('equipment', editingEquipment.id, formData);
+        setSnackbar({ open: true, message: 'Equipment updated successfully', severity: 'success' });
+      } else {
+        await dataService.create('equipment', formData);
+        setSnackbar({ open: true, message: 'Equipment added successfully', severity: 'success' });
+      }
 
-    loadEquipment();
-    setAddDialogOpen(false);
+      loadEquipment();
+      setAddDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving equipment:', error);
+      setSnackbar({ open: true, message: 'Error saving equipment', severity: 'error' });
+    }
   };
 
-  const handleDeleteEquipment = (id) => {
+  const handleDeleteEquipment = async (id) => {
     if (!canManageEquipment) {
       setSnackbar({ open: true, message: 'You do not have permission to delete equipment', severity: 'error' });
       return;
     }
     if (window.confirm('Are you sure you want to delete this equipment?')) {
-      dataService.remove('equipment', id);
-      setSnackbar({ open: true, message: 'Equipment deleted successfully', severity: 'success' });
-      loadEquipment();
+      try {
+        await dataService.remove('equipment', id);
+        setSnackbar({ open: true, message: 'Equipment deleted successfully', severity: 'success' });
+        loadEquipment();
+      } catch (error) {
+        console.error('Error deleting equipment:', error);
+        setSnackbar({ open: true, message: 'Error deleting equipment', severity: 'error' });
+      }
     }
   };
 
@@ -270,7 +357,13 @@ const Equipment = () => {
     reader.readAsText(file);
   };
 
-  const filteredEquipment = equipment.filter(eq => {
+  // Get equipment list - for bike rental, only show bike rental equipment from pricing
+  // For diving locations, only show diving equipment (separate, no mixing)
+  const allEquipmentList = isBikeRental 
+    ? getBikeRentalEquipment() // Only bike equipment for bike rental locations
+    : equipment; // Only diving equipment for diving locations
+
+  const filteredEquipment = allEquipmentList.filter(eq => {
     const matchesSearch = searchQuery.trim() === '' ||
       eq.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       eq.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -278,7 +371,7 @@ const Equipment = () => {
       eq.size?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       eq.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesType = filterType === 'all' || eq.type === filterType;
+    const matchesType = filterType === 'all' || eq.type === filterType || eq.category === filterType;
     
     return matchesSearch && matchesType;
   });
@@ -293,17 +386,19 @@ const Equipment = () => {
     return colors[condition] || 'default';
   };
 
-  const availableCount = equipment.filter(eq => eq.isAvailable).length;
-  const totalCount = equipment.length;
+  const availableCount = allEquipmentList.filter(eq => eq.isAvailable).length;
+  const totalCount = allEquipmentList.length;
 
-  const overdueCount = equipment.filter(eq => getRevisionStatus(eq.nextRevisionDate) === 'overdue').length;
-  const dueSoonCount = equipment.filter(eq => getRevisionStatus(eq.nextRevisionDate) === 'dueSoon').length;
+  const overdueCount = allEquipmentList.filter(eq => getRevisionStatus(eq.nextRevisionDate) === 'overdue').length;
+  const dueSoonCount = allEquipmentList.filter(eq => getRevisionStatus(eq.nextRevisionDate) === 'dueSoon').length;
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          {isGlobalAdmin ? 'Global Equipment Inventory' : t('equipment.title')}
+          {isBikeRental 
+            ? 'Bike Rental Equipment' 
+            : (isGlobalAdmin ? 'Global Equipment Inventory' : t('equipment.title'))}
         </Typography>
         {canManageEquipment && (
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -414,25 +509,38 @@ const Equipment = () => {
             onChange={(e) => setFilterType(e.target.value)}
           >
             <MenuItem value="all">All Types</MenuItem>
-            <MenuItem value="BCD">BCD</MenuItem>
-            <MenuItem value="Regulator">Regulator</MenuItem>
-            <MenuItem value="Mask">Mask</MenuItem>
-            <MenuItem value="Fins">Fins</MenuItem>
-            <MenuItem value="Boots">Boots</MenuItem>
-            <MenuItem value="Wetsuit">Wetsuit</MenuItem>
-            <MenuItem value="Semi-Dry">Semi-Dry</MenuItem>
-            <MenuItem value="Dry Suit">Dry Suit</MenuItem>
-            <MenuItem value="Tank">Tank</MenuItem>
-            <MenuItem value="Computer">Computer</MenuItem>
-            <MenuItem value="Torch">Torch</MenuItem>
-            <MenuItem value="Accessory">Accessory</MenuItem>
+            {isBikeRental ? (
+              <>
+                <MenuItem value="bike_type">Bike Types</MenuItem>
+                <MenuItem value="rental_equipment">Rental Equipment</MenuItem>
+              </>
+            ) : (
+              <>
+                <MenuItem value="BCD">BCD</MenuItem>
+                <MenuItem value="Regulator">Regulator</MenuItem>
+                <MenuItem value="Mask">Mask</MenuItem>
+                <MenuItem value="Fins">Fins</MenuItem>
+                <MenuItem value="Boots">Boots</MenuItem>
+                <MenuItem value="Wetsuit">Wetsuit</MenuItem>
+                <MenuItem value="Semi-Dry">Semi-Dry</MenuItem>
+                <MenuItem value="Dry Suit">Dry Suit</MenuItem>
+                <MenuItem value="Tank">Tank</MenuItem>
+                <MenuItem value="Computer">Computer</MenuItem>
+                <MenuItem value="Torch">Torch</MenuItem>
+                <MenuItem value="Accessory">Accessory</MenuItem>
+              </>
+            )}
           </Select>
         </FormControl>
       </Box>
 
       {filteredEquipment.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <EquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          {isBikeRental ? (
+            <BikeEquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          ) : (
+            <DivingEquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          )}
           <Typography variant="h6" color="text.secondary" gutterBottom>
             {searchQuery ? (t('equipment.noResults') || 'No equipment found') : (t('equipment.noEquipment') || 'No equipment registered')}
           </Typography>
@@ -445,7 +553,9 @@ const Equipment = () => {
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Typography variant="h6">
-                      {item.brand} {item.model}
+                      {isBikeRental && (item.isBikeType || item.isRentalEquipment) 
+                        ? item.name 
+                        : `${item.brand || ''} ${item.model || ''}`.trim() || item.name}
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                       {item.isAvailable ? (
@@ -474,9 +584,22 @@ const Equipment = () => {
                     </Box>
                   </Box>
 
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Type: {item.type} {item.size ? `(${item.size})` : ''}
-                  </Typography>
+                  {isBikeRental && (item.isBikeType || item.isRentalEquipment) ? (
+                    <>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        {item.description || `Type: ${item.type}`}
+                      </Typography>
+                      {item.price && (
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Price: €{item.price.toFixed(2)}
+                        </Typography>
+                      )}
+                    </>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Type: {item.type} {item.size ? `(${item.size})` : ''}
+                    </Typography>
+                  )}
                   {item.serialNumber && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Serial: {item.serialNumber}
@@ -508,15 +631,22 @@ const Equipment = () => {
                       )}
                     </>
                   )}
-                  <Box sx={{ mt: 2 }}>
-                    <Chip
-                      label={item.condition || 'excellent'}
-                      color={getConditionColor(item.condition)}
-                      size="small"
-                    />
-                  </Box>
+                  {!isBikeRental || (!item.isBikeType && !item.isRentalEquipment) ? (
+                    <Box sx={{ mt: 2 }}>
+                      <Chip
+                        label={item.condition || 'excellent'}
+                        color={getConditionColor(item.condition)}
+                        size="small"
+                      />
+                    </Box>
+                  ) : null}
                   <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                    {canManageEquipment ? (
+                    {/* Bike rental equipment from pricing is read-only, show info only */}
+                    {isBikeRental && (item.isBikeType || item.isRentalEquipment) ? (
+                      <Alert severity="info" sx={{ width: '100%', py: 0.5 }}>
+                        {item.isBikeType ? 'Bike type configured in Settings > Prices' : 'Pricing configured in Settings > Prices'}
+                      </Alert>
+                    ) : canManageEquipment ? (
                       <>
                         <Button
                           size="small"

@@ -23,7 +23,8 @@ import {
   Dashboard as DashboardIcon,
   Event as BookingsIcon,
   People as CustomersIcon,
-  ScubaDiving as EquipmentIcon,
+  ScubaDiving as DivingEquipmentIcon,
+  DirectionsBike as BikeEquipmentIcon,
   Inventory as MaterialsIcon,
   Settings as SettingsIcon,
   Add as AddIcon,
@@ -52,6 +53,7 @@ const Navigation = () => {
   const [locations, setLocations] = useState([]);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [boats, setBoats] = useState([]);
 
   // Build menu items by scope
   const userHasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
@@ -66,10 +68,20 @@ const Navigation = () => {
   // Get current location's boats to determine menu text
   const currentLocationId = selectedLocationId || localStorage.getItem('dcms_current_location');
   const boatsForLocation = React.useMemo(() => {
-    if (!currentLocationId) return [];
-    return (dataService.getAll('boats') || []).filter(b => b.locationId === currentLocationId && b.isActive);
-  }, [currentLocationId]);
+    if (!currentLocationId || !Array.isArray(boats)) return [];
+    return boats.filter(b => {
+      const boatLocationId = b.locationId || b.location_id;
+      const boatIsActive = b.isActive !== undefined ? b.isActive : b.is_active;
+      return boatLocationId === currentLocationId && boatIsActive;
+    });
+  }, [currentLocationId, boats]);
   const hasBoats = boatsForLocation.length > 0;
+  
+  // Determine if the currently selected location is a bike rental
+  const isBikeRentalLocation = selectedLocationId ? (locations.find(l => l.id === selectedLocationId)?.type === 'bike_rental') : false;
+  
+  // Get the appropriate equipment icon based on location type
+  const EquipmentIcon = isBikeRentalLocation ? BikeEquipmentIcon : DivingEquipmentIcon;
   
   // Build location menu items - organized by workflow
   const locationMenu = [
@@ -101,10 +113,29 @@ const Navigation = () => {
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.INTERN] },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.INTERN] }
   ];
+
   // Filter menu items based on role and permissions
   const allMenuItems = scope === 'global' ? globalMenu : locationMenu;
   const menuItems = allMenuItems.filter(item => {
     if (!currentUser) return false;
+
+    // For bike rental locations, hide dive-specific menu items
+    // Bike rental still has bookings and customers (just bike rental bookings/customers)
+    // Bike rental is a completely separate activity with data from another website
+    if (isBikeRentalLocation && scope === 'location') {
+      // Only hide dive-specific paths: boat-prep and stays (dive-specific)
+      const diveRelatedPaths = ['/boat-prep', '/stays'];
+      if (diveRelatedPaths.includes(item.path)) {
+        return false;
+      }
+      // Only hide dive-specific permissions: boatPrep and stays
+      const diveRelatedPermissions = ['boatPrep', 'stays'];
+      if (diveRelatedPermissions.includes(item.permission)) {
+        return false;
+      }
+      // Allow bookings, customers, and equipment for bike rental
+      // (they will show bike rental bookings/customers/equipment)
+    }
     
     // Check permission - this now uses the permission-based system
     return canAccess(item.permission);
@@ -117,30 +148,52 @@ const Navigation = () => {
 
   // Load locations and initialize selected location
   React.useEffect(() => {
-    try {
-      const allLocations = dataService.getAll('locations') || [];
-      // Determine accessible locations based on user rights
-      let accessible = allLocations;
-      if (currentUser && Array.isArray(currentUser.locationAccess)) {
-        // Treat empty array as global access (all locations)
-        if (currentUser.locationAccess.length > 0) {
-          accessible = allLocations.filter(loc => currentUser.locationAccess.includes(loc.id));
+    const loadLocations = async () => {
+      try {
+        const allLocations = await dataService.getAll('locations') || [];
+        if (!Array.isArray(allLocations)) return;
+        
+        // Determine accessible locations based on user rights
+        let accessible = allLocations;
+        if (currentUser && Array.isArray(currentUser.locationAccess)) {
+          // Treat empty array as global access (all locations)
+          if (currentUser.locationAccess.length > 0) {
+            accessible = allLocations.filter(loc => currentUser.locationAccess.includes(loc.id));
+          }
         }
-      }
-      setLocations(accessible);
+        setLocations(accessible);
 
-      // Initialize selected location from localStorage or default to first accessible
-      const stored = localStorage.getItem('dcms_current_location');
-      const existsInAccessible = accessible.find(l => l.id === stored);
-      const initial = existsInAccessible ? existsInAccessible.id : (accessible[0]?.id || null);
-      setSelectedLocationId(initial);
-      if (initial) {
-        localStorage.setItem('dcms_current_location', initial);
+        // Initialize selected location from localStorage or default to first accessible
+        const stored = localStorage.getItem('dcms_current_location');
+        const existsInAccessible = accessible.find(l => l.id === stored);
+        const initial = existsInAccessible ? existsInAccessible.id : (accessible[0]?.id || null);
+        setSelectedLocationId(initial);
+        if (initial) {
+          localStorage.setItem('dcms_current_location', initial);
+        }
+      } catch (e) {
+        console.error('[Navigation] Error loading locations:', e);
       }
-    } catch (e) {
-      // noop
-    }
+    };
+    
+    loadLocations();
   }, [currentUser]);
+
+  // Load boats
+  React.useEffect(() => {
+    const loadBoats = async () => {
+      try {
+        const allBoats = await dataService.getAll('boats') || [];
+        if (Array.isArray(allBoats)) {
+          setBoats(allBoats);
+        }
+      } catch (e) {
+        console.error('[Navigation] Error loading boats:', e);
+      }
+    };
+    
+    loadBoats();
+  }, []);
 
   const selectLocation = (newLocationId) => {
     if (!newLocationId) return;

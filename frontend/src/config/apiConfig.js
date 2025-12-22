@@ -3,10 +3,10 @@
 
 export const API_CONFIG = {
   // Set to 'mock' for localStorage, 'api' for real backend
-  mode: 'mock',
+  mode: 'api', // Changed to 'api' to use database
   
   // Backend API base URL (used when mode === 'api')
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3003/api',
   
   // Request timeout (milliseconds)
   timeout: 30000,

@@ -40,43 +40,69 @@ const Prices = () => {
   });
 
   useEffect(() => {
-    loadSettings();
-    loadLocations();
+    loadSettings().catch(err => console.error('Error loading settings:', err));
+    loadLocations().catch(err => console.error('Error loading locations:', err));
   }, []);
 
-  const loadSettings = () => {
-    const settingsData = dataService.getAll('settings');
-    if (settingsData && settingsData.length > 0) {
-      setSettings(settingsData[0]);
+  const loadSettings = async () => {
+    try {
+      const settingsData = await dataService.getAll('settings') || [];
+      if (settingsData && settingsData.length > 0) {
+        setSettings(settingsData[0]);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
     }
   };
 
-  const loadLocations = () => {
-    const locs = dataService.getAll('locations') || [];
-    setLocations(locs);
-    const stored = localStorage.getItem('dcms_current_location');
-    const initial = stored && locs.find(l => l.id === stored) ? stored : (locs[0]?.id || '');
-    setSelectedLocationId(initial);
+  const loadLocations = async () => {
+    try {
+      const locs = await dataService.getAll('locations') || [];
+      if (!Array.isArray(locs)) return;
+      
+      // Handle pricing that might be in settings.pricing or directly in pricing
+      const processedLocs = locs.map(loc => {
+        if (loc.settings?.pricing && !loc.pricing) {
+          return { ...loc, pricing: loc.settings.pricing };
+        }
+        return loc;
+      });
+      
+      setLocations(processedLocs);
+      const stored = localStorage.getItem('dcms_current_location');
+      const initial = stored && processedLocs.find(l => l.id === stored) ? stored : (processedLocs[0]?.id || '');
+      setSelectedLocationId(initial);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setLoading(true);
     try {
       // Persist selected location pricing changes
       if (selectedLocationId) {
         const loc = locations.find(l => l.id === selectedLocationId);
-        if (loc) {
-          dataService.update('locations', loc.id, loc);
+        if (loc && loc.pricing) {
+          // Save pricing to location.settings.pricing (database format)
+          const locationToSave = {
+            ...loc,
+            settings: {
+              ...(loc.settings || {}),
+              pricing: loc.pricing
+            }
+          };
+          await dataService.update('locations', loc.id, locationToSave);
         }
       }
       
       // Persist settings changes (equipment prices, etc.)
       if (settings) {
-        const existingSettings = dataService.getAll('settings');
+        const existingSettings = await dataService.getAll('settings') || [];
         if (existingSettings && existingSettings.length > 0) {
-          dataService.update('settings', settings.id, settings);
+          await dataService.update('settings', settings.id, settings);
         } else {
-          dataService.create('settings', settings);
+          await dataService.create('settings', settings);
         }
       }
       
@@ -103,6 +129,9 @@ const Prices = () => {
   
   // Check if selected location is Las Playitas
   const isPlayitas = selectedLocation && (selectedLocation.name === 'Las Playitas' || selectedLocation.id === 'playitas' || selectedLocation.id === '550e8400-e29b-41d4-a716-446655440002');
+  
+  // Check if selected location is Bike Rental
+  const isBikeRental = selectedLocation?.type === 'bike_rental';
 
   const updateLocationPricing = (updater) => {
     setLocations(prev => prev.map(l => {
@@ -240,7 +269,9 @@ const Prices = () => {
         Price Management
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Manage all pricing configurations for dives, equipment, and services.
+        {isBikeRental 
+          ? 'Manage all pricing configurations for bike rentals, equipment, and insurance.'
+          : 'Manage all pricing configurations for dives, equipment, and services.'}
       </Typography>
 
       {/* Location selector for pricing scope */}
@@ -254,9 +285,239 @@ const Prices = () => {
       </Box>
 
       <Grid container spacing={3}>
-        {/* Customer Type Pricing */}
-        <Grid item xs={12}>
-          <Card>
+        {/* Bike Rental Pricing */}
+        {isBikeRental && (
+          <>
+            {/* Bike Rental Pricing - Street Bike & Gravel Bike */}
+            <Grid item xs={12}>
+              <Card>
+                <CardHeader
+                  title="Bike Rental Pricing"
+                  subheader="Tiered pricing for bike rentals"
+                />
+                <CardContent>
+                  <Grid container spacing={3}>
+                    {/* Street Bike */}
+                    <Grid item xs={12} md={6}>
+                      <Card variant="outlined">
+                        <CardHeader title="Street Bike" />
+                        <CardContent>
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Days</TableCell>
+                                  <TableCell>Price</TableCell>
+                                  <TableCell>Description</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {(locPricing.bikeTypes?.street_bike?.rentalTiers || []).map((tier, index) => (
+                                  <TableRow key={index}>
+                                    <TableCell>
+                                      <TextField
+                                        type="number"
+                                        value={tier.days}
+                                        onChange={(e) => handleBikeTierChange('street_bike', index, 'days', parseInt(e.target.value) || 0)}
+                                        size="small"
+                                        sx={{ width: 80 }}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <TextField
+                                        type="number"
+                                        value={tier.price}
+                                        onChange={(e) => handleBikeTierChange('street_bike', index, 'price', parseFloat(e.target.value) || 0)}
+                                        size="small"
+                                        sx={{ width: 100 }}
+                                        InputProps={{
+                                          startAdornment: '€'
+                                        }}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <TextField
+                                        value={tier.description}
+                                        onChange={(e) => handleBikeTierChange('street_bike', index, 'description', e.target.value)}
+                                        size="small"
+                                        fullWidth
+                                      />
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    {/* Gravel Bike */}
+                    <Grid item xs={12} md={6}>
+                      <Card variant="outlined">
+                        <CardHeader title="Gravel Bike" />
+                        <CardContent>
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Days</TableCell>
+                                  <TableCell>Price</TableCell>
+                                  <TableCell>Description</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {(locPricing.bikeTypes?.gravel_bike?.rentalTiers || []).map((tier, index) => (
+                                  <TableRow key={index}>
+                                    <TableCell>
+                                      <TextField
+                                        type="number"
+                                        value={tier.days}
+                                        onChange={(e) => handleBikeTierChange('gravel_bike', index, 'days', parseInt(e.target.value) || 0)}
+                                        size="small"
+                                        sx={{ width: 80 }}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <TextField
+                                        type="number"
+                                        value={tier.price}
+                                        onChange={(e) => handleBikeTierChange('gravel_bike', index, 'price', parseFloat(e.target.value) || 0)}
+                                        size="small"
+                                        sx={{ width: 100 }}
+                                        InputProps={{
+                                          startAdornment: '€'
+                                        }}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <TextField
+                                        value={tier.description}
+                                        onChange={(e) => handleBikeTierChange('gravel_bike', index, 'description', e.target.value)}
+                                        size="small"
+                                        fullWidth
+                                      />
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Bike Rental Equipment Prices */}
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardHeader title="Bike Rental Equipment Prices" subheader="Charged once per rental" />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Click Pedals"
+                        type="number"
+                        value={locPricing.equipment?.click_pedals || 0}
+                        onChange={(e) => handleBikeEquipmentPriceChange('click_pedals', e.target.value)}
+                        fullWidth
+                        size="small"
+                        InputProps={{
+                          startAdornment: '€'
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Helmet"
+                        type="number"
+                        value={locPricing.equipment?.helmet || 0}
+                        onChange={(e) => handleBikeEquipmentPriceChange('helmet', e.target.value)}
+                        fullWidth
+                        size="small"
+                        InputProps={{
+                          startAdornment: '€'
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="GPS Computer"
+                        type="number"
+                        value={locPricing.equipment?.gps_computer || 0}
+                        onChange={(e) => handleBikeEquipmentPriceChange('gps_computer', e.target.value)}
+                        fullWidth
+                        size="small"
+                        InputProps={{
+                          startAdornment: '€'
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Bike Rental Insurance Prices */}
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardHeader title="Bike Rental Insurance Prices" />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="1 Day"
+                        type="number"
+                        value={locPricing.insurance?.one_day || 0}
+                        onChange={(e) => handleBikeInsurancePriceChange('one_day', e.target.value)}
+                        fullWidth
+                        size="small"
+                        InputProps={{
+                          startAdornment: '€'
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="1 Week"
+                        type="number"
+                        value={locPricing.insurance?.one_week || 0}
+                        onChange={(e) => handleBikeInsurancePriceChange('one_week', e.target.value)}
+                        fullWidth
+                        size="small"
+                        InputProps={{
+                          startAdornment: '€'
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="1 Month"
+                        type="number"
+                        value={locPricing.insurance?.one_month || 0}
+                        onChange={(e) => handleBikeInsurancePriceChange('one_month', e.target.value)}
+                        fullWidth
+                        size="small"
+                        InputProps={{
+                          startAdornment: '€'
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          </>
+        )}
+
+        {/* Diving-related pricing - only show for diving locations */}
+        {!isBikeRental && (
+          <>
+            {/* Customer Type Pricing */}
+            <Grid item xs={12}>
+              <Card>
             <CardHeader
               title="Customer Type Pricing"
               subheader="Different pricing models for different customer types"
@@ -571,8 +832,8 @@ const Prices = () => {
           </Card>
         </Grid>
 
-        {/* Dive Insurance (Mandatory) */}
-        <Grid item xs={12} md={6}>
+            {/* Dive Insurance (Mandatory) */}
+            <Grid item xs={12} md={6}>
           <Card>
             <CardHeader 
               title="Dive Insurance Prices" 
@@ -645,6 +906,8 @@ const Prices = () => {
             </CardContent>
           </Card>
         </Grid>
+          </>
+        )}
 
         {/* Save Button */}
         <Grid item xs={12}>

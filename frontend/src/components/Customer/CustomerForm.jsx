@@ -105,26 +105,70 @@ const getDefaultDivingInsurance = () => ({
   verified: false
 });
 
-const normalizeCustomerData = (customer) => ({
-  ...customer,
-  preferences: normalizePreferences(customer.preferences || {}),
-  // Preserve certifications - don't overwrite with empty array if customer has certifications
-  certifications: customer.certifications || [],
-  medicalCertificate: {
-    ...getDefaultMedicalCertificate(),
-    ...(customer.medicalCertificate || {})
-  },
-  divingInsurance: {
-    ...getDefaultDivingInsurance(),
-    ...(customer.divingInsurance || {})
-  },
-  // Preserve uploadedDocuments
-  uploadedDocuments: customer.uploadedDocuments || [],
-  // Preserve medicalConditions
-  medicalConditions: customer.medicalConditions || [],
-  // Preserve isApproved, default to false if not set
-  isApproved: customer.isApproved !== undefined ? customer.isApproved : false
-});
+// Helper function to format dates for date input fields (YYYY-MM-DD format)
+const formatDateForInput = (dateValue) => {
+  if (!dateValue) return '';
+  // If it's already in YYYY-MM-DD format, return as is
+  if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return dateValue;
+  }
+  // If it's an ISO datetime string, extract just the date part
+  if (typeof dateValue === 'string' && dateValue.includes('T')) {
+    return dateValue.split('T')[0];
+  }
+  // If it's a Date object, format it
+  if (dateValue instanceof Date) {
+    return dateValue.toISOString().split('T')[0];
+  }
+  return dateValue;
+};
+
+const normalizeCustomerData = (customer) => {
+  // Format dates for date input fields and ensure certification has required fields
+  const formatCertDates = (cert) => ({
+    agency: cert.agency || '',
+    level: cert.level || '',
+    certificationNumber: cert.certificationNumber || '',
+    issueDate: formatDateForInput(cert.issueDate),
+    expiryDate: formatDateForInput(cert.expiryDate),
+    verified: cert.verified || false,
+    verifiedDate: cert.verifiedDate || null,
+    // Preserve any other fields
+    ...cert
+  });
+
+  return {
+    ...customer,
+    // Ensure customerType and centerSkillLevel have defaults to prevent controlled/uncontrolled warnings
+    customerType: customer.customerType || 'tourist',
+    centerSkillLevel: customer.centerSkillLevel || 'beginner',
+    gender: customer.gender ?? '',
+    preferences: normalizePreferences(customer.preferences || {}),
+    // Preserve certifications - don't overwrite with empty array if customer has certifications
+    // Also format dates for date inputs
+    certifications: (customer.certifications || []).map(formatCertDates),
+    medicalCertificate: {
+      ...getDefaultMedicalCertificate(),
+      ...(customer.medicalCertificate || {}),
+      issueDate: formatDateForInput(customer.medicalCertificate?.issueDate),
+      expiryDate: formatDateForInput(customer.medicalCertificate?.expiryDate)
+    },
+    divingInsurance: {
+      ...getDefaultDivingInsurance(),
+      ...(customer.divingInsurance || {}),
+      issueDate: formatDateForInput(customer.divingInsurance?.issueDate),
+      expiryDate: formatDateForInput(customer.divingInsurance?.expiryDate)
+    },
+    // Format dob for date input
+    dob: formatDateForInput(customer.dob),
+    // Preserve uploadedDocuments
+    uploadedDocuments: customer.uploadedDocuments || [],
+    // Preserve medicalConditions
+    medicalConditions: customer.medicalConditions || [],
+    // Preserve isApproved, default to false if not set
+    isApproved: customer.isApproved !== undefined ? customer.isApproved : false
+  };
+};
 
 const CustomerForm = () => {
   const navigate = useNavigate();
@@ -132,6 +176,27 @@ const CustomerForm = () => {
   const [searchParams] = useSearchParams();
   const customerId = searchParams.get('id');
   const isReadOnly = !isAdmin() && customerId; // Read-only for non-admins viewing existing customers
+  const [locations, setLocations] = useState([]);
+  
+  // Check if current location is bike rental
+  const [isBikeRental, setIsBikeRental] = useState(false);
+  
+  useEffect(() => {
+    const checkLocation = async () => {
+      try {
+        const allLocations = await dataService.getAll('locations') || [];
+        if (Array.isArray(allLocations)) {
+          setLocations(allLocations);
+          const currentLocationId = localStorage.getItem('dcms_current_location');
+          const currentLocation = allLocations.find(l => l.id === currentLocationId);
+          setIsBikeRental(currentLocation?.type === 'bike_rental');
+        }
+      } catch (error) {
+        console.error('Error loading locations:', error);
+      }
+    };
+    checkLocation();
+  }, []);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -234,14 +299,18 @@ const CustomerForm = () => {
     }
   }, [customerId]);
 
-  const loadCustomer = () => {
-    const customer = dataService.getById('customers', customerId);
-    if (customer) {
-      const normalized = normalizeCustomerData(customer);
-      setFormData({
-        ...normalized,
-        uploadedDocuments: customer.uploadedDocuments || []
-      });
+  const loadCustomer = async () => {
+    try {
+      const customer = await dataService.getById('customers', customerId);
+      if (customer) {
+        const normalized = normalizeCustomerData(customer);
+        setFormData({
+          ...normalized,
+          uploadedDocuments: customer.uploadedDocuments || []
+        });
+      }
+    } catch (error) {
+      console.error('Error loading customer:', error);
     }
   };
 
@@ -271,16 +340,25 @@ const CustomerForm = () => {
     });
   };
 
-  const handleVerifyCertification = (agency, certificationNumber, index) => {
-    console.log('Verifying certification:', agency, certificationNumber, index);
+  const handleVerifyCertification = async (agency, certificationNumber, index) => {
+    console.log('Verifying certification:', { agency, certificationNumber, index });
+    console.log('Current certifications:', formData.certifications);
+    console.log('Cert at index:', formData.certifications[index]);
+    
+    // Validate inputs
+    if (!agency || !certificationNumber) {
+      console.error('Missing agency or certification number', { agency, certificationNumber });
+      alert('Certification information is incomplete. Please ensure the certification has an agency and certification number.');
+      return;
+    }
     
     try {
-      // Get settings from localStorage
-      const settingsData = dataService.getAll('settings');
-      const settings = settingsData.length > 0 ? settingsData[0] : null;
+      // Get settings (async in API mode)
+      const settingsData = await dataService.getAll('settings');
+      const settings = Array.isArray(settingsData) && settingsData.length > 0 ? settingsData[0] : null;
       
       if (!settings || !settings.certificationUrls) {
-        console.error('Settings not found or certification URLs not configured');
+        console.error('Settings not found or certification URLs not configured', { settings, settingsData });
         alert('Certification verification URLs not configured. Please check Settings page.');
         return;
       }
@@ -406,63 +484,68 @@ const CustomerForm = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (isReadOnly) {
-      // In read-only mode, only update equipment preferences
-      if (customerId) {
-        const customer = dataService.getById('customers', customerId);
-        if (customer) {
-          // Preserve all existing fields, only update what's allowed
-          dataService.update('customers', customerId, {
-            ...customer, // Preserve all existing fields
-            preferences: formData.preferences,
-            // Allow guides/staff to update centerSkillLevel even in read-only mode
-            centerSkillLevel: formData.centerSkillLevel,
-            updatedAt: new Date().toISOString()
-          });
+    try {
+      if (isReadOnly) {
+        // In read-only mode, only update equipment preferences
+        if (customerId) {
+          const customer = await dataService.getById('customers', customerId);
+          if (customer) {
+            // Preserve all existing fields, only update what's allowed
+            await dataService.update('customers', customerId, {
+              ...customer, // Preserve all existing fields
+              preferences: formData.preferences,
+              // Allow guides/staff to update centerSkillLevel even in read-only mode
+              centerSkillLevel: formData.centerSkillLevel,
+              updatedAt: new Date().toISOString()
+            });
+          }
         }
-      }
-    } else {
-      // Full edit mode for admins
-      if (customerId) {
-        // Get existing customer to preserve all fields
-        const existingCustomer = dataService.getById('customers', customerId);
-        if (existingCustomer) {
-          // Merge formData with existing customer to preserve all fields
-          // This ensures fields like medicalCertificate, divingInsurance, isApproved, etc. are preserved
-          const updatedCustomer = {
-            ...existingCustomer, // Preserve all existing fields first
-            ...formData, // Then apply form data (this will update changed fields)
-            id: existingCustomer.id, // Ensure ID is preserved
-            createdAt: existingCustomer.createdAt, // Preserve creation date
-            updatedAt: new Date().toISOString() // Update timestamp
-          };
-          dataService.update('customers', customerId, updatedCustomer);
+      } else {
+        // Full edit mode for admins
+        if (customerId) {
+          // Get existing customer to preserve all fields
+          const existingCustomer = await dataService.getById('customers', customerId);
+          if (existingCustomer) {
+            // Merge formData with existing customer to preserve all fields
+            // This ensures fields like medicalCertificate, divingInsurance, isApproved, etc. are preserved
+            const updatedCustomer = {
+              ...existingCustomer, // Preserve all existing fields first
+              ...formData, // Then apply form data (this will update changed fields)
+              id: existingCustomer.id, // Ensure ID is preserved
+              createdAt: existingCustomer.createdAt, // Preserve creation date
+              updatedAt: new Date().toISOString() // Update timestamp
+            };
+            await dataService.update('customers', customerId, updatedCustomer);
+          } else {
+            // Customer not found, create new
+            await dataService.create('customers', {
+              ...formData,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+          }
         } else {
-          // Customer not found, create new
-          dataService.create('customers', {
+          // Creating new customer
+          await dataService.create('customers', {
             ...formData,
+            isApproved: formData.isApproved || false, // Ensure isApproved is set
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
         }
-      } else {
-        // Creating new customer
-        dataService.create('customers', {
-          ...formData,
-          isApproved: formData.isApproved || false, // Ensure isApproved is set
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
       }
+      
+      setSaved(true);
+      setTimeout(() => {
+        navigate('/customers');
+      }, 1500);
+    } catch (error) {
+      console.error('Error saving customer:', error);
+      alert('Error saving customer. Please try again.');
     }
-    
-    setSaved(true);
-    setTimeout(() => {
-      navigate('/customers');
-    }, 1500);
   };
 
   return (
@@ -567,35 +650,40 @@ const CustomerForm = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                select
-                label="Customer Type"
-                fullWidth
-                value={formData.customerType}
-                onChange={(e) => handleChange('customerType', e.target.value)}
-                disabled={isReadOnly}
-              >
-                <MenuItem value="tourist">Tourist</MenuItem>
-                <MenuItem value="local">Local</MenuItem>
-                <MenuItem value="recurrent">Recurrent</MenuItem>
-              </TextField>
-            </Grid>
+            {/* Customer Type and Skill Level - only for diving locations */}
+            {!isBikeRental && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    select
+                    label="Customer Type"
+                    fullWidth
+                    value={formData.customerType || 'tourist'}
+                    onChange={(e) => handleChange('customerType', e.target.value)}
+                    disabled={isReadOnly}
+                  >
+                    <MenuItem value="tourist">Tourist</MenuItem>
+                    <MenuItem value="local">Local</MenuItem>
+                    <MenuItem value="recurrent">Recurrent</MenuItem>
+                  </TextField>
+                </Grid>
 
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Center Skill Level"
-              fullWidth
-              value={formData.centerSkillLevel || 'beginner'}
-              onChange={(e) => handleChange('centerSkillLevel', e.target.value)}
-              helperText="Operational assessment by staff"
-            >
-              <MenuItem value="beginner">Beginner</MenuItem>
-              <MenuItem value="intermediate">Intermediate</MenuItem>
-              <MenuItem value="advanced">Advanced</MenuItem>
-              </TextField>
-            </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    select
+                    label="Center Skill Level"
+                    fullWidth
+                    value={formData.centerSkillLevel ?? 'beginner'}
+                    onChange={(e) => handleChange('centerSkillLevel', e.target.value)}
+                    helperText="Operational assessment by staff"
+                  >
+                    <MenuItem value="beginner">Beginner</MenuItem>
+                    <MenuItem value="intermediate">Intermediate</MenuItem>
+                    <MenuItem value="advanced">Advanced</MenuItem>
+                  </TextField>
+                </Grid>
+              </>
+            )}
 
             {isAdmin() && (
               <Grid item xs={12}>
@@ -621,13 +709,16 @@ const CustomerForm = () => {
               </Grid>
             )}
 
-            <Divider sx={{ my: 2, width: '100%' }} />
+            {/* Equipment & Suit Preferences - only for diving locations */}
+            {!isBikeRental && (
+              <>
+                <Divider sx={{ my: 2, width: '100%' }} />
 
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Equipment & Suit Preferences
-              </Typography>
-            </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>
+                    Equipment & Suit Preferences
+                  </Typography>
+                </Grid>
 
             <Grid item xs={12} sm={6}>
               <FormControlLabel
@@ -833,11 +924,11 @@ const CustomerForm = () => {
                 </Alert>
               </Grid>
             )}
+              </>
+            )}
 
-            <Divider sx={{ my: 2, width: '100%' }} />
-
-            {/* Certifications Section - Admin only */}
-            {isAdmin() && (
+            {/* Certifications Section - Admin only - only for diving locations */}
+            {!isBikeRental && isAdmin() && (
               <>
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
@@ -868,13 +959,13 @@ const CustomerForm = () => {
                           }}
                         >
                           <Chip
-                            label={`${cert.agency} ${cert.level}`}
+                            label={`${cert.agency || 'N/A'} ${cert.level || ''}`}
                             size="small"
                             color="primary"
                             variant="outlined"
                           />
                           <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-                            #{cert.certificationNumber}
+                            #{cert.certificationNumber || 'N/A'}
                           </Typography>
                           {cert.verified ? (
                             <Chip
@@ -891,6 +982,7 @@ const CustomerForm = () => {
                               color="success"
                               startIcon={<VerifiedIcon />}
                               onClick={() => handleVerifyCertification(cert.agency, cert.certificationNumber, index)}
+                              disabled={!cert.agency || !cert.certificationNumber}
                               sx={{ minWidth: 'auto', px: 1 }}
                             >
                               Verify
@@ -957,272 +1049,281 @@ const CustomerForm = () => {
 
                 <Divider sx={{ my: 2, width: '100%' }} />
 
-                {/* Medical Certificate Section */}
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom>
-                    Medical Certificate
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Required for diving activities. Include certificate details and verification status.
-                  </Typography>
-                </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom>
+                        Medical Certificate
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Required for diving activities. Include certificate details and verification status.
+                      </Typography>
+                    </Grid>
 
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formData.medicalCertificate.hasCertificate}
-                        onChange={(e) => handleChange('medicalCertificate.hasCertificate', e.target.checked)}
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.medicalCertificate.hasCertificate || false}
+                            onChange={(e) =>
+                              handleChange('medicalCertificate.hasCertificate', e.target.checked)
+                            }
+                            disabled={isReadOnly}
+                          />
+                        }
+                        label="Customer has medical certificate"
                       />
-                    }
-                    label="Customer has medical certificate"
-                  />
-                </Grid>
+                    </Grid>
 
-                {formData.medicalCertificate.hasCertificate && (
-                  <>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Certificate Number"
-                        fullWidth
-                        value={formData.medicalCertificate.certificateNumber}
-                        onChange={(e) => handleChange('medicalCertificate.certificateNumber', e.target.value)}
-                        placeholder="e.g., MED-2024-001"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                      <TextField
-                        label="Issue Date"
-                        type="date"
-                        fullWidth
-                        value={formData.medicalCertificate.issueDate}
-                        onChange={(e) => handleChange('medicalCertificate.issueDate', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                      <TextField
-                        label="Expiry Date"
-                        type="date"
-                        fullWidth
-                        value={formData.medicalCertificate.expiryDate}
-                        onChange={(e) => handleChange('medicalCertificate.expiryDate', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        {formData.medicalCertificate.verified ? (
-                          <Chip
-                            icon={<VerifiedIcon />}
-                            label="Verified"
-                            color="success"
-                            size="small"
+                    {formData.medicalCertificate.hasCertificate && (
+                      <>
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            label="Certificate Number"
+                            fullWidth
+                            value={formData.medicalCertificate.certificateNumber}
+                            onChange={(e) => handleChange('medicalCertificate.certificateNumber', e.target.value)}
+                            placeholder="e.g., MED-2024-001"
                           />
-                        ) : (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="success"
-                            startIcon={<VerifiedIcon />}
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                medicalCertificate: {
-                                  ...prev.medicalCertificate,
-                                  verified: true,
-                                  verifiedDate: new Date().toISOString().split('T')[0]
-                                }
-                              }));
-                            }}
-                          >
-                            Verify Medical Certificate
-                          </Button>
-                        )}
-                        {formData.medicalCertificate.verified && formData.medicalCertificate.verifiedDate && (
-                          <Typography variant="caption" color="text.secondary">
-                            Verified on: {formData.medicalCertificate.verifiedDate}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ mt: 2 }}>
-                        <input
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                          style={{ display: 'none' }}
-                          id="upload-medical-certificate-admin"
-                          type="file"
-                          onChange={(e) => handleFileUpload(e, 'medical_certificate')}
-                          disabled={isReadOnly}
-                        />
-                        <label htmlFor="upload-medical-certificate-admin">
-                          <Button
-                            component="span"
-                            variant="outlined"
-                            size="small"
-                            startIcon={<CloudUploadIcon />}
-                            disabled={isReadOnly}
-                            sx={{ mr: 1 }}
-                          >
-                            Upload Document
-                          </Button>
-                        </label>
-                        {uploadedDocuments.filter(doc => doc.type === 'medical_certificate').map(doc => (
-                          <Chip
-                            key={doc.id}
-                            label={doc.fileName}
-                            onDelete={isReadOnly ? undefined : () => handleFileDelete(doc.id)}
-                            onClick={() => handleFileDownload(doc)}
-                            icon={<FileDownloadIcon />}
-                            sx={{ mr: 1, mb: 1 }}
-                            clickable
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                          <TextField
+                            label="Issue Date"
+                            type="date"
+                            fullWidth
+                            value={formData.medicalCertificate.issueDate}
+                            onChange={(e) => handleChange('medicalCertificate.issueDate', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
                           />
-                        ))}
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ mt: 2 }}>
-                        <input
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                          style={{ display: 'none' }}
-                          id="upload-diving-insurance-admin"
-                          type="file"
-                          onChange={(e) => handleFileUpload(e, 'diving_insurance')}
-                          disabled={isReadOnly}
-                        />
-                        <label htmlFor="upload-diving-insurance-admin">
-                          <Button
-                            component="span"
-                            variant="outlined"
-                            size="small"
-                            startIcon={<CloudUploadIcon />}
-                            disabled={isReadOnly}
-                            sx={{ mr: 1 }}
-                          >
-                            Upload Document
-                          </Button>
-                        </label>
-                        {uploadedDocuments.filter(doc => doc.type === 'diving_insurance').map(doc => (
-                          <Chip
-                            key={doc.id}
-                            label={doc.fileName}
-                            onDelete={isReadOnly ? undefined : () => handleFileDelete(doc.id)}
-                            onClick={() => handleFileDownload(doc)}
-                            icon={<FileDownloadIcon />}
-                            sx={{ mr: 1, mb: 1 }}
-                            clickable
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                          <TextField
+                            label="Expiry Date"
+                            type="date"
+                            fullWidth
+                            value={formData.medicalCertificate.expiryDate}
+                            onChange={(e) => handleChange('medicalCertificate.expiryDate', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
                           />
-                        ))}
-                      </Box>
-                    </Grid>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            {formData.medicalCertificate.verified ? (
+                              <Chip
+                                icon={<VerifiedIcon />}
+                                label="Verified"
+                                color="success"
+                                size="small"
+                              />
+                            ) : (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="success"
+                                startIcon={<VerifiedIcon />}
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    medicalCertificate: {
+                                      ...prev.medicalCertificate,
+                                      verified: true,
+                                      verifiedDate: new Date().toISOString().split('T')[0]
+                                    }
+                                  }));
+                                }}
+                              >
+                                Verify Medical Certificate
+                              </Button>
+                            )}
+                            {formData.medicalCertificate.verified && formData.medicalCertificate.verifiedDate && (
+                              <Typography variant="caption" color="text.secondary">
+                                Verified on: {formData.medicalCertificate.verifiedDate}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Box sx={{ mt: 2 }}>
+                            <input
+                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                              style={{ display: 'none' }}
+                              id="upload-medical-certificate-admin"
+                              type="file"
+                              onChange={(e) => handleFileUpload(e, 'medical_certificate')}
+                              disabled={isReadOnly}
+                            />
+                            <label htmlFor="upload-medical-certificate-admin">
+                              <Button
+                                component="span"
+                                variant="outlined"
+                                size="small"
+                                startIcon={<CloudUploadIcon />}
+                                disabled={isReadOnly}
+                                sx={{ mr: 1 }}
+                              >
+                                Upload Document
+                              </Button>
+                            </label>
+                            {uploadedDocuments.filter(doc => doc.type === 'medical_certificate').map(doc => (
+                              <Chip
+                                key={doc.id}
+                                label={doc.fileName}
+                                onDelete={isReadOnly ? undefined : () => handleFileDelete(doc.id)}
+                                onClick={() => handleFileDownload(doc)}
+                                icon={<FileDownloadIcon />}
+                                sx={{ mr: 1, mb: 1 }}
+                                clickable
+                              />
+                            ))}
+                          </Box>
+                        </Grid>
+                      </>
+                    )}
                   </>
                 )}
 
-                <Divider sx={{ my: 2, width: '100%' }} />
-
-                {/* Diving Insurance Section */}
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom>
-                    Diving Insurance
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Required for diving activities. Include insurance provider and policy details.
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formData.divingInsurance.hasInsurance}
-                        onChange={(e) => handleChange('divingInsurance.hasInsurance', e.target.checked)}
-                      />
-                    }
-                    label="Customer has diving insurance"
-                  />
-                </Grid>
-
-                {formData.divingInsurance.hasInsurance && (
+                {/* Diving Insurance Section - only for diving locations */}
+                {!isBikeRental && (
                   <>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Insurance Provider"
-                        fullWidth
-                        value={formData.divingInsurance.insuranceProvider}
-                        onChange={(e) => handleChange('divingInsurance.insuranceProvider', e.target.value)}
-                        placeholder="e.g., DAN Europe, PADI Insurance"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Policy Number"
-                        fullWidth
-                        value={formData.divingInsurance.policyNumber}
-                        onChange={(e) => handleChange('divingInsurance.policyNumber', e.target.value)}
-                        placeholder="e.g., DAN-2024-789"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Issue Date"
-                        type="date"
-                        fullWidth
-                        value={formData.divingInsurance.issueDate}
-                        onChange={(e) => handleChange('divingInsurance.issueDate', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Expiry Date"
-                        type="date"
-                        fullWidth
-                        value={formData.divingInsurance.expiryDate}
-                        onChange={(e) => handleChange('divingInsurance.expiryDate', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
+                    <Divider sx={{ my: 2, width: '100%' }} />
+
                     <Grid item xs={12}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        {formData.divingInsurance.verified ? (
-                          <Chip
-                            icon={<VerifiedIcon />}
-                            label="Verified"
-                            color="success"
-                            size="small"
-                          />
-                        ) : (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="success"
-                            startIcon={<VerifiedIcon />}
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                divingInsurance: {
-                                  ...prev.divingInsurance,
-                                  verified: true,
-                                  verifiedDate: new Date().toISOString().split('T')[0]
-                                }
-                              }));
-                            }}
-                          >
-                            Verify Insurance
-                          </Button>
-                        )}
-                        {formData.divingInsurance.verified && formData.divingInsurance.verifiedDate && (
-                          <Typography variant="caption" color="text.secondary">
-                            Verified on: {formData.divingInsurance.verifiedDate}
-                          </Typography>
-                        )}
-                      </Box>
+                      <Typography variant="h6" gutterBottom>
+                        Diving Insurance
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Required for diving activities. Include insurance provider and policy details.
+                      </Typography>
                     </Grid>
+
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.divingInsurance.hasInsurance || false}
+                            onChange={(e) =>
+                              handleChange('divingInsurance.hasInsurance', e.target.checked)
+                            }
+                            disabled={isReadOnly}
+                          />
+                        }
+                        label="Customer has diving insurance"
+                      />
+                    </Grid>
+
+                    {formData.divingInsurance.hasInsurance && (
+                      <>
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            label="Insurance Provider"
+                            fullWidth
+                            value={formData.divingInsurance.insuranceProvider}
+                            onChange={(e) => handleChange('divingInsurance.insuranceProvider', e.target.value)}
+                            placeholder="e.g., DAN Europe, PADI Insurance"
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            label="Policy Number"
+                            fullWidth
+                            value={formData.divingInsurance.policyNumber}
+                            onChange={(e) => handleChange('divingInsurance.policyNumber', e.target.value)}
+                            placeholder="e.g., DAN-2024-789"
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            label="Issue Date"
+                            type="date"
+                            fullWidth
+                            value={formData.divingInsurance.issueDate}
+                            onChange={(e) => handleChange('divingInsurance.issueDate', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            label="Expiry Date"
+                            type="date"
+                            fullWidth
+                            value={formData.divingInsurance.expiryDate}
+                            onChange={(e) => handleChange('divingInsurance.expiryDate', e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            {formData.divingInsurance.verified ? (
+                              <Chip
+                                icon={<VerifiedIcon />}
+                                label="Verified"
+                                color="success"
+                                size="small"
+                              />
+                            ) : (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="success"
+                                startIcon={<VerifiedIcon />}
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    divingInsurance: {
+                                      ...prev.divingInsurance,
+                                      verified: true,
+                                      verifiedDate: new Date().toISOString().split('T')[0]
+                                    }
+                                  }));
+                                }}
+                              >
+                                Verify Insurance
+                              </Button>
+                            )}
+                            {formData.divingInsurance.verified && formData.divingInsurance.verifiedDate && (
+                              <Typography variant="caption" color="text.secondary">
+                                Verified on: {formData.divingInsurance.verifiedDate}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Box sx={{ mt: 2 }}>
+                            <input
+                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                              style={{ display: 'none' }}
+                              id="upload-diving-insurance-admin"
+                              type="file"
+                              onChange={(e) => handleFileUpload(e, 'diving_insurance')}
+                              disabled={isReadOnly}
+                            />
+                            <label htmlFor="upload-diving-insurance-admin">
+                              <Button
+                                component="span"
+                                variant="outlined"
+                                size="small"
+                                startIcon={<CloudUploadIcon />}
+                                disabled={isReadOnly}
+                                sx={{ mr: 1 }}
+                              >
+                                Upload Document
+                              </Button>
+                            </label>
+                            {uploadedDocuments.filter(doc => doc.type === 'diving_insurance').map(doc => (
+                              <Chip
+                                key={doc.id}
+                                label={doc.fileName}
+                                onDelete={isReadOnly ? undefined : () => handleFileDelete(doc.id)}
+                                onClick={() => handleFileDownload(doc)}
+                                icon={<FileDownloadIcon />}
+                                sx={{ mr: 1, mb: 1 }}
+                                clickable
+                              />
+                            ))}
+                          </Box>
+                        </Grid>
+                      </>
+                    )}
                   </>
                 )}
-              </>
-            )}
 
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>

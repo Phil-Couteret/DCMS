@@ -13,7 +13,9 @@ import {
   Switch,
   FormControlLabel,
   Divider,
-  Alert
+  Alert,
+  Card,
+  CardContent
 } from '@mui/material';
 import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -41,6 +43,17 @@ const BookingForm = ({ bookingId = null }) => {
       afternoon: false, // 12:00 PM dive
       night: false     // Night dive (+€20)
     },
+    // Bike rental fields
+    bikeType: '', // 'street_bike' | 'gravel_bike'
+    rentalDays: 2, // Minimum 2 days
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    bikeEquipment: {
+      click_pedals: false,
+      helmet: false,
+      gps_computer: false
+    },
+    bikeInsurance: '', // 'one_day' | 'one_week' | 'one_month'
     price: 46.00,
     discount: 0,
     totalPrice: 46.00,
@@ -80,10 +93,8 @@ const BookingForm = ({ bookingId = null }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('BookingForm mounted, bookingId:', bookingId);
-    console.log('localStorage keys:', Object.keys(localStorage).filter(key => key.startsWith('dcms_')));
-    loadData();
-    loadSettings();
+    loadData().catch(err => console.error('Error loading data:', err));
+    loadSettings().catch(err => console.error('Error loading settings:', err));
     // Initialize booking location from current selected location tab
     try {
       const storedLocation = localStorage.getItem('dcms_current_location');
@@ -98,58 +109,90 @@ const BookingForm = ({ bookingId = null }) => {
       // ignore
     }
     if (bookingId) {
-      loadBooking();
+      loadBooking().catch(err => console.error('Error loading booking:', err));
     }
   }, [bookingId]);
 
   // Load customer preferences when customer is selected
   useEffect(() => {
     if (formData.customerId && !bookingId) {
-      const customer = dataService.getById('customers', formData.customerId);
-      if (customer) {
-        // Load customer's ownEquipment preference
-        const customerOwnEquipment = customer.preferences?.ownEquipment || false;
-        setFormData(prev => ({
-          ...prev,
-          ownEquipment: customerOwnEquipment
-        }));
-      }
+      const loadCustomer = async () => {
+        try {
+          const customer = await dataService.getById('customers', formData.customerId);
+          if (customer) {
+            // Load customer's ownEquipment preference
+            const customerOwnEquipment = customer.preferences?.ownEquipment || false;
+            setFormData(prev => ({
+              ...prev,
+              ownEquipment: customerOwnEquipment
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading customer:', error);
+        }
+      };
+      loadCustomer();
     }
   }, [formData.customerId, bookingId]);
 
   useEffect(() => {
-    // Only calculate if settings are loaded
-    if (settings) {
+    // Only calculate if settings and locations are loaded
+    if (!settings || !locations || locations.length === 0) {
+      return;
+    }
+    
+    // Determine if current location is bike rental
+    const currentLocation = locations.find(l => l.id === formData.locationId) || locations[0];
+    const isBikeRental = currentLocation?.type === 'bike_rental';
+    
+    // Only calculate price if we have a valid location
+    if (currentLocation) {
       calculatePrice();
     }
-  }, [formData.diveSessions, formData.addons, formData.bonoId, formData.ownEquipment, formData.rentedEquipment, formData.numberOfDives, formData.activityType, formData.customerId, formData.locationId, formData.routeType, settings]);
+  }, [
+    // Common fields (always watch)
+    formData.locationId,
+    formData.customerId,
+    settings,
+    // Bike rental fields (only relevant for bike rentals)
+    formData.bikeType,
+    formData.rentalDays,
+    formData.bikeEquipment,
+    formData.bikeInsurance,
+    // Diving fields (only relevant for diving)
+    formData.diveSessions,
+    formData.addons,
+    formData.bonoId,
+    formData.ownEquipment,
+    formData.rentedEquipment,
+    formData.numberOfDives,
+    formData.activityType,
+    formData.routeType,
+    locations // Watch locations to recalculate when they're loaded
+  ]);
 
-  const loadData = () => {
+  const loadData = async () => {
     try {
-      const customersData = dataService.getAll('customers');
-      const boatsData = dataService.getAll('boats');
-      const diveSitesData = dataService.getAll('diveSites');
-      const bonosData = dataService.getAll('governmentBonos');
-      const locationsData = dataService.getAll('locations');
+      const [customersData, boatsData, diveSitesData, bonosData, locationsData] = await Promise.all([
+        dataService.getAll('customers') || [],
+        dataService.getAll('boats') || [],
+        dataService.getAll('diveSites') || [],
+        dataService.getAll('governmentBonos').catch(() => []), // Fallback if endpoint doesn't exist
+        dataService.getAll('locations') || []
+      ]);
       
-      console.log('Loaded data:', {
-        customers: customersData.length,
-        boats: boatsData.length,
-        diveSites: diveSitesData.length,
-        bonos: bonosData.length
-      });
+      setCustomers(Array.isArray(customersData) ? customersData : []);
+      setBoats(Array.isArray(boatsData) ? boatsData : []);
+      setDiveSites(Array.isArray(diveSitesData) ? diveSitesData : []);
+      setBonos(Array.isArray(bonosData) ? bonosData : []);
       
-      setCustomers(customersData);
-      setBoats(boatsData);
-      setDiveSites(diveSitesData);
-      setBonos(bonosData);
       // Prefer user's accessible location first for local admins
-      let ordered = locationsData;
+      let ordered = Array.isArray(locationsData) ? locationsData : [];
       if (currentUser && Array.isArray(currentUser.locationAccess) && currentUser.locationAccess.length > 0) {
         const accessSet = new Set(currentUser.locationAccess);
         ordered = [
-          ...locationsData.filter(l => accessSet.has(l.id)),
-          ...locationsData.filter(l => !accessSet.has(l.id))
+          ...ordered.filter(l => accessSet.has(l.id)),
+          ...ordered.filter(l => !accessSet.has(l.id))
         ];
         const defaultLocId = currentUser.locationAccess[0];
         setFormData(prev => ({ ...prev, locationId: prev.locationId || defaultLocId }));
@@ -160,41 +203,61 @@ const BookingForm = ({ bookingId = null }) => {
     } catch (error) {
       console.error('Error loading data:', error);
       setLoading(false);
+      // Set empty arrays on error to prevent map errors
+      setCustomers([]);
+      setBoats([]);
+      setDiveSites([]);
+      setBonos([]);
+      setLocations([]);
     }
   };
 
-  const loadSettings = () => {
+  const loadSettings = async () => {
     try {
-      const settingsData = dataService.getAll('settings')[0];
-      setSettings(settingsData);
+      const settingsData = await dataService.getAll('settings');
+      if (Array.isArray(settingsData) && settingsData.length > 0) {
+        setSettings(settingsData[0]);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
     }
   };
 
-  const loadBooking = () => {
-    const booking = dataService.getById('bookings', bookingId);
-    if (booking) {
-      // Normalize activity types: try_dive and discovery should both be "discover"
-      const normalizedActivityType = booking.activityType === 'try_dive' || booking.activityType === 'discovery' 
-        ? 'discover' 
-        : booking.activityType;
-      
-      const normalizedBooking = {
-        ...booking,
-        activityType: normalizedActivityType,
-        // Ensure numberOfDives is set for non-diving activities
-        numberOfDives: normalizedActivityType !== 'diving' 
-          ? (booking.numberOfDives || 1)
-          : undefined,
-        // Ensure diveSessions is properly structured
-        diveSessions: booking.diveSessions || {
-          morning: false,
-          afternoon: false,
-          night: false
-        }
-      };
-      setFormData(normalizedBooking);
+  const loadBooking = async () => {
+    try {
+      const booking = await dataService.getById('bookings', bookingId);
+      if (booking) {
+        // Normalize activity types: try_dive and discovery should both be "discover"
+        const normalizedActivityType = booking.activityType === 'try_dive' || booking.activityType === 'discovery' 
+          ? 'discover' 
+          : booking.activityType;
+        
+        // Convert numeric fields to numbers (backend may return strings or Decimal types)
+        const normalizedBooking = {
+          ...booking,
+          activityType: normalizedActivityType,
+          // Ensure numberOfDives is set for non-diving activities
+          numberOfDives: normalizedActivityType !== 'diving' 
+            ? (Number(booking.numberOfDives) || 1)
+            : undefined,
+          // Convert price fields to numbers
+          price: Number(booking.price) || 0,
+          discount: Number(booking.discount) || 0,
+          totalPrice: Number(booking.totalPrice) || 0,
+          equipmentRental: Number(booking.equipmentRental) || 0,
+          bikeInsuranceCost: Number(booking.bikeInsuranceCost) || 0,
+          rentalDays: Number(booking.rentalDays) || 2,
+          // Ensure diveSessions is properly structured
+          diveSessions: booking.diveSessions || {
+            morning: false,
+            afternoon: false,
+            night: false
+          }
+        };
+        setFormData(normalizedBooking);
+      }
+    } catch (error) {
+      console.error('Error loading booking:', error);
     }
   };
 
@@ -207,17 +270,152 @@ const BookingForm = ({ bookingId = null }) => {
     // Use provided data or current formData
     const data = dataToUse || formData;
     
-    // Get location info
-    const allLocations = dataService.getAll('locations') || [];
+    // Get location info from state (already loaded asynchronously)
+    const allLocations = Array.isArray(locations) ? locations : [];
     const storedLocation = localStorage.getItem('dcms_current_location');
-    const effectiveLocationId = formData.locationId || storedLocation || allLocations[0]?.id;
+    const effectiveLocationId = data.locationId || storedLocation || allLocations[0]?.id;
     const location = allLocations.find(l => l.id === effectiveLocationId);
+    
+    if (!location) {
+      console.warn('Location not found in calculatePrice:', effectiveLocationId, 'Available locations:', allLocations.map(l => l.id));
+      return;
+    }
+    
     const locPricing = location?.pricing || {};
     
-    // Get customer info for pricing
+    // Check if this is a bike rental location
+    const isBikeRental = location?.type === 'bike_rental';
+    
+    // Handle bike rental pricing
+    if (isBikeRental) {
+      // Ensure minimum 2 days
+      const rentalDays = Math.max(2, data.rentalDays || 2);
+      
+      if (!data.bikeType) {
+        // No bike type selected, set price to 0
+        setFormData(prev => ({
+          ...prev,
+          price: 0,
+          totalPrice: 0,
+          discount: 0,
+          governmentPayment: 0,
+          customerPayment: 0,
+          equipmentRental: 0,
+          bikeInsuranceCost: 0
+        }));
+        return;
+      }
+      
+      // Get bike type pricing
+      const bikeTypePricing = locPricing.bikeTypes?.[data.bikeType];
+      const rentalTiers = bikeTypePricing?.rentalTiers || [];
+      
+      // Calculate base rental price based on tiered pricing
+      let basePrice = 0;
+      
+      if (rentalTiers.length > 0) {
+        // Sort tiers by days (ascending)
+        const sortedTiers = [...rentalTiers].sort((a, b) => a.days - b.days);
+        
+        // Find the appropriate tier based on rental days
+        // Tiers: 2 days (fixed), 3 days (fixed), 4 days (per day), 7 days (per day), 11 days (per day), 14 days (per day)
+        
+        if (rentalDays === 2) {
+          // 2 days: fixed price (80€)
+          const tier = sortedTiers.find(t => t.days === 2);
+          basePrice = tier ? tier.price : 80.00;
+        } else if (rentalDays === 3) {
+          // 3 days: fixed price (114€)
+          const tier = sortedTiers.find(t => t.days === 3);
+          basePrice = tier ? tier.price : 114.00;
+        } else if (rentalDays >= 4 && rentalDays <= 6) {
+          // 4-6 days: 36€/day
+          const tier = sortedTiers.find(t => t.days === 4);
+          const pricePerDay = tier ? tier.price : 36.00;
+          basePrice = pricePerDay * rentalDays;
+        } else if (rentalDays >= 7 && rentalDays <= 10) {
+          // 7-10 days: 34€/day
+          const tier = sortedTiers.find(t => t.days === 7);
+          const pricePerDay = tier ? tier.price : 34.00;
+          basePrice = pricePerDay * rentalDays;
+        } else if (rentalDays >= 11 && rentalDays <= 13) {
+          // 11-13 days: 30€/day
+          const tier = sortedTiers.find(t => t.days === 11);
+          const pricePerDay = tier ? tier.price : 30.00;
+          basePrice = pricePerDay * rentalDays;
+        } else if (rentalDays >= 14) {
+          // 14+ days: 25€/day
+          const tier = sortedTiers.find(t => t.days === 14);
+          const pricePerDay = tier ? tier.price : 25.00;
+          basePrice = pricePerDay * rentalDays;
+        }
+      } else {
+        // Using fallback pricing if tiers aren't configured
+        // Use fallback pricing if tiers aren't configured
+        if (rentalDays === 2) {
+          basePrice = 80.00;
+        } else if (rentalDays === 3) {
+          basePrice = 114.00;
+        } else if (rentalDays >= 4 && rentalDays <= 6) {
+          basePrice = 36.00 * rentalDays;
+        } else if (rentalDays >= 7 && rentalDays <= 10) {
+          basePrice = 34.00 * rentalDays;
+        } else if (rentalDays >= 11 && rentalDays <= 13) {
+          basePrice = 30.00 * rentalDays;
+        } else if (rentalDays >= 14) {
+          basePrice = 25.00 * rentalDays;
+        }
+      }
+      
+      // Calculate equipment costs (charged once per rental, not per day)
+      let equipmentCost = 0;
+      const bikeEquipment = data.bikeEquipment || {};
+      const equipmentPricing = locPricing.equipment || {};
+      
+      if (bikeEquipment.click_pedals) {
+        equipmentCost += equipmentPricing.click_pedals || 10.00;
+      }
+      if (bikeEquipment.helmet) {
+        equipmentCost += equipmentPricing.helmet || 10.00;
+      }
+      if (bikeEquipment.gps_computer) {
+        equipmentCost += equipmentPricing.gps_computer || 15.00;
+      }
+      
+      // Calculate insurance costs (if selected)
+      let insuranceCost = 0;
+      if (data.bikeInsurance) {
+        const insurancePricing = locPricing.insurance || {};
+        // Use fallback values if pricing not found
+        const insuranceDefaults = {
+          one_day: 5.00,
+          one_week: 15.00,
+          one_month: 25.00
+        };
+        insuranceCost = insurancePricing[data.bikeInsurance] || insuranceDefaults[data.bikeInsurance] || 0;
+      }
+      
+      // Calculate total price
+      const totalPrice = basePrice + equipmentCost + insuranceCost;
+      
+      setFormData(prev => ({
+        ...prev,
+        price: basePrice,
+        totalPrice: totalPrice,
+        discount: 0,
+        governmentPayment: 0,
+        customerPayment: totalPrice,
+        equipmentRental: equipmentCost,
+        bikeInsuranceCost: insuranceCost, // Store insurance cost separately for display
+        rentalDays: rentalDays // Ensure minimum 2 days is applied
+      }));
+      return;
+    }
+    
+    // Get customer info for pricing from state (already loaded asynchronously)
     let customer = null;
-    if (formData.customerId) {
-      customer = dataService.getById('customers', formData.customerId);
+    if (data.customerId) {
+      customer = customers.find(c => c.id === data.customerId) || null;
     }
     const customerType = getCustomerType(customer);
     
@@ -276,16 +474,24 @@ const BookingForm = ({ bookingId = null }) => {
     let pricePerDive = 46; // Default price
     
     // For recurrent/local customers, use fixed pricing - no cumulative pricing needed
-    if (formData.customerId && (customerType === 'recurrent' || customerType === 'local')) {
+    if (data.customerId && (customerType === 'recurrent' || customerType === 'local')) {
       // Use pricing service which handles recurrent/local fixed pricing correctly
       // calculateDivePrice returns total price, so divide by numberOfDives (which is 1) to get price per dive
       const singleDivePrice = calculateDivePrice(effectiveLocationId, customerType, 1);
       pricePerDive = singleDivePrice; // Since numberOfDives is 1, this is already the price per dive
       // Don't use cumulative pricing for recurrent/local customers
-    } else if (formData.customerId && customerType === 'tourist') {
+    } else if (data.customerId && customerType === 'tourist') {
       // Only use cumulative pricing for tourist customers (volume discounts)
-      cumulativePricing = stayService.getCumulativeStayPricing(formData.customerId, formData.bookingDate);
-      pricePerDive = cumulativePricing.pricePerDive;
+      // Note: In API mode, this may not have bookings loaded yet, so use try-catch
+      try {
+        cumulativePricing = stayService.getCumulativeStayPricing(data.customerId, data.bookingDate);
+        pricePerDive = cumulativePricing.pricePerDive || 46.00; // Fallback to default if pricePerDive is undefined
+      } catch (e) {
+        // If cumulative pricing fails (e.g., bookings not loaded in API mode), use default price
+        console.warn('Could not calculate cumulative pricing, using default:', e);
+        pricePerDive = 46.00; // Default first tier price
+        cumulativePricing = null;
+      }
     }
 
     let basePrice = 0;
@@ -308,13 +514,23 @@ const BookingForm = ({ bookingId = null }) => {
         // Caleta from Playitas - tiered pricing for tourist customers only
         const tiers = locPricing.customerTypes?.tourist?.diveTiers || [];
         let previousCaletaDives = 0;
-        if (formData.customerId) {
-          const customerBookings = dataService.getCustomerBookings(formData.customerId) || [];
-          customerBookings.forEach(b => {
-            if (b.routeType === 'caleta_from_playitas') {
-              previousCaletaDives += (b.diveSessions ? ((b.diveSessions.morning?1:0)+(b.diveSessions.afternoon?1:0)+(b.diveSessions.night?1:0)) : (b.numberOfDives || 0));
+        if (data.customerId) {
+          // Note: getCustomerBookings is async in API mode, but calculatePrice must be sync
+          // This will work in mock mode, but in API mode bookings may not be loaded yet
+          // For now, try to get bookings synchronously (works in mock mode)
+          try {
+            const customerBookings = dataService.getCustomerBookings(data.customerId) || [];
+            if (Array.isArray(customerBookings)) {
+              customerBookings.forEach(b => {
+                if (b.routeType === 'caleta_from_playitas') {
+                  previousCaletaDives += (b.diveSessions ? ((b.diveSessions.morning?1:0)+(b.diveSessions.afternoon?1:0)+(b.diveSessions.night?1:0)) : (b.numberOfDives || 0));
+                }
+              });
             }
-          });
+          } catch (e) {
+            // Ignore errors - bookings may not be loaded in API mode
+            console.warn('Could not get customer bookings for pricing calculation:', e);
+          }
         }
         const totalCaletaDives = previousCaletaDives + numberOfDives;
         let tierPrice = 45; // default to first tier
@@ -365,7 +581,6 @@ const BookingForm = ({ bookingId = null }) => {
     }
 
     const price = basePrice + nightDiveSurcharge + addonPrice + transferFee;
-    console.log('Price calculation:', { basePrice, nightDiveSurcharge, addonPrice, transferFee, total: price });
     
     // Calculate equipment rental cost
     let equipmentRental = 0;
@@ -380,16 +595,25 @@ const BookingForm = ({ bookingId = null }) => {
       if (hasRentedEquipment) {
       // Check if customer has already used 8 dives worth of complete equipment
       let previousCompleteEquipmentDives = 0;
-      if (formData.customerId) {
-        const customerBookings = dataService.getCustomerBookings(formData.customerId);
-        customerBookings.forEach(booking => {
-          if (booking.rentedEquipment?.completeEquipment) {
-            // Calculate previous dives from old format or new format
-            const previousDives = booking.numberOfDives || 
-              ((booking.diveSessions?.morning ? 1 : 0) + (booking.diveSessions?.afternoon ? 1 : 0));
-            previousCompleteEquipmentDives += previousDives;
+      if (data.customerId) {
+        // Note: getCustomerBookings is async in API mode, but calculatePrice must be sync
+        // This will work in mock mode, but in API mode bookings may not be loaded yet
+        try {
+          const customerBookings = dataService.getCustomerBookings(data.customerId) || [];
+          if (Array.isArray(customerBookings)) {
+            customerBookings.forEach(booking => {
+              if (booking.rentedEquipment?.completeEquipment) {
+                // Calculate previous dives from old format or new format
+                const previousDives = booking.numberOfDives || 
+                  ((booking.diveSessions?.morning ? 1 : 0) + (booking.diveSessions?.afternoon ? 1 : 0));
+                previousCompleteEquipmentDives += previousDives;
+              }
+            });
           }
-        });
+        } catch (e) {
+          // Ignore errors - bookings may not be loaded in API mode
+          console.warn('Could not get customer bookings for equipment calculation:', e);
+        }
       }
       
       const remainingCompleteEquipmentDives = Math.max(0, 8 - previousCompleteEquipmentDives);
@@ -557,18 +781,39 @@ const BookingForm = ({ bookingId = null }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Validate: For diving, at least one dive session must be selected
-    if (formData.activityType === 'diving') {
-      if (!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night) {
-        alert('Please select at least one dive session for diving activities.');
+    // Check if this is a bike rental location
+    const currentLocation = locations.find(l => l.id === formData.locationId);
+    const isBikeRental = currentLocation?.type === 'bike_rental';
+    
+    // Validate bike rental bookings
+    if (isBikeRental) {
+      if (!formData.bikeType) {
+        alert('Please select a bike type.');
         return;
       }
-    }
-    
-    // Validate: For non-diving activities, numberOfDives must be at least 1
-    if (formData.activityType !== 'diving' && (!formData.numberOfDives || formData.numberOfDives < 1)) {
-      alert('Please enter a valid number of sessions (at least 1).');
-      return;
+      if (!formData.rentalDays || formData.rentalDays < 1) {
+        alert('Please enter a valid rental duration (at least 1 day).');
+        return;
+      }
+      if (!formData.startDate) {
+        alert('Please select a start date.');
+        return;
+      }
+    } else {
+      // Validate diving bookings
+      // Validate: For diving, at least one dive session must be selected
+      if (formData.activityType === 'diving') {
+        if (!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night) {
+          alert('Please select at least one dive session for diving activities.');
+          return;
+        }
+      }
+      
+      // Validate: For non-diving activities, numberOfDives must be at least 1
+      if (formData.activityType !== 'diving' && (!formData.numberOfDives || formData.numberOfDives < 1)) {
+        alert('Please enter a valid number of sessions (at least 1).');
+        return;
+      }
     }
     
     // Recalculate price one final time before saving to ensure it's correct
@@ -578,12 +823,19 @@ const BookingForm = ({ bookingId = null }) => {
     }
     
     // Use a small delay to ensure calculatePrice has updated formData
-    setTimeout(() => {
+    setTimeout(async () => {
       // Prepare booking data with current formData (which should have latest calculated prices)
       const bookingData = { ...formData };
       
+      // Set activityType based on location type if bike rental
+      // Note: backend enum doesn't include 'bike_rental', so we use 'specialty' as a workaround
+      // The actual activity type is stored in equipmentNeeded for bike rentals
+      if (isBikeRental) {
+        bookingData.activityType = 'specialty'; // Use existing enum value, actual type stored in equipmentNeeded
+      }
+      
       // For non-diving activities, ensure numberOfDives is set
-      if (bookingData.activityType !== 'diving') {
+      if (bookingData.activityType !== 'diving' && !isBikeRental) {
         bookingData.numberOfDives = bookingData.numberOfDives || 1;
         // Clear dive sessions for non-diving activities
         bookingData.diveSessions = {
@@ -593,8 +845,83 @@ const BookingForm = ({ bookingId = null }) => {
         };
       }
       
-      // Ensure equipmentRental is 0 if ownEquipment is true
-      if (bookingData.ownEquipment) {
+      // For bike rental, transform data for backend
+      if (isBikeRental) {
+        // Store bike rental specific data in equipment_needed JSON field
+        // Build equipmentNeeded object, only including non-null/non-empty values
+        const equipmentNeededData = {
+          activityType: 'bike_rental', // Store actual activity type here
+          bikeType: bookingData.bikeType,
+          rentalDays: bookingData.rentalDays || 2,
+          bikeEquipment: bookingData.bikeEquipment || {}
+        };
+        
+        // Only include bikeInsurance if it's not empty
+        if (bookingData.bikeInsurance && bookingData.bikeInsurance.trim() !== '') {
+          equipmentNeededData.bikeInsurance = bookingData.bikeInsurance;
+        }
+        
+        // Include startDate (use bookingDate as fallback)
+        if (bookingData.startDate) {
+          equipmentNeededData.startDate = bookingData.startDate;
+        } else if (bookingData.bookingDate) {
+          equipmentNeededData.startDate = bookingData.bookingDate;
+        }
+        
+        // Only include endDate if it exists
+        if (bookingData.endDate) {
+          equipmentNeededData.endDate = bookingData.endDate;
+        }
+        
+        bookingData.equipmentNeeded = equipmentNeededData;
+        
+        // Set numberOfDives to rentalDays for bike rental (backend expects this)
+        bookingData.numberOfDives = bookingData.rentalDays || 2;
+        
+        // Ensure price and totalPrice are valid numbers (not 0 or undefined)
+        if (!bookingData.price || bookingData.price === 0) {
+          console.error('Bike rental price is 0 or undefined, cannot save booking');
+          alert('Error: Booking price is invalid. Please check the pricing calculation.');
+          return;
+        }
+        if (!bookingData.totalPrice || bookingData.totalPrice === 0) {
+          bookingData.totalPrice = bookingData.price;
+        }
+        
+        // Clear diving-related fields
+        bookingData.diveSessions = {
+          morning: false,
+          afternoon: false,
+          night: false
+        };
+        bookingData.addons = {};
+        delete bookingData.bonoId; // Remove bonoId for bike rentals
+        bookingData.ownEquipment = false;
+        bookingData.rentedEquipment = {};
+        
+        // Remove bike rental specific fields that backend doesn't expect
+        delete bookingData.bikeType;
+        delete bookingData.rentalDays;
+        delete bookingData.bikeEquipment;
+        delete bookingData.bikeInsurance;
+        delete bookingData.startDate;
+        delete bookingData.endDate;
+        delete bookingData.bikeInsuranceCost;
+        
+        // Ensure equipmentNeeded is set (should already be set above, but double-check)
+        if (!bookingData.equipmentNeeded) {
+          bookingData.equipmentNeeded = {
+            activityType: 'bike_rental',
+            bikeType: '',
+            rentalDays: 2,
+            bikeEquipment: {},
+            bikeInsurance: ''
+          };
+        }
+      }
+      
+      // Ensure equipmentRental is 0 if ownEquipment is true (only for diving)
+      if (bookingData.ownEquipment && !isBikeRental) {
         bookingData.equipmentRental = 0;
         // Recalculate totalPrice without equipment rental
         const basePrice = bookingData.price || 0;
@@ -604,22 +931,107 @@ const BookingForm = ({ bookingId = null }) => {
         bookingData.customerPayment = bookingData.totalPrice;
       }
       
-      if (bookingId) {
-        dataService.update('bookings', bookingId, bookingData);
-      } else {
-        dataService.create('bookings', bookingData);
+      // Remove frontend-only fields that backend doesn't expect
+      delete bookingData.diveSessions; // Stored in equipmentNeeded if needed
+      delete bookingData.equipmentRental; // Not a backend field, equipment info in equipmentNeeded
+      delete bookingData.diveInsurance; // Not a backend field
+      delete bookingData.nightDiveSurcharge; // Frontend-only field
+      delete bookingData.cumulativePricing; // Frontend-only field
+      delete bookingData.pricePerDive; // Frontend-only field
+      delete bookingData.transferFee; // Frontend-only field
+      delete bookingData.addons; // Stored in equipmentNeeded if needed
+      delete bookingData.ownEquipment; // Frontend-only field
+      delete bookingData.rentedEquipment; // Stored in equipmentNeeded if needed
+      
+      // Validate required fields before sending
+      if (!bookingData.customerId) {
+        alert('Please select a customer.');
+        return;
+      }
+      if (!bookingData.locationId) {
+        alert('Please select a location.');
+        return;
+      }
+      if (!bookingData.bookingDate) {
+        alert('Please select a booking date.');
+        return;
+      }
+      if (!bookingData.activityType) {
+        alert('Activity type is required.');
+        return;
+      }
+      if (typeof bookingData.price !== 'number' || bookingData.price <= 0) {
+        alert('Invalid booking price. Please check the pricing calculation.');
+        return;
+      }
+      if (typeof bookingData.totalPrice !== 'number' || bookingData.totalPrice <= 0) {
+        alert('Invalid total price. Please check the pricing calculation.');
+        return;
       }
       
-      setSaved(true);
-      setTimeout(() => {
-        navigate('/bookings');
-      }, 1500);
+      // Ensure only backend-expected fields are sent (matching CreateBookingDto interface)
+      const backendBookingData = {
+        customerId: bookingData.customerId,
+        locationId: bookingData.locationId,
+        bookingDate: bookingData.bookingDate,
+        activityType: bookingData.activityType,
+        numberOfDives: Math.floor(Number(bookingData.numberOfDives || 1)), // Ensure integer
+        price: Number(bookingData.price),
+        discount: Number(bookingData.discount || 0),
+        totalPrice: Number(bookingData.totalPrice),
+        paymentStatus: bookingData.paymentStatus || 'pending',
+        status: bookingData.status || 'confirmed',
+        equipmentNeeded: bookingData.equipmentNeeded || (isBikeRental ? {} : []) // Object for bike rental, array for diving
+      };
+      
+      // Add optional fields only if they have values
+      if (bookingData.boatId && String(bookingData.boatId).trim()) {
+        backendBookingData.boatId = String(bookingData.boatId).trim();
+      }
+      if (bookingData.diveSiteId && String(bookingData.diveSiteId).trim()) {
+        backendBookingData.diveSiteId = String(bookingData.diveSiteId).trim();
+      }
+      if (bookingData.staffPrimaryId && String(bookingData.staffPrimaryId).trim()) {
+        backendBookingData.staffPrimaryId = String(bookingData.staffPrimaryId).trim();
+      }
+      if (bookingData.paymentMethod && String(bookingData.paymentMethod).trim()) {
+        backendBookingData.paymentMethod = bookingData.paymentMethod;
+      }
+      if (bookingData.specialRequirements && String(bookingData.specialRequirements).trim()) {
+        backendBookingData.specialRequirements = String(bookingData.specialRequirements).trim();
+      }
+      if (bookingData.bonoId && String(bookingData.bonoId).trim()) {
+        backendBookingData.bonoId = String(bookingData.bonoId).trim();
+      }
+      if (bookingData.stayId && String(bookingData.stayId).trim()) {
+        backendBookingData.stayId = String(bookingData.stayId).trim();
+      }
+      
+      console.log('=== Sending booking data to backend ===');
+      console.log('Backend booking data:', backendBookingData);
+      console.log('Backend booking data (JSON):', JSON.stringify(backendBookingData, null, 2));
+      
+      try {
+        console.log('Calling dataService.create...');
+        if (bookingId) {
+          const result = await dataService.update('bookings', bookingId, backendBookingData);
+          console.log('Booking updated successfully:', result);
+        } else {
+          const result = await dataService.create('bookings', backendBookingData);
+          console.log('Booking created successfully:', result);
+        }
+        
+        setSaved(true);
+        setTimeout(() => {
+          navigate('/bookings');
+        }, 1500);
+      } catch (error) {
+        console.error('Error saving booking:', error);
+        alert(`Error saving booking: ${error.message || 'Unknown error'}. Please check the console for details.`);
+        setSaved(false);
+      }
+      
     }, 100);
-    
-    setSaved(true);
-    setTimeout(() => {
-      navigate('/bookings');
-    }, 1500);
   };
 
   return (
@@ -656,7 +1068,7 @@ const BookingForm = ({ bookingId = null }) => {
                   }}
                   required
                 >
-                  {locations.map(loc => (
+                  {Array.isArray(locations) && locations.map(loc => (
                     <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>
                   ))}
                 </Select>
@@ -681,23 +1093,186 @@ const BookingForm = ({ bookingId = null }) => {
               </FormControl>
             </Grid>
 
-            {/* Booking Date */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Booking Date"
-                type="date"
-                fullWidth
-                value={formData.bookingDate}
-                onChange={(e) => handleChange('bookingDate', e.target.value)}
-                required
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
+            {/* Check if location is bike rental - render appropriate form fields */}
+            {(() => {
+              const currentLocation = locations.find(l => l.id === formData.locationId);
+              const isBikeRental = currentLocation?.type === 'bike_rental';
+              
+              if (isBikeRental) {
+                // BIKE RENTAL FORM FIELDS
+                return (
+                  <>
+                    {/* Start Date */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        label="Start Date"
+                        type="date"
+                        fullWidth
+                        value={formData.startDate}
+                        onChange={(e) => {
+                          const newStartDate = e.target.value;
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            startDate: newStartDate,
+                            bookingDate: newStartDate // Also update bookingDate for consistency
+                          }));
+                        }}
+                        required
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
 
-            {/* Boat and Dive Site will be selected after the dive for Spanish regulation compliance */}
+                    {/* Rental Duration (Days) */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        label="Rental Duration (Days)"
+                        type="number"
+                        fullWidth
+                        value={formData.rentalDays}
+                        onChange={(e) => {
+                          const days = Math.max(2, parseInt(e.target.value) || 2); // Minimum 2 days
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            rentalDays: days
+                          }));
+                          calculatePrice();
+                        }}
+                        inputProps={{ min: 2 }}
+                        helperText="Minimum rental period is 2 days"
+                        required
+                      />
+                    </Grid>
 
-            {/* Dive Sessions (only for diving activity) */}
-            {formData.activityType === 'diving' && (
+                    {/* Bike Type Selection */}
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Bike Type</InputLabel>
+                        <Select
+                          value={formData.bikeType}
+                          label="Bike Type"
+                          onChange={(e) => {
+                            setFormData(prev => ({ ...prev, bikeType: e.target.value }));
+                            calculatePrice();
+                          }}
+                        >
+                          <MenuItem value="street_bike">Street Bike</MenuItem>
+                          <MenuItem value="gravel_bike">Gravel Bike</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {/* Bike Equipment (charged once per rental) */}
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom>
+                        Equipment (charged once per rental)
+                      </Typography>
+                      <Grid container spacing={2}>
+                        {Object.entries({
+                          click_pedals: 'Click Pedals',
+                          helmet: 'Helmet',
+                          gps_computer: 'GPS Computer'
+                        }).map(([key, label]) => {
+                          // Get price from location pricing or use defaults
+                          const price = currentLocation?.pricing?.equipment?.[key] || 
+                                       (key === 'click_pedals' ? 10.00 : 
+                                        key === 'helmet' ? 10.00 : 
+                                        key === 'gps_computer' ? 15.00 : 0);
+                          return (
+                            <Grid item xs={12} sm={4} key={key}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={formData.bikeEquipment?.[key] || false}
+                                    onChange={(e) => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        bikeEquipment: {
+                                          ...prev.bikeEquipment,
+                                          [key]: e.target.checked
+                                        }
+                                      }));
+                                      calculatePrice();
+                                    }}
+                                  />
+                                }
+                                label={`${label} (€${price.toFixed(2)})`}
+                              />
+                            </Grid>
+                          );
+                        })}
+                      </Grid>
+                    </Grid>
+
+                    {/* Bike Insurance */}
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Insurance (Optional)</InputLabel>
+                        <Select
+                          value={formData.bikeInsurance}
+                          label="Insurance (Optional)"
+                          onChange={(e) => {
+                            setFormData(prev => ({ ...prev, bikeInsurance: e.target.value }));
+                            calculatePrice();
+                          }}
+                        >
+                          <MenuItem value="">No Insurance</MenuItem>
+                          <MenuItem value="one_day">1 Day (€{currentLocation?.pricing?.insurance?.one_day || 5.00})</MenuItem>
+                          <MenuItem value="one_week">1 Week (€{currentLocation?.pricing?.insurance?.one_week || 15.00})</MenuItem>
+                          <MenuItem value="one_month">1 Month (€{currentLocation?.pricing?.insurance?.one_month || 25.00})</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {/* Price Display */}
+                    <Grid item xs={12}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>
+                            Rental Price Breakdown
+                          </Typography>
+                          <Typography>
+                            Base Price ({formData.rentalDays} day{formData.rentalDays > 1 ? 's' : ''}): €{(Number(formData.price) || 0).toFixed(2)}
+                          </Typography>
+                          {formData.equipmentRental > 0 && (
+                            <Typography>
+                              Equipment: €{(Number(formData.equipmentRental) || 0).toFixed(2)}
+                            </Typography>
+                          )}
+                          {formData.bikeInsurance && (
+                            <Typography>
+                              Insurance: €{(Number(formData.bikeInsuranceCost) || (currentLocation?.pricing?.insurance?.[formData.bikeInsurance] || 0)).toFixed(2)}
+                            </Typography>
+                          )}
+                          <Divider sx={{ my: 1 }} />
+                          <Typography variant="h6">
+                            Total: €{(Number(formData.totalPrice) || 0).toFixed(2)}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </>
+                );
+              } else {
+                // DIVING FORM FIELDS
+                return (
+                  <>
+                    {/* Booking Date */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        label="Booking Date"
+                        type="date"
+                        fullWidth
+                        value={formData.bookingDate}
+                        onChange={(e) => handleChange('bookingDate', e.target.value)}
+                        required
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+
+                    {/* Boat and Dive Site will be selected after the dive for Spanish regulation compliance */}
+
+                    {/* Dive Sessions (only for diving activity) */}
+                    {formData.activityType === 'diving' && (
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>
                   Dive Sessions
@@ -773,32 +1348,41 @@ const BookingForm = ({ bookingId = null }) => {
               </Grid>
             )}
 
-          {/* Route Type for Las Playitas (only for diving) */}
-          {formData.activityType === 'diving' && (() => {
-            const currentLoc = locations.find(l => l.id === formData.locationId);
-            const isPlayitas = currentLoc && currentLoc.name?.toLowerCase().includes('playitas');
-            return isPlayitas ? (
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Route</InputLabel>
-                  <Select
-                    value={formData.routeType}
-                    onChange={(e) => handleChange('routeType', e.target.value)}
-                    label="Route"
-                  >
-                    <MenuItem value="">Select route</MenuItem>
-                    <MenuItem value="playitas_local">Playitas Local Dive (€35)</MenuItem>
-                    <MenuItem value="caleta_from_playitas">Caleta Dive from Playitas (tiers + €15 transfer per day)</MenuItem>
-                    <MenuItem value="dive_trip">Dive Trip (Gran Tarajal / La Lajita) (€45)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            ) : null;
-          })()}
+                    {/* Route Type for Las Playitas (only for diving) */}
+                    {formData.activityType === 'diving' && (() => {
+                      const currentLoc = locations.find(l => l.id === formData.locationId);
+                      const isPlayitas = currentLoc && currentLoc.name?.toLowerCase().includes('playitas');
+                      return isPlayitas ? (
+                        <Grid item xs={12} md={6}>
+                          <FormControl fullWidth>
+                            <InputLabel>Route</InputLabel>
+                            <Select
+                              value={formData.routeType}
+                              onChange={(e) => handleChange('routeType', e.target.value)}
+                              label="Route"
+                            >
+                              <MenuItem value="">Select route</MenuItem>
+                              <MenuItem value="playitas_local">Playitas Local Dive (€35)</MenuItem>
+                              <MenuItem value="caleta_from_playitas">Caleta Dive from Playitas (tiers + €15 transfer per day)</MenuItem>
+                              <MenuItem value="dive_trip">Dive Trip (Gran Tarajal / La Lajita) (€45)</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                      ) : null;
+                    })()}
+                  </>
+                );
+              }
+            })()}
 
-            {/* Pricing Information */}
-            {formData.customerId && (() => {
-              const customer = dataService.getById('customers', formData.customerId);
+            {/* Pricing Information (only for diving) */}
+            {(() => {
+              const currentLocation = locations.find(l => l.id === formData.locationId);
+              const isBikeRental = currentLocation?.type === 'bike_rental';
+              if (isBikeRental) return null; // Price already shown in bike rental section
+              
+              return formData.customerId ? (() => {
+                const customer = customers.find(c => c.id === formData.customerId) || null;
               const customerType = getCustomerType(customer);
               const isRecurrent = customerType === 'recurrent';
               const isLocal = customerType === 'local';
@@ -806,12 +1390,12 @@ const BookingForm = ({ bookingId = null }) => {
               
               // For recurrent/local, use pricePerDive from formData (calculated from pricing service)
               // For tourist, use cumulativePricing if available
-              const displayPricePerDive = isRecurrent || isLocal 
+              const displayPricePerDive = Number(isRecurrent || isLocal 
                 ? formData.pricePerDive || (isRecurrent ? 32.00 : 35.00)
-                : (formData.cumulativePricing?.pricePerDive || formData.pricePerDive || 46.00);
+                : (formData.cumulativePricing?.pricePerDive || formData.pricePerDive || 46.00)) || 0;
               
-              const displayTotalDives = formData.cumulativePricing?.totalDives || 0;
-              const displayTotalPrice = formData.cumulativePricing?.totalPrice || formData.totalPrice || 0;
+              const displayTotalDives = Number(formData.cumulativePricing?.totalDives) || 0;
+              const displayTotalPrice = Number(formData.cumulativePricing?.totalPrice || formData.totalPrice) || 0;
               
               // Get base price for comparison (first tier for tourist, fixed price for others)
               let basePrice = 46.00; // Default tourist first tier
@@ -877,62 +1461,81 @@ const BookingForm = ({ bookingId = null }) => {
                 </Paper>
               </Grid>
               );
+              })() : null;
             })()}
 
-            {/* Activity Type */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Activity Type</InputLabel>
-                <Select
-                  value={formData.activityType}
-                  onChange={(e) => handleChange('activityType', e.target.value)}
-                  required
-                >
-                  <MenuItem value="diving">Diving</MenuItem>
-                  <MenuItem value="snorkeling">Snorkeling</MenuItem>
-                  <MenuItem value="discover">Discovery / Try Dive</MenuItem>
-                  <MenuItem value="orientation">Orientation Dive</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            {/* Activity Type (only for diving locations) */}
+            {(() => {
+              const currentLocation = locations.find(l => l.id === formData.locationId);
+              const isBikeRental = currentLocation?.type === 'bike_rental';
+              if (isBikeRental) return null; // Hide activity type for bike rental
+              
+              return (
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Activity Type</InputLabel>
+                    <Select
+                      value={formData.activityType}
+                      onChange={(e) => handleChange('activityType', e.target.value)}
+                      required
+                    >
+                      <MenuItem value="diving">Diving</MenuItem>
+                      <MenuItem value="snorkeling">Snorkeling</MenuItem>
+                      <MenuItem value="discover">Discovery / Try Dive</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              );
+            })()}
 
-            <Divider sx={{ my: 2, width: '100%' }} />
+            {/* Addons (only for diving) */}
+            {(() => {
+              const currentLocation = locations.find(l => l.id === formData.locationId);
+              const isBikeRental = currentLocation?.type === 'bike_rental';
+              if (isBikeRental) return null;
+              
+              return (
+                <>
+                  <Divider sx={{ my: 2, width: '100%' }} />
 
-            {/* Addons */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Addons
-              </Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.addons?.personalInstructor || false}
-                    onChange={(e) => handleAddonChange('personalInstructor', e.target.checked)}
-                  />
-                }
-                label="Personal Instructor (+€100)"
-              />
-            </Grid>
+                  {/* Addons */}
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom>
+                      Addons
+                    </Typography>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.addons?.personalInstructor || false}
+                          onChange={(e) => handleAddonChange('personalInstructor', e.target.checked)}
+                        />
+                      }
+                      label="Personal Instructor (+€100)"
+                    />
+                  </Grid>
 
-            <Divider sx={{ my: 2, width: '100%' }} />
+                  <Divider sx={{ my: 2, width: '100%' }} />
 
-            {/* Government Bono */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Government Bono (Canary Islands)</InputLabel>
-                <Select
-                  value={formData.bonoId}
-                  onChange={(e) => handleChange('bonoId', e.target.value)}
-                >
-                  <MenuItem value="">None</MenuItem>
-                  {bonos.map(bono => (
-                    <MenuItem key={bono.id} value={bono.id}>
-                      {bono.code} - {bono.discountPercentage}% discount
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+                  {/* Government Bono */}
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Government Bono (Canary Islands)</InputLabel>
+                      <Select
+                        value={formData.bonoId}
+                        onChange={(e) => handleChange('bonoId', e.target.value)}
+                      >
+                        <MenuItem value="">None</MenuItem>
+                        {bonos.map(bono => (
+                          <MenuItem key={bono.id} value={bono.id}>
+                            {bono.code} - {bono.discountPercentage}% discount
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </>
+              );
+            })()}
 
             {/* Booking Status */}
             <Grid item xs={12} md={6}>
@@ -953,23 +1556,29 @@ const BookingForm = ({ bookingId = null }) => {
             </Grid>
 
 
-            {/* Own Equipment (only for diving) */}
-            {formData.activityType === 'diving' && (
-              <>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formData.ownEquipment}
-                        onChange={(e) => handleChange('ownEquipment', e.target.checked)}
-                      />
-                    }
-                    label="Customer brings own equipment (no equipment rental fee)"
-                  />
-                </Grid>
+            {/* Own Equipment (only for diving locations) */}
+            {(() => {
+              const currentLocation = locations.find(l => l.id === formData.locationId);
+              const isBikeRental = currentLocation?.type === 'bike_rental';
+              // Only show diving equipment rental for diving locations
+              if (isBikeRental || formData.activityType !== 'diving') return null;
+              
+              return (
+                <>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.ownEquipment}
+                          onChange={(e) => handleChange('ownEquipment', e.target.checked)}
+                        />
+                      }
+                      label="Customer brings own equipment (no equipment rental fee)"
+                    />
+                  </Grid>
 
-                {/* Individual Equipment Rental */}
-                {!formData.ownEquipment && (
+                  {/* Individual Equipment Rental */}
+                  {!formData.ownEquipment && (
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
                   Equipment Rental Selection
@@ -1113,18 +1722,24 @@ const BookingForm = ({ bookingId = null }) => {
                       }
                       label="UW Camera (€20)"
                     />
-                  </Grid>
+                    </Grid>
                 </Grid>
               </Grid>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              );
+            })()}
 
             <Divider sx={{ my: 2, width: '100%' }} />
 
             {/* Volume Discount Calculator (only for diving and tourist customers) */}
-            {formData.activityType === 'diving' && formData.customerId && (() => {
-              const customer = dataService.getById('customers', formData.customerId);
+            {(() => {
+              const currentLocation = locations.find(l => l.id === formData.locationId);
+              const isBikeRental = currentLocation?.type === 'bike_rental';
+              // Only show for diving activities, not bike rental
+              if (isBikeRental || formData.activityType !== 'diving' || !formData.customerId) return null;
+              
+              const customer = customers.find(c => c.id === formData.customerId) || null;
               const customerType = getCustomerType(customer);
               // Only show volume discount calculator for tourist customers
               const isTourist = customerType === 'tourist';

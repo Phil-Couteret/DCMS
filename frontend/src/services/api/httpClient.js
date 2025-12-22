@@ -34,7 +34,33 @@ class HttpClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        // Try to get error details from response body
+        let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            if (errorData.message) {
+              errorMessage = `${errorMessage}: ${errorData.message}`;
+            } else if (errorData.error) {
+              errorMessage = `${errorMessage}: ${typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error)}`;
+            } else {
+              errorMessage = `${errorMessage}: ${JSON.stringify(errorData)}`;
+            }
+          } else {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}: ${errorText}`;
+            }
+          }
+        } catch (e) {
+          // If we can't parse the error response, use the default message
+          console.warn('Could not parse error response:', e);
+        }
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
       }
 
       // Handle empty responses

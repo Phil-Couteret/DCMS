@@ -1,7 +1,7 @@
-// Sync Service - Connects to sync server for POC
-// Syncs data between public website and admin portal
+// Sync Service - Connects to backend API
+// Syncs data between public website and admin portal via database
 
-const SYNC_SERVER_URL = 'http://localhost:3002/api/sync';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
 // No periodic sync - data is pushed immediately when changed, pulled on page load only
 
 class SyncService {
@@ -25,7 +25,9 @@ class SyncService {
 
     this.connectingPromise = (async () => {
       try {
-        const response = await fetch('http://localhost:3002/health', { cache: 'no-store' });
+        // Health endpoint is at /api/health (backend uses global /api prefix)
+        const healthUrl = `${API_BASE_URL}/health`;
+        const response = await fetch(healthUrl, { cache: 'no-store' });
         if (!response.ok) {
           throw new Error(`Health check failed with status ${response.status}`);
         }
@@ -89,16 +91,82 @@ class SyncService {
     }
     
     try {
-      const response = await fetch(`${SYNC_SERVER_URL}/${resource}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      
-      if (response.ok) {
-        await response.json();
+      // Handle arrays by syncing each item individually
+      if (Array.isArray(data)) {
+        for (const item of data) {
+          if (!item || !item.id) {
+            console.warn(`[Sync] Skipping ${resource} item without ID:`, item);
+            continue;
+          }
+
+          try {
+            // Check if item exists by trying to GET it first
+            const getResponse = await fetch(`${API_BASE_URL}/${resource}/${item.id}`);
+            
+            if (getResponse.ok) {
+              // Item exists, update it
+              const updateResponse = await fetch(`${API_BASE_URL}/${resource}/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              });
+              
+              if (!updateResponse.ok) {
+                console.error(`[Sync] ❌ Failed to update ${resource}/${item.id}:`, updateResponse.status, updateResponse.statusText);
+              }
+            } else if (getResponse.status === 404) {
+              // Item doesn't exist, create it
+              const createResponse = await fetch(`${API_BASE_URL}/${resource}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+              });
+              
+              if (!createResponse.ok) {
+                console.error(`[Sync] ❌ Failed to create ${resource}/${item.id}:`, createResponse.status, createResponse.statusText);
+              }
+            }
+          } catch (itemError) {
+            console.error(`[Sync] ❌ Error syncing ${resource} item ${item.id}:`, itemError.message);
+          }
+        }
       } else {
-        console.error(`[Sync] ❌ Failed to push ${resource}:`, response.status, response.statusText);
+        // Single item
+        const item = data;
+        if (!item || !item.id) {
+          console.warn(`[Sync] Cannot sync ${resource} item without ID`);
+          return;
+        }
+
+        try {
+          const getResponse = await fetch(`${API_BASE_URL}/${resource}/${item.id}`);
+          
+          if (getResponse.ok) {
+            // Update
+            const updateResponse = await fetch(`${API_BASE_URL}/${resource}/${item.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(item)
+            });
+            
+            if (!updateResponse.ok) {
+              console.error(`[Sync] ❌ Failed to update ${resource}/${item.id}:`, updateResponse.status, updateResponse.statusText);
+            }
+          } else if (getResponse.status === 404) {
+            // Create
+            const createResponse = await fetch(`${API_BASE_URL}/${resource}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(item)
+            });
+            
+            if (!createResponse.ok) {
+              console.error(`[Sync] ❌ Failed to create ${resource}/${item.id}:`, createResponse.status, createResponse.statusText);
+            }
+          }
+        } catch (itemError) {
+          console.error(`[Sync] ❌ Error syncing ${resource} item ${item.id}:`, itemError.message);
+        }
       }
     } catch (e) {
       console.error(`[Sync] ❌ Failed to push ${resource}:`, e.message);
@@ -109,7 +177,7 @@ class SyncService {
     if (!this.isEnabled) return null;
     
     try {
-      const response = await fetch(`${SYNC_SERVER_URL}/${resource}`);
+      const response = await fetch(`${API_BASE_URL}/${resource}`);
       if (response.ok) {
         const data = await response.json();
         return data;
@@ -124,12 +192,12 @@ class SyncService {
   async fetchFromServer(resource) {
     const connected = await this.ensureConnection();
     if (!connected) {
-      console.warn(`[Sync] Cannot fetch ${resource} - sync server not available`);
+      console.warn(`[Sync] Cannot fetch ${resource} - API server not available`);
       return [];
     }
     
     try {
-      const response = await fetch(`${SYNC_SERVER_URL}/${resource}`);
+      const response = await fetch(`${API_BASE_URL}/${resource}`);
       if (response.ok) {
         const data = await response.json();
         return Array.isArray(data) ? data : [];
@@ -153,20 +221,11 @@ class SyncService {
   async pushAllData() {
     const connected = await this.ensureConnection();
     if (!connected) return;
-    const resources = ['bookings', 'customers', 'locations', 'equipment'];
-    for (const resource of resources) {
-      const key = `dcms_${resource}`;
-      const localData = localStorage.getItem(key);
-      if (localData) {
-        try {
-          const data = JSON.parse(localData);
-          // Pushing entire dataset
-          await this.syncToServer(resource, data);
-        } catch (err) {
-          console.warn(`[Sync] Error during full push for ${resource}:`, err);
-        }
-      }
-    }
+    
+    // Skip bulk push - data should already be in database from migration
+    // Only sync individual changes via pushPendingChanges
+    console.log('[Sync] Skipping bulk push - using database as source of truth');
+    return;
   }
 
   // Mark a resource as having pending changes (called when data is modified)

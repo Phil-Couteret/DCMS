@@ -143,40 +143,39 @@ const Settings = () => {
   ];
 
   useEffect(() => {
-    loadSettings();
+    loadSettings().catch(err => console.error('Error loading settings:', err));
     if (isAdmin()) {
-      loadUsers();
-      loadLocations();
-      loadDiveSites();
-      loadBoats();
+      loadUsers().catch(err => console.error('Error loading users:', err));
+      loadLocations().catch(err => console.error('Error loading locations:', err));
+      loadDiveSites().catch(err => console.error('Error loading dive sites:', err));
+      loadBoats().catch(err => console.error('Error loading boats:', err));
     }
   }, [isAdmin]);
   
-  const loadDiveSites = () => {
+  const loadDiveSites = async () => {
     try {
-      const allDiveSites = dataService.getAll('diveSites') || [];
-      setDiveSites(allDiveSites);
+      const allDiveSites = await dataService.getAll('diveSites') || [];
+      setDiveSites(Array.isArray(allDiveSites) ? allDiveSites : []);
     } catch (error) {
       console.error('Error loading dive sites:', error);
       setDiveSites([]);
     }
   };
   
-  const loadBoats = () => {
+  const loadBoats = async () => {
     try {
-      const allBoats = dataService.getAll('boats') || [];
-      setBoats(allBoats);
+      const allBoats = await dataService.getAll('boats') || [];
+      setBoats(Array.isArray(allBoats) ? allBoats : []);
     } catch (error) {
       console.error('Error loading boats:', error);
       setBoats([]);
     }
   };
 
-
-  const loadSettings = () => {
+  const loadSettings = async () => {
     try {
-      const savedSettings = dataService.getAll('settings');
-      if (savedSettings.length > 0) {
+      const savedSettings = await dataService.getAll('settings') || [];
+      if (Array.isArray(savedSettings) && savedSettings.length > 0) {
         setSettings(savedSettings[0]);
         setSettingsId(savedSettings[0].id);
       }
@@ -195,14 +194,14 @@ const Settings = () => {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       if (settingsId) {
         // Update existing settings
-        dataService.update('settings', settingsId, settings);
+        await dataService.update('settings', settingsId, settings);
       } else {
         // Create new settings if none exist
-        const newSettings = dataService.create('settings', settings);
+        const newSettings = await dataService.create('settings', settings);
         setSettingsId(newSettings.id);
       }
       setSnackbar({
@@ -251,21 +250,23 @@ const Settings = () => {
   };
 
   // User Management functions
-  const loadUsers = () => {
+  const loadUsers = async () => {
     try {
-      const allUsers = dataService.getAll('users');
-      setUsers(allUsers);
+      const allUsers = await dataService.getAll('users') || [];
+      setUsers(Array.isArray(allUsers) ? allUsers : []);
     } catch (error) {
       console.error('Error loading users:', error);
+      setUsers([]);
     }
   };
 
-  const loadLocations = () => {
+  const loadLocations = async () => {
     try {
-      const allLocations = dataService.getAll('locations');
-      setLocations(allLocations);
+      const allLocations = await dataService.getAll('locations') || [];
+      setLocations(Array.isArray(allLocations) ? allLocations : []);
     } catch (error) {
       console.error('Error loading locations:', error);
+      setLocations([]);
     }
   };
 

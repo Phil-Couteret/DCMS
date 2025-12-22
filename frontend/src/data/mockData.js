@@ -1952,6 +1952,62 @@ export const initialMockData = {
           igic_label: "IGIC (7%)"      // Same as Caleta
         }
       }
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440003',
+      name: 'Bike Rental',
+      type: 'bike_rental',
+      address: {
+        street: 'Bike Rental Location',
+        city: 'Fuerteventura',
+        postalCode: '35610',
+        country: 'Spain'
+      },
+      isActive: true,
+      pricing: {
+        bikeTypes: {
+          street_bike: {
+            name: "Street Bike",
+            description: "Street bike rental with tiered pricing",
+            pricing: "tiered",
+            rentalTiers: [
+              { days: 2, price: 80.00, description: "2 days" },
+              { days: 3, price: 114.00, description: "3 days" },
+              { days: 4, price: 36.00, description: "4-6 days (36€/day)" },
+              { days: 7, price: 34.00, description: "7-10 days (34€/day)" },
+              { days: 11, price: 30.00, description: "11-13 days (30€/day)" },
+              { days: 14, price: 25.00, description: "14+ days (25€/day)" }
+            ]
+          },
+          gravel_bike: {
+            name: "Gravel Bike",
+            description: "Gravel bike rental with tiered pricing",
+            pricing: "tiered",
+            rentalTiers: [
+              { days: 2, price: 80.00, description: "2 days" },
+              { days: 3, price: 114.00, description: "3 days" },
+              { days: 4, price: 36.00, description: "4-6 days (36€/day)" },
+              { days: 7, price: 34.00, description: "7-10 days (34€/day)" },
+              { days: 11, price: 30.00, description: "11-13 days (30€/day)" },
+              { days: 14, price: 25.00, description: "14+ days (25€/day)" }
+            ]
+          }
+        },
+        equipment: {
+          click_pedals: 10.00,
+          helmet: 10.00,
+          gps_computer: 15.00
+        },
+        insurance: {
+          one_day: 5.00,
+          one_week: 15.00,
+          one_month: 25.00
+        },
+        tax: {
+          igic_rate: 0.07,
+          igic_label: "IGIC (7%)"
+        }
+      }
     }
   ],
   

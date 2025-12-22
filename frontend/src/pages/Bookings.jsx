@@ -41,7 +41,9 @@ const Bookings = () => {
 
   useEffect(() => {
     if (!isNewMode && !id) {
-      loadBookings();
+      loadBookings().catch(error => {
+        console.error('[Bookings] Error in useEffect loadBookings:', error);
+      });
     }
   }, [isNewMode, id]);
 
@@ -63,11 +65,15 @@ const Bookings = () => {
     
     // Poll for changes every 2 seconds (since different ports = separate localStorage)
     // This is a workaround - in production, use a shared backend API
-    const pollInterval = setInterval(() => {
+    const pollInterval = setInterval(async () => {
       if (!isNewMode && !id) {
-        const currentBookings = dataService.getAll('bookings');
-        if (currentBookings.length !== bookings.length) {
-          loadBookings();
+        try {
+          const currentBookings = await dataService.getAll('bookings') || [];
+          if (Array.isArray(currentBookings) && currentBookings.length !== bookings.length) {
+            loadBookings();
+          }
+        } catch (error) {
+          // Ignore polling errors
         }
       }
     }, 2000);
@@ -92,14 +98,26 @@ const Bookings = () => {
     };
   }, [isNewMode, id, bookings.length]);
 
-  const loadBookings = () => {
-    const allBookings = dataService.getAll('bookings');
-    const allCustomers = dataService.getAll('customers');
-    
-    // Show all bookings regardless of location
-    // (Location filtering is handled in other views like Dashboard)
-    setBookings(allBookings);
-    setCustomers(allCustomers);
+  const loadBookings = async () => {
+    try {
+      const allBookings = await dataService.getAll('bookings') || [];
+      const allCustomers = await dataService.getAll('customers') || [];
+      
+      // Ensure we have arrays
+      if (!Array.isArray(allBookings) || !Array.isArray(allCustomers)) {
+        console.warn('[Bookings] Invalid data format:', { allBookings, allCustomers });
+        return;
+      }
+      
+      // Show all bookings regardless of location
+      // (Location filtering is handled in other views like Dashboard)
+      setBookings(allBookings);
+      setCustomers(allCustomers);
+    } catch (error) {
+      console.error('[Bookings] Error loading bookings:', error);
+      setBookings([]);
+      setCustomers([]);
+    }
   };
 
   const handleRecalculatePrices = () => {
@@ -133,6 +151,34 @@ const Bookings = () => {
   const getCustomerName = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
     return customer ? `${customer.firstName} ${customer.lastName}` : t('customers.unknown') || 'Unknown Customer';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  const isBikeRental = (booking) => {
+    return booking.equipmentNeeded?.activityType === 'bike_rental' || 
+           booking.activityType === 'specialty' && booking.equipmentNeeded?.activityType === 'bike_rental';
+  };
+
+  const getActivityDisplayName = (booking) => {
+    if (isBikeRental(booking)) {
+      return 'Bike Rental';
+    }
+    const activityMap = {
+      diving: 'Diving',
+      snorkeling: 'Snorkeling',
+      discover: 'Discovery Dive',
+      specialty: 'Specialty'
+    };
+    return activityMap[booking.activityType] || booking.activityType;
   };
 
   if (isNewMode || id) {
@@ -224,12 +270,12 @@ const Bookings = () => {
                         color={getStatusColor(booking.status)}
                       />
                       <Typography variant="body2" color="text.secondary">
-                        {booking.bookingDate}
+                        {formatDate(booking.bookingDate)}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Typography variant="body2" color="text.secondary">
-                        {booking.activityType}
+                        {getActivityDisplayName(booking)}
                       </Typography>
                       {booking.routeType && (
                         <Chip
@@ -255,20 +301,48 @@ const Bookings = () => {
                         <strong>{t('bookings.details.bookingId') || 'Booking ID'}:</strong> {booking.id.substring(0, 8)}...
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>{t('bookings.details.date') || 'Date'}:</strong> {booking.bookingDate}
+                        <strong>{t('bookings.details.date') || 'Date'}:</strong> {formatDate(booking.bookingDate)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>{t('bookings.details.activity') || 'Activity'}:</strong> {booking.activityType}
+                        <strong>{t('bookings.details.activity') || 'Activity'}:</strong> {getActivityDisplayName(booking)}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        <strong>{t('bookings.details.diveSessions') || 'Dive Sessions'}:</strong> {
-                          booking.diveSessions ? 
-                            (booking.diveSessions.morning ? t('bookings.details.morning') || 'Morning (9AM)' : '') + 
-                            (booking.diveSessions.morning && booking.diveSessions.afternoon ? ', ' : '') +
-                            (booking.diveSessions.afternoon ? t('bookings.details.afternoon') || 'Afternoon (12PM)' : '') :
-                            `${(booking.numberOfDives || 1)} ${t('bookings.details.dives') || 'dives'}`
-                        }
-                      </Typography>
+                      {isBikeRental(booking) ? (
+                        <>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <strong>Rental Duration:</strong> {booking.equipmentNeeded?.rentalDays || booking.numberOfDives || 2} day{(booking.equipmentNeeded?.rentalDays || booking.numberOfDives || 2) > 1 ? 's' : ''}
+                          </Typography>
+                          {booking.equipmentNeeded?.bikeType && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <strong>Bike Type:</strong> {
+                                booking.equipmentNeeded.bikeType === 'street_bike' ? 'Street Bike' :
+                                booking.equipmentNeeded.bikeType === 'gravel_bike' ? 'Gravel Bike' :
+                                booking.equipmentNeeded.bikeType === 'mountain_bike' ? 'Mountain Bike' :
+                                booking.equipmentNeeded.bikeType
+                              }
+                            </Typography>
+                          )}
+                          {booking.equipmentNeeded?.startDate && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <strong>Start Date:</strong> {formatDate(booking.equipmentNeeded.startDate)}
+                            </Typography>
+                          )}
+                          {booking.equipmentNeeded?.endDate && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <strong>End Date:</strong> {formatDate(booking.equipmentNeeded.endDate)}
+                            </Typography>
+                          )}
+                        </>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          <strong>{t('bookings.details.diveSessions') || 'Dive Sessions'}:</strong> {
+                            booking.diveSessions ? 
+                              (booking.diveSessions.morning ? t('bookings.details.morning') || 'Morning (9AM)' : '') + 
+                              (booking.diveSessions.morning && booking.diveSessions.afternoon ? ', ' : '') +
+                              (booking.diveSessions.afternoon ? t('bookings.details.afternoon') || 'Afternoon (12PM)' : '') :
+                              `${(booking.numberOfDives || 1)} ${t('bookings.details.dives') || 'dives'}`
+                          }
+                        </Typography>
+                      )}
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         <strong>{t('common.status') || 'Status'}:</strong> {t(`bookings.status.${booking.status}`) || booking.status}
                       </Typography>
@@ -281,31 +355,66 @@ const Bookings = () => {
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <Typography variant="h6" gutterBottom>
-                        €{booking.totalPrice?.toFixed(2) || '0.00'}
+                        €{(Number(booking.totalPrice) || 0).toFixed(2)}
                       </Typography>
-                      {booking.ownEquipment && (
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          <strong>{t('bookings.details.ownEquipment') || 'Own Equipment'}:</strong> {t('common.yes')}
-                        </Typography>
-                      )}
-                      {booking.rentedEquipment && Object.values(booking.rentedEquipment).some(v => v) && (
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            <strong>{t('bookings.details.rentedEquipment') || 'Rented Equipment'}:</strong>
-                          </Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
-                            {Object.entries(booking.rentedEquipment).map(([eq, rented]) => 
-                              rented && (
-                                <Chip 
-                                  key={eq} 
-                                  label={eq} 
-                                  size="small" 
-                                  variant="outlined" 
-                                />
-                              )
-                            )}
-                          </Box>
-                        </Box>
+                      {isBikeRental(booking) ? (
+                        <>
+                          {booking.equipmentNeeded?.bikeEquipment && Object.values(booking.equipmentNeeded.bikeEquipment).some(v => v) && (
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                                <strong>Equipment:</strong>
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
+                                {booking.equipmentNeeded.bikeEquipment.click_pedals && (
+                                  <Chip label="Click Pedals" size="small" variant="outlined" />
+                                )}
+                                {booking.equipmentNeeded.bikeEquipment.helmet && (
+                                  <Chip label="Helmet" size="small" variant="outlined" />
+                                )}
+                                {booking.equipmentNeeded.bikeEquipment.gps_computer && (
+                                  <Chip label="GPS Computer" size="small" variant="outlined" />
+                                )}
+                              </Box>
+                            </Box>
+                          )}
+                          {booking.equipmentNeeded?.bikeInsurance && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
+                              <strong>Insurance:</strong> {
+                                booking.equipmentNeeded.bikeInsurance === 'one_day' ? 'One Day' :
+                                booking.equipmentNeeded.bikeInsurance === 'one_week' ? 'One Week' :
+                                booking.equipmentNeeded.bikeInsurance === 'one_month' ? 'One Month' :
+                                booking.equipmentNeeded.bikeInsurance
+                              }
+                            </Typography>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {booking.ownEquipment && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <strong>{t('bookings.details.ownEquipment') || 'Own Equipment'}:</strong> {t('common.yes')}
+                            </Typography>
+                          )}
+                          {booking.rentedEquipment && Object.values(booking.rentedEquipment).some(v => v) && (
+                            <Box>
+                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                                <strong>{t('bookings.details.rentedEquipment') || 'Rented Equipment'}:</strong>
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
+                                {Object.entries(booking.rentedEquipment).map(([eq, rented]) => 
+                                  rented && (
+                                    <Chip 
+                                      key={eq} 
+                                      label={eq} 
+                                      size="small" 
+                                      variant="outlined" 
+                                    />
+                                  )
+                                )}
+                              </Box>
+                            </Box>
+                          )}
+                        </>
                       )}
                       {booking.specialRequirements && (
                         <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
