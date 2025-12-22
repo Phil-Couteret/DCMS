@@ -45,8 +45,10 @@ const Prices = () => {
   }, []);
 
   const loadSettings = () => {
-    const settingsData = dataService.getAll('settings')[0];
-    setSettings(settingsData);
+    const settingsData = dataService.getAll('settings');
+    if (settingsData && settingsData.length > 0) {
+      setSettings(settingsData[0]);
+    }
   };
 
   const loadLocations = () => {
@@ -67,12 +69,24 @@ const Prices = () => {
           dataService.update('locations', loc.id, loc);
         }
       }
+      
+      // Persist settings changes (equipment prices, etc.)
+      if (settings) {
+        const existingSettings = dataService.getAll('settings');
+        if (existingSettings && existingSettings.length > 0) {
+          dataService.update('settings', settings.id, settings);
+        } else {
+          dataService.create('settings', settings);
+        }
+      }
+      
       setSnackbar({
         open: true,
         message: 'Prices updated successfully',
         severity: 'success'
       });
     } catch (error) {
+      console.error('Error saving prices:', error);
       setSnackbar({
         open: true,
         message: 'Error saving prices',
@@ -86,6 +100,9 @@ const Prices = () => {
   // Access selected location pricing safely
   const selectedLocation = locations.find(l => l.id === selectedLocationId);
   const locPricing = selectedLocation?.pricing || {};
+  
+  // Check if selected location is Las Playitas
+  const isPlayitas = selectedLocation && (selectedLocation.name === 'Las Playitas' || selectedLocation.id === 'playitas' || selectedLocation.id === '550e8400-e29b-41d4-a716-446655440002');
 
   const updateLocationPricing = (updater) => {
     setLocations(prev => prev.map(l => {
@@ -264,6 +281,23 @@ const Prices = () => {
                       }
                     />
                     <CardContent>
+                      {/* Playitas Dive Price (fixed) - Only for Las Playitas */}
+                      {isPlayitas && (
+                        <Box sx={{ mb: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                          <TextField
+                            label="Playitas Dive Price (Fixed)"
+                            type="number"
+                            value={locPricing.customerTypes?.tourist?.pricePerDive || 35.00}
+                            onChange={(e) => handleCustomerTypePriceChange('tourist', 'pricePerDive', parseFloat(e.target.value) || 0)}
+                            fullWidth
+                            size="small"
+                            InputProps={{
+                              startAdornment: '€'
+                            }}
+                            helperText="Fixed price for local Playitas dives (route: playitas_local)"
+                          />
+                        </Box>
+                      )}
                       {/* Orientation Dive Price */}
                       <Box sx={{ mb: 2 }}>
                         <TextField
@@ -294,6 +328,12 @@ const Prices = () => {
                           helperText="Price for discovery dive (try diving)"
                         />
                       </Box>
+                      {/* Caleta Dive Pricing (Tiered) - Only show label for Las Playitas */}
+                      {isPlayitas && (
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                          Caleta Dive Pricing (Tiered) - for dives from Playitas to Caleta:
+                        </Typography>
+                      )}
                       <TableContainer>
                         <Table size="small">
                           <TableHead>
@@ -440,7 +480,7 @@ const Prices = () => {
                 {Object.entries(locPricing.addons || {}).map(([addon, price]) => (
                   <Grid item xs={12} key={addon}>
                     <TextField
-                      label={addon.replace(/_/g, ' ').toUpperCase()}
+                      label={addon.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim().replace(/^\w/, c => c.toUpperCase())}
                       type="number"
                       value={price}
                       onChange={(e) => handleAddonPriceChange(addon, e.target.value)}
@@ -449,9 +489,57 @@ const Prices = () => {
                       InputProps={{
                         startAdornment: '€'
                       }}
+                      helperText={
+                        addon === 'transfer_to_caleta' ? 'Transfer fee when booking Caleta dive from Playitas' :
+                        addon === 'dive_trip_gran_tarajal_lajita' ? 'Dive trip to Gran Tarajal/La Lajita' :
+                        addon === 'night_dive' ? 'Surcharge for night dive' : ''
+                      }
                     />
                   </Grid>
                 ))}
+                {/* Add buttons to add missing addons for Las Playitas */}
+                {isPlayitas && (
+                  <>
+                    {!locPricing.addons?.transfer_to_caleta && (
+                      <Grid item xs={12}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            updateLocationPricing((pricing) => ({
+                              ...pricing,
+                              addons: {
+                                ...(pricing.addons || {}),
+                                transfer_to_caleta: 15.00
+                              }
+                            }));
+                          }}
+                        >
+                          Add Transfer to Caleta (15€)
+                        </Button>
+                      </Grid>
+                    )}
+                    {!locPricing.addons?.dive_trip_gran_tarajal_lajita && (
+                      <Grid item xs={12}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            updateLocationPricing((pricing) => ({
+                              ...pricing,
+                              addons: {
+                                ...(pricing.addons || {}),
+                                dive_trip_gran_tarajal_lajita: 45.00
+                              }
+                            }));
+                          }}
+                        >
+                          Add Dive Trip Gran Tarajal/La Lajita (45€)
+                        </Button>
+                      </Grid>
+                    )}
+                  </>
+                )}
               </Grid>
             </CardContent>
           </Card>
@@ -542,16 +630,13 @@ const Prices = () => {
                   <TextField
                     label="Tax Label"
                     value={locPricing.tax?.igic_label || ''}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      prices: {
-                        ...settings.prices,
-                        tax: {
-                          ...settings.prices.tax,
-                          igic_label: e.target.value
-                        }
+                    onChange={(e) => updateLocationPricing((pricing) => ({
+                      ...pricing,
+                      tax: {
+                        ...(pricing.tax || {}),
+                        igic_label: e.target.value
                       }
-                    })}
+                    }))}
                     fullWidth
                     size="small"
                   />
