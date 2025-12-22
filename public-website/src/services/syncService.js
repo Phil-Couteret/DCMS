@@ -2,12 +2,11 @@
 // Syncs data between public website and admin portal
 
 const SYNC_SERVER_URL = 'http://localhost:3002/api/sync';
-const PUSH_INTERVAL = 10000; // Push changes every 10 seconds (only if changed) - less frequent
+// No periodic sync - data is pushed immediately when changed, pulled on page load only
 
 class SyncService {
   constructor() {
-    this.pushInterval = null;
-    this.pullInterval = null;
+    // No intervals needed - no periodic sync
     this.isEnabled = false;
     this.lastSync = {};
     this.pendingChanges = new Set(); // Track which resources have pending changes
@@ -121,21 +120,34 @@ class SyncService {
     return null;
   }
 
+  // Fetch data from server without caching (for minimal localStorage approach)
+  async fetchFromServer(resource) {
+    const connected = await this.ensureConnection();
+    if (!connected) {
+      console.warn(`[Sync] Cannot fetch ${resource} - sync server not available`);
+      return [];
+    }
+    
+    try {
+      const response = await fetch(`${SYNC_SERVER_URL}/${resource}`);
+      if (response.ok) {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      }
+    } catch (e) {
+      console.warn(`[Sync] Failed to fetch ${resource} from server:`, e.message);
+    }
+    return [];
+  }
+
   startSync() {
     if (this.hasStarted) {
       return;
     }
     this.hasStarted = true;
-    // For public website: Only push changes, don't pull automatically
-    // Pulling will be done manually when user opens My Account
-    this.pushInterval = setInterval(() => {
-      this.pushPendingChanges().catch((err) => {
-        console.warn('[Sync] Interval push failed:', err);
-      });
-    }, PUSH_INTERVAL);
-    
-    // NO automatic pulling for public website - it causes too many refreshes
-    // Pulling is done manually via syncNow() when needed
+    // No periodic sync for customer portal
+    // - Pushing happens immediately when data changes (via markChanged)
+    // - Pulling happens only on page load (via syncNow() in Login/MyAccount)
   }
 
   async pushAllData() {
@@ -166,8 +178,8 @@ class SyncService {
     if (this.isEnabled) {
       setTimeout(() => {
         this.pushPendingChanges().catch(err => {
-          console.warn('[Sync] Immediate push failed, will retry on interval:', err);
-          // Re-add to pending if push failed
+          console.warn('[Sync] Immediate push failed:', err);
+          // Re-add to pending if push failed (will retry on next markChanged or syncNow)
           this.pendingChanges.add(resource);
         });
       }, 100); // Small delay to ensure localStorage is written first

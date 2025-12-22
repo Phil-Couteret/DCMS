@@ -138,6 +138,10 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
     if (playitasCaletaTierPrice == null && tiers.length > 0) playitasCaletaTierPrice = tiers[tiers.length-1].price;
   }
 
+  // Get settings for addon pricing
+  const settings = JSON.parse(localStorage.getItem('dcms_settings') || '{}');
+  const locationPricingFull = location?.pricing || {};
+  
   // Create breakdown for each booking
   const breakdown = stayBookings.map(booking => {
     const bookingDives = booking.diveSessions ? 
@@ -153,15 +157,40 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
       if (booking.routeType === 'caleta_from_playitas' && bookingDives > 0) extra += 15; // transfer per day
     }
     
+    // Calculate base price for dives
+    const basePrice = bookingDives * perDive;
+    
+    // Add night dive surcharge if night dive is selected
+    let nightDiveSurcharge = 0;
+    if (booking.diveSessions?.night) {
+      nightDiveSurcharge = locationPricingFull.addons?.night_dive ?? settings?.prices?.addons?.night_dive ?? 20;
+    }
+    
+    // Add other addons (e.g., personal instructor)
+    let addonPrice = 0;
+    if (booking.addons?.personalInstructor) {
+      addonPrice += (locationPricingFull.addons?.personal_instructor ?? settings?.prices?.addons?.personal_instructor ?? 100);
+    }
+    
+    // Add equipment rental (preserve existing equipment rental from booking)
+    const equipmentRental = booking.equipmentRental || 0;
+    
+    // Add dive insurance (preserve existing dive insurance from booking)
+    const diveInsurance = booking.diveInsurance || 0;
+    
+    // Calculate total including all costs
+    const totalForBooking = basePrice + nightDiveSurcharge + addonPrice + extra + equipmentRental + diveInsurance;
+    
     return {
       bookingId: booking.id,
       bookingDate: booking.bookingDate,
       dives: bookingDives,
       pricePerDive: perDive,
-      totalForBooking: bookingDives * perDive + extra,
+      totalForBooking: totalForBooking,
       sessions: booking.diveSessions ? {
         morning: booking.diveSessions.morning,
-        afternoon: booking.diveSessions.afternoon
+        afternoon: booking.diveSessions.afternoon,
+        night: booking.diveSessions.night
       } : null
     };
   });

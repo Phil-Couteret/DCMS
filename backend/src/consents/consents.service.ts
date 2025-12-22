@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ConsentType, ConsentMethod } from '@prisma/client';
+import { consent_type, consent_method } from '@prisma/client';
 
 export interface CreateConsentDto {
   customerId: string;
-  consentType: ConsentType;
+  consentType: consent_type;
   consentGiven: boolean;
-  consentMethod?: ConsentMethod;
+  consentMethod?: consent_method;
   ipAddress?: string;
   userAgent?: string;
 }
@@ -42,7 +42,7 @@ export class ConsentsService {
   /**
    * Check if customer has active consent for a specific type
    */
-  async hasConsent(customerId: string, consentType: ConsentType): Promise<boolean> {
+  async hasConsent(customerId: string, consentType: consent_type): Promise<boolean> {
     const consent = await this.prisma.customer_consents.findFirst({
       where: {
         customer_id: customerId,
@@ -103,7 +103,7 @@ export class ConsentsService {
   /**
    * Withdraw consent for a customer
    */
-  async withdrawConsent(customerId: string, consentType: ConsentType) {
+  async withdrawConsent(customerId: string, consentType: consent_type) {
     if (consentType === 'data_processing') {
       throw new BadRequestException('Data processing consent cannot be withdrawn while account is active');
     }

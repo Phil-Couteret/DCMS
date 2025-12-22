@@ -146,6 +146,30 @@
     "subject": "Oggetto",
     "message": "Messaggio",
     "sendMessageButton": "Invia Messaggio"
+  },
+  "myAccount": {
+    "title": "Il Mio Account",
+    "logout": "Esci",
+    "pleaseLogin": "Accedi per visualizzare il tuo account.",
+    "goToLogin": "Vai al Login",
+    "tabs": {
+      "bookings": "Le Mie Prenotazioni",
+      "profile": "Informazioni Personali",
+      "certifications": "Certificazioni",
+      "privacy": "Privacy e Dati"
+    },
+    "bookings": {
+      "title": "Le Mie Prenotazioni"
+    },
+    "profile": {
+      "title": "Informazioni Personali"
+    },
+    "certifications": {
+      "title": "Le Mie Certificazioni"
+    },
+    "privacy": {
+      "title": "Privacy e Dati"
+    }
   }
 }
 

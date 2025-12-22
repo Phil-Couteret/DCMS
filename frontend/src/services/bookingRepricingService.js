@@ -32,6 +32,8 @@ export const recalculateAllBookingPrices = () => {
 
       if (newTotal >= 0 && Math.abs(newTotal - previousTotal) >= 0.01) {
         updated += 1;
+        // Update price and totalPrice, but preserve other booking fields
+        // (equipmentRental, diveInsurance, etc. are preserved in the booking object)
         booking.price = newTotal;
         booking.totalPrice = newTotal;
         booking.updatedAt = new Date().toISOString();

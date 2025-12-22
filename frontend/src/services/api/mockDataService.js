@@ -48,8 +48,18 @@ export const update = (resource, id, data) => {
   const items = getAll(resource);
   const index = items.findIndex(item => item.id === id);
   if (index !== -1) {
-    items[index] = { ...items[index], ...data };
+    // Filter out undefined values to prevent overwriting existing fields with undefined
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+    items[index] = { ...items[index], ...cleanData };
     saveAll(resource, items);
+    
+    // Dispatch event for customer updates
+    if (resource === 'customers') {
+      window.dispatchEvent(new CustomEvent('dcms_customer_updated', { detail: items[index] }));
+    }
+    
     return items[index];
   }
   return null;

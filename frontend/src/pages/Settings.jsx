@@ -37,7 +37,9 @@ import {
   CardHeader,
   Checkbox,
   ListItemText,
-  InputAdornment
+  InputAdornment,
+  FormLabel,
+  FormGroup
 } from '@mui/material';
 import { 
   Save as SaveIcon,
@@ -55,7 +57,8 @@ import {
   Work as InternIcon,
   AttachMoney as PricesIcon,
   Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon
+  VisibilityOff as VisibilityOffIcon,
+  LocationOn as LocationIcon
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES, AVAILABLE_PERMISSIONS, ALL_PERMISSIONS } from '../utils/authContext';
@@ -96,14 +99,78 @@ const Settings = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Dive Sites Management state
+  const [diveSites, setDiveSites] = useState([]);
+  const [diveSiteDialogOpen, setDiveSiteDialogOpen] = useState(false);
+  const [editingDiveSite, setEditingDiveSite] = useState(null);
+  const [diveSiteFormData, setDiveSiteFormData] = useState({
+    name: '',
+    locationId: '',
+    type: 'diving',
+    depthRange: { min: 0, max: 0 },
+    difficultyLevel: 'beginner',
+    current: '',
+    waves: '',
+    travelTime: '',
+    description: '',
+    isActive: true
+  });
+  
+  // Boats Management state
+  const [boats, setBoats] = useState([]);
+  const [boatDialogOpen, setBoatDialogOpen] = useState(false);
+  const [editingBoat, setEditingBoat] = useState(null);
+  const [boatFormData, setBoatFormData] = useState({
+    name: '',
+    locationId: '',
+    capacity: 10,
+    equipmentOnboard: [],
+    isActive: true
+  });
+  
+  const EQUIPMENT_OPTIONS = [
+    'oxygen',
+    'first_aid',
+    'radio',
+    'mobile_phone',
+    'gps',
+    'life_jackets',
+    'flares',
+    'dive_ladder',
+    'anchor',
+    'compass'
+  ];
 
   useEffect(() => {
     loadSettings();
     if (isAdmin()) {
       loadUsers();
       loadLocations();
+      loadDiveSites();
+      loadBoats();
     }
   }, [isAdmin]);
+  
+  const loadDiveSites = () => {
+    try {
+      const allDiveSites = dataService.getAll('diveSites') || [];
+      setDiveSites(allDiveSites);
+    } catch (error) {
+      console.error('Error loading dive sites:', error);
+      setDiveSites([]);
+    }
+  };
+  
+  const loadBoats = () => {
+    try {
+      const allBoats = dataService.getAll('boats') || [];
+      setBoats(allBoats);
+    } catch (error) {
+      console.error('Error loading boats:', error);
+      setBoats([]);
+    }
+  };
 
 
   const loadSettings = () => {
@@ -660,7 +727,7 @@ const Settings = () => {
       </Dialog>
 
       <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
         <SettingsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
         <Box>
           <Typography variant="h4" gutterBottom>
@@ -675,13 +742,18 @@ const Settings = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
           <Tab 
-            icon={<VerifiedUserIcon />} 
-            label={t('settings.tabs.certification') || 'Certification Verification'} 
+            icon={<PricesIcon />} 
+            label={t('settings.tabs.prices') || 'Prices'} 
             iconPosition="start"
           />
           <Tab 
-            icon={<PricesIcon />} 
-            label={t('settings.tabs.prices') || 'Prices'} 
+            icon={<LocationIcon />} 
+            label="Dive Sites" 
+            iconPosition="start"
+          />
+          <Tab 
+            icon={<BoatIcon />} 
+            label="Boats" 
             iconPosition="start"
           />
           <Tab 
@@ -689,101 +761,679 @@ const Settings = () => {
             label={t('settings.tabs.users') || 'User Management'} 
             iconPosition="start"
           />
+          <Tab 
+            icon={<VerifiedUserIcon />} 
+            label={t('settings.tabs.certification') || 'Certification Verification'} 
+            iconPosition="start"
+          />
         </Tabs>
       </Box>
 
       {activeTab === 0 && (
         <Box>
-          {/* Certification Verification Settings */}
-      <Accordion defaultExpanded sx={{ mb: 3 }}>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          sx={{
-            bgcolor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 1,
-            '&:before': { display: 'none' }
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-            <VerifiedUserIcon color="primary" />
-            <Box>
-              <Typography variant="h6">{t('settings.cert.title') || 'Certification Verification'}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('settings.cert.subtitle') || 'Configure verification portal URLs for certification agencies'}
-              </Typography>
-            </Box>
-          </Box>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box sx={{ pt: 2 }}>
-            <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 3 }}>
-              {t('settings.cert.description') || 'Configure the verification portal URLs for each certification agency. These URLs will be opened in popup windows when verifying customer certifications.'}
-            </Typography>
-            
-            <Grid container spacing={3}>
-              {Object.entries(settings.certificationUrls).map(([agency, url]) => (
-                <Grid item xs={12} md={6} key={agency}>
-                  <TextField
-                    fullWidth
-                    label={`${agency} ${t('settings.cert.verificationUrl') || 'Verification URL'}`}
-                    value={url}
-                    onChange={(e) => handleUrlChange(agency, e.target.value)}
-                    placeholder={`${t('settings.cert.enterUrl') || 'Enter'} ${agency} ${t('settings.cert.portalUrl') || 'verification portal URL'}`}
-                    variant="outlined"
-                    size="small"
-                  />
-                  <Box sx={{ mt: 1 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleTestUrl(agency, url)}
-                      disabled={!url}
-                    >
-                      {t('settings.cert.test') || 'Test URL'}
-                    </Button>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
-            
-            <Divider sx={{ my: 3 }} />
-            
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-              >
-                {t('settings.cert.save') || 'Save Certification Settings'}
-              </Button>
-            </Box>
-          </Box>
-        </AccordionDetails>
-      </Accordion>
-
-      <Alert severity="info" sx={{ mb: 3 }}>
-        <Typography variant="body2">
-          <strong>{t('settings.tip') || 'Tip'}:</strong> {t('settings.tipText') || 'Make sure the URLs are correct and accessible. You can test each URL using the "Test URL" button. If a popup is blocked, check your browser\'s popup blocker settings.'}
-        </Typography>
-      </Alert>
-
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
+          {/* Prices Settings */}
+          <Prices />
         </Box>
       )}
 
       {activeTab === 1 && (
-        <Prices />
+        <Box>
+          {/* Dive Sites Management */}
+          {isAdmin() && (
+            <>
+              <Accordion defaultExpanded sx={{ mb: 3 }}>
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    '&:before': { display: 'none' }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                    <LocationIcon color="primary" />
+                    <Box>
+                      <Typography variant="h6">Dive Sites</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Configure dive sites, difficulty levels, and site information
+                      </Typography>
+                    </Box>
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ pt: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Manage all dive sites for each location. Configure difficulty levels, depth ranges, and site descriptions.
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => {
+                          setEditingDiveSite(null);
+                          setDiveSiteFormData({
+                            name: '',
+                            locationId: locations.length > 0 ? locations[0].id : '',
+                            type: 'diving',
+                            depthRange: { min: 0, max: 0 },
+                            difficultyLevel: 'beginner',
+                            current: '',
+                            waves: '',
+                            travelTime: '',
+                            description: '',
+                            isActive: true
+                          });
+                          setDiveSiteDialogOpen(true);
+                        }}
+                      >
+                        Add Dive Site
+                      </Button>
+                    </Box>
+
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Name</TableCell>
+                            <TableCell>Location</TableCell>
+                            <TableCell>Type</TableCell>
+                            <TableCell>Depth Range</TableCell>
+                            <TableCell>Difficulty Level</TableCell>
+                            <TableCell>Status</TableCell>
+                            <TableCell align="right">Actions</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {diveSites.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={7} align="center">
+                                <Typography color="text.secondary" sx={{ py: 2 }}>
+                                  No dive sites found. Click "Add Dive Site" to create one.
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            diveSites.map((site) => {
+                              const location = locations.find(l => l.id === site.locationId);
+                              // Handle both difficultyLevel and difficulty fields (for backward compatibility)
+                              const difficulty = site.difficultyLevel || site.difficulty || 'beginner';
+                              // Handle both depthRange object and depth string
+                              const depthRange = site.depthRange || (site.depth ? { min: 0, max: 0 } : { min: 0, max: 0 });
+                              const depthDisplay = depthRange.min && depthRange.max 
+                                ? `${depthRange.min}-${depthRange.max}m`
+                                : site.depth || 'N/A';
+                              
+                              return (
+                                <TableRow key={site.id}>
+                                  <TableCell>{site.name}</TableCell>
+                                  <TableCell>{location?.name || 'Unknown'}</TableCell>
+                                  <TableCell>{site.type || 'diving'}</TableCell>
+                                  <TableCell>{depthDisplay}</TableCell>
+                                  <TableCell>
+                                    <Chip 
+                                      label={difficulty} 
+                                      size="small"
+                                      color={
+                                        difficulty === 'beginner' ? 'success' :
+                                        difficulty === 'intermediate' ? 'info' :
+                                        difficulty === 'advanced' ? 'warning' :
+                                        'error'
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip 
+                                      label={site.isActive !== false ? 'Active' : 'Inactive'} 
+                                      size="small"
+                                      color={site.isActive !== false ? 'success' : 'default'}
+                                    />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => {
+                                        setEditingDiveSite(site);
+                                        setDiveSiteFormData({
+                                          name: site.name || '',
+                                          locationId: site.locationId || (locations.length > 0 ? locations[0].id : ''),
+                                          type: site.type || 'diving',
+                                          depthRange: site.depthRange || (site.depth ? { min: 0, max: 0 } : { min: 0, max: 0 }),
+                                          difficultyLevel: difficulty,
+                                          current: site.current || '',
+                                          waves: site.waves || '',
+                                          travelTime: site.travelTime || '',
+                                          description: site.description || '',
+                                          isActive: site.isActive !== false
+                                        });
+                                        setDiveSiteDialogOpen(true);
+                                      }}
+                                    >
+                                      <EditIcon />
+                                    </IconButton>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => {
+                                        if (window.confirm(`Are you sure you want to delete "${site.name}"?`)) {
+                                          dataService.remove('diveSites', site.id);
+                                          loadDiveSites();
+                                          setSnackbar({
+                                            open: true,
+                                            message: 'Dive site deleted successfully!',
+                                            severity: 'success'
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+
+              {/* Dive Site Dialog */}
+              <Dialog 
+                open={diveSiteDialogOpen} 
+                onClose={() => setDiveSiteDialogOpen(false)}
+                maxWidth="md"
+                fullWidth
+              >
+                <DialogTitle>
+                  {editingDiveSite ? 'Edit Dive Site' : 'Add Dive Site'}
+                </DialogTitle>
+                <DialogContent>
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Dive Site Name"
+                        value={diveSiteFormData.name}
+                        onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, name: e.target.value })}
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Location</InputLabel>
+                        <Select
+                          value={diveSiteFormData.locationId}
+                          onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, locationId: e.target.value })}
+                          label="Location"
+                        >
+                          {locations.map((location) => (
+                            <MenuItem key={location.id} value={location.id}>
+                              {location.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Type</InputLabel>
+                        <Select
+                          value={diveSiteFormData.type}
+                          onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, type: e.target.value })}
+                          label="Type"
+                        >
+                          <MenuItem value="diving">Diving</MenuItem>
+                          <MenuItem value="beach">Beach</MenuItem>
+                          <MenuItem value="cave">Cave</MenuItem>
+                          <MenuItem value="reef">Reef</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Difficulty Level</InputLabel>
+                        <Select
+                          value={diveSiteFormData.difficultyLevel}
+                          onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, difficultyLevel: e.target.value })}
+                          label="Difficulty Level"
+                        >
+                          <MenuItem value="beginner">Beginner</MenuItem>
+                          <MenuItem value="intermediate">Intermediate</MenuItem>
+                          <MenuItem value="advanced">Advanced</MenuItem>
+                          <MenuItem value="expert">Expert</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Min Depth (meters)"
+                        type="number"
+                        value={diveSiteFormData.depthRange.min}
+                        onChange={(e) => setDiveSiteFormData({
+                          ...diveSiteFormData,
+                          depthRange: { ...diveSiteFormData.depthRange, min: parseInt(e.target.value) || 0 }
+                        })}
+                        inputProps={{ min: 0 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Max Depth (meters)"
+                        type="number"
+                        value={diveSiteFormData.depthRange.max}
+                        onChange={(e) => setDiveSiteFormData({
+                          ...diveSiteFormData,
+                          depthRange: { ...diveSiteFormData.depthRange, max: parseInt(e.target.value) || 0 }
+                        })}
+                        inputProps={{ min: 0 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Current"
+                        value={diveSiteFormData.current}
+                        onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, current: e.target.value })}
+                        placeholder="e.g., little-medium, moderate, strong"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Waves"
+                        value={diveSiteFormData.waves}
+                        onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, waves: e.target.value })}
+                        placeholder="e.g., protected, unprotected, low, medium"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Travel Time"
+                        value={diveSiteFormData.travelTime}
+                        onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, travelTime: e.target.value })}
+                        placeholder="e.g., 5-10 min, 15-20 min"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={diveSiteFormData.isActive}
+                            onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, isActive: e.target.checked })}
+                          />
+                        }
+                        label="Active"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Description"
+                        multiline
+                        rows={4}
+                        value={diveSiteFormData.description}
+                        onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, description: e.target.value })}
+                        placeholder="Describe the dive site, marine life, points of interest..."
+                      />
+                    </Grid>
+                  </Grid>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setDiveSiteDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={() => {
+                      if (!diveSiteFormData.name || !diveSiteFormData.locationId) {
+                        setSnackbar({
+                          open: true,
+                          message: 'Please fill in all required fields',
+                          severity: 'error'
+                        });
+                        return;
+                      }
+                      
+                      const diveSiteData = {
+                        ...diveSiteFormData,
+                        updatedAt: new Date().toISOString()
+                      };
+                      
+                      if (editingDiveSite) {
+                        dataService.update('diveSites', editingDiveSite.id, diveSiteData);
+                        setSnackbar({
+                          open: true,
+                          message: 'Dive site updated successfully!',
+                          severity: 'success'
+                        });
+                      } else {
+                        diveSiteData.createdAt = new Date().toISOString();
+                        dataService.create('diveSites', diveSiteData);
+                        setSnackbar({
+                          open: true,
+                          message: 'Dive site created successfully!',
+                          severity: 'success'
+                        });
+                      }
+                      
+                      setDiveSiteDialogOpen(false);
+                      loadDiveSites();
+                    }}
+                  >
+                    Save
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </>
+          )}
+
+          {!isAdmin() && (
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <Typography variant="body2">
+                You don't have permission to manage dive sites. Only administrators can access this section.
+              </Typography>
+            </Alert>
+          )}
+        </Box>
       )}
 
       {activeTab === 2 && (
+        <Box>
+          {/* Boats Management */}
+          {isAdmin() && (
+            <>
+              <Accordion defaultExpanded sx={{ mb: 3 }}>
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    '&:before': { display: 'none' }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                    <BoatIcon color="primary" />
+                    <Box>
+                      <Typography variant="h6">Boats</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Configure boats, capacity, and onboard equipment
+                      </Typography>
+                    </Box>
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ pt: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Manage all boats for each location. Configure capacity and onboard equipment.
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => {
+                          setEditingBoat(null);
+                          setBoatFormData({
+                            name: '',
+                            locationId: locations.length > 0 ? locations[0].id : '',
+                            capacity: 10,
+                            equipmentOnboard: [],
+                            isActive: true
+                          });
+                          setBoatDialogOpen(true);
+                        }}
+                      >
+                        Add Boat
+                      </Button>
+                    </Box>
+
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Name</TableCell>
+                            <TableCell>Location</TableCell>
+                            <TableCell>Capacity</TableCell>
+                            <TableCell>Equipment</TableCell>
+                            <TableCell>Status</TableCell>
+                            <TableCell align="right">Actions</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {boats.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} align="center">
+                                <Typography color="text.secondary" sx={{ py: 2 }}>
+                                  No boats found. Click "Add Boat" to create one.
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            boats.map((boat) => {
+                              const location = locations.find(l => l.id === boat.locationId);
+                              
+                              return (
+                                <TableRow key={boat.id}>
+                                  <TableCell>{boat.name}</TableCell>
+                                  <TableCell>{location?.name || 'Unknown'}</TableCell>
+                                  <TableCell>{boat.capacity || 0}</TableCell>
+                                  <TableCell>
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                      {(boat.equipmentOnboard || []).slice(0, 3).map((equipment) => (
+                                        <Chip key={equipment} label={equipment.replace(/_/g, ' ')} size="small" variant="outlined" />
+                                      ))}
+                                      {(boat.equipmentOnboard || []).length > 3 && (
+                                        <Chip label={`+${(boat.equipmentOnboard || []).length - 3} more`} size="small" variant="outlined" color="primary" />
+                                      )}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip 
+                                      label={boat.isActive !== false ? 'Active' : 'Inactive'} 
+                                      size="small"
+                                      color={boat.isActive !== false ? 'success' : 'default'}
+                                    />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => {
+                                        setEditingBoat(boat);
+                                        setBoatFormData({
+                                          name: boat.name || '',
+                                          locationId: boat.locationId || (locations.length > 0 ? locations[0].id : ''),
+                                          capacity: boat.capacity || 10,
+                                          equipmentOnboard: boat.equipmentOnboard || [],
+                                          isActive: boat.isActive !== false
+                                        });
+                                        setBoatDialogOpen(true);
+                                      }}
+                                    >
+                                      <EditIcon />
+                                    </IconButton>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => {
+                                        if (window.confirm(`Are you sure you want to delete "${boat.name}"?`)) {
+                                          dataService.remove('boats', boat.id);
+                                          loadBoats();
+                                          setSnackbar({
+                                            open: true,
+                                            message: 'Boat deleted successfully!',
+                                            severity: 'success'
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+
+              {/* Boat Dialog */}
+              <Dialog 
+                open={boatDialogOpen} 
+                onClose={() => setBoatDialogOpen(false)}
+                maxWidth="md"
+                fullWidth
+              >
+                <DialogTitle>
+                  {editingBoat ? 'Edit Boat' : 'Add Boat'}
+                </DialogTitle>
+                <DialogContent>
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Boat Name"
+                        value={boatFormData.name}
+                        onChange={(e) => setBoatFormData({ ...boatFormData, name: e.target.value })}
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Location</InputLabel>
+                        <Select
+                          value={boatFormData.locationId}
+                          onChange={(e) => setBoatFormData({ ...boatFormData, locationId: e.target.value })}
+                          label="Location"
+                        >
+                          {locations.map((location) => (
+                            <MenuItem key={location.id} value={location.id}>
+                              {location.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Capacity"
+                        type="number"
+                        value={boatFormData.capacity}
+                        onChange={(e) => setBoatFormData({ ...boatFormData, capacity: parseInt(e.target.value) || 0 })}
+                        inputProps={{ min: 1 }}
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={boatFormData.isActive}
+                            onChange={(e) => setBoatFormData({ ...boatFormData, isActive: e.target.checked })}
+                          />
+                        }
+                        label="Active"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <FormLabel component="legend">Onboard Equipment</FormLabel>
+                      <FormGroup>
+                        <Grid container spacing={1}>
+                          {EQUIPMENT_OPTIONS.map((equipment) => (
+                            <Grid item xs={12} sm={6} md={4} key={equipment}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={boatFormData.equipmentOnboard.includes(equipment)}
+                                    onChange={(e) => {
+                                      const newEquipment = e.target.checked
+                                        ? [...boatFormData.equipmentOnboard, equipment]
+                                        : boatFormData.equipmentOnboard.filter(eq => eq !== equipment);
+                                      setBoatFormData({ ...boatFormData, equipmentOnboard: newEquipment });
+                                    }}
+                                  />
+                                }
+                                label={equipment.replace(/_/g, ' ')}
+                              />
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </FormGroup>
+                    </Grid>
+                  </Grid>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setBoatDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={() => {
+                      if (!boatFormData.name || !boatFormData.locationId) {
+                        setSnackbar({
+                          open: true,
+                          message: 'Please fill in all required fields',
+                          severity: 'error'
+                        });
+                        return;
+                      }
+                      
+                      const boatData = {
+                        ...boatFormData,
+                        updatedAt: new Date().toISOString()
+                      };
+                      
+                      if (editingBoat) {
+                        dataService.update('boats', editingBoat.id, boatData);
+                        setSnackbar({
+                          open: true,
+                          message: 'Boat updated successfully!',
+                          severity: 'success'
+                        });
+                      } else {
+                        boatData.createdAt = new Date().toISOString();
+                        dataService.create('boats', boatData);
+                        setSnackbar({
+                          open: true,
+                          message: 'Boat created successfully!',
+                          severity: 'success'
+                        });
+                      }
+                      
+                      setBoatDialogOpen(false);
+                      loadBoats();
+                    }}
+                  >
+                    Save
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </>
+          )}
+
+          {!isAdmin() && (
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <Typography variant="body2">
+                You don't have permission to manage boats. Only administrators can access this section.
+              </Typography>
+            </Alert>
+          )}
+        </Box>
+      )}
+
+      {activeTab === 3 && (
         <Box>
           {/* User Management - Only visible to admins and superadmins */}
           {isAdmin() && (
@@ -934,8 +1584,94 @@ const Settings = () => {
           )}
         </Box>
       )}
-      </Box>
-    </>
+
+      {activeTab === 4 && (
+        <Box>
+          {/* Certification Verification Settings */}
+          <Accordion defaultExpanded sx={{ mb: 3 }}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                '&:before': { display: 'none' }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                <VerifiedUserIcon color="primary" />
+                <Box>
+                  <Typography variant="h6">{t('settings.cert.title') || 'Certification Verification'}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('settings.cert.subtitle') || 'Configure verification portal URLs for certification agencies'}
+                  </Typography>
+                </Box>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box sx={{ pt: 2 }}>
+                <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 3 }}>
+                  {t('settings.cert.description') || 'Configure the verification portal URLs for each certification agency. These URLs will be opened in popup windows when verifying customer certifications.'}
+                </Typography>
+                
+                <Grid container spacing={3}>
+                  {Object.entries(settings.certificationUrls).map(([agency, url]) => (
+                    <Grid item xs={12} md={6} key={agency}>
+                      <TextField
+                        fullWidth
+                        label={`${agency} ${t('settings.cert.verificationUrl') || 'Verification URL'}`}
+                        value={url}
+                        onChange={(e) => handleUrlChange(agency, e.target.value)}
+                        placeholder={`${t('settings.cert.enterUrl') || 'Enter'} ${agency} ${t('settings.cert.portalUrl') || 'verification portal URL'}`}
+                        variant="outlined"
+                        size="small"
+                      />
+                      <Box sx={{ mt: 1 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleTestUrl(agency, url)}
+                          disabled={!url}
+                        >
+                          {t('settings.cert.test') || 'Test URL'}
+                        </Button>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+                
+                <Divider sx={{ my: 3 }} />
+                
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSave}
+                  >
+                    {t('settings.cert.save') || 'Save Certification Settings'}
+                  </Button>
+                </Box>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              <strong>{t('settings.tip') || 'Tip'}:</strong> {t('settings.tipText') || 'Make sure the URLs are correct and accessible. You can test each URL using the "Test URL" button. If a popup is blocked, check your browser\'s popup blocker settings.'}
+            </Typography>
+          </Alert>
+        </Box>
+      )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+      />
+    </Box>
+  </>
   );
 };
 

@@ -60,8 +60,8 @@ const Login = () => {
           return;
         }
 
-        // Check if customer exists
-        let customer = bookingService.getCustomerByEmail(formData.email);
+        // Check if customer exists (async - fetch from server)
+        let customer = await bookingService.getCustomerByEmail(formData.email);
         
         if (!customer) {
           setError('No account found with this email. Please register first.');
@@ -77,7 +77,7 @@ const Login = () => {
           // Customer exists but no password set - allow login (legacy accounts)
           // Set password for future logins (will be hashed)
           const hashedPassword = await passwordHash.storeHashedPassword(formData.password);
-          bookingService.updateCustomerProfile(formData.email, {
+          await bookingService.updateCustomerProfile(formData.email, {
             password: hashedPassword
           });
         } else {
@@ -108,8 +108,8 @@ const Login = () => {
             // Mark password change as required if not already marked
             passwordMigrationService.markPasswordChangeRequired(formData.email);
             
-            // Reload customer to get updated timestamp
-            customer = bookingService.getCustomerByEmail(formData.email);
+            // Reload customer to get updated timestamp (async - fetch from server)
+            customer = await bookingService.getCustomerByEmail(formData.email);
             
             // Show password change dialog
             setCustomerNeedingPasswordChange(customer);
@@ -127,15 +127,14 @@ const Login = () => {
           await window.syncService.pullChanges();
         }
         
-        // Migrate existing customers to ensure they have required fields
-        bookingService.migrateExistingCustomers();
+        // Fetch latest customer data (async - fetch from server)
+        customer = await bookingService.getCustomerByEmail(formData.email);
         
         // Only set defaults if customerType/centerSkillLevel are truly missing (null/undefined)
         // Don't overwrite existing values - they may have been set by admin
-        customer = bookingService.getCustomerByEmail(formData.email);
         if (customer && (customer.customerType === null || customer.customerType === undefined || 
             customer.centerSkillLevel === null || customer.centerSkillLevel === undefined)) {
-          bookingService.updateCustomerProfile(formData.email, {
+          await bookingService.updateCustomerProfile(formData.email, {
             customerType: customer.customerType ?? 'tourist',
             centerSkillLevel: customer.centerSkillLevel ?? 'beginner'
           });
@@ -174,8 +173,8 @@ const Login = () => {
           return;
         }
 
-        // Check if customer already exists
-        const existingCustomer = bookingService.getCustomerByEmail(formData.email);
+        // Check if customer already exists (async - fetch from server)
+        const existingCustomer = await bookingService.getCustomerByEmail(formData.email);
         if (existingCustomer) {
           setError('An account with this email already exists. Please log in instead.');
           setLoading(false);
@@ -205,11 +204,11 @@ const Login = () => {
           certifications: []
         };
 
-        // Find or create customer (this will create if doesn't exist)
-        const customer = bookingService.findOrCreateCustomer(customerData);
+        // Find or create customer (this will create if doesn't exist) - async
+        const customer = await bookingService.findOrCreateCustomer(customerData);
         
-        // Update with hashed password (in case findOrCreateCustomer didn't use it)
-        bookingService.updateCustomerProfile(formData.email, {
+        // Update with hashed password (in case findOrCreateCustomer didn't use it) - async
+        await bookingService.updateCustomerProfile(formData.email, {
           password: hashedPassword
         });
 

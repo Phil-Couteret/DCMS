@@ -35,13 +35,21 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
   const customerTypePricing = pricing.customerTypes || {};
 
   // Recurrent customers: fixed price per dive
-  if (customerType === 'recurrent' && customerTypePricing.recurrent?.pricePerDive) {
-    return customerTypePricing.recurrent.pricePerDive * numberOfDives;
+  if (customerType === 'recurrent') {
+    if (customerTypePricing.recurrent?.pricePerDive) {
+      return customerTypePricing.recurrent.pricePerDive * numberOfDives;
+    }
+    // Fallback for recurrent if not configured
+    return 32.00 * numberOfDives;
   }
 
   // Local customers: fixed price per dive
-  if (customerType === 'local' && customerTypePricing.local?.pricePerDive) {
-    return customerTypePricing.local.pricePerDive * numberOfDives;
+  if (customerType === 'local') {
+    if (customerTypePricing.local?.pricePerDive) {
+      return customerTypePricing.local.pricePerDive * numberOfDives;
+    }
+    // Fallback for local if not configured
+    return 35.00 * numberOfDives;
   }
 
   // Tourist customers: tiered pricing

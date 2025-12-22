@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import dataService from '../../services/dataService';
 import stayService from '../../services/stayService';
+import stayCostsService from '../../services/stayCostsService';
 
 const BillGenerator = ({ open, onClose, stay }) => {
   const [settings, setSettings] = useState(null);
@@ -207,6 +208,11 @@ const BillGenerator = ({ open, onClose, stay }) => {
     // Calculate other items totals
     const otherTotal = (otherItems || []).reduce((sum, item) => sum + (item.price || 0), 0);
 
+    // Get additional costs from stay costs service
+    let additionalCostsTotal = 0;
+    const stayAdditionalCosts = stayCostsService.getStayCosts(stay.customer.id, stay.stayStartDate);
+    additionalCostsTotal = stayAdditionalCosts.reduce((sum, cost) => sum + (cost.total || 0), 0);
+
     // Calculate equipment rental from stay bookings
     let equipmentTotal = 0;
     if (stay.stayBookings && Array.isArray(stay.stayBookings)) {
@@ -235,7 +241,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
       diveInsuranceTotal = pricing.diveInsurance.one_day || 7.00;
     }
 
-    const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal + diveInsuranceTotal;
+    const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal + diveInsuranceTotal + additionalCostsTotal;
     const tax = subtotal * ((pricing.tax && pricing.tax.igic_rate) || 0.07);
     const total = subtotal + tax;
 
@@ -248,6 +254,8 @@ const BillGenerator = ({ open, onClose, stay }) => {
       beverages: billData.beverages,
       otherItems: (otherItems || []).filter(item => item.name && item.price > 0),
       equipmentTotal,
+      additionalCosts: stayAdditionalCosts,
+      additionalCostsTotal,
       subtotal,
       tax,
       total,
@@ -256,6 +264,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
         beverages: beverageTotal,
         equipment: equipmentTotal,
         diveInsurance: diveInsuranceTotal,
+        additionalCosts: additionalCostsTotal,
         other: otherTotal
       }
     };
@@ -525,6 +534,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   {calculatedBill?.beverages.map((beverage, index) => (
                     <TableRow key={`beverage-${index}`}>
                       <TableCell>Beverage</TableCell>
+                      <TableCell></TableCell>
                       <TableCell align="right">{beverage.quantity}</TableCell>
                       <TableCell align="right">€{beverage.pricePerUnit.toFixed(2)}</TableCell>
                       <TableCell align="right">€{beverage.total.toFixed(2)}</TableCell>
@@ -535,6 +545,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   {calculatedBill?.otherItems.map((item, index) => (
                     <TableRow key={`other-${index}`}>
                       <TableCell>{item.name}</TableCell>
+                      <TableCell></TableCell>
                       <TableCell align="right">1</TableCell>
                       <TableCell align="right">€{item.price.toFixed(2)}</TableCell>
                       <TableCell align="right">€{item.price.toFixed(2)}</TableCell>
@@ -545,6 +556,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   {calculatedBill?.equipmentTotal > 0 && (
                     <TableRow>
                       <TableCell>Equipment Rental</TableCell>
+                      <TableCell></TableCell>
                       <TableCell align="right">-</TableCell>
                       <TableCell align="right">-</TableCell>
                       <TableCell align="right">€{calculatedBill.equipmentTotal.toFixed(2)}</TableCell>
@@ -555,10 +567,33 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   {calculatedBill?.breakdown.diveInsurance > 0 && (
                     <TableRow>
                       <TableCell>Dive Insurance (Mandatory)</TableCell>
+                      <TableCell></TableCell>
                       <TableCell align="right">1</TableCell>
                       <TableCell align="right">€{calculatedBill.breakdown.diveInsurance.toFixed(2)}</TableCell>
                       <TableCell align="right">€{calculatedBill.breakdown.diveInsurance.toFixed(2)}</TableCell>
                     </TableRow>
+                  )}
+
+                  {/* Additional Costs from Stay */}
+                  {calculatedBill?.additionalCosts && calculatedBill.additionalCosts.length > 0 && (
+                    <>
+                      {calculatedBill.additionalCosts.map((cost, index) => (
+                        <TableRow key={`additional-${index}`}>
+                          <TableCell>
+                            {cost.description}
+                            {cost.category && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                ({cost.category.charAt(0).toUpperCase() + cost.category.slice(1)})
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell></TableCell>
+                          <TableCell align="right">{cost.quantity || 1}</TableCell>
+                          <TableCell align="right">€{cost.unitPrice.toFixed(2)}</TableCell>
+                          <TableCell align="right">€{cost.total.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </>
                   )}
 
                   {/* Totals */}

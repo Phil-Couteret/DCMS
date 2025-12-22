@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Alert,
   Box,
@@ -48,6 +48,7 @@ import {
   FileDownload as FileDownloadIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import bookingService from '../services/bookingService';
 import RegisteredDiverBooking from '../components/RegisteredDiverBooking';
 import consentService from '../services/consentService';
@@ -57,6 +58,7 @@ import passwordHash from '../utils/passwordHash';
 import dataRetentionService from '../services/dataRetentionService';
 import auditService from '../services/auditService';
 import dsarService from '../services/dsarService';
+import { getPricePerDive, getCustomerType } from '../services/pricingService';
 
 const EQUIPMENT_ITEMS = [
   { key: 'mask', label: 'Mask' },
@@ -124,6 +126,7 @@ const LOCATION_LABELS = {
 };
 
 const MyAccount = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [bookings, setBookings] = useState([]);
@@ -176,7 +179,7 @@ const MyAccount = () => {
 
     // Convert file to base64
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64String = reader.result.split(',')[1]; // Remove data:image/png;base64, prefix
       const documentData = {
         id: Date.now().toString(),
@@ -189,8 +192,8 @@ const MyAccount = () => {
         uploadedBy: 'customer'
       };
 
-      // Get current customer
-      const currentCustomer = bookingService.getCustomerByEmail(userEmail);
+      // Get current customer (async - fetch from server)
+      const currentCustomer = await bookingService.getCustomerByEmail(userEmail);
       if (!currentCustomer) {
         setSnackbar({
           open: true,
@@ -204,13 +207,13 @@ const MyAccount = () => {
       const existingDocuments = currentCustomer.uploadedDocuments || [];
       const updatedDocuments = [...existingDocuments, documentData];
 
-      // Update customer profile
-      bookingService.updateCustomerProfile(userEmail, {
+      // Update customer profile (async)
+      await bookingService.updateCustomerProfile(userEmail, {
         uploadedDocuments: updatedDocuments
       });
 
-      // Refresh customer data
-      const updated = bookingService.getCustomerByEmail(userEmail);
+      // Refresh customer data (async - fetch from server)
+      const updated = await bookingService.getCustomerByEmail(userEmail);
       setCustomer(updated);
       setUploadedDocuments(updatedDocuments);
 
@@ -245,16 +248,16 @@ const MyAccount = () => {
   };
 
   // Delete file
-  const handleFileDelete = (documentId) => {
-    const currentCustomer = bookingService.getCustomerByEmail(userEmail);
+  const handleFileDelete = async (documentId) => {
+    const currentCustomer = await bookingService.getCustomerByEmail(userEmail);
     if (!currentCustomer) return;
 
     const updatedDocuments = (currentCustomer.uploadedDocuments || []).filter(doc => doc.id !== documentId);
-    bookingService.updateCustomerProfile(userEmail, {
+    await bookingService.updateCustomerProfile(userEmail, {
       uploadedDocuments: updatedDocuments
     });
 
-    const updated = bookingService.getCustomerByEmail(userEmail);
+    const updated = await bookingService.getCustomerByEmail(userEmail);
     setCustomer(updated);
     setUploadedDocuments(updatedDocuments);
 
@@ -444,24 +447,18 @@ const MyAccount = () => {
     }, 1000);
   }, []);
 
-  useEffect(() => {
-    if (!userEmail) {
-      setCustomer(null);
-      setBookings([]);
-      return;
-    }
+  // Define load functions using useCallback so they can be used in multiple places
+  const loadBookings = useCallback(async () => {
+    if (!userEmail) return;
+    const userBookings = await bookingService.getCustomerBookings(userEmail);
+    setBookings(userBookings);
+  }, [userEmail]);
 
-    // Migrate existing customers on first load (ensures they have required fields)
-    bookingService.migrateExistingCustomers();
-
-    const loadBookings = () => {
-      const userBookings = bookingService.getCustomerBookings(userEmail);
-      setBookings(userBookings);
-    };
-
-    const loadCustomerProfile = () => {
-      setLoadingCustomer(true);
-      const customerData = bookingService.getCustomerByEmail(userEmail);
+  const loadCustomerProfile = useCallback(async () => {
+    if (!userEmail) return;
+    
+    setLoadingCustomer(true);
+    const customerData = await bookingService.getCustomerByEmail(userEmail);
       
       // Load consent status
       if (customerData) {
@@ -477,12 +474,12 @@ const MyAccount = () => {
       // Don't overwrite existing values - they may have been set by admin
       if (customerData && (customerData.customerType === null || customerData.customerType === undefined || 
           customerData.centerSkillLevel === null || customerData.centerSkillLevel === undefined)) {
-        bookingService.updateCustomerProfile(userEmail, {
+        await bookingService.updateCustomerProfile(userEmail, {
           customerType: customerData.customerType ?? 'tourist',
           centerSkillLevel: customerData.centerSkillLevel ?? 'beginner'
         });
-        // Reload after update
-        const updated = bookingService.getCustomerByEmail(userEmail);
+        // Reload after update (async)
+        const updated = await bookingService.getCustomerByEmail(userEmail);
         setCustomer(updated);
         if (updated) {
           setProfileForm(mapCustomerToForm(updated));
@@ -494,28 +491,24 @@ const MyAccount = () => {
         }
       }
       setLoadingCustomer(false);
-    };
+  }, [userEmail]);
 
-    // Manual sync when opening My Account to get fresh data (especially customer updates from admin)
-    if (typeof window !== 'undefined' && window.syncService) {
-      window.syncService.syncNow().then(() => {
-        loadBookings();
-        loadCustomerProfile();
-      }).catch(err => {
-        console.warn('[MyAccount] Sync failed, loading local data:', err);
-        loadBookings();
-        loadCustomerProfile();
-      });
-    } else {
-      loadBookings();
-      loadCustomerProfile();
+  useEffect(() => {
+    if (!userEmail) {
+      setCustomer(null);
+      setBookings([]);
+      return;
     }
 
-    const handleBookingCreated = () => {
-      loadBookings();
+    // Fetch data from server on page load (no longer need syncNow - we fetch directly)
+    loadBookings();
+    loadCustomerProfile();
+
+    const handleBookingCreated = async () => {
+      await loadBookings();
     };
-    const handleBookingUpdated = () => {
-      loadBookings();
+    const handleBookingUpdated = async () => {
+      await loadBookings();
     };
 
     const handleCustomerUpdated = (event) => {
@@ -534,11 +527,11 @@ const MyAccount = () => {
     window.addEventListener('dcms_customer_updated', handleCustomerUpdated);
     
     // Listen to sync events (only when data actually changes from server)
-    const handleBookingsSynced = (event) => {
-      loadBookings();
+    const handleBookingsSynced = async (event) => {
+      await loadBookings();
     };
-    const handleCustomersSynced = (event) => {
-      loadCustomerProfile();
+    const handleCustomersSynced = async (event) => {
+      await loadCustomerProfile();
     };
     
     window.addEventListener('dcms_bookings_synced', handleBookingsSynced);
@@ -566,7 +559,110 @@ const MyAccount = () => {
     return colors[status] || 'default';
   };
 
-  const canCancelBooking = (booking) => ['confirmed', 'pending'].includes(booking.status);
+  const canCancelBooking = (booking) => {
+    // Cannot cancel if status is not confirmed or pending
+    if (!['confirmed', 'pending'].includes(booking.status)) {
+      return false;
+    }
+    
+    // Cannot cancel past bookings
+    const bookingDate = new Date(booking.bookingDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to compare dates only
+    
+    if (bookingDate < today) {
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Calculate cumulative pricing for all bookings (ONLY for tourist customers)
+  const getCumulativePricePerDive = useMemo(() => {
+    if (!customer || !bookings || bookings.length === 0) return null;
+    
+    // Check customerType directly from customer object (don't default to 'tourist' here)
+    const customerType = customer?.customerType;
+    
+    // For recurrent/local customers, DO NOT use cumulative pricing - they have fixed prices
+    if (customerType === 'recurrent' || customerType === 'local') {
+      return null; // Fixed pricing will be calculated per booking
+    }
+    
+    // Only calculate cumulative pricing for tourist customers (or if customerType is undefined/null)
+    
+    // ONLY for tourist customers, calculate cumulative pricing
+    // Calculate total dives across all bookings
+    let totalDives = 0;
+    let locationId = null;
+    
+    bookings.forEach(booking => {
+      if (booking.activityType === 'diving') {
+        // Get number of dives from booking
+        let bookingDives = booking.numberOfDives;
+        if (!bookingDives && booking.diveSessions) {
+          bookingDives = (booking.diveSessions.morning ? 1 : 0) +
+                        (booking.diveSessions.afternoon ? 1 : 0) +
+                        (booking.diveSessions.night ? 1 : 0);
+        }
+        if (bookingDives) {
+          totalDives += bookingDives;
+        }
+        
+        // Get location ID from first diving booking (normalize if needed)
+        if (!locationId && booking.locationId) {
+          locationId = booking.locationId;
+          if (locationId === 'caleta') locationId = '550e8400-e29b-41d4-a716-446655440001';
+          if (locationId === 'playitas') locationId = '550e8400-e29b-41d4-a716-446655440002';
+        }
+      }
+    });
+    
+    if (totalDives === 0 || !locationId) return null;
+    
+    // Calculate price per dive based on total dives (cumulative pricing for tourists only)
+    // Use 'tourist' as default if customerType is undefined
+    const effectiveCustomerType = customerType || 'tourist';
+    return getPricePerDive(locationId, effectiveCustomerType, totalDives);
+  }, [customer, bookings]);
+
+  // Calculate price per dive for a booking
+  const getBookingPricePerDive = (booking) => {
+    if (!booking || !customer) return null;
+    
+    // Only calculate for diving activities
+    if (booking.activityType !== 'diving') return null;
+    
+    // Get location ID (normalize if needed)
+    let locationId = booking.locationId;
+    if (locationId === 'caleta') locationId = '550e8400-e29b-41d4-a716-446655440001';
+    if (locationId === 'playitas') locationId = '550e8400-e29b-41d4-a716-446655440002';
+    
+    // Get customer type directly from customer object
+    // IMPORTANT: Check the actual property - customer should be loaded before this function is called
+    let customerType = customer?.customerType;
+    
+    // Note: We can't fetch from server here since this is called during render (not async)
+    // Customer should be loaded on mount via loadCustomerProfile()
+    
+    // IMPORTANT: For recurrent/local customers, NEVER use cumulative pricing
+    // They have fixed prices that don't change based on number of dives
+    if (customerType === 'recurrent' || customerType === 'local') {
+      // Use fixed pricing - numberOfDives parameter doesn't matter for fixed pricing
+      const price = getPricePerDive(locationId, customerType, 1);
+      return price;
+    }
+    
+    // For customers without a customerType set, default to tourist and use cumulative pricing
+    // ONLY for tourist customers (or undefined customerType), use cumulative pricing if available
+    if ((!customerType || customerType === 'tourist') && getCumulativePricePerDive !== null) {
+      return getCumulativePricePerDive;
+    }
+    
+    // Fallback: calculate per booking (will default to tourist pricing)
+    const effectiveCustomerType = customerType || 'tourist';
+    return getPricePerDive(locationId, effectiveCustomerType, 1);
+  };
 
   const openCancelDialog = (booking) => {
     setCancelDialog({ open: true, booking });
@@ -878,7 +974,7 @@ const MyAccount = () => {
     }
   };
 
-  const handleAddCertification = () => {
+  const handleAddCertification = async () => {
     if (!userEmail) return;
     if (!certForm.agency || !certForm.level || !certForm.certificationNumber) {
       setSnackbar({
@@ -889,28 +985,46 @@ const MyAccount = () => {
       return;
     }
 
-    bookingService.addOrUpdateCertification(userEmail, certForm);
-    const updated = bookingService.getCustomerByEmail(userEmail);
-    setCustomer(updated);
-    setCertDialogOpen(false);
-    setCertForm(defaultCertForm);
-    setSnackbar({
-      open: true,
-      message: 'Certification saved.',
-      severity: 'success'
-    });
+    try {
+      await bookingService.addOrUpdateCertification(userEmail, certForm);
+      // Reload customer data from server to get updated certifications
+      const updated = await bookingService.getCustomerByEmail(userEmail);
+      setCustomer(updated);
+      setCertDialogOpen(false);
+      setCertForm(defaultCertForm);
+      setSnackbar({
+        open: true,
+        message: 'Certification saved.',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error saving certification: ' + error.message,
+        severity: 'error'
+      });
+    }
   };
 
-  const handleDeleteCertification = (certId) => {
+  const handleDeleteCertification = async (certId) => {
     if (!userEmail) return;
-    bookingService.deleteCertification(userEmail, certId);
-    const updated = bookingService.getCustomerByEmail(userEmail);
-    setCustomer(updated);
-    setSnackbar({
-      open: true,
-      message: 'Certification removed.',
-      severity: 'info'
-    });
+    try {
+      await bookingService.deleteCertification(userEmail, certId);
+      // Reload customer data from server to get updated certifications
+      const updated = await bookingService.getCustomerByEmail(userEmail);
+      setCustomer(updated);
+      setSnackbar({
+        open: true,
+        message: 'Certification removed.',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error removing certification: ' + error.message,
+        severity: 'error'
+      });
+    }
   };
 
   const handleSyncToServer = async () => {
@@ -982,10 +1096,10 @@ const MyAccount = () => {
     <Card>
       <CardContent sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="body1" color="text.secondary" gutterBottom>
-          Please log in to view your account.
+          {t('myAccount.pleaseLogin')}
         </Typography>
         <Button variant="contained" href="/login">
-          Go to Login
+          {t('myAccount.goToLogin')}
         </Button>
       </CardContent>
     </Card>
@@ -995,7 +1109,7 @@ const MyAccount = () => {
     <Container sx={{ py: 6 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
         <Typography variant="h3" gutterBottom sx={{ mb: 0 }}>
-          My Account
+          {t('myAccount.title')}
         </Typography>
         {userEmail && (
           <Button
@@ -1004,17 +1118,17 @@ const MyAccount = () => {
             startIcon={<LogoutIcon />}
             onClick={handleLogout}
           >
-            Logout
+            {t('myAccount.logout')}
           </Button>
         )}
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
         <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
-          <Tab label="Bookings" />
-          <Tab label="Profile" />
-          <Tab label="Certifications" />
-          <Tab label="Privacy & Data" />
+          <Tab label={t('myAccount.tabs.bookings')} />
+          <Tab label={t('myAccount.tabs.profile')} />
+          <Tab label={t('myAccount.tabs.certifications')} />
+          <Tab label={t('myAccount.tabs.privacy')} />
         </Tabs>
       </Box>
 
@@ -1026,16 +1140,48 @@ const MyAccount = () => {
           {tabValue === 0 && (
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h5">My Bookings</Typography>
-                {customer && (
-                  <RegisteredDiverBooking 
-                    customer={customer} 
-                    onBookingCreated={() => {
-                      const userBookings = bookingService.getCustomerBookings(userEmail);
-                      setBookings(userBookings);
+                <Typography variant="h5">{t('myAccount.bookings.title')}</Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      // Refresh data from server (async functions)
+                      try {
+                        await loadBookings();
+                        await loadCustomerProfile();
+                        setSnackbar({
+                          open: true,
+                          message: 'Data refreshed from server',
+                          severity: 'success'
+                        });
+                      } catch (err) {
+                        console.warn('[MyAccount] Refresh failed:', err);
+                        setSnackbar({
+                          open: true,
+                          message: 'Failed to refresh data. Please try again.',
+                          severity: 'error'
+                        });
+                      }
                     }}
-                  />
-                )}
+                  >
+                    Refresh
+                  </Button>
+                  {customer && customer.isApproved && (
+                    <RegisteredDiverBooking 
+                      customer={customer} 
+                      onBookingCreated={async () => {
+                        await loadBookings();
+                      }}
+                    />
+                  )}
+                  {customer && !customer.isApproved && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Your account is pending approval. The diving center needs to assess your diving level before you can book dives. 
+                      Once approved, you'll be able to book dives here.
+                    </Alert>
+                  )}
+                </Box>
               </Box>
 
               {bookings.length === 0 ? (
@@ -1047,7 +1193,7 @@ const MyAccount = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                       {`Bookings for ${userEmail}`}
                     </Typography>
-                    {customer && (
+                    {customer && customer.isApproved && (
                       <RegisteredDiverBooking 
                         customer={customer} 
                         onBookingCreated={() => {
@@ -1055,6 +1201,12 @@ const MyAccount = () => {
                           setBookings(userBookings);
                         }}
                       />
+                    )}
+                    {customer && !customer.isApproved && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        Your account is pending approval. The diving center needs to assess your diving level before you can book dives. 
+                        Once approved, you'll be able to book dives here.
+                      </Alert>
                     )}
                   </CardContent>
                 </Card>
@@ -1067,38 +1219,67 @@ const MyAccount = () => {
                         <TableCell><strong>Location</strong></TableCell>
                         <TableCell><strong>Activity</strong></TableCell>
                         <TableCell align="right"><strong>Dives/Sessions</strong></TableCell>
+                        <TableCell align="right"><strong>Price per Dive</strong></TableCell>
                         <TableCell><strong>Status</strong></TableCell>
                         <TableCell align="right"><strong>Total</strong></TableCell>
                         <TableCell align="right"><strong>Actions</strong></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {bookings.map((booking) => (
-                        <TableRow key={booking.id}>
-                          <TableCell>{booking.bookingDate}</TableCell>
-                          <TableCell>{getLocationName(booking.locationId)}</TableCell>
-                          <TableCell>{booking.activityType}</TableCell>
-                          <TableCell align="right">{booking.numberOfDives || 1}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={booking.status}
-                              color={getStatusColor(booking.status)}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell align="right">€{booking.totalPrice?.toFixed(2) || '0.00'}</TableCell>
-                          <TableCell align="right">
-                            <Button
-                              size="small"
-                              color="error"
-                              disabled={!canCancelBooking(booking)}
-                              onClick={() => openCancelDialog(booking)}
-                            >
-                              Cancel
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {bookings.map((booking) => {
+                        const pricePerDive = getBookingPricePerDive(booking);
+                        
+                        // Calculate total based on displayed price per dive for consistency
+                        let calculatedTotal = booking.totalPrice || 0;
+                        if (pricePerDive !== null && booking.activityType === 'diving') {
+                          // Get number of dives from booking
+                          let numberOfDives = booking.numberOfDives;
+                          if (!numberOfDives && booking.diveSessions) {
+                            numberOfDives = (booking.diveSessions.morning ? 1 : 0) +
+                                          (booking.diveSessions.afternoon ? 1 : 0) +
+                                          (booking.diveSessions.night ? 1 : 0);
+                          }
+                          if (!numberOfDives || numberOfDives === 0) numberOfDives = 1;
+                          
+                          // Use the displayed price per dive to calculate total
+                          calculatedTotal = pricePerDive * numberOfDives;
+                        }
+                        
+                        return (
+                          <TableRow key={booking.id}>
+                            <TableCell>{booking.bookingDate}</TableCell>
+                            <TableCell>{getLocationName(booking.locationId)}</TableCell>
+                            <TableCell>{booking.activityType}</TableCell>
+                            <TableCell align="right">{booking.numberOfDives || 1}</TableCell>
+                            <TableCell align="right">
+                              {pricePerDive !== null ? `€${pricePerDive.toFixed(2)}` : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={booking.status}
+                                color={getStatusColor(booking.status)}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="right">€{calculatedTotal.toFixed(2)}</TableCell>
+                            <TableCell align="right">
+                              {canCancelBooking(booking) ? (
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  onClick={() => openCancelDialog(booking)}
+                                >
+                                  Cancel
+                                </Button>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  -
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -1111,7 +1292,7 @@ const MyAccount = () => {
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                  <Typography variant="h5">Personal Information</Typography>
+                  <Typography variant="h5">{t('myAccount.profile.title')}</Typography>
                   <Button
                     variant="outlined"
                     startIcon={<EditIcon />}
@@ -1473,7 +1654,7 @@ const MyAccount = () => {
           {tabValue === 2 && (
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h5">My Certifications</Typography>
+                <Typography variant="h5">{t('myAccount.certifications.title')}</Typography>
                 <Button
                   variant="outlined"
                   startIcon={<AddIcon />}
@@ -1548,7 +1729,7 @@ const MyAccount = () => {
           {tabValue === 3 && (
             <Box>
               <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-                Privacy & Data Management
+                {t('myAccount.privacy.title')}
               </Typography>
 
               {/* Data Export Section */}

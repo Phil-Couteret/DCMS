@@ -146,5 +146,29 @@
     "subject": "Betreff",
     "message": "Nachricht",
     "sendMessageButton": "Nachricht senden"
+  },
+  "myAccount": {
+    "title": "Mein Konto",
+    "logout": "Abmelden",
+    "pleaseLogin": "Bitte melden Sie sich an, um Ihr Konto anzuzeigen.",
+    "goToLogin": "Zur Anmeldung",
+    "tabs": {
+      "bookings": "Meine Buchungen",
+      "profile": "Persönliche Informationen",
+      "certifications": "Zertifizierungen",
+      "privacy": "Datenschutz & Daten"
+    },
+    "bookings": {
+      "title": "Meine Buchungen"
+    },
+    "profile": {
+      "title": "Persönliche Informationen"
+    },
+    "certifications": {
+      "title": "Meine Zertifizierungen"
+    },
+    "privacy": {
+      "title": "Datenschutz & Datenverwaltung"
+    }
   }
 }

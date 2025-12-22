@@ -94,27 +94,6 @@ const BookDive = () => {
   // Check if user is registered
   const isRegistered = !!localStorage.getItem('dcms_user_email');
   const syncedEmailsRef = useRef(new Set());
-  
-  // For Scuba: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (equipment details), Step 4 (confirmation)
-  // For Discovery/Orientation: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (confirmation)
-  const getSteps = () => {
-    if (formData.activityType === 'diving') {
-      return [
-        t('booking.step1') || 'Select Activity',
-        t('booking.step2') || 'Your Information',
-        'Confirm Booking',
-        'Equipment Details',
-        t('booking.step5') || 'Confirmation'
-      ];
-    } else {
-      return [
-        t('booking.step1') || 'Select Activity',
-        t('booking.step2') || 'Your Information',
-        'Confirm Booking',
-        t('booking.step5') || 'Confirmation'
-      ];
-    }
-  };
 
   const [formData, setFormData] = useState({
     location: 'caleta',
@@ -154,6 +133,45 @@ const BookDive = () => {
 
   // Check if customer exists (to determine if password is needed)
   const [existingCustomer, setExistingCustomer] = useState(null);
+  
+  // Check approval status for logged-in users
+  const [approvalStatus, setApprovalStatus] = useState({ checked: false, isApproved: null });
+  
+  // For Scuba: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (equipment details), Step 4 (confirmation)
+  // For Discovery/Orientation: Step 0 (activity selection), Step 1 (basic info), Step 2 (create booking), Step 3 (confirmation)
+  const getSteps = () => {
+    if (formData.activityType === 'diving') {
+      return [
+        t('booking.step1') || 'Select Activity',
+        t('booking.step2') || 'Your Information',
+        'Confirm Booking',
+        'Equipment Details',
+        t('booking.step5') || 'Confirmation'
+      ];
+    } else {
+      return [
+        t('booking.step1') || 'Select Activity',
+        t('booking.step2') || 'Your Information',
+        'Confirm Booking',
+        t('booking.step5') || 'Confirmation'
+      ];
+    }
+  };
+
+  useEffect(() => {
+    const checkApproval = async () => {
+      if (isRegistered && formData.activityType === 'diving') {
+        const userEmail = localStorage.getItem('dcms_user_email');
+        if (userEmail) {
+          const customer = await bookingService.getCustomerByEmail(userEmail);
+          setApprovalStatus({ checked: true, isApproved: customer?.isApproved || false });
+        }
+      } else {
+        setApprovalStatus({ checked: false, isApproved: null });
+      }
+    };
+    checkApproval();
+  }, [isRegistered, formData.activityType]);
 
   useEffect(() => {
     const email = formData.email?.trim().toLowerCase();
@@ -162,28 +180,22 @@ const BookDive = () => {
       return;
     }
     
-    // Check if customer exists
-    const existing = bookingService.getCustomerByEmail(email);
-    setExistingCustomer(existing);
+    // Check if customer exists (async - fetch from server)
+    const checkCustomer = async () => {
+      const existing = await bookingService.getCustomerByEmail(email);
+      setExistingCustomer(existing);
+      
+      if (!existing || syncedEmailsRef.current.has(email)) {
+        return;
+      }
+      
+      // Customer exists - mark as synced (no need for syncNow since we fetch directly from server)
+      syncedEmailsRef.current.add(email);
+    };
     
-    if (!existing || syncedEmailsRef.current.has(email)) {
-      return;
-    }
-    
-    // If customer exists, sync to get latest data
-    if (typeof window !== 'undefined' && window.syncService?.syncNow) {
-      window.syncService
-        .syncNow()
-        .then(() => {
-          syncedEmailsRef.current.add(email);
-          // Refresh customer data after sync
-          const refreshed = bookingService.getCustomerByEmail(email);
-          setExistingCustomer(refreshed);
-        })
-        .catch((err) => {
-          console.warn('[Booking] Failed to refresh customer before pricing:', err);
-        });
-    }
+    checkCustomer().catch(err => {
+      console.warn('[Booking] Failed to check customer:', err);
+    });
   }, [formData.email]);
 
   // Get available times based on activity type
@@ -245,7 +257,7 @@ const BookDive = () => {
     }
   }, [formData.date, formData.time, formData.location, formData.activityType]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setError(null);
     
     // Step 0: Activity selection
@@ -258,6 +270,23 @@ const BookDive = () => {
         setError('This time slot is fully booked. Please select another time.');
         return;
       }
+      
+      // For diving activity, check if customer is registered and approved
+      if (formData.activityType === 'diving') {
+        const userEmail = localStorage.getItem('dcms_user_email');
+        if (!userEmail) {
+          setError('Scuba diving is only available for registered customers. Please create an account first or log in to your account. Discovery, orientation, and snorkeling are available for everyone.');
+          return;
+        }
+        
+        // Check if customer is approved
+        const customer = await bookingService.getCustomerByEmail(userEmail);
+        if (!customer || !customer.isApproved) {
+          setError('Your account is pending approval. The diving center needs to assess your diving level before you can book scuba dives. Discovery, orientation, and snorkeling are available for everyone.');
+          return;
+        }
+      }
+      
       setActiveStep(1);
     }
     // Step 1: Basic information
@@ -272,9 +301,9 @@ const BookDive = () => {
         return;
       }
       
-      // If customer doesn't exist, require password
+      // If customer doesn't exist, require password (async - fetch from server)
       const email = formData.email?.trim().toLowerCase();
-      const customer = bookingService.getCustomerByEmail(email);
+      const customer = await bookingService.getCustomerByEmail(email);
       if (!customer) {
         // New customer - password is required
         if (!formData.password || formData.password.length < 6) {
@@ -302,7 +331,7 @@ const BookDive = () => {
           return;
         }
       }
-      handleCreateBooking();
+      await handleCreateBooking();
     }
     // Step 3: Equipment details (Scuba only)
     else if (activeStep === 3) {
@@ -324,8 +353,8 @@ const BookDive = () => {
       const totalPrice = calculatePrice();
       const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create booking (include password for new customers)
-      const result = bookingService.createBooking({
+      // Create booking (include password for new customers) - async
+      const result = await bookingService.createBooking({
         ...formData,
         password: formData.password || undefined, // Only include if provided (new customers)
         price: totalPrice,
@@ -338,12 +367,7 @@ const BookDive = () => {
       setBookingResult(result);
       setBookingCreated(true);
       
-      // Ensure new booking is immediately synced to the admin portal
-      if (typeof window !== 'undefined' && window.syncService) {
-        window.syncService.syncNow?.().catch(err => {
-          console.warn('[Booking] Failed to sync new booking immediately:', err);
-        });
-      }
+      // Note: Booking is already pushed to server via saveAll in createBooking, no need for syncNow
       
       // For Scuba: go to equipment details step
       // For Discovery/Orientation: go directly to confirmation (medical certificate will be added in profile later)
@@ -450,6 +474,14 @@ const BookDive = () => {
           You are logged in. For faster booking, please use the booking feature in <Button href="/my-account" size="small">My Account</Button>
         </Alert>
       )}
+      
+      {/* Show message for diving activity if user is not approved */}
+      {formData.activityType === 'diving' && isRegistered && approvalStatus.checked && !approvalStatus.isApproved && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Your account is pending approval. Scuba diving is only available for approved customers. 
+          You can still book discovery, orientation, or snorkeling activities.
+        </Alert>
+      )}
 
       <Stepper activeStep={activeStep} sx={{ mb: 4, mt: 4 }}>
         {steps.map((label, index) => (
@@ -470,12 +502,20 @@ const BookDive = () => {
                   value={formData.activityType}
                   onChange={(e) => handleChange('activityType', e.target.value)}
                 >
-                  <MenuItem value="diving">{t('booking.activities.diving')}</MenuItem>
+                  <MenuItem value="diving">
+                    {t('booking.activities.diving')} {!isRegistered && '(Registered customers only)'}
+                  </MenuItem>
                   <MenuItem value="snorkeling">{t('booking.activities.snorkeling')}</MenuItem>
                   <MenuItem value="discover">{t('booking.activities.discover')}</MenuItem>
                   <MenuItem value="orientation">{t('booking.activities.orientation')}</MenuItem>
                 </Select>
               </FormControl>
+              {formData.activityType === 'diving' && !isRegistered && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Scuba diving is only available for registered customers. Please create an account or log in to book a dive. 
+                  Discovery, orientation, and snorkeling are available for everyone.
+                </Alert>
+              )}
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>

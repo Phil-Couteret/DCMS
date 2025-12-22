@@ -1,6 +1,6 @@
 {
   "name": "dcms-sync-server",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Simple sync server for DCMS POC to share data between public website and admin portal",
   "main": "sync-server.js",
   "scripts": {

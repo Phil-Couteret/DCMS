@@ -108,6 +108,8 @@ const getDefaultDivingInsurance = () => ({
 const normalizeCustomerData = (customer) => ({
   ...customer,
   preferences: normalizePreferences(customer.preferences || {}),
+  // Preserve certifications - don't overwrite with empty array if customer has certifications
+  certifications: customer.certifications || [],
   medicalCertificate: {
     ...getDefaultMedicalCertificate(),
     ...(customer.medicalCertificate || {})
@@ -115,7 +117,13 @@ const normalizeCustomerData = (customer) => ({
   divingInsurance: {
     ...getDefaultDivingInsurance(),
     ...(customer.divingInsurance || {})
-  }
+  },
+  // Preserve uploadedDocuments
+  uploadedDocuments: customer.uploadedDocuments || [],
+  // Preserve medicalConditions
+  medicalConditions: customer.medicalConditions || [],
+  // Preserve isApproved, default to false if not set
+  isApproved: customer.isApproved !== undefined ? customer.isApproved : false
 });
 
 const CustomerForm = () => {
@@ -135,6 +143,7 @@ const CustomerForm = () => {
     gender: '',
     customerType: 'tourist',
     centerSkillLevel: 'beginner',
+    isApproved: false, // Customer approval status - required before booking
     preferences: getDefaultPreferences(),
     medicalConditions: [],
     certifications: [],
@@ -405,20 +414,48 @@ const CustomerForm = () => {
       if (customerId) {
         const customer = dataService.getById('customers', customerId);
         if (customer) {
+          // Preserve all existing fields, only update what's allowed
           dataService.update('customers', customerId, {
-            ...customer,
+            ...customer, // Preserve all existing fields
             preferences: formData.preferences,
             // Allow guides/staff to update centerSkillLevel even in read-only mode
-            centerSkillLevel: formData.centerSkillLevel
+            centerSkillLevel: formData.centerSkillLevel,
+            updatedAt: new Date().toISOString()
           });
         }
       }
     } else {
       // Full edit mode for admins
       if (customerId) {
-        dataService.update('customers', customerId, formData);
+        // Get existing customer to preserve all fields
+        const existingCustomer = dataService.getById('customers', customerId);
+        if (existingCustomer) {
+          // Merge formData with existing customer to preserve all fields
+          // This ensures fields like medicalCertificate, divingInsurance, isApproved, etc. are preserved
+          const updatedCustomer = {
+            ...existingCustomer, // Preserve all existing fields first
+            ...formData, // Then apply form data (this will update changed fields)
+            id: existingCustomer.id, // Ensure ID is preserved
+            createdAt: existingCustomer.createdAt, // Preserve creation date
+            updatedAt: new Date().toISOString() // Update timestamp
+          };
+          dataService.update('customers', customerId, updatedCustomer);
+        } else {
+          // Customer not found, create new
+          dataService.create('customers', {
+            ...formData,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
       } else {
-        dataService.create('customers', formData);
+        // Creating new customer
+        dataService.create('customers', {
+          ...formData,
+          isApproved: formData.isApproved || false, // Ensure isApproved is set
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
       }
     }
     
@@ -559,6 +596,30 @@ const CustomerForm = () => {
               <MenuItem value="advanced">Advanced</MenuItem>
               </TextField>
             </Grid>
+
+            {isAdmin() && (
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.isApproved || false}
+                      onChange={(e) => handleChange('isApproved', e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">
+                        Customer Approved for Booking
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Approved customers can book dives in the customer portal. Unapproved customers must wait for assessment.
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Grid>
+            )}
 
             <Divider sx={{ my: 2, width: '100%' }} />
 

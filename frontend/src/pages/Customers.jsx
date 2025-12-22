@@ -228,6 +228,40 @@ const Customers = () => {
                         color="info"
                         variant="outlined"
                       />
+                      <Chip 
+                        label={customer.isApproved ? 'Approved' : 'Pending'}
+                        size="small"
+                        color={customer.isApproved ? 'success' : 'warning'}
+                        variant={customer.isApproved ? 'filled' : 'outlined'}
+                        icon={customer.isApproved ? <VerifiedIcon /> : <PendingIcon />}
+                      />
+                      {isAdmin() && (
+                        <Button
+                          size="small"
+                          variant={customer.isApproved ? 'outlined' : 'contained'}
+                          color={customer.isApproved ? 'error' : 'success'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Get fresh customer data to preserve all fields
+                            const freshCustomer = dataService.getById('customers', customer.id);
+                            if (freshCustomer) {
+                              const updatedCustomer = {
+                                ...freshCustomer, // Preserve all existing fields
+                                isApproved: !freshCustomer.isApproved,
+                                updatedAt: new Date().toISOString()
+                              };
+                              dataService.update('customers', customer.id, updatedCustomer);
+                              // Reload after a short delay to ensure update is saved
+                              setTimeout(() => {
+                                loadCustomers();
+                              }, 100);
+                            }
+                          }}
+                          sx={{ minWidth: '100px' }}
+                        >
+                          {customer.isApproved ? 'Revoke' : 'Approve'}
+                        </Button>
+                      )}
                       <Typography variant="body2" color="text.secondary">
                         {customer.email}
                       </Typography>

@@ -24,7 +24,7 @@ echo [OK] PostgreSQL detected
 echo.
 
 REM Database configuration
-set DB_NAME=dcms_test
+set DB_NAME=dcms_production
 set DB_USER=postgres
 set DB_HOST=localhost
 set DB_PORT=5432
@@ -93,6 +93,46 @@ if exist "database\schema\001_create_tables.sql" (
     pause
     exit /b 1
 )
+
+REM Run migrations (if any)
+echo.
+echo [INFO] Running database migrations...
+if exist "database\migrations\002_add_customer_consents.sql" (
+    echo   Running migration: 002_add_customer_consents.sql
+    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -f database\migrations\002_add_customer_consents.sql 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo   [WARNING] Migration 002 may have failed - check for errors
+    )
+)
+if exist "database\migrations\003_add_audit_logs.sql" (
+    echo   Running migration: 003_add_audit_logs.sql
+    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -f database\migrations\003_add_audit_logs.sql 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo   [WARNING] Migration 003 may have failed - check for errors
+    )
+)
+if exist "database\migrations\004_enhanced_account_deletion.sql" (
+    echo   Running migration: 004_enhanced_account_deletion.sql
+    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -f database\migrations\004_enhanced_account_deletion.sql 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo   [WARNING] Migration 004 may have failed - check for errors
+    )
+)
+if exist "database\migrations\005_add_dsar_table.sql" (
+    echo   Running migration: 005_add_dsar_table.sql
+    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -f database\migrations\005_add_dsar_table.sql 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo   [WARNING] Migration 005 may have failed - check for errors
+    )
+)
+if exist "database\migrations\006_add_data_breaches.sql" (
+    echo   Running migration: 006_add_data_breaches.sql
+    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -f database\migrations\006_add_data_breaches.sql 2>nul
+    if %ERRORLEVEL% NEQ 0 (
+        echo   [WARNING] Migration 006 may have failed - check for errors
+    )
+)
+echo [OK] Migrations completed
 
 REM Run seeds (optional)
 if exist "database\seeds\002_sample_data.sql" (

@@ -14,17 +14,33 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Alert
+  Alert,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  Divider
 } from '@mui/material';
 import {
   Add as AddIcon,
   ExpandMore as ExpandMoreIcon,
   Refresh as RefreshIcon,
   Receipt as ReceiptIcon,
-  ReceiptLong as EndStayIcon
+  ReceiptLong as EndStayIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  AttachMoney as MoneyIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import stayService from '../services/stayService';
+import stayCostsService from '../services/stayCostsService';
 import BillGenerator from '../components/Bill/BillGenerator';
 import { useTranslation } from '../utils/languageContext';
 
@@ -35,10 +51,33 @@ const Stays = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStay, setSelectedStay] = useState(null);
   const [showBillGenerator, setShowBillGenerator] = useState(false);
+  const [stayCosts, setStayCosts] = useState({}); // { 'customerId-stayStartDate': [...] }
+  const [showCostDialog, setShowCostDialog] = useState(false);
+  const [editingCost, setEditingCost] = useState(null);
+  const [currentStayKey, setCurrentStayKey] = useState(null);
+  const [costFormData, setCostFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    category: 'insurance',
+    description: '',
+    amount: '',
+    quantity: 1,
+    unitPrice: '',
+    notes: ''
+  });
 
   useEffect(() => {
     loadActiveStays();
   }, []);
+
+  useEffect(() => {
+    // Load costs for all active stays
+    const costsMap = {};
+    activeStays.forEach(stay => {
+      const key = `${stay.customer.id}-${stay.stayStartDate}`;
+      costsMap[key] = stayCostsService.getStayCosts(stay.customer.id, stay.stayStartDate);
+    });
+    setStayCosts(costsMap);
+  }, [activeStays]);
 
   const loadActiveStays = () => {
     setLoading(true);
@@ -85,6 +124,105 @@ const Stays = () => {
     if (sessions.morning) parts.push(t('bookings.details.morning') || 'Morning (9AM)');
     if (sessions.afternoon) parts.push(t('bookings.details.afternoon') || 'Afternoon (12PM)');
     return parts.join(', ') || (t('stays.noSessions') || 'No sessions');
+  };
+
+  const getStayKey = (stay) => {
+    return `${stay.customer.id}-${stay.stayStartDate}`;
+  };
+
+  const getStayCostsTotal = (stay) => {
+    const key = getStayKey(stay);
+    const costs = stayCosts[key] || [];
+    return costs.reduce((sum, cost) => sum + (cost.total || 0), 0);
+  };
+
+  const handleOpenCostDialog = (stay, cost = null) => {
+    setCurrentStayKey(getStayKey(stay));
+    if (cost) {
+      setEditingCost(cost);
+      setCostFormData({
+        date: cost.date,
+        category: cost.category,
+        description: cost.description,
+        amount: cost.total.toString(),
+        quantity: cost.quantity || 1,
+        unitPrice: cost.unitPrice.toString(),
+        notes: cost.notes || ''
+      });
+    } else {
+      setEditingCost(null);
+      setCostFormData({
+        date: new Date().toISOString().split('T')[0],
+        category: 'insurance',
+        description: '',
+        amount: '',
+        quantity: 1,
+        unitPrice: '',
+        notes: ''
+      });
+    }
+    setShowCostDialog(true);
+  };
+
+  const handleCloseCostDialog = () => {
+    setShowCostDialog(false);
+    setEditingCost(null);
+    setCurrentStayKey(null);
+  };
+
+  const handleSaveCost = () => {
+    if (!currentStayKey) return;
+    
+    const [customerId, stayStartDate] = currentStayKey.split('-');
+    const costData = {
+      date: costFormData.date,
+      category: costFormData.category,
+      description: costFormData.description,
+      quantity: parseInt(costFormData.quantity) || 1,
+      unitPrice: parseFloat(costFormData.unitPrice) || parseFloat(costFormData.amount) || 0,
+      notes: costFormData.notes
+    };
+
+    try {
+      if (editingCost) {
+        stayCostsService.updateStayCost(editingCost.id, costData);
+      } else {
+        stayCostsService.addStayCost(customerId, stayStartDate, costData);
+      }
+      
+      // Reload costs
+      const costsMap = { ...stayCosts };
+      costsMap[currentStayKey] = stayCostsService.getStayCosts(customerId, stayStartDate);
+      setStayCosts(costsMap);
+      handleCloseCostDialog();
+    } catch (error) {
+      console.error('Error saving cost:', error);
+    }
+  };
+
+  const handleDeleteCost = (stay, costId) => {
+    const key = getStayKey(stay);
+    const [customerId, stayStartDate] = key.split('-');
+    
+    try {
+      stayCostsService.deleteStayCost(costId);
+      const costsMap = { ...stayCosts };
+      costsMap[key] = stayCostsService.getStayCosts(customerId, stayStartDate);
+      setStayCosts(costsMap);
+    } catch (error) {
+      console.error('Error deleting cost:', error);
+    }
+  };
+
+  const getCategoryLabel = (category) => {
+    const labels = {
+      insurance: 'Insurance',
+      equipment: 'Equipment',
+      clothes: 'Clothes',
+      goodies: 'Goodies',
+      other: 'Other'
+    };
+    return labels[category] || category;
   };
 
   if (loading) {
@@ -217,6 +355,90 @@ const Stays = () => {
                     </Typography>
                   </Alert>
 
+                  {/* Additional Costs Section */}
+                  <Paper sx={{ p: 2, mt: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="subtitle1" gutterBottom>
+                        Additional Costs
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => handleOpenCostDialog(stay)}
+                      >
+                        Add Cost
+                      </Button>
+                    </Box>
+
+                    {(() => {
+                      const key = getStayKey(stay);
+                      const costs = stayCosts[key] || [];
+                      const total = getStayCostsTotal(stay);
+
+                      if (costs.length === 0) {
+                        return (
+                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', py: 2 }}>
+                            No additional costs recorded yet
+                          </Typography>
+                        );
+                      }
+
+                      return (
+                        <>
+                          <TableContainer>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Date</TableCell>
+                                  <TableCell>Category</TableCell>
+                                  <TableCell>Description</TableCell>
+                                  <TableCell align="right">Quantity</TableCell>
+                                  <TableCell align="right">Unit Price</TableCell>
+                                  <TableCell align="right">Total</TableCell>
+                                  <TableCell align="right">Actions</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {costs.map((cost) => (
+                                  <TableRow key={cost.id}>
+                                    <TableCell>{formatDate(cost.date)}</TableCell>
+                                    <TableCell>
+                                      <Chip label={getCategoryLabel(cost.category)} size="small" />
+                                    </TableCell>
+                                    <TableCell>{cost.description}</TableCell>
+                                    <TableCell align="right">{cost.quantity || 1}</TableCell>
+                                    <TableCell align="right">€{cost.unitPrice.toFixed(2)}</TableCell>
+                                    <TableCell align="right">€{cost.total.toFixed(2)}</TableCell>
+                                    <TableCell align="right">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenCostDialog(stay, cost)}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleDeleteCost(stay, cost.id)}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                            <Typography variant="h6">
+                              Total Additional Costs: €{total.toFixed(2)}
+                            </Typography>
+                          </Box>
+                        </>
+                      );
+                    })()}
+                  </Paper>
+
                   <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
                     <Button
                       variant="outlined"
@@ -255,6 +477,107 @@ const Stays = () => {
         onClose={handleCloseBillGenerator}
         stay={selectedStay}
       />
+
+      {/* Add/Edit Cost Dialog */}
+      <Dialog open={showCostDialog} onClose={handleCloseCostDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingCost ? 'Edit Cost' : 'Add Additional Cost'}
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Date"
+                value={costFormData.date}
+                onChange={(e) => setCostFormData({ ...costFormData, date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={costFormData.category}
+                  onChange={(e) => setCostFormData({ ...costFormData, category: e.target.value })}
+                  label="Category"
+                >
+                  <MenuItem value="insurance">Insurance</MenuItem>
+                  <MenuItem value="equipment">Equipment</MenuItem>
+                  <MenuItem value="clothes">Clothes</MenuItem>
+                  <MenuItem value="goodies">Goodies</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                value={costFormData.description}
+                onChange={(e) => setCostFormData({ ...costFormData, description: e.target.value })}
+                placeholder="e.g., Dive Insurance, T-shirt, Equipment purchase"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Quantity"
+                value={costFormData.quantity}
+                onChange={(e) => {
+                  const qty = parseInt(e.target.value) || 1;
+                  setCostFormData({ ...costFormData, quantity: qty });
+                }}
+                inputProps={{ min: 1 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Unit Price (€)"
+                value={costFormData.unitPrice}
+                onChange={(e) => setCostFormData({ ...costFormData, unitPrice: e.target.value })}
+                inputProps={{ min: 0, step: 0.01 }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Total (€)"
+                value={((parseFloat(costFormData.unitPrice) || 0) * (parseInt(costFormData.quantity) || 1)).toFixed(2)}
+                InputProps={{ readOnly: true }}
+                helperText="Calculated automatically"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                label="Notes (Optional)"
+                value={costFormData.notes}
+                onChange={(e) => setCostFormData({ ...costFormData, notes: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCostDialog}>Cancel</Button>
+          <Button
+            onClick={handleSaveCost}
+            variant="contained"
+            disabled={!costFormData.description || !costFormData.unitPrice}
+          >
+            {editingCost ? 'Update' : 'Add'} Cost
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

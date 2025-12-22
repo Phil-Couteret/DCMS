@@ -11,12 +11,12 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { ConsentsService } from './consents.service';
-import { ConsentType, ConsentMethod } from '@prisma/client';
+import { consent_type, consent_method } from '@prisma/client';
 
 class CreateConsentDto {
-  consentType: ConsentType;
+  consentType: consent_type;
   consentGiven: boolean;
-  consentMethod?: ConsentMethod;
+  consentMethod?: consent_method;
   ipAddress?: string;
   userAgent?: string;
 }
@@ -45,10 +45,10 @@ export class ConsentsController {
   @Get('check')
   @ApiOperation({ summary: 'Check if customer has consent for a specific type' })
   @ApiParam({ name: 'customerId', description: 'Customer UUID' })
-  @ApiQuery({ name: 'type', enum: ConsentType, description: 'Consent type' })
+  @ApiQuery({ name: 'type', enum: consent_type, description: 'Consent type' })
   async hasConsent(
     @Param('customerId') customerId: string,
-    @Query('type') type: ConsentType,
+    @Query('type') type: consent_type,
   ) {
     const hasConsent = await this.consentsService.hasConsent(customerId, type);
     return { hasConsent, customerId, consentType: type };
@@ -68,7 +68,7 @@ export class ConsentsController {
       customerId,
       consentType: createConsentDto.consentType,
       consentGiven: createConsentDto.consentGiven,
-      consentMethod: (createConsentDto.consentMethod as any) || 'online',
+      consentMethod: createConsentDto.consentMethod || 'online',
       ipAddress: createConsentDto.ipAddress,
       userAgent: createConsentDto.userAgent,
     });
@@ -78,12 +78,12 @@ export class ConsentsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Withdraw consent for a customer' })
   @ApiParam({ name: 'customerId', description: 'Customer UUID' })
-  @ApiParam({ name: 'type', enum: ConsentType, description: 'Consent type to withdraw' })
+  @ApiParam({ name: 'type', enum: consent_type, description: 'Consent type to withdraw' })
   @ApiResponse({ status: 200, description: 'Consent withdrawn' })
   @ApiResponse({ status: 400, description: 'Cannot withdraw data_processing consent' })
   async withdrawConsent(
     @Param('customerId') customerId: string,
-    @Param('type') type: ConsentType,
+    @Param('type') type: consent_type,
   ) {
     return this.consentsService.withdrawConsent(customerId, type);
   }

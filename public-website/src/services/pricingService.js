@@ -9,12 +9,12 @@ export const getLocationPricing = (locationId) => {
   const location = locations.find(l => l.id === locationId);
   
   if (!location) {
-    console.warn('[Pricing] Location not found:', locationId, 'Available locations:', locations.map(l => ({ id: l.id, name: l.name })));
+    // Location not found for pricing
     return {};
   }
   
   if (!location.pricing) {
-    console.warn('[Pricing] Location has no pricing config:', location.name, 'Please configure pricing in admin Settings → Prices');
+    // Location has no pricing config
     return {};
   }
   
@@ -22,29 +22,35 @@ export const getLocationPricing = (locationId) => {
 };
 
 /**
- * Calculate price for diving based on customer type and number of dives
+ * Get price per dive for a customer type (doesn't calculate total, just returns per-dive rate)
  * @param {string} locationId - Location ID
  * @param {string} customerType - 'tourist', 'local', or 'recurrent'
- * @param {number} numberOfDives - Total number of dives
- * @returns {number} Total price
+ * @param {number} numberOfDives - Total number of dives (for tourist tier calculation)
+ * @returns {number} Price per dive
  */
-export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
-  if (!numberOfDives || numberOfDives <= 0) return 0;
-  
+export const getPricePerDive = (locationId, customerType, numberOfDives = 1) => {
   const pricing = getLocationPricing(locationId);
   const customerTypePricing = pricing.customerTypes || {};
   
-  // Recurrent customers: fixed price per dive
-  if (customerType === 'recurrent' && customerTypePricing.recurrent?.pricePerDive) {
-    return customerTypePricing.recurrent.pricePerDive * numberOfDives;
+  // Recurrent customers: fixed price per dive (numberOfDives doesn't matter)
+  if (customerType === 'recurrent') {
+    if (customerTypePricing.recurrent?.pricePerDive) {
+      return customerTypePricing.recurrent.pricePerDive;
+    }
+    // Fallback for recurrent if not configured
+    return 32.00;
   }
   
-  // Local customers: fixed price per dive
-  if (customerType === 'local' && customerTypePricing.local?.pricePerDive) {
-    return customerTypePricing.local.pricePerDive * numberOfDives;
+  // Local customers: fixed price per dive (numberOfDives doesn't matter)
+  if (customerType === 'local') {
+    if (customerTypePricing.local?.pricePerDive) {
+      return customerTypePricing.local.pricePerDive;
+    }
+    // Fallback for local if not configured
+    return 35.00;
   }
   
-  // Tourist customers: tiered pricing
+  // Tourist customers: tiered pricing - need to find the right tier
   if (customerType === 'tourist' && customerTypePricing.tourist?.diveTiers) {
     const tiers = customerTypePricing.tourist.diveTiers;
     // Sort tiers by number of dives (ascending)
@@ -60,23 +66,29 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
       }
     }
     
-    return selectedTier.price * numberOfDives;
+    return selectedTier.price;
   }
   
   // Fallback: use hardcoded tourist pricing if no config found
-  let basePrice = 46;
-  if (numberOfDives <= 2) {
-    basePrice = 46;
-  } else if (numberOfDives <= 5) {
-    basePrice = 44;
-  } else if (numberOfDives <= 8) {
-    basePrice = 42;
-  } else if (numberOfDives <= 12) {
-    basePrice = 40;
-  } else {
-    basePrice = 38;
-  }
-  return basePrice * numberOfDives;
+  if (numberOfDives <= 2) return 46;
+  if (numberOfDives <= 5) return 44;
+  if (numberOfDives <= 8) return 42;
+  if (numberOfDives <= 12) return 40;
+  return 38;
+};
+
+/**
+ * Calculate price for diving based on customer type and number of dives
+ * @param {string} locationId - Location ID
+ * @param {string} customerType - 'tourist', 'local', or 'recurrent'
+ * @param {number} numberOfDives - Total number of dives
+ * @returns {number} Total price
+ */
+export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
+  if (!numberOfDives || numberOfDives <= 0) return 0;
+  
+  const pricePerDive = getPricePerDive(locationId, customerType, numberOfDives);
+  return pricePerDive * numberOfDives;
 };
 
 /**
@@ -116,8 +128,7 @@ export const calculateActivityPrice = (activityType, numberOfDives = 1, location
 export const getCustomerType = (customer) => {
   const customerType = customer?.customerType || 'tourist';
   if (customer && customer.customerType !== customerType) {
-    console.warn('[Pricing] Customer has no customerType, defaulting to tourist:', customer.email);
+    // Customer has no customerType, defaulting to tourist
   }
   return customerType;
 };
-

@@ -146,6 +146,30 @@
     "subject": "Sujet",
     "message": "Message",
     "sendMessageButton": "Envoyer le Message"
+  },
+  "myAccount": {
+    "title": "Mon Compte",
+    "logout": "Déconnexion",
+    "pleaseLogin": "Veuillez vous connecter pour voir votre compte.",
+    "goToLogin": "Aller à la Connexion",
+    "tabs": {
+      "bookings": "Mes Réservations",
+      "profile": "Informations Personnelles",
+      "certifications": "Certifications",
+      "privacy": "Confidentialité et Données"
+    },
+    "bookings": {
+      "title": "Mes Réservations"
+    },
+    "profile": {
+      "title": "Informations Personnelles"
+    },
+    "certifications": {
+      "title": "Mes Certifications"
+    },
+    "privacy": {
+      "title": "Confidentialité et Données"
+    }
   }
 }
 

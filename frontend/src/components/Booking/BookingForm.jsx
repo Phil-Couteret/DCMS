@@ -267,8 +267,9 @@ const BookingForm = ({ bookingId = null }) => {
     }
     
     // Diving activity pricing (existing logic)
-    // Calculate number of dives based on selected sessions
-    const numberOfDives = (formData.diveSessions.morning ? 1 : 0) + (formData.diveSessions.afternoon ? 1 : 0) + (formData.diveSessions.night ? 1 : 0);
+    // Calculate number of dives based on selected sessions (use data consistently)
+    const diveSessionsToUse = data.diveSessions || formData.diveSessions;
+    const numberOfDives = (diveSessionsToUse?.morning ? 1 : 0) + (diveSessionsToUse?.afternoon ? 1 : 0) + (diveSessionsToUse?.night ? 1 : 0);
     
     // Get cumulative pricing for this customer's stay (only for tourist customers)
     let cumulativePricing = null;
@@ -277,8 +278,9 @@ const BookingForm = ({ bookingId = null }) => {
     // For recurrent/local customers, use fixed pricing - no cumulative pricing needed
     if (formData.customerId && (customerType === 'recurrent' || customerType === 'local')) {
       // Use pricing service which handles recurrent/local fixed pricing correctly
+      // calculateDivePrice returns total price, so divide by numberOfDives (which is 1) to get price per dive
       const singleDivePrice = calculateDivePrice(effectiveLocationId, customerType, 1);
-      pricePerDive = singleDivePrice;
+      pricePerDive = singleDivePrice; // Since numberOfDives is 1, this is already the price per dive
       // Don't use cumulative pricing for recurrent/local customers
     } else if (formData.customerId && customerType === 'tourist') {
       // Only use cumulative pricing for tourist customers (volume discounts)
@@ -340,8 +342,10 @@ const BookingForm = ({ bookingId = null }) => {
 
     // Calculate night dive surcharge
     let nightDiveSurcharge = 0;
-    if (formData.diveSessions.night) {
-      nightDiveSurcharge = locPricing.addons?.night_dive ?? 20; // Night dive surcharge
+    if (diveSessionsToUse?.night) {
+      // Check location pricing first, then settings, then fallback to 20
+      nightDiveSurcharge = locPricing.addons?.night_dive ?? settings?.prices?.addons?.night_dive ?? 20; // Night dive surcharge
+      console.log('Night dive surcharge calculated:', nightDiveSurcharge, 'for diveSessions:', diveSessionsToUse);
     }
     
     // Calculate other addon prices
@@ -361,6 +365,7 @@ const BookingForm = ({ bookingId = null }) => {
     }
 
     const price = basePrice + nightDiveSurcharge + addonPrice + transferFee;
+    console.log('Price calculation:', { basePrice, nightDiveSurcharge, addonPrice, transferFee, total: price });
     
     // Calculate equipment rental cost
     let equipmentRental = 0;
@@ -461,6 +466,7 @@ const BookingForm = ({ bookingId = null }) => {
       equipmentRental,
       diveInsurance,
       transferFee,
+      nightDiveSurcharge, // Store night dive surcharge for display/debugging
       cumulativePricing, // Store cumulative pricing info for display (null for recurrent/local)
       pricePerDive // Store price per dive for display (used for recurrent/local customers)
     }));
@@ -1116,16 +1122,22 @@ const BookingForm = ({ bookingId = null }) => {
 
             <Divider sx={{ my: 2, width: '100%' }} />
 
-            {/* Volume Discount Calculator (only for diving) */}
-            {formData.activityType === 'diving' && (
-              <Grid item xs={12}>
-                <VolumeDiscountCalculator 
-                  numberOfDives={(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0) + (formData.diveSessions?.night ? 1 : 0)}
-                  addons={formData.addons || {}}
-                  bono={bonos.find(b => b.id === formData.bonoId)}
-                />
-              </Grid>
-            )}
+            {/* Volume Discount Calculator (only for diving and tourist customers) */}
+            {formData.activityType === 'diving' && formData.customerId && (() => {
+              const customer = dataService.getById('customers', formData.customerId);
+              const customerType = getCustomerType(customer);
+              // Only show volume discount calculator for tourist customers
+              const isTourist = customerType === 'tourist';
+              return isTourist ? (
+                <Grid item xs={12}>
+                  <VolumeDiscountCalculator 
+                    numberOfDives={(formData.diveSessions?.morning ? 1 : 0) + (formData.diveSessions?.afternoon ? 1 : 0) + (formData.diveSessions?.night ? 1 : 0)}
+                    addons={formData.addons || {}}
+                    bono={bonos.find(b => b.id === formData.bonoId)}
+                  />
+                </Grid>
+              ) : null;
+            })()}
 
 
             {/* Actions */}

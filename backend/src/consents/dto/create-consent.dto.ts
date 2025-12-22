@@ -1,19 +1,19 @@
 import { IsEnum, IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
-import { ConsentType, ConsentMethod } from '@prisma/client';
+import { consent_type, consent_method } from '@prisma/client';
 
 export class CreateConsentDto {
   @IsUUID()
   customerId: string;
 
-  @IsEnum(ConsentType)
-  consentType: ConsentType;
+  @IsEnum(consent_type)
+  consentType: consent_type;
 
   @IsBoolean()
   consentGiven: boolean;
 
   @IsOptional()
-  @IsEnum(ConsentMethod)
-  consentMethod?: ConsentMethod;
+  @IsEnum(consent_method)
+  consentMethod?: consent_method;
 
   @IsOptional()
   @IsString()

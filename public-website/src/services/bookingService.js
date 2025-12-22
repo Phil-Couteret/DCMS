@@ -62,68 +62,46 @@ const dispatchBrowserEvent = (eventName, detail) => {
   }
 };
 
-// Initialize mock data if not exists (compatible with DCMS admin)
-const initializeData = () => {
-  const bookingsKey = 'dcms_bookings';
-  const customersKey = 'dcms_customers';
-  const locationsKey = 'dcms_locations';
-  
-  // Initialize bookings if empty
-  if (!localStorage.getItem(bookingsKey)) {
-    localStorage.setItem(bookingsKey, JSON.stringify([]));
-  }
-  
-  // Initialize customers if empty
-  if (!localStorage.getItem(customersKey)) {
-    localStorage.setItem(customersKey, JSON.stringify([]));
-  }
-  
-  // Initialize locations if empty (needed for booking)
-  if (!localStorage.getItem(locationsKey)) {
-    const defaultLocations = [
-      {
-        id: 'caleta',
-        name: 'Caleta de Fuste',
-        address: 'Muelle Deportivo / Calle Teneriffe, 35610',
-        phone: '+34.928 163 712',
-        hasBoats: true
-      },
-      {
-        id: 'playitas',
-        name: 'Las Playitas',
-        address: 'Hotel Gran Resort Las Playitas',
-        phone: '+34.653 512 638',
-        hasBoats: false
-      }
-    ];
-    localStorage.setItem(locationsKey, JSON.stringify(defaultLocations));
-  }
-};
+// Minimal localStorage approach - only store user_email
+// No longer initializing customers/bookings in localStorage - fetch from server instead
 
-// Initialize on load
-initializeData();
-
-// Get all items from localStorage
+// Get all items - try localStorage first, then fetch from server if needed
 const getAll = (resource) => {
   const key = `dcms_${resource}`;
   const data = localStorage.getItem(key);
   return data ? JSON.parse(data) : [];
 };
 
-// Save all items to localStorage
-const saveAll = (resource, data) => {
+// Save all items - push to server AND save to localStorage for persistence
+const saveAll = async (resource, data) => {
   const key = `dcms_${resource}`;
-  localStorage.setItem(key, JSON.stringify(data));
   
-  // Mark resource as changed (will be synced in next batch)
+  // Save to localStorage FIRST for immediate persistence
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn(`[DCMS] Failed to save ${resource} to localStorage:`, err);
+  }
+  
+  // Also push to sync server for cross-portal sync
   if (typeof window !== 'undefined' && window.syncService) {
-    window.syncService.markChanged(resource);
+    await window.syncService.syncToServer(resource, data).catch(err => {
+      console.warn(`[DCMS] Failed to push ${resource} to server:`, err);
+    });
   }
 };
 
-// Find or create customer
-export const findOrCreateCustomer = (customerData) => {
-  const customers = getAll('customers');
+// Find or create customer (async - fetches from server)
+export const findOrCreateCustomer = async (customerData) => {
+  let customers = [];
+  
+  // Fetch from sync server instead of localStorage
+  if (typeof window !== 'undefined' && window.syncService) {
+    customers = await window.syncService.fetchFromServer('customers');
+  } else {
+    // Fallback: try localStorage if sync service not available (backward compatibility)
+    customers = getAll('customers');
+  }
   
   // Try to find by email first
   let customer = customers.find(c => c.email?.toLowerCase() === customerData.email?.toLowerCase());
@@ -144,12 +122,29 @@ export const findOrCreateCustomer = (customerData) => {
       certifications: customerData.certifications || [],
       medicalConditions: customerData.medicalConditions || [],
       notes: customerData.specialRequirements || customerData.notes || '',
+      isApproved: false, // New customers require admin approval before booking
+      medicalCertificate: customerData.medicalCertificate || {
+        hasCertificate: false,
+        certificateNumber: '',
+        issueDate: '',
+        expiryDate: '',
+        verified: false
+      },
+      divingInsurance: customerData.divingInsurance || {
+        hasInsurance: false,
+        insuranceProvider: '',
+        policyNumber: '',
+        issueDate: '',
+        expiryDate: '',
+        verified: false
+      },
+      uploadedDocuments: customerData.uploadedDocuments || [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
     customers.push(customer);
-    saveAll('customers', customers);
+    await saveAll('customers', customers);
     
     // Dispatch events to notify admin system (if running)
     dispatchBrowserEvent('dcms_customer_created', customer);
@@ -157,28 +152,42 @@ export const findOrCreateCustomer = (customerData) => {
   } else {
     // Update existing customer if new info provided
     // IMPORTANT: Preserve existing customerType and centerSkillLevel - don't overwrite with defaults
+    let updated = false;
     if (customerData.phone && !customer.phone) {
       customer.phone = customerData.phone;
+      updated = true;
     }
     if (customerData.specialRequirements && !customer.notes) {
       customer.notes = customerData.specialRequirements;
+      updated = true;
     }
     if (customerData.password && !customer.password) {
       customer.password = customerData.password;
+      updated = true;
     }
     // Only update customerType if explicitly provided in customerData
     if (customerData.customerType) {
       customer.customerType = customerData.customerType;
+      updated = true;
     }
     // Only update centerSkillLevel if explicitly provided in customerData
     if (customerData.centerSkillLevel) {
       customer.centerSkillLevel = customerData.centerSkillLevel;
+      updated = true;
     }
-    customer.updatedAt = new Date().toISOString();
-    saveAll('customers', customers);
     
-    // Dispatch event to notify admin system
-    dispatchBrowserEvent('dcms_customer_updated', customer);
+    if (updated) {
+      customer.updatedAt = new Date().toISOString();
+      // Update the customer in the array and push to server
+      const idx = customers.findIndex(c => c.id === customer.id);
+      if (idx !== -1) {
+        customers[idx] = customer;
+        await saveAll('customers', customers);
+      }
+      
+      // Dispatch event to notify admin system
+      dispatchBrowserEvent('dcms_customer_updated', customer);
+    }
   }
   
   return customer;
@@ -236,12 +245,20 @@ export const hasValidMedicalCertificate = (customer) => {
   return true;
 };
 
-// Create booking
-export const createBooking = (bookingData) => {
-  const bookings = getAll('bookings');
+// Create booking (async - fetches from server)
+export const createBooking = async (bookingData) => {
+  let bookings = [];
+  
+  // Fetch from sync server instead of localStorage
+  if (typeof window !== 'undefined' && window.syncService) {
+    bookings = await window.syncService.fetchFromServer('bookings');
+  } else {
+    // Fallback: try localStorage if sync service not available (backward compatibility)
+    bookings = getAll('bookings');
+  }
   
   // Find or create customer (include password if provided for new customers)
-  const customer = findOrCreateCustomer({
+  const customer = await findOrCreateCustomer({
     firstName: bookingData.firstName,
     lastName: bookingData.lastName,
     email: bookingData.email,
@@ -306,20 +323,9 @@ export const createBooking = (bookingData) => {
   };
   
   bookings.push(booking);
-  saveAll('bookings', bookings);
+  await saveAll('bookings', bookings);
   
-  // Immediately push to sync server
-  if (typeof window !== 'undefined' && window.syncService) {
-    window.syncService.markChanged('bookings');
-    // Force immediate push
-    setTimeout(() => {
-      window.syncService.pushPendingChanges().catch(err => {
-        console.warn('[DCMS] Failed to push booking immediately:', err);
-      });
-    }, 100);
-  }
-  
-  // Store user email for MyAccount page
+  // Store user email for MyAccount page (only thing we keep in localStorage)
   if (bookingData.email) {
     localStorage.setItem('dcms_user_email', bookingData.email);
   }
@@ -332,13 +338,6 @@ export const createBooking = (bookingData) => {
   
   // Dispatch events to notify admin system (if running)
   dispatchBrowserEvent('dcms_booking_created', booking);
-
-  // Ensure the sync server receives the brand-new booking, even if the calling component forgets
-  if (typeof window !== 'undefined' && window.syncService?.syncNow) {
-    window.syncService.syncNow().catch(err => {
-      console.warn('[DCMS] Failed to run immediate sync after booking creation:', err);
-    });
-  }
   
   return {
     success: true,
@@ -400,21 +399,48 @@ export const cancelBooking = (bookingId, options = {}) => {
   return bookings[idx];
 };
 
-// Get customer bookings
-export const getCustomerBookings = (email) => {
+// Get customer bookings (async - fetches from sync server)
+export const getCustomerBookings = async (email) => {
+  if (!email) return [];
+  
+  // Fetch from sync server instead of localStorage
+  if (typeof window !== 'undefined' && window.syncService) {
+    const customers = await window.syncService.fetchFromServer('customers');
+    const bookings = await window.syncService.fetchFromServer('bookings');
+    
+    const customer = customers.find(c => c.email?.toLowerCase() === email?.toLowerCase());
+    if (!customer) {
+      return [];
+    }
+    
+    return bookings.filter(b => b.customerId === customer.id);
+  }
+  
+  // Fallback: try localStorage if sync service not available (backward compatibility)
   const customers = getAll('customers');
   const bookings = getAll('bookings');
-  
   const customer = customers.find(c => c.email?.toLowerCase() === email?.toLowerCase());
   if (!customer) {
     return [];
   }
-  
   return bookings.filter(b => b.customerId === customer.id);
 };
 
-export const getCustomerByEmail = (email) => {
+// Get customer by email (async - fetches from sync server)
+export const getCustomerByEmail = async (email) => {
   if (!email) return null;
+  
+  // Fetch from sync server instead of localStorage
+  if (typeof window !== 'undefined' && window.syncService) {
+    const customers = await window.syncService.fetchFromServer('customers');
+    return (
+      customers.find(
+        (c) => c.email?.toLowerCase() === email.toLowerCase()
+      ) || null
+    );
+  }
+  
+  // Fallback: try localStorage if sync service not available (backward compatibility)
   const customers = getAll('customers');
   return (
     customers.find(
@@ -455,9 +481,19 @@ const mergePreferences = (existing = {}, incoming = {}) => {
   };
 };
 
-export const updateCustomerProfile = (email, updates = {}) => {
+export const updateCustomerProfile = async (email, updates = {}) => {
   if (!email) return null;
-  const customers = getAll('customers');
+  
+  let customers = [];
+  
+  // Fetch from sync server instead of localStorage
+  if (typeof window !== 'undefined' && window.syncService) {
+    customers = await window.syncService.fetchFromServer('customers');
+  } else {
+    // Fallback: try localStorage if sync service not available (backward compatibility)
+    customers = getAll('customers');
+  }
+  
   const idx = customers.findIndex(
     (c) => c.email?.toLowerCase() === email.toLowerCase()
   );
@@ -482,31 +518,64 @@ export const updateCustomerProfile = (email, updates = {}) => {
     console.warn(`[DCMS] CustomerType changed from "${customer.customerType}" to "${preservedCustomerType}" for ${email}`);
   }
   
+  // Get defaults for medical certificate and insurance
+  const getDefaultMedicalCertificate = () => ({
+    hasCertificate: false,
+    certificateNumber: '',
+    issueDate: '',
+    expiryDate: '',
+    verified: false
+  });
+  
+  const getDefaultDivingInsurance = () => ({
+    hasInsurance: false,
+    insuranceProvider: '',
+    policyNumber: '',
+    issueDate: '',
+    expiryDate: '',
+    verified: false
+  });
+  
   const merged = {
-    ...customer,
-    ...updates,
-    // Preserve existing customerType unless explicitly provided with a valid value in updates
+    ...customer, // Start with ALL existing customer data
+    // Only spread updates that are explicitly provided (not undefined)
+    ...Object.fromEntries(Object.entries(updates).filter(([_, v]) => v !== undefined)),
+    // Explicitly preserve fields that should not be overwritten unless provided
     customerType: preservedCustomerType,
-    // Preserve existing centerSkillLevel unless explicitly provided with a valid value in updates
     centerSkillLevel: preservedCenterSkillLevel,
-    nationality: updates.nationality || customer.nationality || '',
-    phone: updates.phone || customer.phone || '',
-    preferences: mergePreferences(customer.preferences || getDefaultPreferences(), updates.preferences),
-    certifications: updates.certifications || customer.certifications || [],
-    medicalConditions: updates.medicalConditions || customer.medicalConditions || [],
-    medicalCertificate: mergeNestedObject(
-      customer.medicalCertificate,
-      updates.medicalCertificate
-    ),
-    divingInsurance: mergeNestedObject(
-      customer.divingInsurance,
-      updates.divingInsurance
-    ),
+    nationality: updates.hasOwnProperty('nationality') ? (updates.nationality || '') : customer.nationality || '',
+    phone: updates.hasOwnProperty('phone') ? (updates.phone || '') : customer.phone || '',
+    // CRITICAL: Preserve isApproved - never overwrite unless explicitly provided
+    isApproved: updates.hasOwnProperty('isApproved') ? updates.isApproved : (customer.isApproved !== undefined ? customer.isApproved : false),
+    // Preserve preferences, certifications, medical data, and insurance unless explicitly updated
+    preferences: updates.preferences 
+      ? mergePreferences(customer.preferences || getDefaultPreferences(), updates.preferences)
+      : (customer.preferences || getDefaultPreferences()),
+    certifications: updates.hasOwnProperty('certifications')
+      ? (updates.certifications || [])
+      : (customer.certifications || []),
+    medicalConditions: updates.hasOwnProperty('medicalConditions')
+      ? (updates.medicalConditions || [])
+      : (customer.medicalConditions || []),
+    // CRITICAL: Preserve medicalCertificate - merge if updating, otherwise keep existing
+    medicalCertificate: updates.medicalCertificate
+      ? { ...getDefaultMedicalCertificate(), ...(customer.medicalCertificate || {}), ...updates.medicalCertificate }
+      : (customer.medicalCertificate || getDefaultMedicalCertificate()),
+    // CRITICAL: Preserve divingInsurance - merge if updating, otherwise keep existing
+    divingInsurance: updates.divingInsurance
+      ? { ...getDefaultDivingInsurance(), ...(customer.divingInsurance || {}), ...updates.divingInsurance }
+      : (customer.divingInsurance || getDefaultDivingInsurance()),
+    // Preserve uploadedDocuments unless explicitly updated
+    uploadedDocuments: updates.hasOwnProperty('uploadedDocuments')
+      ? updates.uploadedDocuments
+      : (customer.uploadedDocuments || []),
+    // Preserve notes unless explicitly updated
+    notes: updates.hasOwnProperty('notes') ? (updates.notes || '') : (customer.notes || ''),
     updatedAt: new Date().toISOString(),
   };
 
   customers[idx] = merged;
-  saveAll('customers', customers);
+  await saveAll('customers', customers);
   dispatchBrowserEvent('dcms_customer_updated', merged);
 
   return merged;
@@ -584,9 +653,19 @@ export const migrateBookingLocationIds = () => {
   return { migrated: updated, count: migrated.filter((b, i) => b !== bookings[i]).length };
 };
 
-export const addOrUpdateCertification = (email, certification) => {
+export const addOrUpdateCertification = async (email, certification) => {
   if (!email || !certification) return null;
-  const customers = getAll('customers');
+  
+  let customers = [];
+  
+  // Fetch from sync server instead of localStorage
+  if (typeof window !== 'undefined' && window.syncService) {
+    customers = await window.syncService.fetchFromServer('customers');
+  } else {
+    // Fallback: try localStorage if sync service not available (backward compatibility)
+    customers = getAll('customers');
+  }
+  
   const idx = customers.findIndex(
     (c) => c.email?.toLowerCase() === email.toLowerCase()
   );
@@ -625,15 +704,25 @@ export const addOrUpdateCertification = (email, certification) => {
   };
 
   customers[idx] = updatedCustomer;
-  saveAll('customers', customers);
+  await saveAll('customers', customers);
   dispatchBrowserEvent('dcms_customer_updated', updatedCustomer);
 
   return certWithId;
 };
 
-export const deleteCertification = (email, certificationId) => {
+export const deleteCertification = async (email, certificationId) => {
   if (!email || !certificationId) return null;
-  const customers = getAll('customers');
+  
+  let customers = [];
+  
+  // Fetch from sync server instead of localStorage
+  if (typeof window !== 'undefined' && window.syncService) {
+    customers = await window.syncService.fetchFromServer('customers');
+  } else {
+    // Fallback: try localStorage if sync service not available (backward compatibility)
+    customers = getAll('customers');
+  }
+  
   const idx = customers.findIndex(
     (c) => c.email?.toLowerCase() === email.toLowerCase()
   );
@@ -653,7 +742,7 @@ export const deleteCertification = (email, certificationId) => {
   };
 
   customers[idx] = updatedCustomer;
-  saveAll('customers', customers);
+  await saveAll('customers', customers);
   dispatchBrowserEvent('dcms_customer_updated', updatedCustomer);
 
   return updatedCustomer;

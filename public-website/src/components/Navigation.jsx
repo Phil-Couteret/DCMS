@@ -28,7 +28,7 @@ const Navigation = () => {
 
   const menuItems = [
     { label: t('nav.home'), path: '/' },
-    { label: t('nav.bookDive'), path: '/book-dive' },
+    { label: t('nav.bookDive'), path: '/book-dive' }, // Available for discovery/orientation/snorkeling, diving restricted to approved customers
     { label: t('nav.diveSites'), path: '/dive-sites' },
     { label: t('nav.about'), path: '/about' },
     { label: t('nav.pricing'), path: '/pricing' },
