@@ -17,7 +17,8 @@ import {
   Event as EventIcon,
   ExpandMore as ExpandMoreIcon,
   Edit as EditIcon,
-  PriceChange as PriceChangeIcon
+  PriceChange as PriceChangeIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import BookingForm from '../components/Booking/BookingForm';
@@ -102,16 +103,45 @@ const Bookings = () => {
     try {
       const allBookings = await dataService.getAll('bookings') || [];
       const allCustomers = await dataService.getAll('customers') || [];
+      const allLocations = await dataService.getAll('locations') || [];
       
       // Ensure we have arrays
-      if (!Array.isArray(allBookings) || !Array.isArray(allCustomers)) {
-        console.warn('[Bookings] Invalid data format:', { allBookings, allCustomers });
+      if (!Array.isArray(allBookings) || !Array.isArray(allCustomers) || !Array.isArray(allLocations)) {
+        console.warn('[Bookings] Invalid data format:', { allBookings, allCustomers, allLocations });
         return;
       }
       
-      // Show all bookings regardless of location
-      // (Location filtering is handled in other views like Dashboard)
-      setBookings(allBookings);
+      // Get current location from localStorage
+      const currentLocationId = localStorage.getItem('dcms_current_location');
+      const currentLocation = allLocations.find(l => l.id === currentLocationId);
+      const isCurrentLocationBikeRental = currentLocation?.type === 'bike_rental';
+      
+      // Helper function to determine if a booking is a bike rental
+      const isBookingBikeRental = (booking) => {
+        // Check equipmentNeeded for bike_rental activity type
+        if (booking.equipmentNeeded?.activityType === 'bike_rental') {
+          return true;
+        }
+        // Check if booking's location is a bike rental location
+        const bookingLocationId = booking.locationId || booking.location_id;
+        const bookingLocation = allLocations.find(l => l.id === bookingLocationId);
+        return bookingLocation?.type === 'bike_rental';
+      };
+      
+      // Filter bookings based on current location type
+      let filteredBookings = allBookings;
+      if (currentLocation) {
+        if (isCurrentLocationBikeRental) {
+          // For bike rental locations: only show bike rental bookings
+          filteredBookings = allBookings.filter(booking => isBookingBikeRental(booking));
+        } else {
+          // For diving locations: only show non-bike-rental bookings
+          filteredBookings = allBookings.filter(booking => !isBookingBikeRental(booking));
+        }
+      }
+      // If no current location selected (global view), show all bookings
+      
+      setBookings(filteredBookings);
       setCustomers(allCustomers);
     } catch (error) {
       console.error('[Bookings] Error loading bookings:', error);
@@ -179,6 +209,24 @@ const Bookings = () => {
       specialty: 'Specialty'
     };
     return activityMap[booking.activityType] || booking.activityType;
+  };
+
+  const handleCancelBooking = async (booking) => {
+    if (!window.confirm(`Are you sure you want to cancel this booking?`)) {
+      return;
+    }
+    
+    try {
+      const updatedBooking = {
+        ...booking,
+        status: 'cancelled'
+      };
+      await dataService.update('bookings', booking.id, updatedBooking);
+      loadBookings(); // Reload the bookings list
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      alert('Error cancelling booking. Please try again.');
+    }
   };
 
   if (isNewMode || id) {
@@ -428,14 +476,27 @@ const Bookings = () => {
                       )}
                     </Grid>
                     <Grid item xs={12}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => navigate(`/bookings/${booking.id}`)}
-                      >
-                        {t('common.edit')}
-                      </Button>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        {isBikeRental(booking) && booking.status !== 'cancelled' && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<CancelIcon />}
+                            onClick={() => handleCancelBooking(booking)}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => navigate(`/bookings/${booking.id}`)}
+                        >
+                          {t('common.edit')}
+                        </Button>
+                      </Box>
                     </Grid>
                   </Grid>
                 </AccordionDetails>

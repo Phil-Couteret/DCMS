@@ -44,7 +44,7 @@ const Customers = () => {
   const [locations, setLocations] = useState([]);
   const [isBikeRental, setIsBikeRental] = useState(false);
 
-  // Check if current location is bike rental
+  // Check if current location is bike rental and refresh customers when location changes
   useEffect(() => {
     const checkLocation = async () => {
       try {
@@ -53,14 +53,29 @@ const Customers = () => {
           setLocations(allLocations);
           const currentLocationId = localStorage.getItem('dcms_current_location');
           const currentLocation = allLocations.find(l => l.id === currentLocationId);
-          setIsBikeRental(currentLocation?.type === 'bike_rental');
+          const isBikeRentalLocation = currentLocation?.type === 'bike_rental';
+          setIsBikeRental(isBikeRentalLocation);
+          // Reload customers when location type changes
+          if (!mode && !customerId) {
+            loadCustomers();
+          }
         }
       } catch (error) {
         console.error('Error loading locations:', error);
       }
     };
     checkLocation();
-  }, []);
+    
+    // Listen for location changes
+    const onLocChange = () => {
+      checkLocation();
+    };
+    window.addEventListener('dcms_location_changed', onLocChange);
+    
+    return () => {
+      window.removeEventListener('dcms_location_changed', onLocChange);
+    };
+  }, [mode, customerId]);
 
   useEffect(() => {
     if (!mode && !customerId) {
@@ -121,13 +136,40 @@ const Customers = () => {
 
   const loadCustomers = async () => {
     try {
+      // Get current location type to determine filtering
+      const allLocations = await dataService.getAll('locations') || [];
+      const currentLocationId = localStorage.getItem('dcms_current_location');
+      const currentLocation = Array.isArray(allLocations) ? allLocations.find(l => l.id === currentLocationId) : null;
+      const isBikeRentalLocation = currentLocation?.type === 'bike_rental';
+      
       const allCustomers = await dataService.getAll('customers');
       // Ensure we have an array
-      if (Array.isArray(allCustomers)) {
-        setCustomers(allCustomers);
-      } else {
+      if (!Array.isArray(allCustomers)) {
         setCustomers([]);
+        return;
       }
+      
+      // Filter customers based on location type
+      // Bike rental customers: don't have customerType (no diving-related data)
+      // Diving customers: have customerType (tourist/local/recurrent)
+      let filteredCustomers = allCustomers;
+      if (isBikeRentalLocation) {
+        // For bike rental locations: only show customers without customerType (bike rental customers)
+        filteredCustomers = allCustomers.filter(customer => {
+          // Bike rental customers don't have customerType or it's empty/undefined
+          const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
+          return !hasCustomerType;
+        });
+      } else {
+        // For diving locations: only show customers with customerType (diving customers)
+        filteredCustomers = allCustomers.filter(customer => {
+          // Diving customers have customerType (tourist/local/recurrent)
+          const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
+          return hasCustomerType;
+        });
+      }
+      
+      setCustomers(filteredCustomers);
     } catch (error) {
       console.error('Error loading customers:', error);
       setCustomers([]);
