@@ -45,22 +45,6 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
   const [bookingResult, setBookingResult] = useState(null);
   const [customerSnapshot, setCustomerSnapshot] = useState(customer);
 
-  useEffect(() => {
-    setCustomerSnapshot(customer);
-  }, [customer]);
-
-  const refreshCustomerSnapshot = () => {
-    if (!customer?.email) {
-      return customer;
-    }
-    const latest = bookingService.getCustomerByEmail(customer.email);
-    if (latest) {
-      setCustomerSnapshot(latest);
-      return latest;
-    }
-    return customer;
-  };
-
   const [formData, setFormData] = useState({
     location: 'caleta',
     date: '',
@@ -68,6 +52,7 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
     selectedTimes: [], // Array of selected time slots
     numberOfDives: 1
   });
+  const [timeAvailability, setTimeAvailability] = useState({}); // Map of time -> availability
 
   // Available time slots for diving (can select multiple)
   const availableTimes = [
@@ -75,7 +60,54 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
     { value: '12:00', label: '12:00 PM' }
   ];
 
-  const handleOpen = () => {
+  useEffect(() => {
+    setCustomerSnapshot(customer);
+  }, [customer]);
+
+  // Check availability for all time slots when date/location changes
+  useEffect(() => {
+    if (formData.date && formData.location) {
+      const checkAllAvailability = async () => {
+        const availabilityMap = {};
+        for (const time of availableTimes) {
+          try {
+            const availability = await bookingService.checkAvailability(
+              formData.date,
+              time.value,
+              formData.location,
+              formData.activityType
+            );
+            availabilityMap[time.value] = availability;
+          } catch (error) {
+            console.warn(`[RegisteredDiverBooking] Failed to check availability for ${time.value}:`, error);
+            availabilityMap[time.value] = { available: true }; // Default to available on error
+          }
+        }
+        setTimeAvailability(availabilityMap);
+      };
+      checkAllAvailability();
+    } else {
+      setTimeAvailability({});
+    }
+  }, [formData.date, formData.location, formData.activityType]);
+
+  const refreshCustomerSnapshot = async () => {
+    if (!customer?.email) {
+      return customer;
+    }
+    try {
+      const latest = await bookingService.getCustomerByEmail(customer.email);
+      if (latest) {
+        setCustomerSnapshot(latest);
+        return latest;
+      }
+    } catch (error) {
+      console.warn('[RegisteredDiverBooking] Failed to refresh customer snapshot:', error);
+    }
+    return customer;
+  };
+
+  const handleOpen = async () => {
     setOpen(true);
     setError(null);
     setSuccess(false);
@@ -87,12 +119,12 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
       selectedTimes: [],
       numberOfDives: 1
     });
-    refreshCustomerSnapshot();
+    await refreshCustomerSnapshot();
     if (typeof window !== 'undefined' && window.syncService?.syncNow) {
       window.syncService
         .syncNow()
-        .then(() => {
-          refreshCustomerSnapshot();
+        .then(async () => {
+          await refreshCustomerSnapshot();
         })
         .catch((err) => console.warn('[RegisteredBooking] Sync before booking failed:', err));
     }
@@ -167,7 +199,7 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
       // Check availability for each selected time
       const unavailableSlots = [];
       for (const time of formData.selectedTimes) {
-        const availability = bookingService.checkAvailability(
+        const availability = await bookingService.checkAvailability(
           formData.date,
           time,
           formData.location,
@@ -188,7 +220,14 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
       const bookings = [];
       const totalPrice = calculatePrice();
       const pricePerDive = totalPrice / (formData.selectedTimes.length * formData.numberOfDives);
-      const latestCustomer = refreshCustomerSnapshot() || customer;
+      
+      // Refresh customer data to get latest firstName/lastName from profile
+      const latestCustomer = await refreshCustomerSnapshot();
+      
+      // Ensure we have required customer data
+      if (!latestCustomer || !latestCustomer.firstName || !latestCustomer.lastName || !latestCustomer.email) {
+        throw new Error('Customer profile information is incomplete. Please update your profile with first name, last name, and email.');
+      }
 
       for (const time of formData.selectedTimes) {
         const bookingData = {
@@ -211,7 +250,7 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
           isRegisteredDiver: true // Flag to skip strict validation
         };
 
-        const result = bookingService.createBooking(bookingData);
+        const result = await bookingService.createBooking(bookingData);
         bookings.push(result);
       }
 

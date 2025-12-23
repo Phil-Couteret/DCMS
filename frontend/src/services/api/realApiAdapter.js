@@ -74,16 +74,19 @@ const realApiAdapter = {
     if (isDivingCustomer) {
       if (data.isApproved !== undefined) extraFields.isApproved = data.isApproved;
       if (data.centerSkillLevel !== undefined) extraFields.centerSkillLevel = data.centerSkillLevel;
-      if (data.certifications !== undefined && Array.isArray(data.certifications) && data.certifications.length > 0) {
+      if (data.certifications !== undefined && Array.isArray(data.certifications)) {
+        // Save certifications array even if empty to persist structure
         extraFields.certifications = data.certifications;
       }
-      if (data.medicalCertificate !== undefined && data.medicalCertificate.hasCertificate) {
+      // Save medicalCertificate and divingInsurance regardless of hasCertificate/hasInsurance to persist all data
+      if (data.medicalCertificate !== undefined) {
         extraFields.medicalCertificate = data.medicalCertificate;
       }
-      if (data.divingInsurance !== undefined && data.divingInsurance.hasInsurance) {
+      if (data.divingInsurance !== undefined) {
         extraFields.divingInsurance = data.divingInsurance;
       }
-      if (data.uploadedDocuments !== undefined && Array.isArray(data.uploadedDocuments) && data.uploadedDocuments.length > 0) {
+      if (data.uploadedDocuments !== undefined && Array.isArray(data.uploadedDocuments)) {
+        // Save uploadedDocuments array even if empty to persist structure
         extraFields.uploadedDocuments = data.uploadedDocuments;
       }
     }
@@ -120,8 +123,11 @@ const realApiAdapter = {
     if (data.dob !== undefined) transformed.dob = data.dob;
     if (data.nationality !== undefined) transformed.nationality = data.nationality;
     if (data.address !== undefined) transformed.address = data.address;
-    // Only include customerType for diving customers
-    if (isDivingCustomer && data.customerType !== undefined) transformed.customerType = data.customerType;
+    // Always include customerType if it's provided (don't rely on isDivingCustomer check)
+    // This ensures customerType changes (e.g., tourist -> recurrent) are preserved
+    if (data.customerType !== undefined && data.customerType !== null && data.customerType !== '') {
+      transformed.customerType = data.customerType;
+    }
     // Always include preferences (with extra fields merged in)
     transformed.preferences = preferences;
     // Only include medicalConditions for diving customers
@@ -268,7 +274,11 @@ const realApiAdapter = {
     
     // Only include diving-related fields for diving customers
     if (isDivingCustomer) {
-      result.customerType = customerType || 'tourist';
+      // Preserve customerType value exactly as it is (don't default to 'tourist' if it's already set)
+      // Only default to 'tourist' if customerType is actually undefined or null, not if it's an empty string
+      result.customerType = (customerType !== undefined && customerType !== null && customerType !== '') 
+        ? customerType 
+        : 'tourist';
       result.centerSkillLevel = extraFields.centerSkillLevel || data.center_skill_level || data.centerSkillLevel || 'beginner';
       result.medicalConditions = data.medical_conditions || data.medicalConditions || [];
       result.isApproved = extraFields.isApproved !== undefined ? extraFields.isApproved : (data.is_approved !== undefined ? data.is_approved : false);

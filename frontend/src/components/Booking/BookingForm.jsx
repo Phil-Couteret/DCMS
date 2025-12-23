@@ -147,7 +147,7 @@ const BookingForm = ({ bookingId = null }) => {
     
     // Only calculate price if we have a valid location
     if (currentLocation) {
-      calculatePrice();
+      calculatePrice().catch(err => console.error('Error calculating price:', err));
     }
   }, [
     // Common fields (always watch)
@@ -261,7 +261,7 @@ const BookingForm = ({ bookingId = null }) => {
     }
   };
 
-  const calculatePrice = (dataToUse = null) => {
+  const calculatePrice = async (dataToUse = null) => {
     // Return early if settings not loaded yet
     if (!settings) {
       return;
@@ -484,7 +484,7 @@ const BookingForm = ({ bookingId = null }) => {
       // Only use cumulative pricing for tourist customers (volume discounts)
       // Note: In API mode, this may not have bookings loaded yet, so use try-catch
       try {
-        cumulativePricing = stayService.getCumulativeStayPricing(data.customerId, data.bookingDate);
+        cumulativePricing = await stayService.getCumulativeStayPricing(data.customerId, data.bookingDate);
         pricePerDive = cumulativePricing.pricePerDive || 46.00; // Fallback to default if pricePerDive is undefined
       } catch (e) {
         // If cumulative pricing fails (e.g., bookings not loaded in API mode), use default price
@@ -561,7 +561,6 @@ const BookingForm = ({ bookingId = null }) => {
     if (diveSessionsToUse?.night) {
       // Check location pricing first, then settings, then fallback to 20
       nightDiveSurcharge = locPricing.addons?.night_dive ?? settings?.prices?.addons?.night_dive ?? 20; // Night dive surcharge
-      console.log('Night dive surcharge calculated:', nightDiveSurcharge, 'for diveSessions:', diveSessionsToUse);
     }
     
     // Calculate other addon prices

@@ -98,7 +98,7 @@ const Login = () => {
             // Check if account should be deleted
             if (passwordMigrationService.shouldDeleteAccount(customer)) {
               // Account expired - delete it
-              bookingService.deleteCustomerAccount(formData.email);
+              await bookingService.deleteCustomerAccount(formData.email);
               consentService.deleteCustomerConsents(customer.id);
               setError('Your account has been deleted due to security requirements. Please register a new account.');
               setLoading(false);
@@ -185,12 +185,15 @@ const Login = () => {
         const hashedPassword = await passwordHash.storeHashedPassword(formData.password);
 
         // Create new customer account
+        // Note: Public website is for diving customers, so default to 'tourist'
         const customerData = {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
           phone: formData.phone || '',
           password: hashedPassword, // Store hashed password
+          customerType: 'tourist', // Default to tourist for diving customers
+          centerSkillLevel: 'beginner', // Default skill level
           preferences: {
             ownEquipment: false,
             tankSize: '12L',

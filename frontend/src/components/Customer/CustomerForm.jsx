@@ -140,8 +140,13 @@ const normalizeCustomerData = (customer) => {
   return {
     ...customer,
     // Ensure customerType and centerSkillLevel have defaults to prevent controlled/uncontrolled warnings
-    customerType: customer.customerType || 'tourist',
-    centerSkillLevel: customer.centerSkillLevel || 'beginner',
+    // Only default to 'tourist' if customerType is actually undefined/null/empty, not if it's falsy
+    customerType: (customer.customerType !== undefined && customer.customerType !== null && customer.customerType !== '') 
+      ? customer.customerType 
+      : 'tourist',
+    centerSkillLevel: (customer.centerSkillLevel !== undefined && customer.centerSkillLevel !== null && customer.centerSkillLevel !== '') 
+      ? customer.centerSkillLevel 
+      : 'beginner',
     gender: customer.gender ?? '',
     preferences: normalizePreferences(customer.preferences || {}),
     // Preserve certifications - don't overwrite with empty array if customer has certifications
@@ -341,10 +346,6 @@ const CustomerForm = () => {
   };
 
   const handleVerifyCertification = async (agency, certificationNumber, index) => {
-    console.log('Verifying certification:', { agency, certificationNumber, index });
-    console.log('Current certifications:', formData.certifications);
-    console.log('Cert at index:', formData.certifications[index]);
-    
     // Validate inputs
     if (!agency || !certificationNumber) {
       console.error('Missing agency or certification number', { agency, certificationNumber });

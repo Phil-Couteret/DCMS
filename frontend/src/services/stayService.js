@@ -4,17 +4,19 @@
 import dataService from './dataService';
 
 // Get all bookings for a customer during their stay
-export const getCustomerStayBookings = (customerId, stayStartDate = null) => {
-  const allBookings = dataService.getAll('bookings');
+export const getCustomerStayBookings = async (customerId, stayStartDate = null) => {
+  const allBookings = await dataService.getAll('bookings');
   
-  // Guard: if getAll returns a Promise or non-array, return empty array
-  // (In API mode, getAll is async and we can't await here as this is a synchronous function)
+  // Guard: if getAll returns a non-array, return empty array
   if (!Array.isArray(allBookings)) {
     return [];
   }
   
   // Filter bookings for this customer
-  let customerBookings = allBookings.filter(booking => booking.customerId === customerId);
+  let customerBookings = allBookings.filter(booking => {
+    const bid = booking.customerId || booking.customer_id;
+    return bid === customerId;
+  });
   
   // If stayStartDate is provided, filter by date range (within 30 days of stay start)
   if (stayStartDate) {
@@ -23,27 +25,31 @@ export const getCustomerStayBookings = (customerId, stayStartDate = null) => {
     stayEnd.setDate(stayEnd.getDate() + 30); // 30-day stay window
     
     customerBookings = customerBookings.filter(booking => {
-      const bookingDate = new Date(booking.bookingDate);
+      const bookingDate = new Date(booking.bookingDate || booking.booking_date);
       return bookingDate >= stayStart && bookingDate <= stayEnd;
     });
   }
   
   // Sort by booking date
-  return customerBookings.sort((a, b) => new Date(a.bookingDate) - new Date(b.bookingDate));
+  return customerBookings.sort((a, b) => {
+    const dateA = new Date(a.bookingDate || a.booking_date);
+    const dateB = new Date(b.bookingDate || b.booking_date);
+    return dateA - dateB;
+  });
 };
 
 // Calculate total dives for a customer during their stay
-export const getCustomerStayDiveCount = (customerId, stayStartDate = null) => {
-  const stayBookings = getCustomerStayBookings(customerId, stayStartDate);
+export const getCustomerStayDiveCount = async (customerId, stayStartDate = null) => {
+  const stayBookings = await getCustomerStayBookings(customerId, stayStartDate);
   
   let totalDives = 0;
   stayBookings.forEach(booking => {
     if (booking.diveSessions) {
       // New format: count sessions
       totalDives += (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0);
-    } else if (booking.numberOfDives) {
+    } else if (booking.numberOfDives || booking.number_of_dives) {
       // Old format: use numberOfDives
-      totalDives += booking.numberOfDives;
+      totalDives += booking.numberOfDives || booking.number_of_dives || 0;
     }
   });
   
@@ -51,28 +57,26 @@ export const getCustomerStayDiveCount = (customerId, stayStartDate = null) => {
 };
 
 // Get cumulative pricing for a customer's stay
-export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
-  const stayBookings = getCustomerStayBookings(customerId, stayStartDate);
-  const totalDives = getCustomerStayDiveCount(customerId, stayStartDate);
+export const getCumulativeStayPricing = async (customerId, stayStartDate = null) => {
+  const stayBookings = await getCustomerStayBookings(customerId, stayStartDate);
+  const totalDives = await getCustomerStayDiveCount(customerId, stayStartDate);
   
   // Get customer info to determine customer type
-  // Note: getById is async in API mode, so we can't reliably get customer here
-  // For now, default to 'tourist' if customer can't be retrieved synchronously
   let customerType = 'tourist';
   try {
-    const customer = dataService.getById('customers', customerId);
+    const customer = await dataService.getById('customers', customerId);
     if (customer && typeof customer === 'object' && 'customerType' in customer) {
       customerType = customer.customerType || 'tourist';
     }
   } catch (e) {
-    // Ignore errors - customer may not be available synchronously
-    console.warn('Could not get customer type synchronously, defaulting to tourist:', e);
+    // Ignore errors - customer may not be available
+    console.warn('Could not get customer type, defaulting to tourist:', e);
   }
   
   // Determine location-specific pricing (use first booking's location)
-  const locationsData = dataService.getAll('locations');
+  const locationsData = await dataService.getAll('locations');
   const locations = Array.isArray(locationsData) ? locationsData : [];
-  const stayLocationId = stayBookings[0]?.locationId;
+  const stayLocationId = stayBookings[0]?.locationId || stayBookings[0]?.location_id;
   const location = locations.find(l => l.id === stayLocationId);
   const locationPricing = location?.pricing?.customerTypes;
   let customerPricing = null;
@@ -155,15 +159,23 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
     if (playitasCaletaTierPrice == null && tiers.length > 0) playitasCaletaTierPrice = tiers[tiers.length-1].price;
   }
 
-  // Get settings for addon pricing
-  const settings = JSON.parse(localStorage.getItem('dcms_settings') || '{}');
+  // Get settings for addon pricing - use API
+  let settings = {};
+  try {
+    const settingsData = await dataService.getAll('settings');
+    if (Array.isArray(settingsData) && settingsData.length > 0) {
+      settings = settingsData[0];
+    }
+  } catch (error) {
+    console.warn('[StayService] Failed to load settings from API, using empty object:', error);
+  }
   const locationPricingFull = location?.pricing || {};
   
   // Create breakdown for each booking
   const breakdown = stayBookings.map(booking => {
     const bookingDives = booking.diveSessions ? 
       (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
-      (booking.numberOfDives || 0);
+      (booking.numberOfDives || booking.number_of_dives || 0);
 
     let perDive = pricePerDive;
     let extra = 0;
@@ -200,7 +212,7 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
     
     return {
       bookingId: booking.id,
-      bookingDate: booking.bookingDate,
+      bookingDate: booking.bookingDate || booking.booking_date,
       dives: bookingDives,
       pricePerDive: perDive,
       totalForBooking: totalForBooking,
@@ -222,15 +234,15 @@ export const getCumulativeStayPricing = (customerId, stayStartDate = null) => {
 };
 
 // Recalculate all bookings for a customer with cumulative pricing
-export const recalculateCustomerStayPricing = (customerId, stayStartDate = null) => {
-  const cumulativePricing = getCumulativeStayPricing(customerId, stayStartDate);
+export const recalculateCustomerStayPricing = async (customerId, stayStartDate = null) => {
+  const cumulativePricing = await getCumulativeStayPricing(customerId, stayStartDate);
   const stayBookings = cumulativePricing.stayBookings;
   
   // Update each booking with the cumulative price per dive
-  stayBookings.forEach(booking => {
+  for (const booking of stayBookings) {
     const bookingDives = booking.diveSessions ? 
       (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
-      (booking.numberOfDives || 0);
+      (booking.numberOfDives || booking.number_of_dives || 0);
     
     const newPrice = bookingDives * cumulativePricing.pricePerDive;
     
@@ -241,37 +253,39 @@ export const recalculateCustomerStayPricing = (customerId, stayStartDate = null)
       totalPrice: newPrice + (booking.discount || 0)
     };
     
-    dataService.update('bookings', booking.id, updatedBooking);
-  });
+    await dataService.update('bookings', booking.id, updatedBooking);
+  }
   
   return cumulativePricing;
 };
 
 // Get stay summary for a customer
-export const getCustomerStaySummary = (customerId, stayStartDate = null) => {
-  const cumulativePricing = getCumulativeStayPricing(customerId, stayStartDate);
+export const getCustomerStaySummary = async (customerId, stayStartDate = null) => {
+  const cumulativePricing = await getCumulativeStayPricing(customerId, stayStartDate);
   
-  // Note: getById is async in API mode, so we can't reliably get customer here
+  // Get customer info
   let customer = null;
   try {
-    customer = dataService.getById('customers', customerId);
-    // Ensure customer is an object (not a Promise)
-    if (!customer || typeof customer !== 'object' || customer instanceof Promise) {
+    customer = await dataService.getById('customers', customerId);
+    // Ensure customer is an object
+    if (!customer || typeof customer !== 'object') {
       customer = null;
     }
   } catch (e) {
-    // Ignore errors - customer may not be available synchronously
+    // Ignore errors - customer may not be available
     customer = null;
   }
+  
+  const firstBooking = cumulativePricing.stayBookings[0];
+  const bookingDate = firstBooking?.bookingDate || firstBooking?.booking_date;
   
   return {
     customer: customer ? {
       id: customer.id,
-      name: `${customer.firstName} ${customer.lastName}`,
+      name: `${customer.firstName || customer.first_name || ''} ${customer.lastName || customer.last_name || ''}`.trim() || customer.email,
       email: customer.email
     } : null,
-    stayStartDate: stayStartDate || (cumulativePricing.stayBookings.length > 0 ? 
-      cumulativePricing.stayBookings[0].bookingDate : null),
+    stayStartDate: stayStartDate || bookingDate || null,
     totalDives: cumulativePricing.totalDives,
     pricePerDive: cumulativePricing.pricePerDive,
     totalPrice: cumulativePricing.totalPrice,
@@ -281,10 +295,10 @@ export const getCustomerStaySummary = (customerId, stayStartDate = null) => {
 };
 
 // Get all active stays (customers with recent bookings)
-export const getActiveStays = (days = 30) => {
-  const allBookings = dataService.getAll('bookings');
+export const getActiveStays = async (days = 30) => {
+  const allBookings = await dataService.getAll('bookings');
   
-  // Guard: if getAll returns a Promise or non-array, return empty array
+  // Guard: if getAll returns a non-array, return empty array
   if (!Array.isArray(allBookings)) {
     return [];
   }
@@ -295,23 +309,31 @@ export const getActiveStays = (days = 30) => {
   // Group bookings by customer
   const customerBookings = {};
   allBookings.forEach(booking => {
-    const bookingDate = new Date(booking.bookingDate);
+    const bookingDate = new Date(booking.bookingDate || booking.booking_date);
     if (bookingDate >= cutoffDate) {
-      if (!customerBookings[booking.customerId]) {
-        customerBookings[booking.customerId] = [];
+      const customerId = booking.customerId || booking.customer_id;
+      if (customerId) {
+        if (!customerBookings[customerId]) {
+          customerBookings[customerId] = [];
+        }
+        customerBookings[customerId].push(booking);
       }
-      customerBookings[booking.customerId].push(booking);
     }
   });
   
   // Get stay summaries for each customer
-  const activeStays = Object.keys(customerBookings).map(customerId => {
+  const stayPromises = Object.keys(customerBookings).map(async (customerId) => {
     const customerBookingsList = customerBookings[customerId]
-      .sort((a, b) => new Date(a.bookingDate) - new Date(b.bookingDate));
-    const stayStartDate = customerBookingsList[0]?.bookingDate;
-    return getCustomerStaySummary(customerId, stayStartDate);
+      .sort((a, b) => {
+        const dateA = new Date(a.bookingDate || a.booking_date);
+        const dateB = new Date(b.bookingDate || b.booking_date);
+        return dateA - dateB;
+      });
+    const stayStartDate = customerBookingsList[0]?.bookingDate || customerBookingsList[0]?.booking_date;
+    return await getCustomerStaySummary(customerId, stayStartDate);
   });
   
+  const activeStays = await Promise.all(stayPromises);
   return activeStays.filter(stay => stay.customer !== null);
 };
 

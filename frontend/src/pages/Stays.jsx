@@ -79,11 +79,17 @@ const Stays = () => {
     setStayCosts(costsMap);
   }, [activeStays]);
 
-  const loadActiveStays = () => {
+  const loadActiveStays = async () => {
     setLoading(true);
-    const stays = stayService.getActiveStays(30); // Last 30 days
-    setActiveStays(stays);
-    setLoading(false);
+    try {
+      const stays = await stayService.getActiveStays(30); // Last 30 days
+      setActiveStays(stays);
+    } catch (error) {
+      console.error('Error loading active stays:', error);
+      setActiveStays([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusColor = (totalDives) => {

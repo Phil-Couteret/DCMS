@@ -247,13 +247,16 @@ const BookDive = () => {
   // Check availability when date/time/location changes
   useEffect(() => {
     if (formData.date && formData.time && formData.location) {
-      const availabilityCheck = bookingService.checkAvailability(
-        formData.date,
-        formData.time,
-        formData.location,
-        formData.activityType
-      );
-      setAvailability(availabilityCheck);
+      const checkAvailability = async () => {
+        const availabilityCheck = await bookingService.checkAvailability(
+          formData.date,
+          formData.time,
+          formData.location,
+          formData.activityType
+        );
+        setAvailability(availabilityCheck);
+      };
+      checkAvailability();
     }
   }, [formData.date, formData.time, formData.location, formData.activityType]);
 
@@ -411,7 +414,7 @@ const BookDive = () => {
 
       const equipmentNeeded = mapOwnershipToEquipmentNeeded(formData.equipmentOwnership);
       if (bookingResult?.booking?.id) {
-        const updatedBooking = bookingService.updateBookingEquipmentDetails(bookingResult.booking.id, {
+        const updatedBooking = await bookingService.updateBookingEquipmentDetails(bookingResult.booking.id, {
           ownEquipment: formData.ownEquipment,
           equipmentNeeded
         });
