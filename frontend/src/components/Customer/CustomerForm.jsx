@@ -140,8 +140,13 @@ const normalizeCustomerData = (customer) => {
   return {
     ...customer,
     // Ensure customerType and centerSkillLevel have defaults to prevent controlled/uncontrolled warnings
-    customerType: customer.customerType || 'tourist',
-    centerSkillLevel: customer.centerSkillLevel || 'beginner',
+    // Only default to 'tourist' if customerType is actually undefined/null/empty, not if it's falsy
+    customerType: (customer.customerType !== undefined && customer.customerType !== null && customer.customerType !== '') 
+      ? customer.customerType 
+      : 'tourist',
+    centerSkillLevel: (customer.centerSkillLevel !== undefined && customer.centerSkillLevel !== null && customer.centerSkillLevel !== '') 
+      ? customer.centerSkillLevel 
+      : 'beginner',
     gender: customer.gender ?? '',
     preferences: normalizePreferences(customer.preferences || {}),
     // Preserve certifications - don't overwrite with empty array if customer has certifications
@@ -341,10 +346,6 @@ const CustomerForm = () => {
   };
 
   const handleVerifyCertification = async (agency, certificationNumber, index) => {
-    console.log('Verifying certification:', { agency, certificationNumber, index });
-    console.log('Current certifications:', formData.certifications);
-    console.log('Cert at index:', formData.certifications[index]);
-    
     // Validate inputs
     if (!agency || !certificationNumber) {
       console.error('Missing agency or certification number', { agency, certificationNumber });
@@ -364,7 +365,6 @@ const CustomerForm = () => {
       }
       
       const url = settings.certificationUrls[agency];
-      console.log('Opening URL:', url);
       
       if (url) {
         // Open verification portal in popup window
@@ -374,13 +374,9 @@ const CustomerForm = () => {
           'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no'
         );
         
-        console.log('Popup result:', popup);
-        
         if (!popup || popup.closed || typeof popup.closed === 'undefined') {
           alert('Please allow popups for certification verification or check your popup blocker settings');
-          console.log('Popup blocked or failed to open');
         } else {
-          console.log('Popup opened successfully');
           
           // Mark as verified after opening the popup
           // The user will manually verify it in the popup

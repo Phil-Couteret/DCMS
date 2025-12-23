@@ -7,12 +7,20 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
+  // Enable CORS - allow connections from localhost and local network
+  // Get local network IP for CORS (optional, for network testing)
+  const localNetworkIP = process.env.LOCAL_NETWORK_IP || '192.168.18.254';
   app.enableCors({
     origin: [
       process.env.CORS_ORIGIN || 'http://localhost:3000',
       'http://localhost:3000', // Public website
       'http://localhost:3001', // Admin portal
+      `http://${localNetworkIP}:3000`, // Public website from network
+      `http://${localNetworkIP}:3001`, // Admin portal from network
+      // Allow any origin on local network (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+      /^http:\/\/192\.168\.\d+\.\d+:\d+$/,
+      /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,
+      /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$/,
     ],
     credentials: true,
   });
@@ -51,8 +59,11 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT || 3003;
-  await app.listen(port);
-  console.log(`🚀 DCMS Backend API is running on: http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0'); // Listen on all network interfaces
+  const localIP = process.env.LOCAL_NETWORK_IP || '192.168.18.254';
+  console.log(`🚀 DCMS Backend API is running on:`);
+  console.log(`   Local:   http://localhost:${port}`);
+  console.log(`   Network: http://${localIP}:${port}`);
   console.log(`📚 Swagger documentation: http://localhost:${port}/api`);
 }
 

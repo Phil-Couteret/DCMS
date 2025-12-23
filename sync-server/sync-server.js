@@ -65,8 +65,9 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`\n✅ DCMS Sync Server running on http://localhost:${PORT}`);
-  console.log('📡 This server syncs data between public website and admin portal\n');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n✅ DCMS Sync Server running on http://0.0.0.0:${PORT}`);
+  console.log('📡 This server syncs data between public website and admin portal');
+  console.log('🌐 Accessible from network on port', PORT, '\n');
 });
 

@@ -83,15 +83,15 @@ export const shouldDeleteAccount = (customer) => {
  * Delete accounts that exceeded password change deadline
  * Returns list of deleted account emails
  */
-export const cleanupExpiredAccounts = () => {
+export const cleanupExpiredAccounts = async () => {
   const customers = getAllCustomers();
   const deletedEmails = [];
   
-  customers.forEach(customer => {
+  for (const customer of customers) {
     if (shouldDeleteAccount(customer)) {
       try {
         // Delete customer account
-        bookingService.deleteCustomerAccount(customer.email);
+        await bookingService.deleteCustomerAccount(customer.email);
         
         // Delete consent records
         consentService.deleteCustomerConsents(customer.id);
@@ -102,7 +102,7 @@ export const cleanupExpiredAccounts = () => {
         console.error(`[Password Migration] Error deleting account ${customer.email}:`, error);
       }
     }
-  });
+  }
   
   return deletedEmails;
 };

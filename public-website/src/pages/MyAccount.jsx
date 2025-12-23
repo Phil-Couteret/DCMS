@@ -115,6 +115,7 @@ const defaultCertForm = {
   level: '',
   certificationNumber: '',
   issueDate: '',
+  expiryDate: '',
   verified: false
 };
 
@@ -450,8 +451,14 @@ const MyAccount = () => {
   // Define load functions using useCallback so they can be used in multiple places
   const loadBookings = useCallback(async () => {
     if (!userEmail) return;
-    const userBookings = await bookingService.getCustomerBookings(userEmail);
-    setBookings(userBookings);
+    try {
+      const userBookings = await bookingService.getCustomerBookings(userEmail);
+      // Ensure bookings is always an array
+      setBookings(Array.isArray(userBookings) ? userBookings : []);
+    } catch (error) {
+      console.error('[MyAccount] Failed to load bookings:', error);
+      setBookings([]);
+    }
   }, [userEmail]);
 
   const loadCustomerProfile = useCallback(async () => {
@@ -545,6 +552,13 @@ const MyAccount = () => {
       window.removeEventListener('dcms_customers_synced', handleCustomersSynced);
     };
   }, [userEmail]);
+
+  // Refresh customer data when switching to certifications tab to pick up admin changes
+  useEffect(() => {
+    if (userEmail && tabValue === 2) {
+      loadCustomerProfile();
+    }
+  }, [tabValue, userEmail, loadCustomerProfile]);
 
   const getLocationName = (locationId) =>
     LOCATION_LABELS[locationId] || 'Las Playitas';
@@ -675,11 +689,11 @@ const MyAccount = () => {
     setCancelReason('');
   };
 
-  const handleConfirmCancelBooking = () => {
+  const handleConfirmCancelBooking = async () => {
     if (!cancelDialog.booking) return;
     setCancelLoading(true);
     try {
-      const updated = bookingService.cancelBooking(cancelDialog.booking.id, {
+      const updated = await bookingService.cancelBooking(cancelDialog.booking.id, {
         reason: cancelReason.trim(),
         cancelledBy: 'customer'
       });
@@ -861,7 +875,7 @@ const MyAccount = () => {
       return;
     }
 
-    const updated = bookingService.updateCustomerProfile(userEmail, {
+    const updated = await bookingService.updateCustomerProfile(userEmail, {
       ...profileForm
     });
 
@@ -1069,7 +1083,7 @@ const MyAccount = () => {
         deletionReason: 'User requested',
       });
       
-      const result = bookingService.deleteCustomerAccount(userEmail);
+      const result = await bookingService.deleteCustomerAccount(userEmail);
       if (result.success) {
         setSnackbar({
           open: true,
@@ -1175,7 +1189,7 @@ const MyAccount = () => {
                       }}
                     />
                   )}
-                  {customer && !customer.isApproved && (
+                  {customer && customer.isApproved === false && (
                     <Alert severity="info" sx={{ mb: 2 }}>
                       Your account is pending approval. The diving center needs to assess your diving level before you can book dives. 
                       Once approved, you'll be able to book dives here.
@@ -1196,13 +1210,12 @@ const MyAccount = () => {
                     {customer && customer.isApproved && (
                       <RegisteredDiverBooking 
                         customer={customer} 
-                        onBookingCreated={() => {
-                          const userBookings = bookingService.getCustomerBookings(userEmail);
-                          setBookings(userBookings);
+                        onBookingCreated={async () => {
+                          await loadBookings();
                         }}
                       />
                     )}
-                    {customer && !customer.isApproved && (
+                    {customer && customer.isApproved === false && (
                       <Alert severity="info" sx={{ mb: 2 }}>
                         Your account is pending approval. The diving center needs to assess your diving level before you can book dives. 
                         Once approved, you'll be able to book dives here.
@@ -1655,14 +1668,23 @@ const MyAccount = () => {
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                 <Typography variant="h5">{t('myAccount.certifications.title')}</Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => setCertDialogOpen(true)}
-                  disabled={!customer}
-                >
-                  Add Certification
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={loadCustomerProfile}
+                    disabled={!userEmail}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => setCertDialogOpen(true)}
+                    disabled={!customer}
+                  >
+                    Add Certification
+                  </Button>
+                </Box>
               </Box>
 
               {!customer ? (
@@ -2049,10 +2071,10 @@ const MyAccount = () => {
                   <Button
                     variant="contained"
                     color="error"
-                    onClick={() => {
+                    onClick={async () => {
                       if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
                         try {
-                          bookingService.deleteCustomerAccount(userEmail);
+                          await bookingService.deleteCustomerAccount(userEmail);
                           consentService.deleteCustomerConsents(customer.id);
                           handleLogout();
                           setSnackbar({
@@ -2518,11 +2540,17 @@ const MyAccount = () => {
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Agency"
+                select
+                label="Certification Agency"
                 value={certForm.agency}
                 onChange={(e) => setCertForm((prev) => ({ ...prev, agency: e.target.value }))}
                 fullWidth
-              />
+              >
+                <MenuItem value="SSI">SSI</MenuItem>
+                <MenuItem value="PADI">PADI</MenuItem>
+                <MenuItem value="CMAS">CMAS</MenuItem>
+                <MenuItem value="VDST">VDST</MenuItem>
+              </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -2542,12 +2570,22 @@ const MyAccount = () => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 label="Issue Date"
                 type="date"
                 value={certForm.issueDate}
                 onChange={(e) => setCertForm((prev) => ({ ...prev, issueDate: e.target.value }))}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Expiry Date (Optional)"
+                type="date"
+                value={certForm.expiryDate || ''}
+                onChange={(e) => setCertForm((prev) => ({ ...prev, expiryDate: e.target.value }))}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
               />

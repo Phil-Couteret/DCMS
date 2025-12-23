@@ -1,8 +1,8 @@
 {
   "name": "dcms-backend",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Dive Center Management System - Backend API",
-  "author": "Deep Blue Diving",
+  "author": "Philippe Couteret",
   "private": true,
   "license": "GPL-3.0",
   "scripts": {

@@ -86,15 +86,12 @@ const Customers = () => {
   // Refresh list when customers are created or updated
   useEffect(() => {
     const onCustomerUpdate = (event) => {
-      console.log('[Admin] Customer event received:', event.type, event.detail);
       if (!mode && !customerId) {
-        console.log('[Admin] Refreshing customers list...');
         loadCustomers();
       }
     };
     const onStorageChange = (event) => {
       if (event.key === 'dcms_customers' || !event.key) {
-        console.log('[Admin] Storage event received for customers');
         if (!mode && !customerId) loadCustomers();
       }
     };
@@ -178,16 +175,11 @@ const Customers = () => {
 
   const handleSyncFromServer = async () => {
     try {
-      if (typeof window !== 'undefined' && window.syncService) {
-        // Force pull from server
-        await window.syncService.syncAll();
-        // Reload customers after sync
-        setTimeout(() => {
-          loadCustomers();
-        }, 500);
-      }
+      // Since we're using the API directly, just reload customers from the API
+      // This will fetch fresh data from PostgreSQL, including any customers created on the public website
+      await loadCustomers();
     } catch (error) {
-      console.error('[Admin] Sync error:', error);
+      console.error('[Admin] Error refreshing customers:', error);
     }
   };
 

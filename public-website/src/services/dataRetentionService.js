@@ -136,15 +136,15 @@ export const shouldDeleteMarketingConsent = (consent, customerId) => {
  * Delete inactive customers and their associated data
  * Returns list of deleted customer emails
  */
-export const cleanupInactiveCustomers = () => {
+export const cleanupInactiveCustomers = async () => {
   const customers = getAllCustomers();
   const deletedEmails = [];
   
-  customers.forEach(customer => {
+  for (const customer of customers) {
     if (shouldDeleteInactiveCustomer(customer)) {
       try {
         // Delete customer account (this will cascade delete bookings)
-        bookingService.deleteCustomerAccount(customer.email);
+        await bookingService.deleteCustomerAccount(customer.email);
         
         // Delete consent records
         consentService.deleteCustomerConsents(customer.id);
@@ -155,7 +155,7 @@ export const cleanupInactiveCustomers = () => {
         console.error(`[Data Retention] Error deleting inactive customer ${customer.email}:`, error);
       }
     }
-  });
+  }
   
   return deletedEmails;
 };
