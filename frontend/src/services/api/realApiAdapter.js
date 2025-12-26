@@ -7,49 +7,97 @@ import { httpClient } from './httpClient';
 const realApiAdapter = {
   // Generic CRUD operations
   async getAll(resource) {
-    // Special handling for resources not yet implemented in backend
+    // Map frontend resource names to backend API endpoints
+    let endpoint = resource;
+    
     if (resource === 'users') {
-      return this.getAllUsers();
+      // Frontend calls it 'users', backend uses 'users'
+      endpoint = 'users';
+    } else if (resource === 'diveSites') {
+      // Frontend calls it 'diveSites', backend uses 'dive-sites'
+      endpoint = 'dive-sites';
+    } else if (resource === 'governmentBonos') {
+      // Frontend calls it 'governmentBonos', backend uses 'government-bonos'
+      endpoint = 'government-bonos';
+    } else if (resource === 'boatPreps') {
+      // Frontend calls it 'boatPreps', backend uses 'boat-preps'
+      endpoint = 'boat-preps';
+    } else if (resource === 'partners') {
+      // Frontend calls it 'partners', backend uses 'partners'
+      endpoint = 'partners';
+    } else if (resource === 'staff') {
+      // Frontend calls it 'staff', backend uses 'staff'
+      endpoint = 'staff';
     }
-    if (resource === 'diveSites' || resource === 'dive_sites') {
-      return this.getAllDiveSites();
-    }
-    if (resource === 'settings') {
-      return this.getAllSettings();
-    }
-    if (resource === 'governmentBonos') {
-      return this.getAllGovernmentBonos();
-    }
-    const response = await httpClient.get(`/${resource}`);
+    
+    const response = await httpClient.get(`/${endpoint}`);
     return this.transformResponse(resource, response.data || response);
   },
 
   async getById(resource, id) {
-    const response = await httpClient.get(`/${resource}/${id}`);
+    // Map frontend resource names to backend API endpoints
+    let endpoint = resource;
+    if (resource === 'users') endpoint = 'users';
+    else if (resource === 'diveSites') endpoint = 'dive-sites';
+    else if (resource === 'governmentBonos') endpoint = 'government-bonos';
+    else if (resource === 'boatPreps') endpoint = 'boat-preps';
+    else if (resource === 'partners') endpoint = 'partners';
+    else if (resource === 'staff') endpoint = 'staff';
+    
+    const response = await httpClient.get(`/${endpoint}/${id}`);
     return this.transformResponse(resource, response.data || response);
   },
 
   async create(resource, data) {
-    // Special handling for resources not yet implemented in backend
-    if (resource === 'settings') {
-      return this.createSettings(data);
-    }
+    // Map frontend resource names to backend API endpoints
+    let endpoint = resource;
+    if (resource === 'users') endpoint = 'users';
+    else if (resource === 'diveSites') endpoint = 'dive-sites';
+    else if (resource === 'governmentBonos') endpoint = 'government-bonos';
+    else if (resource === 'boatPreps') endpoint = 'boat-preps';
+    else if (resource === 'partners') endpoint = 'partners';
     
-    // Transform customer data from camelCase to snake_case for backend
-    const transformedData = resource === 'customers' ? this.transformCustomerToBackend(data) : data;
-    const response = await httpClient.post(`/${resource}`, transformedData);
+    // Transform data from frontend to backend format
+    let transformedData = data;
+    if (resource === 'customers') {
+      transformedData = this.transformCustomerToBackend(data);
+    } else if (resource === 'users') {
+      transformedData = this.transformUserToBackend(data);
+    } else if (resource === 'settings') {
+      transformedData = this.transformSettingsToBackend(data);
+    } else if (resource === 'partners') {
+      transformedData = this.transformPartnerToBackend(data);
+    } else if (resource === 'staff') {
+      transformedData = this.transformStaffToBackend(data);
+    }
+    const response = await httpClient.post(`/${endpoint}`, transformedData);
     return this.transformResponse(resource, response.data || response);
   },
 
   async update(resource, id, data) {
-    // Special handling for resources not yet implemented in backend
-    if (resource === 'settings') {
-      return this.updateSettings(id, data);
-    }
+    // Map frontend resource names to backend API endpoints
+    let endpoint = resource;
+    if (resource === 'users') endpoint = 'users';
+    else if (resource === 'diveSites') endpoint = 'dive-sites';
+    else if (resource === 'governmentBonos') endpoint = 'government-bonos';
+    else if (resource === 'boatPreps') endpoint = 'boat-preps';
+    else if (resource === 'partners') endpoint = 'partners';
+    else if (resource === 'staff') endpoint = 'staff';
     
-    // Transform customer data from camelCase to snake_case for backend
-    const transformedData = resource === 'customers' ? this.transformCustomerToBackend(data) : data;
-    const response = await httpClient.put(`/${resource}/${id}`, transformedData);
+    // Transform data from frontend to backend format
+    let transformedData = data;
+    if (resource === 'customers') {
+      transformedData = this.transformCustomerToBackend(data);
+    } else if (resource === 'users') {
+      transformedData = this.transformUserToBackend(data);
+    } else if (resource === 'settings') {
+      transformedData = this.transformSettingsToBackend(data);
+    } else if (resource === 'partners') {
+      transformedData = this.transformPartnerToBackend(data);
+    } else if (resource === 'staff') {
+      transformedData = this.transformStaffToBackend(data);
+    }
+    const response = await httpClient.put(`/${endpoint}/${id}`, transformedData);
     return this.transformResponse(resource, response.data || response);
   },
 
@@ -140,6 +188,83 @@ const realApiAdapter = {
   },
 
   // Transform response from backend snake_case to frontend camelCase
+  // Transform partner data from frontend to backend format
+  transformPartnerToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      name: data.name,
+      companyName: data.companyName || data.company_name,
+      contactEmail: data.contactEmail || data.contact_email,
+      contactPhone: data.contactPhone || data.contact_phone,
+      webhookUrl: data.webhookUrl || data.webhook_url,
+      commissionRate: data.commissionRate || data.commission_rate,
+      allowedLocations: data.allowedLocations || data.allowed_locations || [],
+      settings: data.settings || {},
+      isActive: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
+    };
+  },
+
+  // Transform partner data from backend to frontend format
+  transformPartnerFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      companyName: data.company_name || data.companyName,
+      contactEmail: data.contact_email || data.contactEmail,
+      contactPhone: data.contact_phone || data.contactPhone,
+      webhookUrl: data.webhook_url || data.webhookUrl,
+      commissionRate: data.commission_rate !== undefined ? parseFloat(data.commission_rate) : (data.commissionRate !== undefined ? parseFloat(data.commissionRate) : null),
+      allowedLocations: data.allowed_locations || data.allowedLocations || [],
+      apiKey: data.api_key || data.apiKey,
+      apiSecret: data.apiSecret, // Only present on create/regenerate
+      isActive: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : true),
+      settings: data.settings || {},
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
+  transformStaffToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      firstName: data.firstName || data.first_name,
+      lastName: data.lastName || data.last_name,
+      email: data.email,
+      phone: data.phone,
+      role: data.role,
+      locationId: data.locationId || data.location_id,
+      certifications: data.certifications || [],
+      emergencyContact: data.emergencyContact || data.emergency_contact || {},
+      employmentStartDate: data.employmentStartDate || data.employment_start_date,
+      isActive: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
+    };
+  },
+
+  transformStaffFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      firstName: data.first_name || data.firstName,
+      lastName: data.last_name || data.lastName,
+      name: `${data.first_name || data.firstName || ''} ${data.last_name || data.lastName || ''}`.trim(),
+      email: data.email,
+      phone: data.phone,
+      role: data.role,
+      locationId: data.location_id || data.locationId,
+      certifications: data.certifications || [],
+      emergencyContact: data.emergency_contact || data.emergencyContact || {},
+      employmentStartDate: data.employment_start_date || data.employmentStartDate,
+      isActive: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : true),
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
   transformResponse(resource, data) {
     if (!data) return data;
     if (resource === 'customers') {
@@ -154,7 +279,105 @@ const realApiAdapter = {
       }
       return this.transformBookingFromBackend(data);
     }
+    if (resource === 'users') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformUserFromBackend(item));
+      }
+      return this.transformUserFromBackend(data);
+    }
+    if (resource === 'settings') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformSettingsFromBackend(item));
+      }
+      return this.transformSettingsFromBackend(data);
+    }
+    if (resource === 'partners') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformPartnerFromBackend(item));
+      }
+      return this.transformPartnerFromBackend(data);
+    }
+    if (resource === 'staff') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformStaffFromBackend(item));
+      }
+      return this.transformStaffFromBackend(data);
+    }
     return data;
+  },
+
+  transformSettingsFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    // Backend stores settings as { id, key, value: {...}, description }
+    // Frontend expects { id, certificationUrls, prices, ... }
+    // So we need to flatten the structure by merging value into the root
+    if (data.value && typeof data.value === 'object') {
+      return {
+        id: data.id,
+        key: data.key,
+        description: data.description,
+        ...data.value, // Merge value properties into root
+        createdAt: data.created_at || data.createdAt,
+        updatedAt: data.updated_at || data.updatedAt,
+      };
+    }
+    
+    // If no value field, return as-is (already in correct format)
+    return {
+      ...data,
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
+  transformSettingsToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    // Frontend sends { id, certificationUrls, prices, ... }
+    // Backend expects { key, value: { certificationUrls, prices, ... }, description }
+    
+    // Extract value fields (everything except id, key, description)
+    const { id, key, description, createdAt, updatedAt, ...valueFields } = data;
+    
+    return {
+      key: key || 'default',
+      value: valueFields,
+      description: description,
+    };
+  },
+
+  transformUserFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      username: data.username,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      permissions: data.permissions || [],
+      locationAccess: data.location_access || data.locationAccess || [],
+      isActive: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : true),
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+      // Don't include password_hash
+    };
+  },
+
+  transformUserToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      username: data.username,
+      name: data.name,
+      email: data.email,
+      password: data.password, // Password will be hashed by backend
+      role: data.role,
+      permissions: data.permissions || [],
+      locationAccess: data.locationAccess || [],
+      isActive: data.isActive !== undefined ? data.isActive : true,
+    };
   },
 
   transformBookingFromBackend(data) {
@@ -187,6 +410,16 @@ const realApiAdapter = {
       createdAt: data.created_at || data.createdAt,
       updatedAt: data.updated_at || data.updatedAt,
     };
+    
+    // For diving activities, extract diveSessions from equipmentNeeded if it's an object
+    // (diveSessions are stored in equipmentNeeded when created from the public website)
+    const activityType = transformed.activityType || data.activity_type;
+    if (activityType === 'diving' && transformed.equipmentNeeded && typeof transformed.equipmentNeeded === 'object' && !Array.isArray(transformed.equipmentNeeded)) {
+      // Check if equipmentNeeded contains dive session keys (morning, afternoon, night, etc.)
+      if ('morning' in transformed.equipmentNeeded || 'afternoon' in transformed.equipmentNeeded || 'night' in transformed.equipmentNeeded || 'tenFifteen' in transformed.equipmentNeeded || '10:15' in transformed.equipmentNeeded) {
+        transformed.diveSessions = transformed.equipmentNeeded;
+      }
+    }
     
     // Include any nested relations if they exist
     if (data.customers) {
@@ -314,7 +547,16 @@ const realApiAdapter = {
   },
 
   async delete(resource, id) {
-    const response = await httpClient.delete(`/${resource}/${id}`);
+    // Map frontend resource names to backend API endpoints
+    let endpoint = resource;
+    if (resource === 'users') endpoint = 'users';
+    else if (resource === 'diveSites') endpoint = 'dive-sites';
+    else if (resource === 'governmentBonos') endpoint = 'government-bonos';
+    else if (resource === 'boatPreps') endpoint = 'boat-preps';
+    else if (resource === 'partners') endpoint = 'partners';
+    else if (resource === 'staff') endpoint = 'staff';
+    
+    const response = await httpClient.delete(`/${endpoint}/${id}`);
     return response.data || response;
   },
 
@@ -380,101 +622,7 @@ const realApiAdapter = {
     return response.data || response;
   },
 
-  // Users endpoint doesn't exist in backend yet (admin portal users are managed in localStorage)
-  // Fall back to localStorage for users
-  async getAllUsers() {
-    try {
-      const usersData = localStorage.getItem('dcms_users');
-      return usersData ? JSON.parse(usersData) : [];
-    } catch (error) {
-      console.error('Error loading users from localStorage:', error);
-      return [];
-    }
-  },
-
-  // Dive Sites endpoint doesn't exist in backend yet - fall back to localStorage
-  async getAllDiveSites() {
-    try {
-      const diveSitesData = localStorage.getItem('dcms_diveSites');
-      return diveSitesData ? JSON.parse(diveSitesData) : [];
-    } catch (error) {
-      console.error('Error loading dive sites from localStorage:', error);
-      return [];
-    }
-  },
-
-  // Settings endpoint doesn't exist in backend yet - fall back to localStorage
-  async getAllSettings() {
-    try {
-      const settingsData = localStorage.getItem('dcms_settings');
-      return settingsData ? JSON.parse(settingsData) : [];
-    } catch (error) {
-      console.error('Error loading settings from localStorage:', error);
-      return [];
-    }
-  },
-
-  async createSettings(data) {
-    try {
-      const settingsArray = this.getAllSettingsSync();
-      const newSetting = {
-        ...data,
-        id: data.id || `settings-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      settingsArray.push(newSetting);
-      localStorage.setItem('dcms_settings', JSON.stringify(settingsArray));
-      return newSetting;
-    } catch (error) {
-      console.error('Error creating settings in localStorage:', error);
-      throw error;
-    }
-  },
-
-  async updateSettings(id, data) {
-    try {
-      const settingsArray = this.getAllSettingsSync();
-      const index = settingsArray.findIndex(s => s.id === id);
-      if (index !== -1) {
-        settingsArray[index] = {
-          ...settingsArray[index],
-          ...data,
-          id: id,
-          updatedAt: new Date().toISOString()
-        };
-        localStorage.setItem('dcms_settings', JSON.stringify(settingsArray));
-        return settingsArray[index];
-      } else {
-        // If not found, create it
-        return this.createSettings({ ...data, id });
-      }
-    } catch (error) {
-      console.error('Error updating settings in localStorage:', error);
-      throw error;
-    }
-  },
-
-  getAllSettingsSync() {
-    try {
-      const settingsData = localStorage.getItem('dcms_settings');
-      return settingsData ? JSON.parse(settingsData) : [];
-    } catch (error) {
-      console.error('Error loading settings from localStorage:', error);
-      return [];
-    }
-  },
-
-  // Government Bonos endpoint doesn't exist in backend yet - fall back to localStorage
-  async getAllGovernmentBonos() {
-    try {
-      const bonosData = localStorage.getItem('dcms_governmentBonos');
-      return bonosData ? JSON.parse(bonosData) : [];
-    } catch (error) {
-      console.error('Error loading government bonos from localStorage:', error);
-      return [];
-    }
-  },
+  // All endpoints now use the API - localStorage fallbacks removed
 };
 
 export default realApiAdapter;

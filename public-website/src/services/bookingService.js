@@ -611,6 +611,12 @@ export const cancelBooking = async (bookingId, options = {}) => {
     
     const bookingRaw = await getResponse.json();
     
+    // CRITICAL: Verify the booking ID matches what was requested (prevents ID confusion bugs)
+    if (bookingRaw.id !== bookingId) {
+      console.error('[BookingService] Booking ID mismatch! Requested:', bookingId, 'Got:', bookingRaw.id);
+      throw new Error('Booking ID mismatch - cannot cancel booking');
+    }
+    
     // Transform from backend format to frontend format
     const booking = {
       id: bookingRaw.id,
@@ -628,8 +634,16 @@ export const cancelBooking = async (bookingId, options = {}) => {
       equipmentNeeded: bookingRaw.equipment_needed || bookingRaw.equipmentNeeded,
     };
     
+    // CRITICAL: If a customerId is provided in options, verify the booking belongs to that customer
+    if (options.customerId && booking.customerId !== options.customerId) {
+      console.error('[BookingService] Booking does not belong to customer! Booking customer:', booking.customerId, 'Expected:', options.customerId);
+      throw new Error('This booking does not belong to the current customer');
+    }
+    
     // Determine new payment status
-    const newPaymentStatus = booking.paymentStatus === 'paid' ? 'refund_pending' : booking.paymentStatus;
+    // If booking was paid, mark as refunded (valid enum value: pending, partial, paid, refunded)
+    // If not paid yet, keep the current status
+    const newPaymentStatus = booking.paymentStatus === 'paid' ? 'refunded' : booking.paymentStatus;
     
     // Prepare data for backend (transform to snake_case)
     const backendData = {
@@ -699,6 +713,65 @@ export const cancelBooking = async (bookingId, options = {}) => {
   }
 };
 
+// Transform booking from backend format (snake_case) to frontend format (camelCase)
+const transformBookingFromBackend = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  // Transform snake_case to camelCase
+  const transformed = {
+    id: data.id,
+    customerId: data.customer_id || data.customerId,
+    locationId: data.location_id || data.locationId,
+    boatId: data.boat_id || data.boatId,
+    diveSiteId: data.dive_site_id || data.diveSiteId,
+    staffPrimaryId: data.staff_primary_id || data.staffPrimaryId,
+    bookingDate: data.booking_date || data.bookingDate,
+    activityType: data.activity_type || data.activityType,
+    numberOfDives: data.number_of_dives !== undefined ? data.number_of_dives : (data.numberOfDives !== undefined ? data.numberOfDives : 1),
+    price: data.price,
+    discount: data.discount || 0,
+    totalPrice: data.total_price !== undefined ? parseFloat(data.total_price) : (data.totalPrice !== undefined ? parseFloat(data.totalPrice) : 0),
+    // Map "deferred" back to "account" for display (backend stores as "deferred" but frontend uses "account")
+    paymentMethod: (data.payment_method === 'deferred' || data.paymentMethod === 'deferred') 
+      ? 'account' 
+      : (data.payment_method || data.paymentMethod),
+    paymentStatus: data.payment_status || data.paymentStatus || 'pending',
+    status: data.status || 'pending',
+    specialRequirements: data.special_requirements || data.specialRequirements,
+    equipmentNeeded: data.equipment_needed !== undefined ? data.equipment_needed : data.equipmentNeeded,
+    bonoId: data.bono_id || data.bonoId,
+    stayId: data.stay_id || data.stayId,
+    createdAt: data.created_at || data.createdAt,
+    updatedAt: data.updated_at || data.updatedAt,
+  };
+  
+  // For diving activities, extract diveSessions from equipmentNeeded if it's an object
+  // (diveSessions are stored in equipmentNeeded when created from the public website)
+  const activityType = transformed.activityType || data.activity_type;
+  if (activityType === 'diving' && transformed.equipmentNeeded && typeof transformed.equipmentNeeded === 'object' && !Array.isArray(transformed.equipmentNeeded)) {
+    // Check if equipmentNeeded contains dive session keys (morning, afternoon, night, etc.)
+    if ('morning' in transformed.equipmentNeeded || 'afternoon' in transformed.equipmentNeeded || 'night' in transformed.equipmentNeeded || 'tenFifteen' in transformed.equipmentNeeded || '10:15' in transformed.equipmentNeeded) {
+      transformed.diveSessions = transformed.equipmentNeeded;
+    }
+  }
+  
+  // Include any nested relations if they exist
+  if (data.customers) {
+    transformed.customer = transformCustomerFromBackend(data.customers);
+  }
+  if (data.locations) {
+    transformed.location = data.locations;
+  }
+  if (data.boats) {
+    transformed.boat = data.boats;
+  }
+  if (data.dive_sites || data.diveSites) {
+    transformed.diveSite = data.dive_sites || data.diveSites;
+  }
+  
+  return transformed;
+};
+
 // Get customer bookings (async - uses API directly)
 export const getCustomerBookings = async (email) => {
   if (!email) return [];
@@ -727,7 +800,10 @@ export const getCustomerBookings = async (email) => {
     }
     
     const bookings = await bookingsResponse.json();
-    return Array.isArray(bookings) ? bookings : [];
+    const bookingsArray = Array.isArray(bookings) ? bookings : [];
+    
+    // Transform bookings from backend format to frontend format
+    return bookingsArray.map(booking => transformBookingFromBackend(booking));
   } catch (error) {
     console.error('[BookingService] Failed to get customer bookings:', error);
     // Fallback: try localStorage if API fails (backward compatibility)
@@ -1243,6 +1319,32 @@ export const deleteCustomerAccount = async (email, reason = 'User requested') =>
     if (!updateCustomerResponse.ok) {
       const errorText = await updateCustomerResponse.text();
       throw new Error(`Failed to anonymize customer: ${updateCustomerResponse.status} ${updateCustomerResponse.statusText} - ${errorText}`);
+    }
+    
+    // Clean up localStorage for this customer's bookings
+    try {
+      const key = 'dcms_bookings';
+      const localBookings = getAll('bookings');
+      // Remove bookings that belong to this customer
+      const filteredBookings = localBookings.filter(b => {
+        const bookingCustomerId = b.customerId || b.customer_id;
+        const bookingEmail = b.email || b.customer?.email;
+        return bookingCustomerId !== customer.id && 
+               bookingEmail?.toLowerCase() !== email?.toLowerCase();
+      });
+      localStorage.setItem(key, JSON.stringify(filteredBookings));
+    } catch (err) {
+      console.warn('[DCMS] Failed to clean up localStorage bookings:', err);
+    }
+    
+    // Clean up localStorage for this customer
+    try {
+      const key = 'dcms_customers';
+      const localCustomers = getAll('customers');
+      const filteredCustomers = localCustomers.filter(c => c.id !== customer.id && c.email?.toLowerCase() !== email?.toLowerCase());
+      localStorage.setItem(key, JSON.stringify(filteredCustomers));
+    } catch (err) {
+      console.warn('[DCMS] Failed to clean up localStorage customer:', err);
     }
     
     // Anonymize bookings (remove personal details, keep financial data for accounting)

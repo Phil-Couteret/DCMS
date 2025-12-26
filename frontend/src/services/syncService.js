@@ -1,5 +1,8 @@
 // Sync Service - Connects to sync server for POC
+// NOTE: This is only used in MOCK mode (localStorage). In API mode, data is synced via the backend API.
 // Syncs data between public website and admin portal
+
+import { isMockMode } from '../config/apiConfig';
 
 const SYNC_SERVER_URL = 'http://localhost:3002/api/sync';
 const SYNC_INTERVAL = 30000; // Sync every 30 seconds (safety fallback - public page pushes immediately)
@@ -14,42 +17,83 @@ class SyncService {
     this.connectingPromise = null;
     this.hasStarted = false;
     
-    this.startSync();
-    this.init();
+    // Only initialize sync service if in mock mode
+    // In API mode, data is synced via the backend API, so sync server is not needed
+    if (isMockMode()) {
+      this.startSync();
+      this.init();
+    } else {
+      // In API mode, sync service is disabled
+      console.log('[Sync] Sync service disabled - using API mode');
+    }
   }
 
   async init() {
+    // Don't initialize if in API mode (not needed)
+    if (!isMockMode()) {
+      return Promise.resolve(false);
+    }
+    
     if (this.connectingPromise) {
       return this.connectingPromise;
     }
 
     this.connectingPromise = (async () => {
       try {
-        const response = await fetch('http://localhost:3002/health', { cache: 'no-store' });
-        if (!response.ok) {
-          throw new Error(`Health check failed with status ${response.status}`);
-        }
+        // Use timeout to prevent hanging on network requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
+        try {
+          const response = await fetch('http://localhost:3002/health', { 
+            cache: 'no-store',
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`Health check failed with status ${response.status}`);
+          }
 
-        if (!this.isEnabled) {
-          this.isEnabled = true;
-        }
+          if (!this.isEnabled) {
+            this.isEnabled = true;
+          }
 
+          if (this.connectionRetryTimer) {
+            clearTimeout(this.connectionRetryTimer);
+            this.connectionRetryTimer = null;
+          }
+
+          // Push local data to server first (in case sync server was restarted)
+          await this.syncAll();
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
+        }
+      } catch (e) {
+        // Sync server is not available - this is expected on external machines or when using API mode
+        // Fail silently to avoid breaking the app
+        const wasEnabled = this.isEnabled;
+        this.isEnabled = false;
+        
+        // Only log warning in development mode, not in production
+        if (process.env.NODE_ENV === 'development') {
+          if (wasEnabled) {
+            console.warn('[Sync] Lost connection to sync server:', e.message || e);
+          } else {
+            console.warn('[Sync] Sync server not available (this is normal when using API mode or on external machines)');
+          }
+        }
+        
+        // Don't schedule reconnect - sync server is not needed when using API
+        // Only schedule reconnect if we were previously connected (edge case)
         if (this.connectionRetryTimer) {
           clearTimeout(this.connectionRetryTimer);
           this.connectionRetryTimer = null;
         }
-
-        // Push local data to server first (in case sync server was restarted)
-        await this.syncAll();
-      } catch (e) {
-        if (this.isEnabled) {
-          console.warn('[Sync] Lost connection to sync server, will retry...', e.message || e);
-        } else {
-          console.warn('[Sync] Sync server not available, will retry...', e.message || e);
-        }
-        this.isEnabled = false;
-        this.scheduleReconnect();
-        throw e;
+        
+        // Don't throw error - fail silently to prevent breaking the app
+        return false;
       } finally {
         this.connectingPromise = null;
       }
@@ -59,18 +103,17 @@ class SyncService {
   }
 
   scheduleReconnect() {
-    if (this.connectionRetryTimer) {
-      return;
-    }
-    this.connectionRetryTimer = setTimeout(() => {
-      this.connectionRetryTimer = null;
-      this.init().catch(() => {
-        // Ignore errors here - we'll keep retrying
-      });
-    }, 5000);
+    // Don't schedule reconnect - sync server is not needed when using API mode
+    // This prevents unnecessary retry attempts on external machines
+    return;
   }
 
   async ensureConnection() {
+    // Don't connect if in API mode (not needed)
+    if (!isMockMode()) {
+      return false;
+    }
+    
     if (this.isEnabled) {
       return true;
     }
@@ -83,7 +126,8 @@ class SyncService {
   }
 
   async syncToServer(resource, data) {
-    if (!this.isEnabled) return;
+    // Don't sync if in API mode (not needed)
+    if (!isMockMode() || !this.isEnabled) return;
     
     try {
       const response = await fetch(`${SYNC_SERVER_URL}/${resource}`, {
@@ -99,7 +143,8 @@ class SyncService {
   }
 
   async getLastUpdate(resource) {
-    if (!this.isEnabled) return null;
+    // Don't sync if in API mode (not needed)
+    if (!isMockMode() || !this.isEnabled) return null;
     
     try {
       const response = await fetch(`${SYNC_SERVER_URL}/${resource}/lastUpdate`);
@@ -114,7 +159,8 @@ class SyncService {
   }
 
   async syncFromServer(resource) {
-    if (!this.isEnabled) return null;
+    // Don't sync if in API mode (not needed)
+    if (!isMockMode() || !this.isEnabled) return null;
     
     try {
       const response = await fetch(`${SYNC_SERVER_URL}/${resource}`);
@@ -148,6 +194,11 @@ class SyncService {
   }
 
   async syncAll(manual = false) {
+    // Don't sync if in API mode (not needed)
+    if (!isMockMode()) {
+      return;
+    }
+    
     const connected = await this.ensureConnection();
     if (!connected) {
       console.warn('[Sync] Sync service is disabled (waiting for server)');

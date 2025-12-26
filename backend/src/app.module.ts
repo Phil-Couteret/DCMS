@@ -12,6 +12,14 @@ import { EquipmentModule } from './equipment/equipment.module';
 import { LocationsModule } from './locations/locations.module';
 import { BoatsModule } from './boats/boats.module';
 import { StatisticsModule } from './statistics/statistics.module';
+import { DiveSitesModule } from './dive-sites/dive-sites.module';
+import { GovernmentBonosModule } from './government-bonos/government-bonos.module';
+import { StaffModule } from './staff/staff.module';
+import { BoatPrepsModule } from './boat-preps/boat-preps.module';
+import { SettingsModule } from './settings/settings.module';
+import { PartnersModule } from './partners/partners.module';
+import { PartnerModule } from './partner/partner.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -29,6 +37,14 @@ import { StatisticsModule } from './statistics/statistics.module';
     LocationsModule,
     BoatsModule,
     StatisticsModule,
+    DiveSitesModule,
+    GovernmentBonosModule,
+    StaffModule,
+    BoatPrepsModule,
+    SettingsModule,
+    PartnersModule,
+    PartnerModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

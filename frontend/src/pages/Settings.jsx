@@ -41,7 +41,7 @@ import {
   FormLabel,
   FormGroup
 } from '@mui/material';
-import { 
+import {
   Save as SaveIcon,
   ExpandMore as ExpandMoreIcon,
   VerifiedUser as VerifiedUserIcon,
@@ -58,7 +58,10 @@ import {
   AttachMoney as PricesIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  LocationOn as LocationIcon
+  LocationOn as LocationIcon,
+  VpnKey as ApiKeyIcon,
+  Business as BusinessIcon,
+  ContentCopy as CopyIcon
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES, AVAILABLE_PERMISSIONS, ALL_PERMISSIONS } from '../utils/authContext';
@@ -80,8 +83,9 @@ const Settings = () => {
   const [settingsId, setSettingsId] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
-  // User Management state
+  // User Management state (includes staff members who are also users)
   const [users, setUsers] = useState([]);
+  const [staff, setStaff] = useState([]); // Load staff to show alongside users
   const [locations, setLocations] = useState([]);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   
@@ -89,13 +93,20 @@ const Settings = () => {
   const [userFormData, setUserFormData] = useState({
     username: '',
     name: '',
+    firstName: '',
+    lastName: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     role: USER_ROLES.ADMIN, // Default role (kept for backward compatibility)
+    staffRoles: [], // Staff roles array (boat_captain, instructor, etc.) - optional, only if this user is also staff
     permissions: [], // Array of permission keys
     isActive: true,
-    locationAccess: [] // Array of location IDs
+    locationAccess: [], // Array of location IDs (for user access)
+    staffLocationId: '', // Location ID for staff assignment (if this user is also staff)
+    employmentStartDate: '', // Employment start date for staff
+    isStaffMember: false // Toggle to indicate if this user is also a staff member
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -128,6 +139,23 @@ const Settings = () => {
     equipmentOnboard: [],
     isActive: true
   });
+
+
+  // Partners Management state
+  const [partners, setPartners] = useState([]);
+  const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
+  const [editingPartner, setEditingPartner] = useState(null);
+  const [partnerFormData, setPartnerFormData] = useState({
+    name: '',
+    companyName: '',
+    contactEmail: '',
+    contactPhone: '',
+    webhookUrl: '',
+    commissionRate: null,
+    allowedLocations: [],
+    isActive: true
+  });
+  const [newPartnerCredentials, setNewPartnerCredentials] = useState(null);
   
   const EQUIPMENT_OPTIONS = [
     'oxygen',
@@ -147,8 +175,10 @@ const Settings = () => {
     if (isAdmin()) {
       loadUsers().catch(err => console.error('Error loading users:', err));
       loadLocations().catch(err => console.error('Error loading locations:', err));
+      loadStaff().catch(err => console.error('Error loading staff:', err));
       loadDiveSites().catch(err => console.error('Error loading dive sites:', err));
       loadBoats().catch(err => console.error('Error loading boats:', err));
+      loadPartners().catch(err => console.error('Error loading partners:', err));
     }
   }, [isAdmin]);
   
@@ -252,11 +282,16 @@ const Settings = () => {
   // User Management functions
   const loadUsers = async () => {
     try {
-      const allUsers = await dataService.getAll('users') || [];
+      const [allUsers, allStaff] = await Promise.all([
+        dataService.getAll('users') || [],
+        dataService.getAll('staff') || []
+      ]);
       setUsers(Array.isArray(allUsers) ? allUsers : []);
+      setStaff(Array.isArray(allStaff) ? allStaff : []);
     } catch (error) {
-      console.error('Error loading users:', error);
+      console.error('Error loading users/staff:', error);
       setUsers([]);
+      setStaff([]);
     }
   };
 
@@ -270,18 +305,243 @@ const Settings = () => {
     }
   };
 
+  // Load staff alongside users (staff members are also users)
+  const loadStaff = async () => {
+    try {
+      const allStaff = await dataService.getAll('staff') || [];
+      setStaff(Array.isArray(allStaff) ? allStaff : []);
+    } catch (error) {
+      console.error('Error loading staff:', error);
+      setStaff([]);
+    }
+  };
+
+  const getStaffRoleLabel = (role) => {
+    const roleLabels = {
+      owner: 'Owner',
+      manager: 'Manager',
+      instructor: 'Instructor',
+      divemaster: 'Divemaster',
+      assistant: 'Assistant',
+      admin: 'Admin',
+      boat_captain: 'Boat Captain',
+      mechanic: 'Mechanic',
+      intern: 'Intern'
+    };
+    return roleLabels[role] || role;
+  };
+
+  const STAFF_ROLE_OPTIONS = [
+    { value: 'boat_captain', label: 'Boat Captain' },
+    { value: 'instructor', label: 'Instructor' },
+    { value: 'divemaster', label: 'Divemaster' },
+    { value: 'assistant', label: 'Assistant' },
+    { value: 'manager', label: 'Manager' },
+    { value: 'owner', label: 'Owner' },
+    { value: 'mechanic', label: 'Mechanic' },
+    { value: 'intern', label: 'Intern' },
+    { value: 'admin', label: 'Admin' }
+  ];
+
+  // Find staff member by email (to link users with staff)
+  const getStaffForUser = (userEmail) => {
+    if (!userEmail) return null;
+    const staffMember = staff.find(s => s.email === userEmail);
+    if (!staffMember) return null;
+    
+    // Extract roles from certifications field (if it's an array of role strings)
+    // or use the role field if certifications is not an array of roles
+    let roles = [];
+    if (staffMember.certifications && Array.isArray(staffMember.certifications)) {
+      // Check if certifications contains role strings
+      const roleValues = ['boat_captain', 'instructor', 'divemaster', 'assistant', 'manager', 'owner', 'mechanic', 'intern', 'admin'];
+      const rolesFromCerts = staffMember.certifications.filter(c => typeof c === 'string' && roleValues.includes(c));
+      if (rolesFromCerts.length > 0) {
+        roles = rolesFromCerts;
+      } else {
+        // If certifications doesn't contain roles, use the primary role
+        roles = staffMember.role ? [staffMember.role] : [];
+      }
+    } else if (staffMember.role) {
+      roles = [staffMember.role];
+    }
+    
+    return {
+      ...staffMember,
+      roles: roles
+    };
+  };
+
+  // Partners Management functions
+  const loadPartners = async () => {
+    try {
+      const allPartners = await dataService.getAll('partners') || [];
+      setPartners(Array.isArray(allPartners) ? allPartners : []);
+    } catch (error) {
+      console.error('Error loading partners:', error);
+      setPartners([]);
+    }
+  };
+
+  const handleAddPartner = () => {
+    setEditingPartner(null);
+    setNewPartnerCredentials(null);
+    setPartnerFormData({
+      name: '',
+      companyName: '',
+      contactEmail: '',
+      contactPhone: '',
+      webhookUrl: '',
+      commissionRate: null,
+      allowedLocations: [],
+      isActive: true
+    });
+    setPartnerDialogOpen(true);
+  };
+
+  const handleEditPartner = (partner) => {
+    setEditingPartner(partner);
+    setNewPartnerCredentials(null);
+    setPartnerFormData({
+      name: partner.name || '',
+      companyName: partner.companyName || partner.company_name || '',
+      contactEmail: partner.contactEmail || partner.contact_email || '',
+      contactPhone: partner.contactPhone || partner.contact_phone || '',
+      webhookUrl: partner.webhookUrl || partner.webhook_url || '',
+      commissionRate: partner.commissionRate !== undefined ? partner.commissionRate : (partner.commission_rate !== undefined ? parseFloat(partner.commission_rate) : null),
+      allowedLocations: partner.allowedLocations || partner.allowed_locations || [],
+      isActive: partner.isActive !== undefined ? partner.isActive : (partner.is_active !== undefined ? partner.is_active : true)
+    });
+    setPartnerDialogOpen(true);
+  };
+
+  const handleSavePartner = async () => {
+    try {
+      const partnerData = {
+        ...partnerFormData,
+        commissionRate: partnerFormData.commissionRate ? parseFloat(partnerFormData.commissionRate) : null
+      };
+
+      if (editingPartner) {
+        // Update existing partner
+        const updated = await dataService.update('partners', editingPartner.id, partnerData);
+        setSnackbar({
+          open: true,
+          message: 'Partner updated successfully!',
+          severity: 'success'
+        });
+      } else {
+        // Create new partner
+        const created = await dataService.create('partners', partnerData);
+        // Check if API secret is returned (only on create)
+        if (created.apiSecret) {
+          setNewPartnerCredentials({
+            apiKey: created.apiKey || created.api_key,
+            apiSecret: created.apiSecret
+          });
+        }
+        setSnackbar({
+          open: true,
+          message: 'Partner created successfully! Save the API credentials shown below.',
+          severity: 'success'
+        });
+      }
+      await loadPartners();
+      if (!newPartnerCredentials) {
+        setPartnerDialogOpen(false);
+      }
+    } catch (error) {
+      console.error('Error saving partner:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Error saving partner',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDeletePartner = async (partnerId) => {
+    if (window.confirm('Are you sure you want to delete this partner? This action cannot be undone.')) {
+      try {
+        await dataService.remove('partners', partnerId);
+        setSnackbar({
+          open: true,
+          message: 'Partner deleted successfully!',
+          severity: 'success'
+        });
+        await loadPartners();
+      } catch (error) {
+        console.error('Error deleting partner:', error);
+        setSnackbar({
+          open: true,
+          message: 'Error deleting partner',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const handleRegenerateApiKey = async (partnerId) => {
+    if (window.confirm('Are you sure you want to regenerate the API key? The old key will no longer work.')) {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3003/api'}/partners/${partnerId}/regenerate-api-key`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await response.json();
+        if (data.apiSecret) {
+          setNewPartnerCredentials({
+            apiKey: data.apiKey || data.api_key,
+            apiSecret: data.apiSecret
+          });
+          setSnackbar({
+            open: true,
+            message: 'API key regenerated! Save the new credentials shown below.',
+            severity: 'success'
+          });
+          await loadPartners();
+        }
+      } catch (error) {
+        console.error('Error regenerating API key:', error);
+        setSnackbar({
+          open: true,
+          message: 'Error regenerating API key',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setSnackbar({
+      open: true,
+      message: 'Copied to clipboard!',
+      severity: 'success'
+    });
+  };
+
   const handleAddUser = () => {
     setEditingUser(null);
     setUserFormData({
       username: '',
       name: '',
+      firstName: '',
+      lastName: '',
       email: '',
+      phone: '',
       password: '',
       confirmPassword: '',
       role: USER_ROLES.ADMIN,
+      staffRoles: [],
       permissions: [],
       isActive: true,
-      locationAccess: []
+      locationAccess: [],
+      staffLocationId: locations.length > 0 ? locations[0].id : '',
+      employmentStartDate: '',
+      isStaffMember: false
     });
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -291,23 +551,37 @@ const Settings = () => {
   const handleEditUser = (user) => {
     setEditingUser(user);
     const locationAccess = (user.locationAccess || []).length === 0 ? ['__ALL__'] : user.locationAccess;
+    const staffMember = getStaffForUser(user.email);
+    
+    // Parse name into first/last if needed
+    const nameParts = (user.name || '').split(' ');
+    const firstName = staffMember?.firstName || nameParts[0] || '';
+    const lastName = staffMember?.lastName || nameParts.slice(1).join(' ') || '';
+    
     setUserFormData({
       username: user.username,
       name: user.name,
+      firstName: firstName,
+      lastName: lastName,
       email: user.email || '',
+      phone: staffMember?.phone || '',
       password: '',
       confirmPassword: '',
       role: user.role || USER_ROLES.ADMIN,
+      staffRoles: staffMember?.roles || (staffMember?.role ? [staffMember.role] : []),
       permissions: user.permissions || [],
       isActive: user.isActive,
-      locationAccess: locationAccess
+      locationAccess: locationAccess,
+      staffLocationId: staffMember?.locationId || (locations.length > 0 ? locations[0].id : ''),
+      employmentStartDate: staffMember?.employmentStartDate ? (staffMember.employmentStartDate.split('T')[0] || staffMember.employmentStartDate) : '',
+      isStaffMember: !!staffMember
     });
     setShowPassword(false);
     setShowConfirmPassword(false);
     setUserDialogOpen(true);
   };
 
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
     try {
       // Validate password fields
       if (!editingUser) {
@@ -343,36 +617,64 @@ const Settings = () => {
         }
       }
 
+      // Validate staff fields if isStaffMember is true
+      if (userFormData.isStaffMember) {
+        if (!userFormData.firstName || !userFormData.lastName) {
+          setSnackbar({
+            open: true,
+            message: 'First name and last name are required for staff members',
+            severity: 'error'
+          });
+          return;
+        }
+        if (!userFormData.staffRoles || userFormData.staffRoles.length === 0) {
+          setSnackbar({
+            open: true,
+            message: 'At least one staff role is required',
+            severity: 'error'
+          });
+          return;
+        }
+        if (!userFormData.staffLocationId) {
+          setSnackbar({
+            open: true,
+            message: 'Location is required for staff members',
+            severity: 'error'
+          });
+          return;
+        }
+      }
+
       // Convert "__ALL__" selection to empty array for global access
       const locationAccess = userFormData.locationAccess.includes('__ALL__') 
         ? [] 
         : userFormData.locationAccess;
       
-      // Prepare user data (exclude confirmPassword)
-      const { confirmPassword, ...userDataWithoutConfirm } = userFormData;
+      // Build user name from firstName/lastName if provided, otherwise use name field
+      const userName = userFormData.firstName && userFormData.lastName
+        ? `${userFormData.firstName} ${userFormData.lastName}`.trim()
+        : userFormData.name;
       
       const userData = {
-        ...userDataWithoutConfirm,
-        locationAccess: locationAccess
+        username: userFormData.username,
+        name: userName,
+        email: userFormData.email,
+        role: userFormData.role,
+        permissions: userFormData.permissions || [],
+        locationAccess: locationAccess,
+        isActive: userFormData.isActive
       };
-
-      // Only include password if it was provided
+      
+      // Only include password if it's provided
       if (userFormData.password && userFormData.password.trim() !== '') {
         userData.password = userFormData.password;
-      } else if (editingUser) {
-        // For existing users, if password is not provided, keep the existing one
-        const existingUser = users.find(u => u.id === editingUser.id);
-        if (existingUser && existingUser.password) {
-          userData.password = existingUser.password;
-        }
       }
 
+      let userId;
       if (editingUser) {
         // Update existing user
-        dataService.update('users', editingUser.id, {
-          ...userData,
-          updatedAt: new Date().toISOString()
-        });
+        await dataService.update('users', editingUser.id, userData);
+        userId = editingUser.id;
         setSnackbar({
           open: true,
           message: 'User updated successfully!',
@@ -380,18 +682,50 @@ const Settings = () => {
         });
       } else {
         // Create new user
-        dataService.create('users', {
+        const newUser = await dataService.create('users', {
           ...userData,
           createdAt: new Date().toISOString()
         });
+        userId = newUser.id;
         setSnackbar({
           open: true,
           message: 'User created successfully!',
           severity: 'success'
         });
       }
+
+      // If this user is also a staff member, create/update staff record
+      if (userFormData.isStaffMember) {
+        // Store all roles in certifications field as JSON, use first role as primary role
+        const primaryRole = userFormData.staffRoles && userFormData.staffRoles.length > 0 
+          ? userFormData.staffRoles[0] 
+          : 'assistant'; // fallback
+        
+        const staffData = {
+          firstName: userFormData.firstName,
+          lastName: userFormData.lastName,
+          email: userFormData.email,
+          phone: userFormData.phone || '',
+          role: primaryRole, // Store primary role in role field
+          locationId: userFormData.staffLocationId,
+          certifications: userFormData.staffRoles || [], // Store all roles in certifications field
+          emergencyContact: {},
+          employmentStartDate: userFormData.employmentStartDate || null,
+          isActive: userFormData.isActive
+        };
+
+        const existingStaff = getStaffForUser(userFormData.email);
+        if (existingStaff) {
+          // Update existing staff record
+          await dataService.update('staff', existingStaff.id, staffData);
+        } else {
+          // Create new staff record
+          await dataService.create('staff', staffData);
+        }
+      }
+
       setUserDialogOpen(false);
-      loadUsers();
+      await loadUsers();
     } catch (error) {
       console.error('Error saving user:', error);
       setSnackbar({
@@ -537,9 +871,26 @@ const Settings = () => {
               <TextField
                 fullWidth
                 label={t('settings.users.fullName') || 'Full Name'}
-                value={userFormData.name}
-                onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
-                required
+                value={userFormData.isStaffMember && userFormData.firstName && userFormData.lastName
+                  ? `${userFormData.firstName} ${userFormData.lastName}`.trim()
+                  : userFormData.name}
+                onChange={(e) => {
+                  // If staff member, update firstName/lastName; otherwise update name
+                  if (userFormData.isStaffMember) {
+                    const parts = e.target.value.split(' ');
+                    setUserFormData({ 
+                      ...userFormData, 
+                      firstName: parts[0] || '',
+                      lastName: parts.slice(1).join(' ') || '',
+                      name: e.target.value
+                    });
+                  } else {
+                    setUserFormData({ ...userFormData, name: e.target.value });
+                  }
+                }}
+                required={!userFormData.isStaffMember}
+                disabled={userFormData.isStaffMember}
+                helperText={userFormData.isStaffMember ? "Name is generated from First Name and Last Name below" : ""}
               />
             </Grid>
             <Grid item xs={12}>
@@ -703,6 +1054,125 @@ const Settings = () => {
               </Typography>
             </Grid>
             <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" gutterBottom>
+                Staff Member Information (Optional)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                Check this box if this user is also a staff member (boat captain, guide, instructor, etc.) who can be assigned to boats and dives.
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={userFormData.isStaffMember}
+                    onChange={(e) => setUserFormData({ ...userFormData, isStaffMember: e.target.checked })}
+                  />
+                }
+                label="This user is also a staff member"
+              />
+            </Grid>
+
+            {userFormData.isStaffMember && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="First Name"
+                    value={userFormData.firstName}
+                    onChange={(e) => setUserFormData({ ...userFormData, firstName: e.target.value })}
+                    required={userFormData.isStaffMember}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Last Name"
+                    value={userFormData.lastName}
+                    onChange={(e) => setUserFormData({ ...userFormData, lastName: e.target.value })}
+                    required={userFormData.isStaffMember}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Phone"
+                    value={userFormData.phone}
+                    onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Staff Roles *
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                    Select all roles that apply. Staff members can have multiple roles (e.g., Boat Captain and Instructor).
+                  </Typography>
+                  <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                    <Grid container spacing={2}>
+                      {STAFF_ROLE_OPTIONS.map((roleOption) => (
+                        <Grid item xs={12} sm={6} md={4} key={roleOption.value}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={userFormData.staffRoles.includes(roleOption.value)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setUserFormData({
+                                      ...userFormData,
+                                      staffRoles: [...userFormData.staffRoles, roleOption.value]
+                                    });
+                                  } else {
+                                    setUserFormData({
+                                      ...userFormData,
+                                      staffRoles: userFormData.staffRoles.filter(r => r !== roleOption.value)
+                                    });
+                                  }
+                                }}
+                              />
+                            }
+                            label={roleOption.label}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                    {userFormData.staffRoles.length === 0 && (
+                      <Alert severity="warning" sx={{ mt: 2 }}>
+                        Please select at least one staff role.
+                      </Alert>
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth required={userFormData.isStaffMember}>
+                    <InputLabel>Location (for Staff Assignment)</InputLabel>
+                    <Select
+                      value={userFormData.staffLocationId}
+                      onChange={(e) => setUserFormData({ ...userFormData, staffLocationId: e.target.value })}
+                      label="Location (for Staff Assignment)"
+                    >
+                      {locations.map((location) => (
+                        <MenuItem key={location.id} value={location.id}>
+                          {location.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Employment Start Date"
+                    type="date"
+                    value={userFormData.employmentStartDate}
+                    onChange={(e) => setUserFormData({ ...userFormData, employmentStartDate: e.target.value })}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+              </>
+            )}
+
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
               <FormControlLabel
                 control={
                   <Switch
@@ -720,10 +1190,243 @@ const Settings = () => {
           <Button 
             onClick={handleSaveUser} 
             variant="contained" 
-            disabled={!userFormData.username || !userFormData.name || (!editingUser && !userFormData.password)}
+            disabled={
+              !userFormData.username || 
+              !userFormData.name || 
+              (!editingUser && !userFormData.password) ||
+              (userFormData.isStaffMember && (!userFormData.firstName || !userFormData.lastName || !userFormData.staffRoles || userFormData.staffRoles.length === 0 || !userFormData.staffLocationId))
+            }
           >
             {editingUser ? (t('common.update') || 'Update') : (t('settings.users.create') || 'Create')}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Partner Dialog */}
+      <Dialog 
+        open={partnerDialogOpen} 
+        onClose={() => {
+          setPartnerDialogOpen(false);
+          setNewPartnerCredentials(null);
+        }} 
+        maxWidth="md" 
+        fullWidth 
+        keepMounted
+        sx={{ zIndex: 1300 }}
+        PaperProps={{ sx: { zIndex: 1300 } }}
+      >
+        <DialogTitle>
+          {editingPartner ? 'Edit Partner' : 'Add New Partner'}
+        </DialogTitle>
+        <DialogContent>
+          {newPartnerCredentials ? (
+            <Box sx={{ pt: 2 }}>
+              <Alert severity="warning" sx={{ mb: 3 }}>
+                <Typography variant="body2" fontWeight="bold" gutterBottom>
+                  ⚠️ Save these credentials now! The API secret will not be shown again.
+                </Typography>
+                <Typography variant="body2">
+                  Copy both the API Key and API Secret. The secret is only displayed once.
+                </Typography>
+              </Alert>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="API Key"
+                    value={newPartnerCredentials.apiKey}
+                    InputProps={{
+                      readOnly: true,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => copyToClipboard(newPartnerCredentials.apiKey)}>
+                            <CopyIcon />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="API Secret"
+                    type="password"
+                    value={newPartnerCredentials.apiSecret}
+                    InputProps={{
+                      readOnly: true,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => copyToClipboard(newPartnerCredentials.apiSecret)}>
+                            <CopyIcon />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
+                    helperText="This secret will only be shown once. Make sure to save it securely."
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={() => {
+                      setPartnerDialogOpen(false);
+                      setNewPartnerCredentials(null);
+                    }}
+                  >
+                    I've Saved the Credentials
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+          ) : (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Partner Name"
+                  value={partnerFormData.name}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, name: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Company Name"
+                  value={partnerFormData.companyName}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, companyName: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Contact Email"
+                  type="email"
+                  value={partnerFormData.contactEmail}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, contactEmail: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Contact Phone"
+                  value={partnerFormData.contactPhone}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, contactPhone: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Webhook URL (optional)"
+                  value={partnerFormData.webhookUrl}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, webhookUrl: e.target.value })}
+                  helperText="URL for receiving booking notifications"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Commission Rate (%)"
+                  type="number"
+                  value={partnerFormData.commissionRate !== null && partnerFormData.commissionRate !== undefined 
+                    ? (parseFloat(partnerFormData.commissionRate) * 100) 
+                    : ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setPartnerFormData({ 
+                      ...partnerFormData, 
+                      commissionRate: value && value !== '' ? parseFloat(value) / 100 : null 
+                    });
+                  }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>
+                  }}
+                  helperText="Enter as percentage (e.g., 10 for 10%)"
+                  inputProps={{ min: 0, max: 100, step: 0.1 }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" gutterBottom>Allowed Locations</Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                  Select locations this partner can access. Leave empty to allow all locations.
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={partnerFormData.allowedLocations.length === 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setPartnerFormData({ ...partnerFormData, allowedLocations: [] });
+                        }
+                      }}
+                    />
+                  }
+                  label="All Locations"
+                />
+                {!partnerFormData.allowedLocations.length && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    Partner will have access to all locations
+                  </Alert>
+                )}
+                {locations.map((location) => (
+                  <FormControlLabel
+                    key={location.id}
+                    control={
+                      <Checkbox
+                        checked={partnerFormData.allowedLocations.includes(location.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPartnerFormData({ 
+                              ...partnerFormData, 
+                              allowedLocations: [...partnerFormData.allowedLocations, location.id] 
+                            });
+                          } else {
+                            setPartnerFormData({ 
+                              ...partnerFormData, 
+                              allowedLocations: partnerFormData.allowedLocations.filter(id => id !== location.id) 
+                            });
+                          }
+                        }}
+                      />
+                    }
+                    label={location.name}
+                  />
+                ))}
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={partnerFormData.isActive}
+                      onChange={(e) => setPartnerFormData({ ...partnerFormData, isActive: e.target.checked })}
+                    />
+                  }
+                  label="Active"
+                />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!newPartnerCredentials && (
+            <>
+              <Button onClick={() => {
+                setPartnerDialogOpen(false);
+                setNewPartnerCredentials(null);
+              }}>Cancel</Button>
+              <Button 
+                onClick={handleSavePartner} 
+                variant="contained" 
+                disabled={!partnerFormData.name || !partnerFormData.companyName || !partnerFormData.contactEmail}
+              >
+                {editingPartner ? 'Update' : 'Create'}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -760,6 +1463,11 @@ const Settings = () => {
           <Tab 
             icon={<PeopleIcon />} 
             label={t('settings.tabs.users') || 'User Management'} 
+            iconPosition="start"
+          />
+          <Tab 
+            icon={<BusinessIcon />} 
+            label="Partners" 
             iconPosition="start"
           />
           <Tab 
@@ -1480,7 +2188,9 @@ const Settings = () => {
                         <TableRow>
                           <TableCell>{t('settings.users.name') || 'Name'}</TableCell>
                           <TableCell>{t('settings.users.username') || 'Username'}</TableCell>
-                          <TableCell>{'Email'}</TableCell>
+                          <TableCell>Email</TableCell>
+                          <TableCell>Phone</TableCell>
+                          <TableCell>Staff Roles</TableCell>
                           <TableCell>{t('settings.users.permissions') || 'Permissions'}</TableCell>
                           <TableCell>{t('settings.users.status') || 'Status'}</TableCell>
                           <TableCell align="right">{t('settings.users.actions') || 'Actions'}</TableCell>
@@ -1489,18 +2199,37 @@ const Settings = () => {
                       <TableBody>
                         {users.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} align="center">
+                            <TableCell colSpan={8} align="center">
                               <Typography color="text.secondary" sx={{ py: 2 }}>
                                 No users found. Click "Add User" to create one.
                               </Typography>
                             </TableCell>
                           </TableRow>
                         ) : (
-                          users.map((user) => (
+                          users.map((user) => {
+                            const staffMember = getStaffForUser(user.email);
+                            return (
                             <TableRow key={user.id}>
                               <TableCell>{user.name}</TableCell>
                               <TableCell>{user.username}</TableCell>
                               <TableCell>{user.email || '-'}</TableCell>
+                              <TableCell>{staffMember?.phone || '-'}</TableCell>
+                              <TableCell>
+                                {staffMember && staffMember.roles && staffMember.roles.length > 0 ? (
+                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {staffMember.roles.map((role) => (
+                                      <Chip 
+                                        key={role}
+                                        label={getStaffRoleLabel(role)} 
+                                        size="small"
+                                        color={role === 'boat_captain' ? 'primary' : 'default'}
+                                      />
+                                    ))}
+                                  </Box>
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">-</Typography>
+                                )}
+                              </TableCell>
                               <TableCell>
                                 {user.role === USER_ROLES.SUPERADMIN ? (
                                   <Chip
@@ -1566,7 +2295,8 @@ const Settings = () => {
                                 </IconButton>
                               </TableCell>
                             </TableRow>
-                          ))
+                            );
+                          })
                         )}
                       </TableBody>
                     </Table>
@@ -1587,6 +2317,162 @@ const Settings = () => {
       )}
 
       {activeTab === 4 && (
+        <Box>
+          {/* Partners Management - Only visible to admins */}
+          {isAdmin() && (
+            <Accordion defaultExpanded sx={{ mb: 3 }}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  '&:before': { display: 'none' }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                  <BusinessIcon color="primary" />
+                  <Box>
+                    <Typography variant="h6">Partner Accounts</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Manage 3rd party partner accounts and API access
+                    </Typography>
+                  </Box>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ pt: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Create and manage partner accounts for 3rd party integrations. Partners can create bookings and manage customers via the API.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddPartner}
+                    >
+                      Add Partner
+                    </Button>
+                  </Box>
+
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Name</TableCell>
+                          <TableCell>Company</TableCell>
+                          <TableCell>Email</TableCell>
+                          <TableCell>Commission</TableCell>
+                          <TableCell>Locations</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell align="right">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {partners.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} align="center">
+                              <Typography color="text.secondary" sx={{ py: 2 }}>
+                                No partners found. Click "Add Partner" to create one.
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          partners.map((partner) => {
+                            const allowedLocations = partner.allowedLocations || partner.allowed_locations || [];
+                            return (
+                              <TableRow key={partner.id}>
+                                <TableCell>{partner.name}</TableCell>
+                                <TableCell>{partner.companyName || partner.company_name}</TableCell>
+                                <TableCell>{partner.contactEmail || partner.contact_email}</TableCell>
+                                <TableCell>
+                                  {partner.commissionRate !== undefined && partner.commissionRate !== null
+                                    ? `${(parseFloat(partner.commissionRate) * 100).toFixed(1)}%`
+                                    : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {allowedLocations.length === 0 ? (
+                                    <Chip label="All" size="small" variant="outlined" />
+                                  ) : (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                      {allowedLocations.slice(0, 2).map((locId) => {
+                                        const location = locations.find(l => l.id === locId);
+                                        return (
+                                          <Chip
+                                            key={locId}
+                                            label={location?.name || locId.substring(0, 8)}
+                                            size="small"
+                                            variant="outlined"
+                                          />
+                                        );
+                                      })}
+                                      {allowedLocations.length > 2 && (
+                                        <Chip
+                                          label={`+${allowedLocations.length - 2}`}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                      )}
+                                    </Box>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={partner.isActive !== false ? 'Active' : 'Inactive'}
+                                    color={partner.isActive !== false ? 'success' : 'default'}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell align="right">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleEditPartner(partner)}
+                                    color="primary"
+                                    title="Edit"
+                                  >
+                                    <EditIcon />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleRegenerateApiKey(partner.id)}
+                                    color="secondary"
+                                    title="Regenerate API Key"
+                                  >
+                                    <ApiKeyIcon />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDeletePartner(partner.id)}
+                                    color="error"
+                                    title="Delete"
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          )}
+
+          {!isAdmin() && (
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <Typography variant="body2">
+                You don't have permission to manage partners. Only administrators can access this section.
+              </Typography>
+            </Alert>
+          )}
+        </Box>
+      )}
+
+      {activeTab === 5 && (
         <Box>
           {/* Certification Verification Settings */}
           <Accordion defaultExpanded sx={{ mb: 3 }}>

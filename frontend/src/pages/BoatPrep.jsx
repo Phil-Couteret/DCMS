@@ -50,18 +50,19 @@ const allowedDifficultyForGroup = (customers) => {
   return hasBeginner ? 'beginner' : 'advanced';
 };
 
-const getRecentDiveSiteIdsForCustomers = (customerIds, days = 3) => {
+const getRecentDiveSiteIdsForCustomers = (customerIds, allBookings, days = 3) => {
   const since = format(subDays(new Date(), days), 'yyyy-MM-dd');
-  const bookings = dataService.getAll('bookings');
-  const recent = bookings.filter(b => b.bookingDate >= since && customerIds.includes(b.customerId));
+  if (!Array.isArray(allBookings)) return new Set();
+  const recent = allBookings.filter(b => b.bookingDate >= since && customerIds.includes(b.customerId));
   return new Set(recent.map(b => b.diveSiteId).filter(Boolean));
 };
 
-const suggestDiveSites = (locationId, allCustomers) => {
-  const allSites = dataService.getAll('diveSites').filter(s => s.locationId === locationId);
+const suggestDiveSites = (locationId, allCustomers, allDiveSites, allBookings) => {
+  if (!Array.isArray(allDiveSites)) return [];
+  const allSites = allDiveSites.filter(s => s.locationId === locationId);
   if (allCustomers.length === 0) return allSites.slice(0, 5);
   const cap = allowedDifficultyForGroup(allCustomers);
-  const disallow = getRecentDiveSiteIdsForCustomers(allCustomers.map(c => c.id), 3);
+  const disallow = getRecentDiveSiteIdsForCustomers(allCustomers.map(c => c.id), allBookings, 3);
   const filtered = allSites.filter(site => {
     const difficulty = (site.difficultyLevel || site.difficulty || 'beginner').toLowerCase();
     const difficultyOk = cap === 'beginner' ? difficulty === 'beginner' : true;
@@ -80,16 +81,16 @@ const getSkillCounts = (customers) => {
   return counts;
 };
 
-const isShoreDive = (diveSiteId, session) => {
+const isShoreDive = (diveSiteId, session, allDiveSites) => {
   if (!diveSiteId) return false;
-  const diveSites = dataService.getAll('diveSites');
-  const site = diveSites.find(s => s.id === diveSiteId);
+  if (!Array.isArray(allDiveSites)) return session === 'night';
+  const site = allDiveSites.find(s => s.id === diveSiteId);
   // Mole is a shore dive, and night dives are always at Mole (shore dive)
   return session === 'night' || (site && site.name.toLowerCase().includes('mole'));
 };
 
-const requiresCaptain = (diveSiteId, session) => {
-  return !isShoreDive(diveSiteId, session);
+const requiresCaptain = (diveSiteId, session, allDiveSites) => {
+  return !isShoreDive(diveSiteId, session, allDiveSites);
 };
 
 const requiresGuide = (session) => {
@@ -99,11 +100,30 @@ const requiresGuide = (session) => {
 
 const BoatPrep = () => {
   const storedLocationId = localStorage.getItem('dcms_current_location');
-  // Get all locations for comparison
-  const locations = useMemo(() => dataService.getAll('locations') || [], []);
+  // State for locations - load asynchronously
+  const [locations, setLocations] = useState([]);
+  
+  // Load locations on mount
+  useEffect(() => {
+    const loadLocations = async () => {
+      try {
+        const locs = await dataService.getAll('locations');
+        if (Array.isArray(locs)) {
+          setLocations(locs);
+        } else {
+          setLocations([]);
+        }
+      } catch (error) {
+        console.error('Error loading locations:', error);
+        setLocations([]);
+      }
+    };
+    loadLocations();
+  }, []);
+  
   // Get the current location object (works with both UUID and short names)
   const currentLocation = useMemo(() => {
-    if (!storedLocationId) return null;
+    if (!storedLocationId || !Array.isArray(locations) || locations.length === 0) return null;
     // Try to find by ID first
     let location = locations.find(l => l.id === storedLocationId);
     if (location) return location;
@@ -127,6 +147,13 @@ const BoatPrep = () => {
     // If already a UUID, use it
     if (storedLocationId.includes('-')) return storedLocationId;
     // If short name like 'caleta', find location with UUID by name
+    if (!Array.isArray(locations) || locations.length === 0) {
+      // Fallback: hardcoded UUID mapping for known locations
+      const searchTerm = storedLocationId.toLowerCase();
+      if (searchTerm === 'caleta') return '550e8400-e29b-41d4-a716-446655440001';
+      if (searchTerm === 'playitas') return '550e8400-e29b-41d4-a716-446655440002';
+      return storedLocationId;
+    }
     const searchTerm = storedLocationId.toLowerCase();
     const locWithUUID = locations.find(l => {
       if (!l.id || !l.id.includes('-')) return false;
@@ -144,7 +171,58 @@ const BoatPrep = () => {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd')); // Date for post-dive reports
   const [session, setSession] = useState('morning');
-  const boats = useMemo(() => (dataService.getAll('boats') || []).filter(b => b.locationId === resolvedLocationId && b.isActive), [resolvedLocationId]);
+  
+  // State for async data loading
+  const [allBoats, setAllBoats] = useState([]);
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [allStaff, setAllStaff] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [diveSites, setDiveSites] = useState([]);
+  const [boatPreps, setBoatPreps] = useState([]);
+  
+  // Load all data asynchronously
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [boatsData, customersData, staffData, bookingsData, sitesData, prepsData] = await Promise.all([
+          dataService.getAll('boats'),
+          dataService.getAll('customers'),
+          dataService.getAll('staff'),
+          dataService.getAll('bookings'),
+          dataService.getAll('diveSites'),
+          dataService.getAll('boatPreps')
+        ]);
+        
+        setAllBoats(Array.isArray(boatsData) ? boatsData : []);
+        setAllCustomers(Array.isArray(customersData) ? customersData : []);
+        setAllStaff(Array.isArray(staffData) ? staffData : []);
+        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+        setDiveSites(Array.isArray(sitesData) ? sitesData : []);
+        setBoatPreps(Array.isArray(prepsData) ? prepsData : []);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setAllBoats([]);
+        setAllCustomers([]);
+        setAllStaff([]);
+        setBookings([]);
+        setDiveSites([]);
+        setBoatPreps([]);
+      }
+    };
+    loadData();
+  }, []);
+  
+  // Filter boats by location (this is what the code expects as 'boats')
+  // Handle both camelCase and snake_case field names
+  const boats = useMemo(() => {
+    if (!resolvedLocationId) return [];
+    const filtered = allBoats.filter(b => {
+      const boatLocationId = b.locationId || b.location_id;
+      const isActive = b.isActive !== false; // Default to true if not set
+      return boatLocationId === resolvedLocationId && isActive;
+    });
+    return filtered;
+  }, [allBoats, resolvedLocationId]);
   const hasBoats = boats.length > 0;
   
   // Reset session to morning if 10:15 is selected but location doesn't support it (Las Playitas)
@@ -153,11 +231,30 @@ const BoatPrep = () => {
       setSession('morning');
     }
   }, [hasBoats, session]);
+  
   // State to force refresh when bookings/customers change
   const [refreshKey, setRefreshKey] = useState(0);
   
-  // Load customers - refresh when refreshKey changes
-  const allCustomers = useMemo(() => dataService.getAll('customers') || [], [refreshKey]);
+  // Reload data when refreshKey changes
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [customersData, bookingsData, prepsData] = await Promise.all([
+          dataService.getAll('customers'),
+          dataService.getAll('bookings'),
+          dataService.getAll('boatPreps')
+        ]);
+        setAllCustomers(Array.isArray(customersData) ? customersData : []);
+        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+        setBoatPreps(Array.isArray(prepsData) ? prepsData : []);
+      } catch (error) {
+        console.error('Error reloading data:', error);
+      }
+    };
+    if (refreshKey > 0) {
+      loadData();
+    }
+  }, [refreshKey]);
   
   // Listen for booking updates to refresh the display
   useEffect(() => {
@@ -185,7 +282,7 @@ const BoatPrep = () => {
       window.removeEventListener('storage', handleDataUpdate);
     };
   }, []);
-  const allStaff = useMemo(() => (dataService.getAll('users') || []).filter(u => u.isActive), []);
+  const activeStaff = useMemo(() => allStaff.filter(u => u.isActive), [allStaff]);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Boat assignments: { boatId: [customerId, ...] }
@@ -209,12 +306,12 @@ const BoatPrep = () => {
   
   // Get shore dive site suggestions
   const shoreDiveSiteSuggestions = useMemo(() => {
-    return suggestDiveSites(resolvedLocationId, shoreDiveCustomers);
-  }, [resolvedLocationId, shoreDiveCustomers]);
+    return suggestDiveSites(resolvedLocationId, shoreDiveCustomers, diveSites, bookings);
+  }, [resolvedLocationId, shoreDiveCustomers, diveSites, bookings]);
   
   // Get bookings for the selected date and session
   const bookingsForDate = useMemo(() => {
-    const bookings = dataService.getAll('bookings') || [];
+    if (!Array.isArray(bookings)) return [];
     
     // Use resolved location ID (bookings use UUIDs)
     const filtered = bookings.filter(b => {
@@ -225,23 +322,45 @@ const BoatPrep = () => {
       
       // Check location matches (bookings might use UUIDs or short names like 'caleta')
       // Normalize booking locationId for comparison
-      let bookingLocationId = b.locationId;
-      if (bookingLocationId && !bookingLocationId.includes('-')) {
+      let bookingLocationId = b.locationId || b.location_id; // Handle both camelCase and snake_case
+      
+      // If bookingLocationId is missing, skip this booking (shouldn't match any location)
+      if (!bookingLocationId) {
+        return false;
+      }
+      
+      // If it's not a UUID, try to resolve it (shouldn't happen with API bookings, but handle for backward compatibility)
+      if (!bookingLocationId.includes('-')) {
         // Short name like 'caleta', need to resolve to UUID
         const searchTerm = bookingLocationId.toLowerCase();
-        const locWithUUID = locations.find(l => {
-          if (!l.id || !l.id.includes('-')) return false;
-          const name = (l.name || '').toLowerCase();
-          return name.includes(searchTerm) || name.startsWith(searchTerm);
-        });
-        if (locWithUUID?.id) {
-          bookingLocationId = locWithUUID.id;
-        } else {
-          // Fallback: hardcoded UUID mapping for known locations
-          if (searchTerm === 'caleta') bookingLocationId = '550e8400-e29b-41d4-a716-446655440001';
-          if (searchTerm === 'playitas') bookingLocationId = '550e8400-e29b-41d4-a716-446655440002';
+        // Use exact matches first (preferred method)
+        if (searchTerm === 'caleta') {
+          bookingLocationId = '550e8400-e29b-41d4-a716-446655440001';
+        } else if (searchTerm === 'playitas') {
+          bookingLocationId = '550e8400-e29b-41d4-a716-446655440002';
+        } else if (Array.isArray(locations) && locations.length > 0) {
+          // Try to find by exact code match first (most reliable)
+          const locByCode = locations.find(l => {
+            if (!l.id || !l.id.includes('-')) return false;
+            return (l.code || '').toLowerCase() === searchTerm;
+          });
+          if (locByCode?.id) {
+            bookingLocationId = locByCode.id;
+          } else {
+            // Fallback: match by name (use exact match or startsWith to avoid false matches)
+            const locWithUUID = locations.find(l => {
+              if (!l.id || !l.id.includes('-')) return false;
+              const name = (l.name || '').toLowerCase();
+              return name === searchTerm || name.startsWith(searchTerm + ' '); // Use exact match or starts with to avoid partial matches
+            });
+            if (locWithUUID?.id) {
+              bookingLocationId = locWithUUID.id;
+            }
+          }
         }
       }
+      
+      // Strict comparison: booking must match the exact resolved location ID
       const locationMatch = bookingLocationId === resolvedLocationId;
       
       // Check status is confirmed or paid (accept confirmed bookings regardless of payment status)
@@ -250,7 +369,19 @@ const BoatPrep = () => {
       
       // Check session matches
       let sessionMatch = false;
+      
+      // For diving activities, diveSessions might be stored in equipmentNeeded
+      // (when created from public website) or as a separate diveSessions field
       let diveSessionsObj = b.diveSessions;
+      
+      // If diveSessions doesn't exist but equipmentNeeded is an object (not array), 
+      // it might contain the dive sessions data
+      if (!diveSessionsObj && b.activityType === 'diving' && b.equipmentNeeded && typeof b.equipmentNeeded === 'object' && !Array.isArray(b.equipmentNeeded)) {
+        // Check if equipmentNeeded contains dive session keys
+        if ('morning' in b.equipmentNeeded || 'afternoon' in b.equipmentNeeded || 'night' in b.equipmentNeeded || 'tenFifteen' in b.equipmentNeeded || '10:15' in b.equipmentNeeded) {
+          diveSessionsObj = b.equipmentNeeded;
+        }
+      }
       
       // Handle case where diveSessions is stored as a JSON string
       if (typeof diveSessionsObj === 'string') {
@@ -270,11 +401,14 @@ const BoatPrep = () => {
           // Also handle case where diveSessions[session] might be truthy but not exactly true
           const sessionValue = diveSessionsObj[session];
           sessionMatch = sessionValue === true || sessionValue === 1 || sessionValue === 'true';
-      }
-      } else if (!diveSessionsObj && b.numberOfDives) {
-        // Fallback: if diveSessions doesn't exist but numberOfDives does, 
+        }
+      } else if (!diveSessionsObj && b.numberOfDives && b.activityType === 'diving') {
+        // Fallback: if diveSessions doesn't exist but numberOfDives does for diving activity, 
         // treat as morning session for backward compatibility
         sessionMatch = session === 'morning';
+      } else if (b.activityType !== 'diving') {
+        // For non-diving activities, always match (they don't have sessions)
+        sessionMatch = true;
       }
       
       const passes = dateMatch && locationMatch && statusOk && sessionMatch;
@@ -284,7 +418,7 @@ const BoatPrep = () => {
     
     
     return filtered;
-  }, [date, session, resolvedLocationId, refreshKey]);
+  }, [date, session, resolvedLocationId, locations, bookings]);
 
   // Get customers who have bookings for the selected date and session
   const customersWithBookings = useMemo(() => {
@@ -293,24 +427,63 @@ const BoatPrep = () => {
     return customers;
   }, [bookingsForDate, allCustomers]);
 
-  // Determine if we should use boat or shore dive prep based on activity types
+  // Determine if we should use boat or shore dive prep based on activity types and sessions
   // Discovery and orientation are always shore dives, even at locations with boats
+  // Morning and afternoon sessions require boats (unless all bookings are discovery/orientation)
   const shouldUseBoatPrep = useMemo(() => {
-    // If location has no boats, always use shore dive prep
-    if (!hasBoats) return false;
+    // Night sessions are always shore dives (at Mole)
+    if (session === 'night') {
+      return false;
+    }
     
-    // If no bookings found, default to boat prep for locations with boats (standard diving)
-    if (bookingsForDate.length === 0) return true;
+    // If no bookings found, default based on whether location has boats
+    if (bookingsForDate.length === 0) {
+      // If location has boats, default to boat prep
+      // If no boats, default to shore dive prep
+      return hasBoats;
+    }
     
-    // Check if all bookings are discovery/orientation
-    const allDiscoveryOrOrientation = bookingsForDate.every(b => 
-      b.activityType === 'discover' || b.activityType === 'orientation'
-    );
+    // For morning and afternoon sessions, check activity types
+    // Regular diving activities ('diving', 'snorkeling', 'specialty') require boats
+    // Discovery/try_dive activities can be done from shore
     
-    // If all bookings are discovery/orientation, use shore dive prep
-    // Otherwise (has regular diving activities), use boat prep
-    return !allDiscoveryOrOrientation;
-  }, [hasBoats, bookingsForDate]);
+    // Normalize activityType (handle both camelCase and snake_case, and variations)
+    const normalizeActivityType = (activityType) => {
+      if (!activityType) return null;
+      const normalized = String(activityType).toLowerCase().trim();
+      // Handle variations: 'diving', 'discover', 'discovery', 'try_dive', 'try-dive', 'orientation', 'snorkeling', 'specialty'
+      // Map 'discover' to 'discovery' to match enum
+      if (normalized === 'discover' || normalized === 'discovery') {
+        return 'discovery';
+      }
+      // Map 'try-dive' to 'try_dive'
+      if (normalized === 'try-dive') {
+        return 'try_dive';
+      }
+      return normalized;
+    };
+    
+    // Check if ANY booking requires a boat (positive check)
+    // Based on backend enum: diving, snorkeling, try_dive, discovery, specialty
+    // Boat dives: 'diving', 'snorkeling', 'specialty', or null/undefined (default to boat)
+    // Shore dives: 'discovery', 'try_dive' only
+    const hasBoatDiveBooking = bookingsForDate.some(b => {
+      const activityType = normalizeActivityType(b.activityType || b.activity_type);
+      // If activityType is null/undefined, treat as regular diving (requires boat)
+      // This is a safe default - if we can't determine the type, assume boat dive
+      if (!activityType) {
+        return true; // Requires boat if we can't determine
+      }
+      // Boat dive activities: 'diving', 'snorkeling', 'specialty'
+      // Shore dive activities: 'discovery', 'try_dive'
+      return activityType === 'diving' || activityType === 'snorkeling' || activityType === 'specialty';
+    });
+    
+    // Use boat prep if ANY booking requires a boat (even if no boats are currently found)
+    // This allows the user to see boat prep and potentially add boats if needed
+    // Only use shore dive prep if ALL bookings are discovery/try_dive (no boat dives)
+    return hasBoatDiveBooking;
+  }, [hasBoats, bookingsForDate, session]);
   
   // Filter customers by search, but only show those with bookings
   const filteredCustomers = useMemo(() => {
@@ -366,7 +539,7 @@ const BoatPrep = () => {
   // Get dive site suggestions for a specific boat based on its divers
   const getBoatDiveSiteSuggestions = (boatId) => {
     const boatCustomers = getBoatCustomers(boatId);
-    return suggestDiveSites(resolvedLocationId, boatCustomers);
+    return suggestDiveSites(resolvedLocationId, boatCustomers, diveSites, bookings);
   };
   
   const setBoatDiveSite = (boatId, diveSiteId) => {
@@ -717,7 +890,7 @@ const BoatPrep = () => {
     const errors = [];
     const staff = getBoatStaff(boatId);
     const diveSiteId = getBoatDiveSite(boatId);
-    const needsCaptain = requiresCaptain(diveSiteId, session);
+    const needsCaptain = requiresCaptain(diveSiteId, session, diveSites);
     const needsGuide = requiresGuide(session);
     
     if (needsCaptain && !staff.captain) {
@@ -974,13 +1147,13 @@ const BoatPrep = () => {
   };
 
   const allDiveSites = useMemo(() => 
-    dataService.getAll('diveSites').filter(s => s.locationId === resolvedLocationId), 
-    [resolvedLocationId]
+    diveSites.filter(s => s.locationId === resolvedLocationId), 
+    [diveSites, resolvedLocationId]
   );
 
   // Get prepared dives for post-dive reports (includes both completed and not-yet-completed)
   const postDivePreparations = useMemo(() => {
-    const allPreps = dataService.getAll('boatPreps') || [];
+    const allPreps = boatPreps;
     const filtered = allPreps.filter(prep => {
       const prepDate = prep.date?.split('T')[0] || prep.date;
       const selectedReportDate = reportDate?.split('T')[0] || reportDate;
@@ -993,7 +1166,7 @@ const BoatPrep = () => {
       return locationMatch && dateMatch && hasDiveSite;
     });
     return filtered;
-  }, [reportDate, resolvedLocationId, refreshKey]);
+  }, [reportDate, resolvedLocationId, boatPreps]);
 
   // State for editing post-dive reports
   const [editingReports, setEditingReports] = useState({});
@@ -1381,11 +1554,15 @@ const BoatPrep = () => {
                       const staff = getBoatStaff(boat.id);
                       const errors = getStaffValidationErrors(boat.id);
                       const diveSiteId = getBoatDiveSite(boat.id);
-                      const needsCaptain = requiresCaptain(diveSiteId, session);
+                      const needsCaptain = requiresCaptain(diveSiteId, session, diveSites);
                       const needsGuide = requiresGuide(session);
-                      const captains = getAvailableStaffForBoat(boat.id, 'boat_pilot');
-                      const guides = getAvailableStaffForBoat(boat.id, 'guide');
-                      const trainees = getAvailableStaffForBoat(boat.id, 'intern').concat(getAvailableStaffForBoat(boat.id, 'trainer'));
+                      // Map to staff_role enum values: boat_captain, instructor, divemaster, assistant, intern, etc.
+                      const captains = getAvailableStaffForBoat(boat.id, 'boat_captain');
+                      // Guides can be divemaster, instructor, or assistant
+                      const guides = getAvailableStaffForBoat(boat.id, 'divemaster')
+                        .concat(getAvailableStaffForBoat(boat.id, 'instructor'))
+                        .concat(getAvailableStaffForBoat(boat.id, 'assistant'));
+                      const trainees = getAvailableStaffForBoat(boat.id, 'intern');
                       
                       // Get currently assigned staff on other boats for display
                       const getAssignedBoatName = (staffId) => {
@@ -1536,7 +1713,6 @@ const BoatPrep = () => {
                       const boatSiteSuggestions = getBoatDiveSiteSuggestions(boat.id);
                       const selectedSiteId = getBoatDiveSite(boat.id);
                       const siteStatus = getBoatDiveSiteStatus(boat.id);
-                      const allDiveSites = dataService.getAll('diveSites').filter(s => s.locationId === resolvedLocationId);
                       const selectedSite = allDiveSites.find(s => s.id === selectedSiteId);
                       
                       return (
@@ -1639,8 +1815,11 @@ const BoatPrep = () => {
               </Typography>
               {(() => {
                 const needsGuide = requiresGuide(session);
-                const guides = getAvailableStaffForBoat(null, 'guide');
-                const trainees = getAvailableStaffForBoat(null, 'intern').concat(getAvailableStaffForBoat(null, 'trainer'));
+                // Guides can be divemaster, instructor, or assistant
+                const guides = getAvailableStaffForBoat(null, 'divemaster')
+                  .concat(getAvailableStaffForBoat(null, 'instructor'))
+                  .concat(getAvailableStaffForBoat(null, 'assistant'));
+                const trainees = getAvailableStaffForBoat(null, 'intern');
                 const errors = [];
                 
                 if (needsGuide && shoreDiveStaff.guides.length === 0) {
@@ -1725,7 +1904,7 @@ const BoatPrep = () => {
                     <MenuItem value="">
                       <em>None selected</em>
                     </MenuItem>
-                    {dataService.getAll('diveSites')
+                    {diveSites
                       .filter(s => s.locationId === locationId)
                       .map(site => (
                         <MenuItem key={site.id} value={site.id}>
@@ -1741,7 +1920,7 @@ const BoatPrep = () => {
                 </FormControl>
                 {shoreDiveSiteId && (
                   <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 1 }}>
-                    Selected: {dataService.getAll('diveSites').find(s => s.id === shoreDiveSiteId)?.name || 'Unknown site'}
+                    Selected: {diveSites.find(s => s.id === shoreDiveSiteId)?.name || 'Unknown site'}
                   </Typography>
                 )}
               </Box>

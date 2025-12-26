@@ -232,14 +232,59 @@ const BookingForm = ({ bookingId = null }) => {
           ? 'discover' 
           : booking.activityType;
         
+        // Extract data from equipmentNeeded for diving activities
+        let diveSessions = booking.diveSessions || {
+          morning: false,
+          afternoon: false,
+          night: false
+        };
+        let ownEquipment = booking.ownEquipment || false;
+        let rentedEquipment = booking.rentedEquipment || {};
+        let addons = booking.addons || {};
+        
+        // For diving activities, check if data is stored in equipmentNeeded
+        if (normalizedActivityType === 'diving' && booking.equipmentNeeded && typeof booking.equipmentNeeded === 'object' && !Array.isArray(booking.equipmentNeeded)) {
+          const equipmentData = booking.equipmentNeeded;
+          
+          // Extract dive sessions
+          if (equipmentData.morning !== undefined || equipmentData.afternoon !== undefined || equipmentData.night !== undefined || equipmentData.tenFifteen !== undefined || equipmentData['10:15'] !== undefined) {
+            diveSessions = {
+              morning: equipmentData.morning === true || equipmentData.morning === 1 || equipmentData.morning === 'true',
+              afternoon: equipmentData.afternoon === true || equipmentData.afternoon === 1 || equipmentData.afternoon === 'true',
+              night: equipmentData.night === true || equipmentData.night === 1 || equipmentData.night === 'true',
+              tenFifteen: equipmentData.tenFifteen === true || equipmentData.tenFifteen === 1 || equipmentData.tenFifteen === 'true' || equipmentData['10:15'] === true || equipmentData['10:15'] === 1 || equipmentData['10:15'] === 'true'
+            };
+          }
+          
+          // Extract ownEquipment
+          if (equipmentData.ownEquipment !== undefined) {
+            ownEquipment = equipmentData.ownEquipment === true || equipmentData.ownEquipment === 1 || equipmentData.ownEquipment === 'true';
+          }
+          
+          // Extract rentedEquipment
+          if (equipmentData.rentedEquipment && typeof equipmentData.rentedEquipment === 'object') {
+            rentedEquipment = equipmentData.rentedEquipment;
+          }
+          
+          // Extract addons
+          if (equipmentData.addons && typeof equipmentData.addons === 'object') {
+            addons = equipmentData.addons;
+          }
+        }
+        
         // Convert numeric fields to numbers (backend may return strings or Decimal types)
         const normalizedBooking = {
           ...booking,
           activityType: normalizedActivityType,
+          // Ensure bookingDate is properly formatted (handle both date and datetime strings)
+          bookingDate: booking.bookingDate ? (booking.bookingDate.split('T')[0] || booking.bookingDate) : new Date().toISOString().split('T')[0],
           // Ensure numberOfDives is set for non-diving activities
           numberOfDives: normalizedActivityType !== 'diving' 
             ? (Number(booking.numberOfDives) || 1)
             : undefined,
+          // Ensure boatId and diveSiteId are strings (not undefined) to avoid MUI Select warnings
+          boatId: booking.boatId || '',
+          diveSiteId: booking.diveSiteId || '',
           // Convert price fields to numbers
           price: Number(booking.price) || 0,
           discount: Number(booking.discount) || 0,
@@ -247,12 +292,11 @@ const BookingForm = ({ bookingId = null }) => {
           equipmentRental: Number(booking.equipmentRental) || 0,
           bikeInsuranceCost: Number(booking.bikeInsuranceCost) || 0,
           rentalDays: Number(booking.rentalDays) || 2,
-          // Ensure diveSessions is properly structured
-          diveSessions: booking.diveSessions || {
-            morning: false,
-            afternoon: false,
-            night: false
-          }
+          // Set extracted values
+          diveSessions,
+          ownEquipment,
+          rentedEquipment,
+          addons
         };
         setFormData(normalizedBooking);
       }
@@ -653,14 +697,9 @@ const BookingForm = ({ bookingId = null }) => {
       }
     }
     
-    // Calculate dive insurance (mandatory for all divers)
-    let diveInsurance = 0;
-    if (locPricing.diveInsurance || settings.prices.diveInsurance) {
-      // For now, we'll use one_day insurance as default
-      // In a real implementation, this would be based on the stay duration
-      const di = (locPricing.diveInsurance || settings.prices.diveInsurance);
-      diveInsurance = di.one_day || 7.00;
-    }
+    // Insurance is NOT added per dive - it will be added during checkout/stay creation when calculating the final bill
+    // Individual dive bookings should only include the dive price, equipment rental, and other addons
+    let diveInsurance = 0; // Always 0 for individual bookings - insurance handled at checkout/stay level
     
     let totalPrice = price + equipmentRental + diveInsurance;
     let discount = 0;
@@ -777,7 +816,7 @@ const BookingForm = ({ bookingId = null }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Check if this is a bike rental location
@@ -805,6 +844,58 @@ const BookingForm = ({ bookingId = null }) => {
         if (!formData.diveSessions?.morning && !formData.diveSessions?.afternoon && !formData.diveSessions?.night) {
           alert('Please select at least one dive session for diving activities.');
           return;
+        }
+        
+        // Validate insurance for diving bookings (only for first booking)
+        try {
+          // Get customer bookings to check if this is the first diving booking
+          const customerBookings = await dataService.getCustomerBookings(formData.customerId);
+          const existingDivingBookings = Array.isArray(customerBookings) 
+            ? customerBookings.filter(b => (b.activityType === 'diving' || b.activity_type === 'diving') && b.id !== bookingId)
+            : [];
+          
+          // If this is the first diving booking, check insurance
+          if (existingDivingBookings.length === 0) {
+            // Get customer details to check insurance
+            const customer = await dataService.getById('customers', formData.customerId);
+            if (customer) {
+              const insurance = customer.divingInsurance || {};
+              const hasInsurance = insurance.hasInsurance;
+              let insuranceValid = false;
+              
+              // Check if yearly insurance exists and is valid
+              if (hasInsurance && insurance.expiryDate) {
+                const expiryDate = new Date(insurance.expiryDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                insuranceValid = expiryDate >= today;
+              }
+              
+              if (!insuranceValid) {
+                const proceed = window.confirm(
+                  '⚠️ Insurance Validation Required\n\n' +
+                  'This is the customer\'s first diving booking. Insurance is mandatory for all divers.\n\n' +
+                  'Customer does not have valid insurance on file.\n\n' +
+                  'Please ensure insurance is purchased and added to the stay costs before completing the booking.\n\n' +
+                  'Do you want to proceed anyway?'
+                );
+                if (!proceed) {
+                  return; // Stop submission if insurance validation failed
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error validating insurance:', error);
+          // If validation fails, warn but allow proceeding
+          const proceed = window.confirm(
+            '⚠️ Could not validate insurance.\n\n' +
+            'Please ensure the customer has valid insurance before proceeding.\n\n' +
+            'Do you want to continue?'
+          );
+          if (!proceed) {
+            return; // Stop submission if user cancels
+          }
         }
       }
       
@@ -917,6 +1008,32 @@ const BookingForm = ({ bookingId = null }) => {
             bikeInsurance: ''
           };
         }
+      } else {
+        // For diving activities, store diveSessions, ownEquipment, and rentedEquipment in equipmentNeeded
+        const equipmentNeededData = {};
+        
+        // Store dive sessions if they exist
+        if (bookingData.diveSessions && typeof bookingData.diveSessions === 'object') {
+          Object.assign(equipmentNeededData, bookingData.diveSessions);
+        }
+        
+        // Store ownEquipment flag
+        if (bookingData.ownEquipment !== undefined) {
+          equipmentNeededData.ownEquipment = bookingData.ownEquipment;
+        }
+        
+        // Store rentedEquipment if it exists
+        if (bookingData.rentedEquipment && typeof bookingData.rentedEquipment === 'object') {
+          equipmentNeededData.rentedEquipment = bookingData.rentedEquipment;
+        }
+        
+        // Store addons if they exist
+        if (bookingData.addons && typeof bookingData.addons === 'object') {
+          equipmentNeededData.addons = bookingData.addons;
+        }
+        
+        // Set equipmentNeeded to the object containing all diving-related data
+        bookingData.equipmentNeeded = Object.keys(equipmentNeededData).length > 0 ? equipmentNeededData : {};
       }
       
       // Ensure equipmentRental is 0 if ownEquipment is true (only for diving)
@@ -931,16 +1048,16 @@ const BookingForm = ({ bookingId = null }) => {
       }
       
       // Remove frontend-only fields that backend doesn't expect
-      delete bookingData.diveSessions; // Stored in equipmentNeeded if needed
+      delete bookingData.diveSessions; // Now stored in equipmentNeeded
       delete bookingData.equipmentRental; // Not a backend field, equipment info in equipmentNeeded
       delete bookingData.diveInsurance; // Not a backend field
       delete bookingData.nightDiveSurcharge; // Frontend-only field
       delete bookingData.cumulativePricing; // Frontend-only field
       delete bookingData.pricePerDive; // Frontend-only field
       delete bookingData.transferFee; // Frontend-only field
-      delete bookingData.addons; // Stored in equipmentNeeded if needed
-      delete bookingData.ownEquipment; // Frontend-only field
-      delete bookingData.rentedEquipment; // Stored in equipmentNeeded if needed
+      delete bookingData.addons; // Now stored in equipmentNeeded
+      delete bookingData.ownEquipment; // Now stored in equipmentNeeded
+      delete bookingData.rentedEquipment; // Now stored in equipmentNeeded
       
       // Validate required fields before sending
       if (!bookingData.customerId) {
@@ -980,7 +1097,7 @@ const BookingForm = ({ bookingId = null }) => {
         totalPrice: Number(bookingData.totalPrice),
         paymentStatus: bookingData.paymentStatus || 'pending',
         status: bookingData.status || 'confirmed',
-        equipmentNeeded: bookingData.equipmentNeeded || (isBikeRental ? {} : []) // Object for bike rental, array for diving
+        equipmentNeeded: bookingData.equipmentNeeded || (isBikeRental ? {} : (bookingData.activityType === 'diving' ? {} : [])) // Object for bike rental and diving, array for other activities
       };
       
       // Add optional fields only if they have values

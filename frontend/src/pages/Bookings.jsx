@@ -128,15 +128,22 @@ const Bookings = () => {
         return bookingLocation?.type === 'bike_rental';
       };
       
-      // Filter bookings based on current location type
+      // Filter bookings based on current location type AND location ID
       let filteredBookings = allBookings;
       if (currentLocation) {
+        const currentLocationId = currentLocation.id;
         if (isCurrentLocationBikeRental) {
-          // For bike rental locations: only show bike rental bookings
-          filteredBookings = allBookings.filter(booking => isBookingBikeRental(booking));
+          // For bike rental locations: only show bike rental bookings for this location
+          filteredBookings = allBookings.filter(booking => {
+            const bookingLocationId = booking.locationId || booking.location_id;
+            return isBookingBikeRental(booking) && bookingLocationId === currentLocationId;
+          });
         } else {
-          // For diving locations: only show non-bike-rental bookings
-          filteredBookings = allBookings.filter(booking => !isBookingBikeRental(booking));
+          // For diving locations: only show non-bike-rental bookings for this location
+          filteredBookings = allBookings.filter(booking => {
+            const bookingLocationId = booking.locationId || booking.location_id;
+            return !isBookingBikeRental(booking) && bookingLocationId === currentLocationId;
+          });
         }
       }
       // If no current location selected (global view), show all bookings

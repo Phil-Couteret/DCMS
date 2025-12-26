@@ -283,7 +283,9 @@ export const getCustomerStaySummary = async (customerId, stayStartDate = null) =
     customer: customer ? {
       id: customer.id,
       name: `${customer.firstName || customer.first_name || ''} ${customer.lastName || customer.last_name || ''}`.trim() || customer.email,
-      email: customer.email
+      email: customer.email,
+      // Include divingInsurance so BillGenerator can check if customer has valid insurance
+      divingInsurance: customer.divingInsurance || customer.diving_insurance || null
     } : null,
     stayStartDate: stayStartDate || bookingDate || null,
     totalDives: cumulativePricing.totalDives,

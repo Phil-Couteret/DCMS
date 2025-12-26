@@ -219,44 +219,73 @@ const Prices = () => {
     });
   };
 
+  // Addon prices are global across locations
   const handleAddonPriceChange = (addon, value) => {
-    updateLocationPricing((pricing) => ({
-      ...pricing,
-      addons: {
-        ...(pricing.addons || {}),
-        [addon]: parseFloat(value) || 0
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        addons: {
+          ...settings.prices.addons,
+          [addon]: parseFloat(value) || 0
+        }
       }
-    }));
+    });
   };
 
+  // Beverage prices are global across locations
   const handleBeveragePriceChange = (beverage, value) => {
-    updateLocationPricing((pricing) => ({
-      ...pricing,
-      beverages: {
-        ...(pricing.beverages || {}),
-        [beverage]: parseFloat(value) || 0
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        beverages: {
+          ...settings.prices.beverages,
+          [beverage]: parseFloat(value) || 0
+        }
       }
-    }));
+    });
   };
 
+  // Dive insurance prices are global across locations
   const handleDiveInsurancePriceChange = (insuranceType, value) => {
-    updateLocationPricing((pricing) => ({
-      ...pricing,
-      diveInsurance: {
-        ...(pricing.diveInsurance || {}),
-        [insuranceType]: parseFloat(value) || 0
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        diveInsurance: {
+          ...settings.prices.diveInsurance,
+          [insuranceType]: parseFloat(value) || 0
+        }
       }
-    }));
+    });
   };
 
+  // Tax settings are global across locations
   const handleTaxRateChange = (value) => {
-    updateLocationPricing((pricing) => ({
-      ...pricing,
-      tax: {
-        ...(pricing.tax || {}),
-        igic_rate: (parseFloat(value) || 0) / 100
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        tax: {
+          ...settings.prices.tax,
+          igic_rate: (parseFloat(value) || 0) / 100
+        }
       }
-    }));
+    });
+  };
+
+  const handleTaxLabelChange = (value) => {
+    setSettings({
+      ...settings,
+      prices: {
+        ...settings.prices,
+        tax: {
+          ...settings.prices.tax,
+          igic_label: value
+        }
+      }
+    });
   };
 
   if (!settings) {
@@ -640,7 +669,7 @@ const Prices = () => {
                                 <TableCell align="center">
                                   <IconButton
                                     onClick={() => removeTouristTier(index)}
-                                    disabled={settings.prices.customerTypes.tourist.diveTiers.length === 1}
+                                    disabled={(locPricing.customerTypes?.tourist?.diveTiers || []).length === 1}
                                     color="error"
                                     size="small"
                                   >
@@ -738,7 +767,7 @@ const Prices = () => {
             <CardHeader title="Addon Services" />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(locPricing.addons || {}).map(([addon, price]) => (
+                {Object.entries(settings.prices.addons || {}).map(([addon, price]) => (
                   <Grid item xs={12} key={addon}>
                     <TextField
                       label={addon.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim().replace(/^\w/, c => c.toUpperCase())}
@@ -761,38 +790,26 @@ const Prices = () => {
                 {/* Add buttons to add missing addons for Las Playitas */}
                 {isPlayitas && (
                   <>
-                    {!locPricing.addons?.transfer_to_caleta && (
+                    {!settings.prices.addons?.transfer_to_caleta && (
                       <Grid item xs={12}>
                         <Button
                           size="small"
                           variant="outlined"
                           onClick={() => {
-                            updateLocationPricing((pricing) => ({
-                              ...pricing,
-                              addons: {
-                                ...(pricing.addons || {}),
-                                transfer_to_caleta: 15.00
-                              }
-                            }));
+                            handleAddonPriceChange('transfer_to_caleta', 15.00);
                           }}
                         >
                           Add Transfer to Caleta (15€)
                         </Button>
                       </Grid>
                     )}
-                    {!locPricing.addons?.dive_trip_gran_tarajal_lajita && (
+                    {!settings.prices.addons?.dive_trip_gran_tarajal_lajita && (
                       <Grid item xs={12}>
                         <Button
                           size="small"
                           variant="outlined"
                           onClick={() => {
-                            updateLocationPricing((pricing) => ({
-                              ...pricing,
-                              addons: {
-                                ...(pricing.addons || {}),
-                                dive_trip_gran_tarajal_lajita: 45.00
-                              }
-                            }));
+                            handleAddonPriceChange('dive_trip_gran_tarajal_lajita', 45.00);
                           }}
                         >
                           Add Dive Trip Gran Tarajal/La Lajita (45€)
@@ -812,7 +829,7 @@ const Prices = () => {
             <CardHeader title="Beverage Prices" />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(locPricing.beverages || {}).map(([beverage, price]) => (
+                {Object.entries(settings.prices.beverages || {}).map(([beverage, price]) => (
                   <Grid item xs={12} key={beverage}>
                     <TextField
                       label={beverage.replace(/_/g, ' ').toUpperCase()}
@@ -841,7 +858,7 @@ const Prices = () => {
             />
             <CardContent>
               <Grid container spacing={2}>
-                {Object.entries(locPricing.diveInsurance || {}).map(([insuranceType, price]) => (
+                {Object.entries(settings.prices.diveInsurance || {}).map(([insuranceType, price]) => (
                   <Grid item xs={12} key={insuranceType}>
                     <TextField
                       label={insuranceType.replace(/_/g, ' ').toUpperCase()}
@@ -877,27 +894,21 @@ const Prices = () => {
                   <TextField
                     label="IGIC Rate"
                     type="number"
-                    value={((locPricing.tax?.igic_rate || 0) * 100).toFixed(1)}
+                    value={((settings.prices.tax?.igic_rate || 0) * 100).toFixed(1)}
                     onChange={(e) => handleTaxRateChange(e.target.value)}
                     fullWidth
                     size="small"
                     InputProps={{
                       endAdornment: '%'
                     }}
-                    helperText="Spanish VAT rate (21% = 0.21)"
+                    helperText="IGIC rate (7% = 0.07)"
                   />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
                     label="Tax Label"
-                    value={locPricing.tax?.igic_label || ''}
-                    onChange={(e) => updateLocationPricing((pricing) => ({
-                      ...pricing,
-                      tax: {
-                        ...(pricing.tax || {}),
-                        igic_label: e.target.value
-                      }
-                    }))}
+                    value={settings.prices.tax?.igic_label || ''}
+                    onChange={(e) => handleTaxLabelChange(e.target.value)}
                     fullWidth
                     size="small"
                   />

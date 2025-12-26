@@ -691,11 +691,33 @@ const MyAccount = () => {
 
   const handleConfirmCancelBooking = async () => {
     if (!cancelDialog.booking) return;
+    if (!customer || !customer.id) {
+      setSnackbar({
+        open: true,
+        message: 'Customer information not available. Please refresh the page.',
+        severity: 'error'
+      });
+      return;
+    }
     setCancelLoading(true);
     try {
+      // CRITICAL: Verify the booking belongs to the current customer before cancelling
+      if (cancelDialog.booking.customerId && cancelDialog.booking.customerId !== customer.id) {
+        console.error('[MyAccount] Booking customer mismatch! Booking:', cancelDialog.booking.customerId, 'Current customer:', customer.id);
+        setSnackbar({
+          open: true,
+          message: 'This booking does not belong to your account. Please refresh the page.',
+          severity: 'error'
+        });
+        setCancelLoading(false);
+        closeCancelDialog();
+        return;
+      }
+      
       const updated = await bookingService.cancelBooking(cancelDialog.booking.id, {
         reason: cancelReason.trim(),
-        cancelledBy: 'customer'
+        cancelledBy: 'customer',
+        customerId: customer.id // Pass customer ID for additional verification
       });
       if (updated) {
         setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));

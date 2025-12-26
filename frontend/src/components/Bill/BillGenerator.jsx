@@ -37,6 +37,7 @@ import stayCostsService from '../../services/stayCostsService';
 
 const BillGenerator = ({ open, onClose, stay }) => {
   const [settings, setSettings] = useState(null);
+  const [locations, setLocations] = useState([]);
   const [billData, setBillData] = useState({
     dives: [],
     equipment: [],
@@ -50,22 +51,58 @@ const BillGenerator = ({ open, onClose, stay }) => {
 
   useEffect(() => {
     if (open && stay) {
-      loadSettings();
-      initializeBillData();
+      loadSettings().catch(err => console.error('[BillGenerator] Error loading settings:', err));
+      loadLocations().catch(err => console.error('[BillGenerator] Error loading locations:', err));
+      initializeBillData().catch(err => console.error('[BillGenerator] Error initializing bill data:', err));
     }
   }, [open, stay]);
 
-  const loadSettings = () => {
-    const settingsData = dataService.getAll('settings')[0];
-    setSettings(settingsData);
+  const loadSettings = async () => {
+    try {
+      const settingsData = await dataService.getAll('settings');
+      setSettings(Array.isArray(settingsData) && settingsData.length > 0 ? settingsData[0] : null);
+    } catch (error) {
+      console.warn('[BillGenerator] Failed to load settings:', error);
+    }
   };
 
-  const initializeBillData = () => {
+  const loadLocations = async () => {
+    try {
+      const locationsData = await dataService.getAll('locations');
+      setLocations(Array.isArray(locationsData) ? locationsData : []);
+    } catch (error) {
+      console.warn('[BillGenerator] Failed to load locations:', error);
+      setLocations([]);
+    }
+  };
+
+  const initializeBillData = async () => {
     if (!stay) return;
 
-    // Get boat preparations to find dive sites
-    const boatPreps = dataService.getAll('boatPreps') || [];
-    const diveSites = dataService.getAll('diveSites') || [];
+    // Get boat preparations to find dive sites (may not exist in API mode)
+    let boatPreps = [];
+    let diveSites = [];
+    
+    try {
+      boatPreps = await dataService.getAll('boatPreps');
+      if (!Array.isArray(boatPreps)) {
+        boatPreps = [];
+      }
+    } catch (error) {
+      // boatPreps endpoint doesn't exist in API mode - this is expected
+      console.log('[BillGenerator] boatPreps not available (expected in API mode)');
+      boatPreps = [];
+    }
+    
+    try {
+      diveSites = await dataService.getAll('diveSites');
+      if (!Array.isArray(diveSites)) {
+        diveSites = [];
+      }
+    } catch (error) {
+      console.warn('[BillGenerator] Failed to load dive sites:', error);
+      diveSites = [];
+    }
     
     // Initialize dive data from stay - one dive per line
     const dives = [];
@@ -196,10 +233,9 @@ const BillGenerator = ({ open, onClose, stay }) => {
       return sum + (dive.total || 0);
     }, 0);
 
-    // Resolve location-specific pricing
-    const locations = dataService.getAll('locations') || [];
+    // Resolve location-specific pricing (using locations from state)
     const stayLocationId = (stay?.stayBookings && stay.stayBookings[0]?.locationId) || localStorage.getItem('dcms_current_location');
-    const location = locations.find(l => l.id === stayLocationId);
+    const location = Array.isArray(locations) ? locations.find(l => l.id === stayLocationId) : null;
     const pricing = (location?.pricing) || (settings.prices || {});
 
     // Calculate beverage totals
@@ -233,12 +269,54 @@ const BillGenerator = ({ open, onClose, stay }) => {
       });
     }
 
-    // Calculate dive insurance (mandatory for all divers)
+    // Calculate dive insurance - check if customer already has insurance
     let diveInsuranceTotal = 0;
-    if (pricing.diveInsurance) {
-      // For now, we'll use one_day insurance as default
-      // In a real implementation, this would be based on the stay duration
-      diveInsuranceTotal = pricing.diveInsurance.one_day || 7.00;
+    
+    // Check if customer has yearly insurance that's still valid
+    const customerInsurance = stay.customer?.divingInsurance;
+    const hasYearlyInsurance = customerInsurance?.hasInsurance === true && customerInsurance?.expiryDate;
+    let yearlyInsuranceValid = false;
+    
+    if (hasYearlyInsurance && customerInsurance.expiryDate) {
+      try {
+        const expiryDate = new Date(customerInsurance.expiryDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to compare dates only
+        expiryDate.setHours(0, 0, 0, 0); // Reset time to compare dates only
+        
+        // Check if expiry date is valid and not in the past
+        if (!isNaN(expiryDate.getTime())) {
+          yearlyInsuranceValid = expiryDate >= today;
+        }
+      } catch (e) {
+        console.warn('[BillGenerator] Error parsing insurance expiry date:', e);
+        yearlyInsuranceValid = false;
+      }
+    }
+    
+    // Check if insurance has already been added to stay costs (reuse stayAdditionalCosts from above)
+    const hasInsuranceInStayCosts = stayAdditionalCosts.some(cost => cost.category === 'insurance');
+    
+    // Only add insurance if customer doesn't have yearly insurance and it hasn't been added to stay costs
+    if (!yearlyInsuranceValid && !hasInsuranceInStayCosts && pricing.diveInsurance) {
+      // Calculate stay duration to determine appropriate insurance type
+      const stayStart = new Date(stay.stayStartDate);
+      const today = new Date();
+      const daysDifference = Math.ceil((today - stayStart) / (1000 * 60 * 60 * 24));
+      
+      if (daysDifference >= 365 && pricing.diveInsurance.one_year) {
+        // More than a year - use yearly insurance
+        diveInsuranceTotal = pricing.diveInsurance.one_year || 45.00;
+      } else if (daysDifference >= 30 && pricing.diveInsurance.one_month) {
+        // More than a month - use monthly insurance
+        diveInsuranceTotal = pricing.diveInsurance.one_month || 25.00;
+      } else if (daysDifference >= 7 && pricing.diveInsurance.one_week) {
+        // More than a week - use weekly insurance
+        diveInsuranceTotal = pricing.diveInsurance.one_week || 18.00;
+      } else {
+        // Less than a week - use daily insurance
+        diveInsuranceTotal = pricing.diveInsurance.one_day || 7.00;
+      }
     }
 
     const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal + diveInsuranceTotal + additionalCostsTotal;
@@ -314,6 +392,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
                       <TableCell>Dive Site</TableCell>
                       <TableCell align="right">Price per Dive</TableCell>
                       <TableCell align="right">Total</TableCell>
+                      <TableCell align="center">Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -331,6 +410,21 @@ const BillGenerator = ({ open, onClose, stay }) => {
                         <TableCell>{dive.diveSite || 'TBD'}</TableCell>
                         <TableCell align="right">€{dive.pricePerDive.toFixed(2)}</TableCell>
                         <TableCell align="right">€{dive.total.toFixed(2)}</TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => {
+                              setBillData(prev => ({
+                                ...prev,
+                                dives: prev.dives.filter((_, i) => i !== index)
+                              }));
+                            }}
+                            title="Remove dive"
+                          >
+                            <RemoveIcon />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
