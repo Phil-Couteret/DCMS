@@ -2616,6 +2616,13 @@ const Settings = () => {
         </Box>
       )}
 
+      {/* Version Information */}
+      <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary" align="center" display="block">
+          DCMS v1.5.0 - Dive Center Management System
+        </Typography>
+      </Box>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

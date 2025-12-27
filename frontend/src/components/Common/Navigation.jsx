@@ -328,8 +328,8 @@ const Navigation = () => {
           </List>
           <Divider />
           <Box sx={{ p: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              PWA Prototype v0.1
+            <Typography variant="caption" color="text.secondary" align="center" display="block">
+              DCMS v1.5.0
             </Typography>
           </Box>
         </Box>
