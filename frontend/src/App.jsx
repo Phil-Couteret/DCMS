@@ -13,6 +13,7 @@ import Equipment from './pages/Equipment';
 import Settings from './pages/Settings';
 import BoatPrep from './pages/BoatPrep';
 import Breaches from './pages/Breaches';
+import Bill from './pages/Bill';
 
 // Components
 import Navigation from './components/Common/Navigation';
@@ -65,6 +66,7 @@ function App() {
                     <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="boatPrep"><BoatPrep /></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
                     <Route path="/breaches" element={<ProtectedRoute requiredPermission="settings"><Breaches /></ProtectedRoute>} />
+                    <Route path="/bill" element={<ProtectedRoute requiredPermission="stays"><Bill /></ProtectedRoute>} />
                   </Routes>
                 </Box>
               </Box>

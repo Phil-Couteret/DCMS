@@ -125,6 +125,7 @@ const Settings = () => {
     waves: '',
     travelTime: '',
     description: '',
+    reef: '',
     isActive: true
   });
   
@@ -1532,6 +1533,7 @@ const Settings = () => {
                             waves: '',
                             travelTime: '',
                             description: '',
+                            reef: '',
                             isActive: true
                           });
                           setDiveSiteDialogOpen(true);
@@ -1541,110 +1543,146 @@ const Settings = () => {
                       </Button>
                     </Box>
 
-                    <TableContainer component={Paper} variant="outlined">
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Name</TableCell>
-                            <TableCell>Location</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell>Depth Range</TableCell>
-                            <TableCell>Difficulty Level</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell align="right">Actions</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {diveSites.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={7} align="center">
-                                <Typography color="text.secondary" sx={{ py: 2 }}>
-                                  No dive sites found. Click "Add Dive Site" to create one.
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            diveSites.map((site) => {
-                              const location = locations.find(l => l.id === site.locationId);
-                              // Handle both difficultyLevel and difficulty fields (for backward compatibility)
-                              const difficulty = site.difficultyLevel || site.difficulty || 'beginner';
-                              // Handle both depthRange object and depth string
-                              const depthRange = site.depthRange || (site.depth ? { min: 0, max: 0 } : { min: 0, max: 0 });
-                              const depthDisplay = depthRange.min && depthRange.max 
-                                ? `${depthRange.min}-${depthRange.max}m`
-                                : site.depth || 'N/A';
-                              
-                              return (
-                                <TableRow key={site.id}>
-                                  <TableCell>{site.name}</TableCell>
-                                  <TableCell>{location?.name || 'Unknown'}</TableCell>
-                                  <TableCell>{site.type || 'diving'}</TableCell>
-                                  <TableCell>{depthDisplay}</TableCell>
-                                  <TableCell>
-                                    <Chip 
-                                      label={difficulty} 
-                                      size="small"
-                                      color={
-                                        difficulty === 'beginner' ? 'success' :
-                                        difficulty === 'intermediate' ? 'info' :
-                                        difficulty === 'advanced' ? 'warning' :
-                                        'error'
-                                      }
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Chip 
-                                      label={site.isActive !== false ? 'Active' : 'Inactive'} 
-                                      size="small"
-                                      color={site.isActive !== false ? 'success' : 'default'}
-                                    />
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => {
-                                        setEditingDiveSite(site);
-                                        setDiveSiteFormData({
-                                          name: site.name || '',
-                                          locationId: site.locationId || (locations.length > 0 ? locations[0].id : ''),
-                                          type: site.type || 'diving',
-                                          depthRange: site.depthRange || (site.depth ? { min: 0, max: 0 } : { min: 0, max: 0 }),
-                                          difficultyLevel: difficulty,
-                                          current: site.current || '',
-                                          waves: site.waves || '',
-                                          travelTime: site.travelTime || '',
-                                          description: site.description || '',
-                                          isActive: site.isActive !== false
-                                        });
-                                        setDiveSiteDialogOpen(true);
-                                      }}
-                                    >
-                                      <EditIcon />
-                                    </IconButton>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => {
-                                        if (window.confirm(`Are you sure you want to delete "${site.name}"?`)) {
-                                          dataService.remove('diveSites', site.id);
-                                          loadDiveSites();
-                                          setSnackbar({
-                                            open: true,
-                                            message: 'Dive site deleted successfully!',
-                                            severity: 'success'
-                                          });
-                                        }
-                                      }}
-                                    >
-                                      <DeleteIcon />
-                                    </IconButton>
-                                  </TableCell>
+                    {diveSites.length === 0 ? (
+                      <Paper variant="outlined" sx={{ p: 3 }}>
+                        <Typography color="text.secondary" align="center">
+                          No dive sites found. Click "Add Dive Site" to create one.
+                        </Typography>
+                      </Paper>
+                    ) : (() => {
+                      // Group dive sites by reef
+                      const reefOrder = ['Castillo Reef', 'Salinas Reef'];
+                      const groupedByReef = diveSites.reduce((acc, site) => {
+                        let reef = site.conditions?.reef || 'Other';
+                        // Group all non-main reefs under "Other"
+                        if (!reefOrder.includes(reef)) {
+                          reef = 'Other';
+                        }
+                        if (!acc[reef]) {
+                          acc[reef] = [];
+                        }
+                        acc[reef].push(site);
+                        return acc;
+                      }, {});
+
+                      // Sort reefs: Castillo first, Salinas second, then Others
+                      const sortedReefs = Object.entries(groupedByReef).sort(([a], [b]) => {
+                        const aIndex = reefOrder.indexOf(a);
+                        const bIndex = reefOrder.indexOf(b);
+                        
+                        // If both are in the order array, sort by their index
+                        if (aIndex !== -1 && bIndex !== -1) {
+                          return aIndex - bIndex;
+                        }
+                        // If only a is in the order array, it comes first
+                        if (aIndex !== -1) return -1;
+                        // If only b is in the order array, it comes first
+                        if (bIndex !== -1) return 1;
+                        // If neither is in the order array (both are "Other"), keep order
+                        return 0;
+                      });
+
+                      return sortedReefs.map(([reef, sites]) => (
+                        <Accordion key={reef} defaultExpanded={reefOrder.includes(reef)} sx={{ mb: 2 }}>
+                          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                            <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                              {reef} ({sites.length} {sites.length === 1 ? 'site' : 'sites'})
+                            </Typography>
+                          </AccordionSummary>
+                          <AccordionDetails>
+                            <TableContainer component={Paper} variant="outlined">
+                              <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Name</TableCell>
+                                  <TableCell>Depth Range</TableCell>
+                                  <TableCell>Difficulty Level</TableCell>
+                                  <TableCell>Status</TableCell>
+                                  <TableCell align="right">Actions</TableCell>
                                 </TableRow>
-                              );
-                            })
-                          )}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                              </TableHead>
+                              <TableBody>
+                                {sites.map((site) => {
+                                  // Handle both difficultyLevel and difficulty fields (for backward compatibility)
+                                  const difficulty = site.difficultyLevel || site.difficulty || 'beginner';
+                                  // Handle both depthRange object and depth string
+                                  const depthRange = site.depthRange || (site.depth ? { min: 0, max: 0 } : { min: 0, max: 0 });
+                                  const depthDisplay = depthRange.min && depthRange.max 
+                                    ? `${depthRange.min}-${depthRange.max}m`
+                                    : site.depth || 'N/A';
+                                  
+                                  return (
+                                    <TableRow key={site.id}>
+                                      <TableCell><strong>{site.name}</strong></TableCell>
+                                      <TableCell>{depthDisplay}</TableCell>
+                                      <TableCell>
+                                        <Chip 
+                                          label={difficulty} 
+                                          size="small"
+                                          color={
+                                            difficulty === 'beginner' ? 'success' :
+                                            difficulty === 'intermediate' ? 'info' :
+                                            difficulty === 'advanced' ? 'warning' :
+                                            'error'
+                                          }
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip 
+                                          label={site.isActive !== false ? 'Active' : 'Inactive'} 
+                                          size="small"
+                                          color={site.isActive !== false ? 'success' : 'default'}
+                                        />
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => {
+                                            setEditingDiveSite(site);
+                                            setDiveSiteFormData({
+                                              name: site.name || '',
+                                              locationId: site.locationId || (locations.length > 0 ? locations[0].id : ''),
+                                              type: site.type || 'diving',
+                                              depthRange: site.depthRange || (site.depth ? { min: 0, max: 0 } : { min: 0, max: 0 }),
+                                              difficultyLevel: difficulty,
+                                              current: site.conditions?.current || site.current || '',
+                                              waves: site.conditions?.waves || site.waves || '',
+                                              travelTime: site.conditions?.travelTime || site.travelTime || '',
+                                              description: site.conditions?.description || site.description || '',
+                                              isActive: site.isActive !== false
+                                            });
+                                            setDiveSiteDialogOpen(true);
+                                          }}
+                                        >
+                                          <EditIcon />
+                                        </IconButton>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => {
+                                            if (window.confirm(`Are you sure you want to delete "${site.name}"?`)) {
+                                              dataService.remove('diveSites', site.id);
+                                              loadDiveSites();
+                                              setSnackbar({
+                                                open: true,
+                                                message: 'Dive site deleted successfully!',
+                                                severity: 'success'
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          <DeleteIcon />
+                                        </IconButton>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                          </AccordionDetails>
+                        </Accordion>
+                      ))
+                    })()}
                   </Box>
                 </AccordionDetails>
               </Accordion>
@@ -1780,6 +1818,16 @@ const Settings = () => {
                         label="Active"
                       />
                     </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Reef / Area"
+                        value={diveSiteFormData.reef}
+                        onChange={(e) => setDiveSiteFormData({ ...diveSiteFormData, reef: e.target.value })}
+                        placeholder="e.g., Castillo Reef, Salinas Reef"
+                        helperText="Group dive sites by reef/area"
+                      />
+                    </Grid>
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
@@ -1810,8 +1858,25 @@ const Settings = () => {
                         return;
                       }
                       
+                      // Build conditions object
+                      const conditions = {};
+                      if (diveSiteFormData.current) conditions.current = diveSiteFormData.current;
+                      if (diveSiteFormData.waves) conditions.waves = diveSiteFormData.waves;
+                      if (diveSiteFormData.travelTime) conditions.travelTime = diveSiteFormData.travelTime;
+                      if (diveSiteFormData.description) conditions.description = diveSiteFormData.description;
+                      // Add reef to conditions if provided
+                      if (diveSiteFormData.reef) {
+                        conditions.reef = diveSiteFormData.reef;
+                      }
+                      
                       const diveSiteData = {
-                        ...diveSiteFormData,
+                        name: diveSiteFormData.name,
+                        locationId: diveSiteFormData.locationId,
+                        type: diveSiteFormData.type,
+                        depthRange: diveSiteFormData.depthRange,
+                        difficultyLevel: diveSiteFormData.difficultyLevel,
+                        conditions: Object.keys(conditions).length > 0 ? conditions : undefined,
+                        isActive: diveSiteFormData.isActive,
                         updatedAt: new Date().toISOString()
                       };
                       

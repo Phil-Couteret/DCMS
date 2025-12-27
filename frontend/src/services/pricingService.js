@@ -66,18 +66,18 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
     return selectedTier.price * numberOfDives;
   }
 
-  // Fallback pricing if configuration is missing
+  // Fallback pricing based on Deep Blue Diving 2025 pricelist
   let basePrice = 46;
   if (numberOfDives <= 2) {
-    basePrice = 46;
+    basePrice = 46; // 1-2 dives
   } else if (numberOfDives <= 5) {
-    basePrice = 44;
+    basePrice = 44; // 3-5 dives
   } else if (numberOfDives <= 8) {
-    basePrice = 42;
+    basePrice = 42; // 6-8 dives
   } else if (numberOfDives <= 12) {
-    basePrice = 40;
+    basePrice = 40; // 9-12 dives
   } else {
-    basePrice = 38;
+    basePrice = 38; // 13+ dives
   }
   return basePrice * numberOfDives;
 };

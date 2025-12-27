@@ -69,6 +69,12 @@ const realApiAdapter = {
       transformedData = this.transformPartnerToBackend(data);
     } else if (resource === 'staff') {
       transformedData = this.transformStaffToBackend(data);
+    } else if (resource === 'boats') {
+      transformedData = this.transformBoatToBackend(data);
+    } else if (resource === 'diveSites') {
+      transformedData = this.transformDiveSiteToBackend(data);
+    } else if (resource === 'boatPreps') {
+      transformedData = this.transformBoatPrepToBackend(data);
     }
     const response = await httpClient.post(`/${endpoint}`, transformedData);
     return this.transformResponse(resource, response.data || response);
@@ -96,6 +102,12 @@ const realApiAdapter = {
       transformedData = this.transformPartnerToBackend(data);
     } else if (resource === 'staff') {
       transformedData = this.transformStaffToBackend(data);
+    } else if (resource === 'boats') {
+      transformedData = this.transformBoatToBackend(data);
+    } else if (resource === 'diveSites') {
+      transformedData = this.transformDiveSiteToBackend(data);
+    } else if (resource === 'boatPreps') {
+      transformedData = this.transformBoatPrepToBackend(data);
     }
     const response = await httpClient.put(`/${endpoint}/${id}`, transformedData);
     return this.transformResponse(resource, response.data || response);
@@ -265,6 +277,104 @@ const realApiAdapter = {
     };
   },
 
+  transformBoatToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      name: data.name,
+      location_id: data.locationId || data.location_id,
+      capacity: data.capacity,
+      equipment_onboard: data.equipmentOnboard || data.equipment_onboard || [],
+      is_active: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
+    };
+  },
+
+  transformBoatFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      locationId: data.location_id || data.locationId,
+      capacity: data.capacity,
+      equipmentOnboard: data.equipment_onboard || data.equipmentOnboard || [],
+      isActive: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : true),
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
+  transformDiveSiteToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      name: data.name,
+      location_id: data.locationId || data.location_id,
+      type: data.type || 'diving',
+      depth_range: data.depthRange || data.depth_range || { min: 0, max: 0 },
+      difficulty_level: data.difficultyLevel || data.difficulty_level || 'beginner',
+      conditions: data.conditions || {},
+      is_active: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
+    };
+  },
+
+  transformDiveSiteFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      locationId: data.location_id || data.locationId,
+      type: data.type || 'diving',
+      depthRange: data.depth_range || data.depthRange || { min: 0, max: 0 },
+      difficultyLevel: data.difficulty_level || data.difficultyLevel || 'beginner',
+      conditions: data.conditions || {},
+      isActive: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : true),
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
+  transformBoatPrepToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    // Backend DTO expects camelCase (the service maps it to snake_case for Prisma)
+    return {
+      locationId: data.locationId || data.location_id,
+      date: data.date,
+      session: data.session,
+      boatId: data.boatId || data.boat_id || null,
+      diverIds: data.diverIds || data.diver_ids || [],
+      diveSiteId: data.diveSiteId || data.dive_site_id || null,
+      actualDiveSiteId: data.actualDiveSiteId || data.actual_dive_site_id || null,
+      diveSiteStatus: data.diveSiteStatus || data.dive_site_status || {},
+      postDiveReport: data.postDiveReport || data.post_dive_report || null,
+      staff: data.staff || {},
+      createdAt: data.createdAt || data.created_at,
+      updatedAt: data.updatedAt || data.updated_at,
+    };
+  },
+
+  transformBoatPrepFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      locationId: data.location_id || data.locationId,
+      date: data.date,
+      session: data.session,
+      boatId: data.boat_id || data.boatId || null,
+      diverIds: data.diver_ids || data.diverIds || [],
+      diveSiteId: data.dive_site_id || data.diveSiteId || null,
+      actualDiveSiteId: data.actual_dive_site_id || data.actualDiveSiteId || null,
+      diveSiteStatus: data.dive_site_status || data.diveSiteStatus || {},
+      postDiveReport: data.post_dive_report || data.postDiveReport || null,
+      staff: data.staff || {},
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
   transformResponse(resource, data) {
     if (!data) return data;
     if (resource === 'customers') {
@@ -302,6 +412,24 @@ const realApiAdapter = {
         return data.map(item => this.transformStaffFromBackend(item));
       }
       return this.transformStaffFromBackend(data);
+    }
+    if (resource === 'boats') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformBoatFromBackend(item));
+      }
+      return this.transformBoatFromBackend(data);
+    }
+    if (resource === 'diveSites') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformDiveSiteFromBackend(item));
+      }
+      return this.transformDiveSiteFromBackend(data);
+    }
+    if (resource === 'boatPreps') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformBoatPrepFromBackend(item));
+      }
+      return this.transformBoatPrepFromBackend(data);
     }
     return data;
   },

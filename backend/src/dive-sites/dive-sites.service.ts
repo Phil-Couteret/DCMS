@@ -27,7 +27,6 @@ export class DiveSitesService {
 
   async findAll() {
     return this.prisma.dive_sites.findMany({
-      where: { is_active: true },
       include: {
         locations: true,
       },

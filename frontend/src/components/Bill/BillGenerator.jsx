@@ -41,10 +41,8 @@ const BillGenerator = ({ open, onClose, stay }) => {
   const [billData, setBillData] = useState({
     dives: [],
     equipment: [],
-    beverages: [],
     otherItems: []
   });
-  const [beverageQuantity, setBeverageQuantity] = useState(0);
   const [otherItems, setOtherItems] = useState([{ name: '', price: 0 }]);
   const [showBill, setShowBill] = useState(false);
   const [calculatedBill, setCalculatedBill] = useState(null);
@@ -184,32 +182,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
     }));
   };
 
-  const addBeverage = () => {
-    if (beverageQuantity > 0 && settings) {
-      const beveragePrice = settings.prices.beverages.water || 1.8;
-      const newBeverage = {
-        type: 'beverage',
-        quantity: beverageQuantity,
-        pricePerUnit: beveragePrice,
-        total: beverageQuantity * beveragePrice
-      };
-
-      setBillData(prev => ({
-        ...prev,
-        beverages: [...prev.beverages, newBeverage]
-      }));
-
-      setBeverageQuantity(0);
-    }
-  };
-
-  const removeBeverage = (index) => {
-    setBillData(prev => ({
-      ...prev,
-      beverages: prev.beverages.filter((_, i) => i !== index)
-    }));
-  };
-
   const addOtherItem = () => {
     setOtherItems(prev => [...prev, { name: '', price: 0 }]);
   };
@@ -237,9 +209,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
     const stayLocationId = (stay?.stayBookings && stay.stayBookings[0]?.locationId) || localStorage.getItem('dcms_current_location');
     const location = Array.isArray(locations) ? locations.find(l => l.id === stayLocationId) : null;
     const pricing = (location?.pricing) || (settings.prices || {});
-
-    // Calculate beverage totals
-    const beverageTotal = (billData.beverages || []).reduce((sum, bev) => sum + (bev.total || 0), 0);
 
     // Calculate other items totals
     const otherTotal = (otherItems || []).reduce((sum, item) => sum + (item.price || 0), 0);
@@ -319,7 +288,7 @@ const BillGenerator = ({ open, onClose, stay }) => {
       }
     }
 
-    const subtotal = diveTotal + beverageTotal + otherTotal + equipmentTotal + diveInsuranceTotal + additionalCostsTotal;
+    const subtotal = diveTotal + otherTotal + equipmentTotal + diveInsuranceTotal + additionalCostsTotal;
     const tax = subtotal * ((pricing.tax && pricing.tax.igic_rate) || 0.07);
     const total = subtotal + tax;
 
@@ -329,7 +298,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
       billDate: new Date().toISOString().split('T')[0],
       billNumber: `BILL-${Date.now()}`,
       dives: billData.dives,
-      beverages: billData.beverages,
       otherItems: (otherItems || []).filter(item => item.name && item.price > 0),
       equipmentTotal,
       additionalCosts: stayAdditionalCosts,
@@ -339,7 +307,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
       total,
       breakdown: {
         dives: diveTotal,
-        beverages: beverageTotal,
         equipment: equipmentTotal,
         diveInsurance: diveInsuranceTotal,
         additionalCosts: additionalCostsTotal,
@@ -430,50 +397,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
                   </TableBody>
                 </Table>
               </TableContainer>
-            </Paper>
-
-            {/* Beverages */}
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Beverages (€1.80 each)
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Number of Beverages"
-                    type="number"
-                    size="small"
-                    fullWidth
-                    value={beverageQuantity}
-                    onChange={(e) => setBeverageQuantity(parseInt(e.target.value) || 0)}
-                    inputProps={{ min: 0 }}
-                    helperText="€1.80 per beverage"
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={addBeverage}
-                    disabled={beverageQuantity <= 0}
-                    fullWidth
-                    sx={{ height: '56px' }}
-                  >
-                    Add Beverages
-                  </Button>
-                </Grid>
-              </Grid>
-
-              {billData.beverages.map((beverage, index) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                  <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                    Beverage x {beverage.quantity} = €{beverage.total.toFixed(2)}
-                  </Typography>
-                  <IconButton size="small" onClick={() => removeBeverage(index)}>
-                    <RemoveIcon />
-                  </IconButton>
-                </Box>
-              ))}
             </Paper>
 
             {/* Other Items */}
@@ -621,17 +544,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
                         )}
                       </TableCell>
                       <TableCell align="right">€{dive.total.toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-
-                  {/* Beverages */}
-                  {calculatedBill?.beverages.map((beverage, index) => (
-                    <TableRow key={`beverage-${index}`}>
-                      <TableCell>Beverage</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell align="right">{beverage.quantity}</TableCell>
-                      <TableCell align="right">€{beverage.pricePerUnit.toFixed(2)}</TableCell>
-                      <TableCell align="right">€{beverage.total.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
 

@@ -41,7 +41,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import stayService from '../services/stayService';
 import stayCostsService from '../services/stayCostsService';
-import BillGenerator from '../components/Bill/BillGenerator';
 import { useTranslation } from '../utils/languageContext';
 
 const Stays = () => {
@@ -49,8 +48,6 @@ const Stays = () => {
   const { t } = useTranslation();
   const [activeStays, setActiveStays] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStay, setSelectedStay] = useState(null);
-  const [showBillGenerator, setShowBillGenerator] = useState(false);
   const [stayCosts, setStayCosts] = useState({}); // { 'customerId-stayStartDate': [...] }
   const [showCostDialog, setShowCostDialog] = useState(false);
   const [editingCost, setEditingCost] = useState(null);
@@ -73,7 +70,7 @@ const Stays = () => {
     // Load costs for all active stays
     const costsMap = {};
     activeStays.forEach(stay => {
-      const key = `${stay.customer.id}-${stay.stayStartDate}`;
+      const key = `${stay.customer.id}|${stay.stayStartDate}`;
       costsMap[key] = stayCostsService.getStayCosts(stay.customer.id, stay.stayStartDate);
     });
     setStayCosts(costsMap);
@@ -115,13 +112,7 @@ const Stays = () => {
   };
 
   const handleEndStay = (stay) => {
-    setSelectedStay(stay);
-    setShowBillGenerator(true);
-  };
-
-  const handleCloseBillGenerator = () => {
-    setShowBillGenerator(false);
-    setSelectedStay(null);
+    navigate('/bill', { state: { stay } });
   };
 
   const getSessionText = (sessions) => {
@@ -133,7 +124,7 @@ const Stays = () => {
   };
 
   const getStayKey = (stay) => {
-    return `${stay.customer.id}-${stay.stayStartDate}`;
+    return `${stay.customer.id}|${stay.stayStartDate}`;
   };
 
   const getStayCostsTotal = (stay) => {
@@ -179,7 +170,7 @@ const Stays = () => {
   const handleSaveCost = () => {
     if (!currentStayKey) return;
     
-    const [customerId, stayStartDate] = currentStayKey.split('-');
+    const [customerId, stayStartDate] = currentStayKey.split('|');
     const costData = {
       date: costFormData.date,
       category: costFormData.category,
@@ -208,7 +199,7 @@ const Stays = () => {
 
   const handleDeleteCost = (stay, costId) => {
     const key = getStayKey(stay);
-    const [customerId, stayStartDate] = key.split('-');
+    const [customerId, stayStartDate] = key.split('|');
     
     try {
       stayCostsService.deleteStayCost(costId);
@@ -476,13 +467,6 @@ const Stays = () => {
           ))}
         </Box>
       )}
-
-      {/* Bill Generator Dialog */}
-      <BillGenerator
-        open={showBillGenerator}
-        onClose={handleCloseBillGenerator}
-        stay={selectedStay}
-      />
 
       {/* Add/Edit Cost Dialog */}
       <Dialog open={showCostDialog} onClose={handleCloseCostDialog} maxWidth="sm" fullWidth>

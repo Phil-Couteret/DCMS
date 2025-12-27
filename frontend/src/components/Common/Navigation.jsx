@@ -24,7 +24,6 @@ import {
   Event as BookingsIcon,
   People as CustomersIcon,
   ScubaDiving as DivingEquipmentIcon,
-  DirectionsBike as BikeEquipmentIcon,
   Inventory as MaterialsIcon,
   Settings as SettingsIcon,
   Add as AddIcon,
@@ -77,11 +76,8 @@ const Navigation = () => {
   }, [currentLocationId, boats]);
   const hasBoats = boatsForLocation.length > 0;
   
-  // Determine if the currently selected location is a bike rental
-  const isBikeRentalLocation = selectedLocationId ? (locations.find(l => l.id === selectedLocationId)?.type === 'bike_rental') : false;
-  
-  // Get the appropriate equipment icon based on location type
-  const EquipmentIcon = isBikeRentalLocation ? BikeEquipmentIcon : DivingEquipmentIcon;
+  // Get the equipment icon (diving equipment for all locations)
+  const EquipmentIcon = DivingEquipmentIcon;
   
   // Build location menu items - organized by workflow
   const locationMenu = [
@@ -118,24 +114,6 @@ const Navigation = () => {
   const allMenuItems = scope === 'global' ? globalMenu : locationMenu;
   const menuItems = allMenuItems.filter(item => {
     if (!currentUser) return false;
-
-    // For bike rental locations, hide dive-specific menu items
-    // Bike rental still has bookings and customers (just bike rental bookings/customers)
-    // Bike rental is a completely separate activity with data from another website
-    if (isBikeRentalLocation && scope === 'location') {
-      // Only hide dive-specific paths: boat-prep and stays (dive-specific)
-      const diveRelatedPaths = ['/boat-prep', '/stays'];
-      if (diveRelatedPaths.includes(item.path)) {
-        return false;
-      }
-      // Only hide dive-specific permissions: boatPrep and stays
-      const diveRelatedPermissions = ['boatPrep', 'stays'];
-      if (diveRelatedPermissions.includes(item.permission)) {
-        return false;
-      }
-      // Allow bookings, customers, and equipment for bike rental
-      // (they will show bike rental bookings/customers/equipment)
-    }
     
     // Check permission - this now uses the permission-based system
     return canAccess(item.permission);
@@ -154,11 +132,12 @@ const Navigation = () => {
         if (!Array.isArray(allLocations)) return;
         
         // Determine accessible locations based on user rights
-        let accessible = allLocations;
+        // Filter out bike rental locations (removed for now)
+        let accessible = allLocations.filter(loc => loc.type !== 'bike_rental');
         if (currentUser && Array.isArray(currentUser.locationAccess)) {
           // Treat empty array as global access (all locations)
           if (currentUser.locationAccess.length > 0) {
-            accessible = allLocations.filter(loc => currentUser.locationAccess.includes(loc.id));
+            accessible = accessible.filter(loc => currentUser.locationAccess.includes(loc.id));
           }
         }
         setLocations(accessible);

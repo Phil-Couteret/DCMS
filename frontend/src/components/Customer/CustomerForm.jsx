@@ -183,18 +183,12 @@ const CustomerForm = () => {
   const isReadOnly = !isAdmin() && customerId; // Read-only for non-admins viewing existing customers
   const [locations, setLocations] = useState([]);
   
-  // Check if current location is bike rental
-  const [isBikeRental, setIsBikeRental] = useState(false);
-  
   useEffect(() => {
     const checkLocation = async () => {
       try {
         const allLocations = await dataService.getAll('locations') || [];
         if (Array.isArray(allLocations)) {
           setLocations(allLocations);
-          const currentLocationId = localStorage.getItem('dcms_current_location');
-          const currentLocation = allLocations.find(l => l.id === currentLocationId);
-          setIsBikeRental(currentLocation?.type === 'bike_rental');
         }
       } catch (error) {
         console.error('Error loading locations:', error);
@@ -356,15 +350,46 @@ const CustomerForm = () => {
     try {
       // Get settings (async in API mode)
       const settingsData = await dataService.getAll('settings');
-      const settings = Array.isArray(settingsData) && settingsData.length > 0 ? settingsData[0] : null;
       
-      if (!settings || !settings.certificationUrls) {
-        console.error('Settings not found or certification URLs not configured', { settings, settingsData });
-        alert('Certification verification URLs not configured. Please check Settings page.');
+      // Handle both array and single object responses
+      let settings = null;
+      if (Array.isArray(settingsData)) {
+        settings = settingsData.length > 0 ? settingsData[0] : null;
+      } else if (settingsData && typeof settingsData === 'object') {
+        settings = settingsData;
+      }
+      
+      // Check for certificationUrls in various possible formats
+      // Try all possible locations
+      let certificationUrls = null;
+      if (settings) {
+        certificationUrls = settings.certificationUrls 
+          || settings.certification_urls 
+          || settings.value?.certificationUrls 
+          || settings.value?.certification_urls
+          || (settings.value && typeof settings.value === 'object' && settings.value.certificationUrls)
+          || (settings.value && typeof settings.value === 'object' && settings.value.certification_urls);
+      }
+      
+      // Validate certificationUrls exists and has content
+      const hasValidUrls = certificationUrls && 
+        typeof certificationUrls === 'object' && 
+        Object.keys(certificationUrls).length > 0 &&
+        Object.values(certificationUrls).some(url => url && url.trim() !== '');
+      
+      if (!settings || !hasValidUrls) {
+        console.error('Settings not found or certification URLs not configured', { 
+          settings, 
+          settingsData, 
+          certificationUrls,
+          hasValidUrls,
+          urlCount: certificationUrls ? Object.keys(certificationUrls).length : 0
+        });
+        alert('Certification verification URLs not configured. Please check Settings page and save the certification URLs.');
         return;
       }
       
-      const url = settings.certificationUrls[agency];
+      const url = certificationUrls[agency];
       
       if (url) {
         // Open verification portal in popup window
@@ -647,9 +672,7 @@ const CustomerForm = () => {
             </Grid>
 
             {/* Customer Type and Skill Level - only for diving locations */}
-            {!isBikeRental && (
-              <>
-                <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6}>
                   <TextField
                     select
                     label="Customer Type"
@@ -678,8 +701,6 @@ const CustomerForm = () => {
                     <MenuItem value="advanced">Advanced</MenuItem>
                   </TextField>
                 </Grid>
-              </>
-            )}
 
             {isAdmin() && (
               <Grid item xs={12}>
@@ -705,10 +726,8 @@ const CustomerForm = () => {
               </Grid>
             )}
 
-            {/* Equipment & Suit Preferences - only for diving locations */}
-            {!isBikeRental && (
-              <>
-                <Divider sx={{ my: 2, width: '100%' }} />
+            {/* Equipment & Suit Preferences */}
+            <Divider sx={{ my: 2, width: '100%' }} />
 
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
@@ -920,11 +939,9 @@ const CustomerForm = () => {
                 </Alert>
               </Grid>
             )}
-              </>
-            )}
 
-            {/* Certifications Section - Admin only - only for diving locations */}
-            {!isBikeRental && isAdmin() && (
+            {/* Certifications Section - Admin only */}
+            {isAdmin() && (
               <>
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
@@ -1176,9 +1193,8 @@ const CustomerForm = () => {
                   </>
                 )}
 
-                {/* Diving Insurance Section - only for diving locations */}
-                {!isBikeRental && (
-                  <>
+                {/* Diving Insurance Section */}
+                <>
                     <Divider sx={{ my: 2, width: '100%' }} />
 
                     <Grid item xs={12}>

@@ -1,6 +1,6 @@
 {
   "name": "dcms-backend",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Dive Center Management System - Backend API",
   "author": "Philippe Couteret",
   "private": true,
@@ -23,6 +23,7 @@
     "prisma:studio": "prisma studio",
     "seed:users": "ts-node src/scripts/seed-users.ts",
     "seed:settings": "ts-node src/scripts/seed-settings.ts",
+    "seed:dive-sites:caleta": "ts-node src/scripts/seed-dive-sites-caleta.ts",
     "seed": "npm run seed:users && npm run seed:settings"
   },
   "dependencies": {

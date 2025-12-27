@@ -44,15 +44,150 @@ const Prices = () => {
     loadLocations().catch(err => console.error('Error loading locations:', err));
   }, []);
 
+  // Initialize default settings based on Deep Blue Diving 2025 pricelist
+  const getDefaultSettings = () => ({
+    prices: {
+      equipment: {
+        complete_equipment: 13, // First 8 dives only
+        Suit: 5,
+        BCD: 5,
+        Regulator: 5,
+        Torch: 5,
+        Computer: 3,
+        UWCamera: 20
+      },
+      addons: {
+        night_dive: 20,
+        personal_instructor: 100
+      },
+      diveInsurance: {
+        one_day: 7,
+        one_week: 18,
+        one_month: 25,
+        one_year: 45
+      },
+      beverages: {},
+      tax: {
+        igic_rate: 0.07
+      }
+    }
+  });
+
   const loadSettings = async () => {
     try {
       const settingsData = await dataService.getAll('settings') || [];
       if (settingsData && settingsData.length > 0) {
-        setSettings(settingsData[0]);
+        const existingSettings = settingsData[0];
+        // Merge with defaults to ensure all fields exist
+        const defaultSettings = getDefaultSettings();
+        const mergedSettings = {
+          ...existingSettings,
+          prices: {
+            ...defaultSettings.prices,
+            ...existingSettings.prices,
+            equipment: {
+              ...defaultSettings.prices.equipment,
+              ...(existingSettings.prices?.equipment || {})
+            },
+            addons: {
+              ...defaultSettings.prices.addons,
+              ...(existingSettings.prices?.addons || {})
+            },
+            diveInsurance: {
+              ...defaultSettings.prices.diveInsurance,
+              ...(existingSettings.prices?.diveInsurance || {})
+            }
+          }
+        };
+        setSettings(mergedSettings);
+      } else {
+        // No settings exist, create default
+        setSettings(getDefaultSettings());
       }
     } catch (error) {
       console.error('Error loading settings:', error);
     }
+  };
+
+  // Initialize default pricing tiers based on Deep Blue Diving 2025 pricelist
+  // For Caleta de Fuste: 46, 44, 42, 40, 38
+  // For Las Playitas Caleta dives: 45, 43, 41, 39, 37
+  const getDefaultDiveTiers = (isPlayitas = false) => {
+    if (isPlayitas) {
+      // Las Playitas Caleta dive pricing (from Playitas to Caleta)
+      return [
+        { dives: 1, price: 45, description: '1-2 dives' },
+        { dives: 3, price: 43, description: '3-5 dives' },
+        { dives: 6, price: 41, description: '6-8 dives' },
+        { dives: 9, price: 39, description: '9-12 dives' },
+        { dives: 13, price: 37, description: '13+ dives' }
+      ];
+    } else {
+      // Caleta de Fuste pricing
+      return [
+        { dives: 1, price: 46, description: '1-2 dives' },
+        { dives: 3, price: 44, description: '3-5 dives' },
+        { dives: 6, price: 42, description: '6-8 dives' },
+        { dives: 9, price: 40, description: '9-12 dives' },
+        { dives: 13, price: 38, description: '13+ dives' }
+      ];
+    }
+  };
+
+  // Initialize default pricing if missing
+  const initializeLocationPricing = (loc) => {
+    const isPlayitas = loc.name === 'Las Playitas' || loc.id === 'playitas' || loc.id === '550e8400-e29b-41d4-a716-446655440002';
+    
+    if (!loc.pricing) {
+      loc.pricing = {};
+    }
+    if (!loc.pricing.customerTypes) {
+      loc.pricing.customerTypes = {};
+    }
+    if (!loc.pricing.customerTypes.tourist) {
+      loc.pricing.customerTypes.tourist = {
+        orientationDive: 32,
+        discoverDive: 100,
+        diveTiers: getDefaultDiveTiers(isPlayitas)
+      };
+      // Las Playitas specific: local dive price
+      if (isPlayitas) {
+        loc.pricing.customerTypes.tourist.pricePerDive = 35; // Playitas local dive price
+      }
+    } else {
+      // Ensure dive tiers exist
+      if (!loc.pricing.customerTypes.tourist.diveTiers || loc.pricing.customerTypes.tourist.diveTiers.length === 0) {
+        loc.pricing.customerTypes.tourist.diveTiers = getDefaultDiveTiers(isPlayitas);
+      }
+      // Ensure orientation and discover prices exist
+      if (!loc.pricing.customerTypes.tourist.orientationDive) {
+        loc.pricing.customerTypes.tourist.orientationDive = 32;
+      }
+      if (!loc.pricing.customerTypes.tourist.discoverDive) {
+        loc.pricing.customerTypes.tourist.discoverDive = 100;
+      }
+      // Las Playitas specific: ensure local dive price exists
+      if (isPlayitas && !loc.pricing.customerTypes.tourist.pricePerDive) {
+        loc.pricing.customerTypes.tourist.pricePerDive = 35;
+      }
+    }
+    
+    // Initialize addons for Las Playitas
+    if (isPlayitas) {
+      if (!loc.pricing.addons) {
+        loc.pricing.addons = {};
+      }
+      // Transfer to Caleta: 15€ (from Las Playitas pricelist)
+      if (loc.pricing.addons.transfer_to_caleta === undefined) {
+        loc.pricing.addons.transfer_to_caleta = 15;
+      }
+      // Dive trip (Gran Tarajal, La Lajita): 45€ (from Las Playitas pricelist)
+      if (loc.pricing.addons.dive_trip_gran_tarajal_lajita === undefined) {
+        loc.pricing.addons.dive_trip_gran_tarajal_lajita = 45;
+      }
+    }
+    
+    return loc;
   };
 
   const loadLocations = async () => {
@@ -60,12 +195,16 @@ const Prices = () => {
       const locs = await dataService.getAll('locations') || [];
       if (!Array.isArray(locs)) return;
       
+      // Filter out bike rental locations (removed for now)
+      const filteredLocs = locs.filter(loc => loc.type !== 'bike_rental');
+      
       // Handle pricing that might be in settings.pricing or directly in pricing
-      const processedLocs = locs.map(loc => {
+      // And initialize default pricing if missing
+      const processedLocs = filteredLocs.map(loc => {
         if (loc.settings?.pricing && !loc.pricing) {
           return { ...loc, pricing: loc.settings.pricing };
         }
-        return loc;
+        return initializeLocationPricing(loc);
       });
       
       setLocations(processedLocs);
@@ -130,8 +269,8 @@ const Prices = () => {
   // Check if selected location is Las Playitas
   const isPlayitas = selectedLocation && (selectedLocation.name === 'Las Playitas' || selectedLocation.id === 'playitas' || selectedLocation.id === '550e8400-e29b-41d4-a716-446655440002');
   
-  // Check if selected location is Bike Rental
-  const isBikeRental = selectedLocation?.type === 'bike_rental';
+  // Bike rental functionality removed for now
+  const isBikeRental = false;
 
   const updateLocationPricing = (updater) => {
     setLocations(prev => prev.map(l => {
@@ -171,18 +310,21 @@ const Prices = () => {
 
   const addTouristTier = () => {
     const current = locPricing.customerTypes?.tourist?.diveTiers || [];
+    // Default to highest tier + 1
+    const maxDives = current.length > 0 ? Math.max(...current.map(t => t.dives)) : 0;
     const newTier = {
-      dives: current.length + 1,
-      price: 38.00,
-      description: `${current.length + 1}+ dives`
+      dives: maxDives + 1,
+      price: 38,
+      description: `${maxDives + 1}+ dives`
     };
+    const newTiers = [...current, newTier].sort((a, b) => a.dives - b.dives);
     updateLocationPricing((pricing) => ({
       ...pricing,
       customerTypes: {
         ...(pricing.customerTypes || {}),
         tourist: {
           ...(pricing.customerTypes?.tourist || {}),
-          diveTiers: [...(pricing.customerTypes?.tourist?.diveTiers || []), newTier]
+          diveTiers: newTiers
         }
       }
     }));
@@ -298,9 +440,7 @@ const Prices = () => {
         Price Management
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        {isBikeRental 
-          ? 'Manage all pricing configurations for bike rentals, equipment, and insurance.'
-          : 'Manage all pricing configurations for dives, equipment, and services.'}
+        Manage all pricing configurations for dives, equipment, and services.
       </Typography>
 
       {/* Location selector for pricing scope */}
@@ -541,9 +681,8 @@ const Prices = () => {
           </>
         )}
 
-        {/* Diving-related pricing - only show for diving locations */}
-        {!isBikeRental && (
-          <>
+        {/* Diving-related pricing */}
+        <>
             {/* Customer Type Pricing */}
             <Grid item xs={12}>
               <Card>
@@ -917,8 +1056,7 @@ const Prices = () => {
             </CardContent>
           </Card>
         </Grid>
-          </>
-        )}
+        </>
 
         {/* Save Button */}
         <Grid item xs={12}>

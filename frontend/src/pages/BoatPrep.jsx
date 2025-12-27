@@ -985,7 +985,7 @@ const BoatPrep = () => {
     }
   };
 
-  const savePreparation = () => {
+  const savePreparation = async () => {
     if (shouldUseBoatPrep) {
       // Validate only boats with assigned divers have required staff
       // Empty boats don't need staff validation
@@ -1026,6 +1026,8 @@ const BoatPrep = () => {
           return;
       }
       
+      // Collect all payloads first
+      const prepPayloads = [];
       Object.keys(boatAssignments).forEach(boatId => {
         const diverIds = boatAssignments[boatId] || [];
         if (diverIds.length > 0) {
@@ -1060,9 +1062,21 @@ const BoatPrep = () => {
             },
             createdAt: new Date().toISOString()
           };
-          dataService.create('boatPreps', payload);
+          prepPayloads.push(payload);
         }
       });
+      
+      // Save all preps in parallel
+      await Promise.all(prepPayloads.map(payload => dataService.create('boatPreps', payload)));
+      
+      // Reload boat preps after saving
+      const updatedPreps = await dataService.getAll('boatPreps');
+      const prepsArray = Array.isArray(updatedPreps) ? updatedPreps : [];
+      setBoatPreps(prepsArray);
+      
+      // Set reportDate to match the saved date so it shows in post-dive immediately
+      setReportDate(date);
+      
       alert('Boat preparation saved for all boats.');
     } else {
       // Shore dive preparation
@@ -1096,7 +1110,16 @@ const BoatPrep = () => {
         locationId: resolvedLocationId, // Store resolved UUID locationId for filtering
         createdAt: new Date().toISOString()
       };
-      dataService.create('boatPreps', payload);
+      await dataService.create('boatPreps', payload);
+      
+      // Reload boat preps after saving
+      const updatedPreps = await dataService.getAll('boatPreps');
+      const prepsArray = Array.isArray(updatedPreps) ? updatedPreps : [];
+      setBoatPreps(prepsArray);
+      
+      // Set reportDate to match the saved date so it shows in post-dive immediately
+      setReportDate(date);
+      
       alert('Shore dive preparation saved.');
     }
   };
@@ -1154,17 +1177,24 @@ const BoatPrep = () => {
   // Get prepared dives for post-dive reports (includes both completed and not-yet-completed)
   const postDivePreparations = useMemo(() => {
     const allPreps = boatPreps;
+    
     const filtered = allPreps.filter(prep => {
       const prepDate = prep.date?.split('T')[0] || prep.date;
       const selectedReportDate = reportDate?.split('T')[0] || reportDate;
+      // Handle both camelCase and snake_case for locationId
+      const prepLocationId = prep.locationId || prep.location_id;
       // If locationId is missing, allow it (for backwards compatibility with old preps)
-      const locationMatch = prep.locationId === resolvedLocationId || !prep.locationId;
+      const locationMatch = prepLocationId === resolvedLocationId || !prepLocationId;
       const dateMatch = prepDate === selectedReportDate;
       // Show all prepared dives (have a diveSiteId), not just completed ones
-      const hasDiveSite = !!prep.diveSiteId;
+      // Handle both camelCase and snake_case
+      const hasDiveSite = !!(prep.diveSiteId || prep.dive_site_id);
       
-      return locationMatch && dateMatch && hasDiveSite;
+      const passes = locationMatch && dateMatch && hasDiveSite;
+      
+      return passes;
     });
+    
     return filtered;
   }, [reportDate, resolvedLocationId, boatPreps]);
 
@@ -1194,8 +1224,30 @@ const BoatPrep = () => {
     }));
   };
 
-  const savePostDiveReport = (prepId, markCompleted = false) => {
+  const deleteBoatPrep = async (prepId) => {
+    if (!window.confirm('Are you sure you want to delete this boat preparation? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await dataService.remove('boatPreps', prepId);
+      // Reload boat preps after deletion
+      const updatedPreps = await dataService.getAll('boatPreps');
+      setBoatPreps(Array.isArray(updatedPreps) ? updatedPreps : []);
+      alert('Boat preparation deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting boat prep:', error);
+      alert('Error deleting boat preparation. Please try again.');
+    }
+  };
+
+  const savePostDiveReport = async (prepId, markCompleted = false) => {
     const prep = postDivePreparations.find(p => p.id === prepId);
+    if (!prep) {
+      alert('Error: Could not find preparation to update.');
+      return;
+    }
+    
     const edits = editingReports[prepId] || {};
     const updatedPrep = {
       ...prep,
@@ -1215,14 +1267,25 @@ const BoatPrep = () => {
         reportDate: new Date().toISOString()
       }
     };
-    dataService.update('boatPreps', prepId, updatedPrep);
-    setEditingReports(prev => {
-      const newState = { ...prev };
-      delete newState[prepId];
-      return newState;
-    });
-    setRefreshKey(prev => prev + 1); // Refresh to update the display
-    alert(markCompleted ? 'Dive confirmed and marked as completed.' : 'Post-dive report saved successfully.');
+    
+    try {
+      await dataService.update('boatPreps', prepId, updatedPrep);
+      
+      // Reload boat preps after updating
+      const updatedPreps = await dataService.getAll('boatPreps');
+      setBoatPreps(Array.isArray(updatedPreps) ? updatedPreps : []);
+      
+      setEditingReports(prev => {
+        const newState = { ...prev };
+        delete newState[prepId];
+        return newState;
+      });
+      
+      alert(markCompleted ? 'Dive confirmed and marked as completed.' : 'Post-dive report saved successfully.');
+    } catch (error) {
+      console.error('Error saving post-dive report:', error);
+      alert('Error saving post-dive report. Please try again.');
+    }
   };
 
   const exportComplianceReport = (completedPreps) => {
@@ -2283,25 +2346,36 @@ const BoatPrep = () => {
                         sx={{ mb: 2 }}
                       />
 
-                      <Box display="flex" gap={2}>
-                        <Button 
-                          variant={isCompleted ? "outlined" : "contained"}
-                          color={isCompleted ? "success" : "primary"}
-                          onClick={() => savePostDiveReport(prep.id, !isCompleted)}
-                          fullWidth
-                        >
-                          {isCompleted ? 'Already Completed' : 'Confirm & Complete Dive'}
-                        </Button>
-                        {!isCompleted && (
+                      <Box display="flex" gap={2} flexDirection="column">
+                        <Box display="flex" gap={2}>
                           <Button 
-                            variant="outlined"
-                            color="primary"
-                            onClick={() => savePostDiveReport(prep.id, false)}
+                            variant={isCompleted ? "outlined" : "contained"}
+                            color={isCompleted ? "success" : "primary"}
+                            onClick={() => savePostDiveReport(prep.id, !isCompleted)}
                             fullWidth
                           >
-                            Save (Don't Complete)
+                            {isCompleted ? 'Already Completed' : 'Confirm & Complete Dive'}
                           </Button>
-                        )}
+                          {!isCompleted && (
+                            <Button 
+                              variant="outlined"
+                              color="primary"
+                              onClick={() => savePostDiveReport(prep.id, false)}
+                              fullWidth
+                            >
+                              Save (Don't Complete)
+                            </Button>
+                          )}
+                        </Box>
+                        <Button 
+                          variant="outlined"
+                          color="error"
+                          onClick={() => deleteBoatPrep(prep.id)}
+                          startIcon={<DeleteIcon />}
+                          fullWidth
+                        >
+                          Delete/Cancel Dive
+                        </Button>
                       </Box>
                     </Paper>
                   </Grid>

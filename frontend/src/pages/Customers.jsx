@@ -53,43 +53,9 @@ const Customers = () => {
   const [customers, setCustomers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [locations, setLocations] = useState([]);
-  const [isBikeRental, setIsBikeRental] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [importProgress, setImportProgress] = useState({ total: 0, processed: 0, successful: 0, errors: [] });
   const [importing, setImporting] = useState(false);
-
-  // Check if current location is bike rental and refresh customers when location changes
-  useEffect(() => {
-    const checkLocation = async () => {
-      try {
-        const allLocations = await dataService.getAll('locations') || [];
-        if (Array.isArray(allLocations)) {
-          setLocations(allLocations);
-          const currentLocationId = localStorage.getItem('dcms_current_location');
-          const currentLocation = allLocations.find(l => l.id === currentLocationId);
-          const isBikeRentalLocation = currentLocation?.type === 'bike_rental';
-          setIsBikeRental(isBikeRentalLocation);
-          // Reload customers when location type changes
-          if (!mode && !customerId) {
-            loadCustomers();
-          }
-        }
-      } catch (error) {
-        console.error('Error loading locations:', error);
-      }
-    };
-    checkLocation();
-    
-    // Listen for location changes
-    const onLocChange = () => {
-      checkLocation();
-    };
-    window.addEventListener('dcms_location_changed', onLocChange);
-    
-    return () => {
-      window.removeEventListener('dcms_location_changed', onLocChange);
-    };
-  }, [mode, customerId]);
 
   useEffect(() => {
     if (!mode && !customerId) {
@@ -147,12 +113,6 @@ const Customers = () => {
 
   const loadCustomers = async () => {
     try {
-      // Get current location type to determine filtering
-      const allLocations = await dataService.getAll('locations') || [];
-      const currentLocationId = localStorage.getItem('dcms_current_location');
-      const currentLocation = Array.isArray(allLocations) ? allLocations.find(l => l.id === currentLocationId) : null;
-      const isBikeRentalLocation = currentLocation?.type === 'bike_rental';
-      
       const allCustomers = await dataService.getAll('customers');
       // Ensure we have an array
       if (!Array.isArray(allCustomers)) {
@@ -160,25 +120,12 @@ const Customers = () => {
         return;
       }
       
-      // Filter customers based on location type
-      // Bike rental customers: don't have customerType (no diving-related data)
-      // Diving customers: have customerType (tourist/local/recurrent)
-      let filteredCustomers = allCustomers;
-      if (isBikeRentalLocation) {
-        // For bike rental locations: only show customers without customerType (bike rental customers)
-        filteredCustomers = allCustomers.filter(customer => {
-          // Bike rental customers don't have customerType or it's empty/undefined
-          const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
-          return !hasCustomerType;
-        });
-      } else {
-        // For diving locations: only show customers with customerType (diving customers)
-        filteredCustomers = allCustomers.filter(customer => {
-          // Diving customers have customerType (tourist/local/recurrent)
-          const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
-          return hasCustomerType;
-        });
-      }
+      // Show all customers with customerType (diving customers)
+      const filteredCustomers = allCustomers.filter(customer => {
+        // Diving customers have customerType (tourist/local/recurrent)
+        const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
+        return hasCustomerType;
+      });
       
       setCustomers(filteredCustomers);
     } catch (error) {
@@ -524,32 +471,29 @@ const Customers = () => {
                       {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.email || 'Unknown Customer'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      {/* Customer Type and Skill Level - only for diving locations */}
-                      {!isBikeRental && (
-                        <>
-                          <Chip 
-                            label={customer.customerType || 'tourist'} 
-                            size="small" 
-                            variant="outlined"
-                          />
-                          <Chip 
-                            label={`Skill: ${customer.centerSkillLevel || 'beginner'}`}
-                            size="small"
-                            color="info"
-                            variant="outlined"
-                          />
-                        </>
-                      )}
-                      {/* Approval status - only for diving locations */}
-                      {!isBikeRental && (
-                        <>
-                          <Chip 
-                            label={customer.isApproved ? 'Approved' : 'Pending'}
-                            size="small"
-                            color={customer.isApproved ? 'success' : 'warning'}
-                            variant={customer.isApproved ? 'filled' : 'outlined'}
-                            icon={customer.isApproved ? <VerifiedIcon /> : <PendingIcon />}
-                          />
+                      {/* Customer Type and Skill Level */}
+                      <>
+                        <Chip 
+                          label={customer.customerType || 'tourist'} 
+                          size="small" 
+                          variant="outlined"
+                        />
+                        <Chip 
+                          label={`Skill: ${customer.centerSkillLevel || 'beginner'}`}
+                          size="small"
+                          color="info"
+                          variant="outlined"
+                        />
+                      </>
+                      {/* Approval status */}
+                      <>
+                        <Chip 
+                          label={customer.isApproved ? 'Approved' : 'Pending'}
+                          size="small"
+                          color={customer.isApproved ? 'success' : 'warning'}
+                          variant={customer.isApproved ? 'filled' : 'outlined'}
+                          icon={customer.isApproved ? <VerifiedIcon /> : <PendingIcon />}
+                        />
                           {isAdmin() && (
                             <Button
                               size="small"
@@ -580,8 +524,7 @@ const Customers = () => {
                               {customer.isApproved ? 'Revoke' : 'Approve'}
                             </Button>
                           )}
-                        </>
-                      )}
+                      </>
                       <Typography variant="body2" color="text.secondary">
                         {customer.email}
                       </Typography>
@@ -611,15 +554,13 @@ const Customers = () => {
                       {t('customers.nationality')}: {customer.nationality}
                     </Typography>
                   )}
-                  {/* Customer Type - only for diving locations */}
-                  {!isBikeRental && (
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {t('customers.type')}: {customer.customerType || 'tourist'}
-                    </Typography>
-                  )}
+                  {/* Customer Type */}
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {t('customers.type')}: {customer.customerType || 'tourist'}
+                  </Typography>
                   
-                  {/* Medical Certificate Status - only for diving locations */}
-                  {!isBikeRental && customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
+                  {/* Medical Certificate Status */}
+                  {customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                         {t('customers.medicalCertificate') || 'Medical Certificate'}:
@@ -658,8 +599,8 @@ const Customers = () => {
                     </Box>
                       )}
 
-                      {/* Diving Insurance Status - only for diving locations */}
-                      {!isBikeRental && customer.divingInsurance && customer.divingInsurance.hasInsurance && (
+                      {/* Diving Insurance Status */}
+                      {customer.divingInsurance && customer.divingInsurance.hasInsurance && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                         {t('customers.divingInsurance') || 'Diving Insurance'}:
@@ -698,8 +639,8 @@ const Customers = () => {
                     </Box>
                       )}
                       
-                      {/* Certifications - only for diving locations */}
-                      {!isBikeRental && customer.certifications && customer.certifications.length > 0 && (
+                      {/* Certifications */}
+                      {customer.certifications && customer.certifications.length > 0 && (
                         <Box sx={{ mt: 2 }}>
                           <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                             {t('customers.certifications') || 'Certifications'}:
