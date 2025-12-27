@@ -22,7 +22,7 @@ import {
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
-import stayService from '../services/stayService';
+import stayService, { getCustomerStayBookings } from '../services/stayService';
 import stayCostsService from '../services/stayCostsService';
 
 const Bill = () => {
@@ -40,6 +40,7 @@ const Bill = () => {
   const [otherItems, setOtherItems] = useState([{ name: '', price: 0 }]);
   const [calculatedBill, setCalculatedBill] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [partnerInvoicesCreated, setPartnerInvoicesCreated] = useState(false);
 
   useEffect(() => {
     if (stay) {
@@ -259,6 +260,86 @@ const Bill = () => {
       calculateBill();
     }
   }, [settings, locations, billData, stay, calculateBill]);
+
+  // Create partner invoices when bill is calculated
+  useEffect(() => {
+    const createPartnerInvoices = async () => {
+      if (!calculatedBill || partnerInvoicesCreated || !stay) return;
+
+      try {
+        // Get all bookings for this stay
+        const stayBookings = await getCustomerStayBookings(stay.customer.id, stay.stayStartDate);
+        
+        // Group bookings by partner
+        const bookingsByPartner = {};
+        stayBookings.forEach(booking => {
+          const partnerId = booking.partnerId || booking.partner_id;
+          if (partnerId) {
+            if (!bookingsByPartner[partnerId]) {
+              bookingsByPartner[partnerId] = [];
+            }
+            bookingsByPartner[partnerId].push(booking);
+          }
+        });
+
+        // Create invoice for each partner
+        const stayLocationId = (stay?.stayBookings && stay.stayBookings[0]?.locationId) || 
+                               localStorage.getItem('dcms_current_location');
+        
+        for (const [partnerId, bookings] of Object.entries(bookingsByPartner)) {
+          try {
+            // Calculate commission using backend service
+            const bookingIds = bookings.map(b => b.id);
+            
+            // Get partner to check commission rate
+            const partner = await dataService.getById('partners', partnerId);
+            if (!partner || partner.isActive === false) continue;
+
+            const commissionRate = partner.commissionRate || partner.commission_rate || 0;
+            if (!commissionRate || commissionRate === 0) continue;
+
+            // Calculate subtotal and commission
+            const subtotal = bookings.reduce((sum, booking) => {
+              return sum + (parseFloat(booking.totalPrice || booking.total_price || booking.price || 0));
+            }, 0);
+
+            const commissionAmount = subtotal * parseFloat(commissionRate);
+            const tax = commissionAmount * 0.07; // IGIC tax
+            const total = commissionAmount + tax;
+
+            // Create invoice
+            const invoiceDate = new Date().toISOString().split('T')[0];
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 30); // 30 days payment terms
+
+            await dataService.create('partnerInvoices', {
+              partnerId,
+              customerId: stay.customer.id,
+              billId: calculatedBill.billNumber,
+              locationId: stayLocationId,
+              invoiceDate,
+              dueDate: dueDate.toISOString().split('T')[0],
+              paymentTermsDays: 30,
+              subtotal,
+              tax,
+              total,
+              bookingIds,
+              notes: `Commission for bill ${calculatedBill.billNumber} - ${bookings.length} booking(s)`
+            });
+          } catch (error) {
+            console.error(`Error creating invoice for partner ${partnerId}:`, error);
+            // Continue with other partners even if one fails
+          }
+        }
+
+        setPartnerInvoicesCreated(true);
+      } catch (error) {
+        console.error('Error creating partner invoices:', error);
+      }
+    };
+
+    createPartnerInvoices();
+  }, [calculatedBill, stay, partnerInvoicesCreated]);
 
   const printBill = () => {
     window.print();

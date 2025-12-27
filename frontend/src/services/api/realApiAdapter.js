@@ -25,6 +25,9 @@ const realApiAdapter = {
     } else if (resource === 'partners') {
       // Frontend calls it 'partners', backend uses 'partners'
       endpoint = 'partners';
+    } else if (resource === 'partnerInvoices') {
+      // Frontend calls it 'partnerInvoices', backend uses 'partner-invoices'
+      endpoint = 'partner-invoices';
     } else if (resource === 'staff') {
       // Frontend calls it 'staff', backend uses 'staff'
       endpoint = 'staff';
@@ -42,6 +45,7 @@ const realApiAdapter = {
     else if (resource === 'governmentBonos') endpoint = 'government-bonos';
     else if (resource === 'boatPreps') endpoint = 'boat-preps';
     else if (resource === 'partners') endpoint = 'partners';
+    else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
     else if (resource === 'staff') endpoint = 'staff';
     
     const response = await httpClient.get(`/${endpoint}/${id}`);
@@ -75,6 +79,8 @@ const realApiAdapter = {
       transformedData = this.transformDiveSiteToBackend(data);
     } else if (resource === 'boatPreps') {
       transformedData = this.transformBoatPrepToBackend(data);
+    } else if (resource === 'partnerInvoices') {
+      transformedData = this.transformPartnerInvoiceToBackend(data);
     }
     const response = await httpClient.post(`/${endpoint}`, transformedData);
     return this.transformResponse(resource, response.data || response);
@@ -108,6 +114,8 @@ const realApiAdapter = {
       transformedData = this.transformDiveSiteToBackend(data);
     } else if (resource === 'boatPreps') {
       transformedData = this.transformBoatPrepToBackend(data);
+    } else if (resource === 'partnerInvoices') {
+      transformedData = this.transformPartnerInvoiceToBackend(data);
     }
     const response = await httpClient.put(`/${endpoint}/${id}`, transformedData);
     return this.transformResponse(resource, response.data || response);
@@ -375,6 +383,53 @@ const realApiAdapter = {
     };
   },
 
+  transformPartnerInvoiceToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    // Backend DTO expects camelCase
+    return {
+      partnerId: data.partnerId || data.partner_id,
+      customerId: data.customerId || data.customer_id || null,
+      billId: data.billId || data.bill_id || null,
+      locationId: data.locationId || data.location_id,
+      invoiceDate: data.invoiceDate || data.invoice_date,
+      dueDate: data.dueDate || data.due_date,
+      paymentTermsDays: data.paymentTermsDays || data.payment_terms_days || 30,
+      subtotal: data.subtotal,
+      tax: data.tax || 0,
+      total: data.total,
+      bookingIds: data.bookingIds || data.booking_ids || [],
+      notes: data.notes || null,
+    };
+  },
+
+  transformPartnerInvoiceFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      partnerId: data.partner_id || data.partnerId,
+      customerId: data.customer_id || data.customerId || null,
+      billId: data.bill_id || data.billId || null,
+      locationId: data.location_id || data.locationId,
+      invoiceNumber: data.invoice_number || data.invoiceNumber,
+      invoiceDate: data.invoice_date || data.invoiceDate,
+      dueDate: data.due_date || data.dueDate,
+      paymentTermsDays: data.payment_terms_days || data.paymentTermsDays || 30,
+      subtotal: parseFloat(data.subtotal) || 0,
+      tax: parseFloat(data.tax) || 0,
+      total: parseFloat(data.total) || 0,
+      paidAmount: data.paid_amount !== undefined ? parseFloat(data.paid_amount) : (data.paidAmount !== undefined ? parseFloat(data.paidAmount) : 0),
+      status: data.status || 'pending',
+      bookingIds: data.booking_ids || data.bookingIds || [],
+      notes: data.notes || null,
+      paidAt: data.paid_at || data.paidAt || null,
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+      partner: data.partners ? this.transformPartnerFromBackend(data.partners) : null,
+    };
+  },
+
   transformResponse(resource, data) {
     if (!data) return data;
     if (resource === 'customers') {
@@ -430,6 +485,12 @@ const realApiAdapter = {
         return data.map(item => this.transformBoatPrepFromBackend(item));
       }
       return this.transformBoatPrepFromBackend(data);
+    }
+    if (resource === 'partnerInvoices') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformPartnerInvoiceFromBackend(item));
+      }
+      return this.transformPartnerInvoiceFromBackend(data);
     }
     return data;
   },
@@ -682,6 +743,7 @@ const realApiAdapter = {
     else if (resource === 'governmentBonos') endpoint = 'government-bonos';
     else if (resource === 'boatPreps') endpoint = 'boat-preps';
     else if (resource === 'partners') endpoint = 'partners';
+    else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
     else if (resource === 'staff') endpoint = 'staff';
     
     const response = await httpClient.delete(`/${endpoint}/${id}`);

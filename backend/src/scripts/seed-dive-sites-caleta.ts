@@ -223,7 +223,7 @@ async function main() {
   console.log('🌊 Seeding dive sites for Caleta de Fuste...\n');
 
   // Check if location exists
-  const location = await prisma.location.findUnique({
+  const location = await prisma.locations.findUnique({
     where: { id: CALETA_LOCATION_ID }
   });
 

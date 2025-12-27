@@ -19,6 +19,8 @@ import { BoatPrepsModule } from './boat-preps/boat-preps.module';
 import { SettingsModule } from './settings/settings.module';
 import { PartnersModule } from './partners/partners.module';
 import { PartnerModule } from './partner/partner.module';
+import { PartnerInvoicesModule } from './partner-invoices/partner-invoices.module';
+import { PartnerAuthModule } from './partner-auth/partner-auth.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -44,6 +46,8 @@ import { UsersModule } from './users/users.module';
     SettingsModule,
     PartnersModule,
     PartnerModule,
+    PartnerInvoicesModule,
+    PartnerAuthModule,
     UsersModule,
   ],
   controllers: [AppController],

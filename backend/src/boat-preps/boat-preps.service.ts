@@ -36,8 +36,8 @@ export class BoatPrepsService {
       include: {
         locations: true,
         boats: true,
-        dive_sites: true,
-        actual_dive_sites: true,
+        dive_sites_boat_preps_dive_site_idTodive_sites: true,
+        dive_sites_boat_preps_actual_dive_site_idTodive_sites: true,
       },
       orderBy: { date: 'desc' },
     });
@@ -49,8 +49,8 @@ export class BoatPrepsService {
       include: {
         locations: true,
         boats: true,
-        dive_sites: true,
-        actual_dive_sites: true,
+        dive_sites_boat_preps_dive_site_idTodive_sites: true,
+        dive_sites_boat_preps_actual_dive_site_idTodive_sites: true,
       },
       orderBy: { date: 'desc' },
     });
@@ -68,8 +68,8 @@ export class BoatPrepsService {
       include: {
         locations: true,
         boats: true,
-        dive_sites: true,
-        actual_dive_sites: true,
+        dive_sites_boat_preps_dive_site_idTodive_sites: true,
+        dive_sites_boat_preps_actual_dive_site_idTodive_sites: true,
       },
       orderBy: { date: 'desc' },
     });
@@ -81,8 +81,8 @@ export class BoatPrepsService {
       include: {
         locations: true,
         boats: true,
-        dive_sites: true,
-        actual_dive_sites: true,
+        dive_sites_boat_preps_dive_site_idTodive_sites: true,
+        dive_sites_boat_preps_actual_dive_site_idTodive_sites: true,
       },
     });
 
@@ -110,8 +110,8 @@ export class BoatPrepsService {
       include: {
         locations: true,
         boats: true,
-        dive_sites: true,
-        actual_dive_sites: true,
+        dive_sites_boat_preps_dive_site_idTodive_sites: true,
+        dive_sites_boat_preps_actual_dive_site_idTodive_sites: true,
       },
     });
   }
@@ -137,8 +137,8 @@ export class BoatPrepsService {
       include: {
         locations: true,
         boats: true,
-        dive_sites: true,
-        actual_dive_sites: true,
+        dive_sites_boat_preps_dive_site_idTodive_sites: true,
+        dive_sites_boat_preps_actual_dive_site_idTodive_sites: true,
       },
     });
   }

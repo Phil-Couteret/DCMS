@@ -100,7 +100,7 @@ export class PartnerBookingsService {
 
   async create(dto: CreatePartnerBookingDto, partnerId: string) {
     // Verify location exists and is allowed
-    const location = await this.prisma.location.findUnique({
+    const location = await this.prisma.locations.findUnique({
       where: { id: dto.locationId },
     });
     if (!location) {

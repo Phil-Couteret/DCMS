@@ -114,7 +114,7 @@ export class BookingsService {
       throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
     }
 
-    const location = await this.prisma.location.findUnique({
+    const location = await this.prisma.locations.findUnique({
       where: { id: dto.locationId },
     });
     if (!location) {

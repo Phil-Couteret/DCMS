@@ -7,30 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Location {
-  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String            @db.VarChar(100)
-  type            location_type
-  address         Json
-  contactInfo     Json              @map("contact_info")
-  settings        Json?             @default("{}")
-  isActive        Boolean?          @default(true) @map("is_active")
-  createdAt       DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  boats           boats[]
-  bookings        bookings[]
-  dive_sites      dive_sites[]
-  equipment       equipment[]
-  pricing_configs pricing_configs[]
-  staff           staff[]
-  boat_preps      boat_preps[]
-
-  @@index([isActive], map: "idx_locations_active")
-  @@index([type], map: "idx_locations_type")
-  @@map("locations")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model audit_logs {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id       String?   @db.Uuid
@@ -52,7 +28,30 @@ model audit_logs {
   @@index([user_type], map: "idx_audit_logs_user_type")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model boat_preps {
+  id                                                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id                                           String      @db.Uuid
+  date                                                  DateTime    @db.Date
+  session                                               String      @db.VarChar(50)
+  boat_id                                               String?     @db.Uuid
+  diver_ids                                             Json        @default("[]")
+  dive_site_id                                          String?     @db.Uuid
+  actual_dive_site_id                                   String?     @db.Uuid
+  dive_site_status                                      Json?       @default("{}")
+  post_dive_report                                      Json?       @default("{}")
+  staff                                                 Json?       @default("{}")
+  created_at                                            DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at                                            DateTime?   @default(now()) @db.Timestamptz(6)
+  dive_sites_boat_preps_actual_dive_site_idTodive_sites dive_sites? @relation("boat_preps_actual_dive_site_idTodive_sites", fields: [actual_dive_site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  boats                                                 boats?      @relation(fields: [boat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dive_sites_boat_preps_dive_site_idTodive_sites        dive_sites? @relation("boat_preps_dive_site_idTodive_sites", fields: [dive_site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locations                                             locations   @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([boat_id], map: "idx_boat_preps_boat")
+  @@index([date], map: "idx_boat_preps_date")
+  @@index([location_id], map: "idx_boat_preps_location")
+}
+
 model boats {
   id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   location_id          String       @db.Uuid
@@ -63,9 +62,9 @@ model boats {
   is_active            Boolean?     @default(true)
   created_at           DateTime?    @default(now()) @db.Timestamptz(6)
   updated_at           DateTime?    @default(now()) @db.Timestamptz(6)
-  locations            Location     @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  bookings             bookings[]
   boat_preps           boat_preps[]
+  locations            locations    @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  bookings             bookings[]
 
   @@index([is_active], map: "idx_boats_active")
   @@index([location_id], map: "idx_boats_location")
@@ -84,47 +83,47 @@ model bono_usage {
 }
 
 model bookings {
-  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_id           String          @db.Uuid
-  location_id           String          @db.Uuid
-  boat_id               String?         @db.Uuid
-  dive_site_id          String?         @db.Uuid
-  staff_primary_id      String?         @db.Uuid
-  booking_date          DateTime        @db.Date
-  activity_type         activity_type
-  number_of_dives       Int?            @default(1)
-  price                 Decimal         @db.Decimal(10, 2)
-  discount              Decimal?        @default(0) @db.Decimal(10, 2)
-  total_price           Decimal         @db.Decimal(10, 2)
-  payment_method        payment_method?
-  payment_status        payment_status? @default(pending)
-  status                booking_status? @default(pending)
-  special_requirements  String?
-  equipment_needed      Json?           @default("[]")
-  bono_id               String?         @db.Uuid
-  government_payment    Decimal?        @default(0) @db.Decimal(10, 2)
-  customer_payment      Decimal?        @default(0) @db.Decimal(10, 2)
-  dive_sequence         Int?            @default(1)
-  stay_id               String?         @db.Uuid
-  source                booking_source? @default(direct)
-  partner_id            String?         @db.Uuid
-  created_by_partner_id String?         @db.Uuid
-  created_at            DateTime?       @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?       @default(now()) @db.Timestamptz(6)
-  bono_usage            bono_usage[]
-  boats                 boats?          @relation(fields: [boat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  customers             customers       @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  dive_sites            dive_sites?     @relation(fields: [dive_site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  locations             Location        @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  staff                 staff?          @relation(fields: [staff_primary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  customer_stays        customer_stays? @relation(fields: [stay_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partner               partners?       @relation("partner_bookings", fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partner_creator       partners?       @relation("partner_created_bookings", fields: [created_by_partner_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id                                                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id                                       String          @db.Uuid
+  location_id                                       String          @db.Uuid
+  boat_id                                           String?         @db.Uuid
+  dive_site_id                                      String?         @db.Uuid
+  staff_primary_id                                  String?         @db.Uuid
+  booking_date                                      DateTime        @db.Date
+  activity_type                                     activity_type
+  number_of_dives                                   Int?            @default(1)
+  price                                             Decimal         @db.Decimal(10, 2)
+  discount                                          Decimal?        @default(0) @db.Decimal(10, 2)
+  total_price                                       Decimal         @db.Decimal(10, 2)
+  payment_method                                    payment_method?
+  payment_status                                    payment_status? @default(pending)
+  status                                            booking_status? @default(pending)
+  special_requirements                              String?
+  equipment_needed                                  Json?           @default("[]")
+  bono_id                                           String?         @db.Uuid
+  government_payment                                Decimal?        @default(0) @db.Decimal(10, 2)
+  customer_payment                                  Decimal?        @default(0) @db.Decimal(10, 2)
+  dive_sequence                                     Int?            @default(1)
+  stay_id                                           String?         @db.Uuid
+  source                                            booking_source? @default(direct)
+  partner_id                                        String?         @db.Uuid
+  created_by_partner_id                             String?         @db.Uuid
+  created_at                                        DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at                                        DateTime?       @default(now()) @db.Timestamptz(6)
+  bono_usage                                        bono_usage[]
+  boats                                             boats?          @relation(fields: [boat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partners_bookings_created_by_partner_idTopartners partners?       @relation("bookings_created_by_partner_idTopartners", fields: [created_by_partner_id], references: [id], onUpdate: NoAction)
+  customers                                         customers       @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  dive_sites                                        dive_sites?     @relation(fields: [dive_site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locations                                         locations       @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partners_bookings_partner_idTopartners            partners?       @relation("bookings_partner_idTopartners", fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff                                             staff?          @relation(fields: [staff_primary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer_stays                                    customer_stays? @relation(fields: [stay_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([created_by_partner_id], map: "idx_bookings_created_by_partner")
   @@index([customer_id], map: "idx_bookings_customer")
   @@index([partner_id], map: "idx_bookings_partner")
   @@index([source], map: "idx_bookings_source")
-  @@index([created_by_partner_id], map: "idx_bookings_created_by_partner")
 }
 
 model certification_agencies {
@@ -162,7 +161,6 @@ model customer_certifications {
   @@index([customer_id], map: "idx_certifications_customer")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model customer_consents {
   id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   customer_id     String         @db.Uuid
@@ -200,250 +198,46 @@ model customer_stays {
   @@index([customer_id], map: "idx_customer_stays_customer")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model customers {
-  id                           String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  first_name                   String                         @db.VarChar(50)
-  last_name                    String                         @db.VarChar(50)
-  email                        String?                        @db.VarChar(100)
-  phone                        String?                        @db.VarChar(20)
-  dob                          DateTime?                      @db.Date
-  nationality                  String?                        @db.VarChar(50)
-  address                      Json?                          @default("{}")
-  customer_type                customer_type?
-  preferences                  Json?                          @default("{}")
-  medical_conditions           Json?                          @default("[]")
-  restrictions                 Json?                          @default("{}")
-  notes                        String?
-  is_active                    Boolean?                       @default(true)
-  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
-  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
-  deleted_at                   DateTime?                      @db.Timestamptz(6)
-  anonymized                   Boolean?                       @default(false)
-  deletion_reason              String?
-  source                       booking_source?                @default(direct)
-  partner_id                   String?                        @db.Uuid
-  created_by_partner_id        String?                        @db.Uuid
-  bono_usage                   bono_usage[]
-  bookings                     bookings[]
-  customer_certifications      customer_certifications[]
-  customer_consents            customer_consents[]
-  customer_stays               customer_stays[]
-  data_subject_access_requests data_subject_access_requests[]
-  partner                      partners?                      @relation("partner_customers", fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partner_creator              partners?                      @relation("partner_created_customers", fields: [created_by_partner_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id                                                 String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  first_name                                         String                         @db.VarChar(50)
+  last_name                                          String                         @db.VarChar(50)
+  email                                              String?                        @db.VarChar(100)
+  phone                                              String?                        @db.VarChar(20)
+  dob                                                DateTime?                      @db.Date
+  nationality                                        String?                        @db.VarChar(50)
+  address                                            Json?                          @default("{}")
+  customer_type                                      customer_type?
+  preferences                                        Json?                          @default("{}")
+  medical_conditions                                 Json?                          @default("[]")
+  restrictions                                       Json?                          @default("{}")
+  notes                                              String?
+  is_active                                          Boolean?                       @default(true)
+  created_at                                         DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                                         DateTime?                      @default(now()) @db.Timestamptz(6)
+  deleted_at                                         DateTime?                      @db.Timestamptz(6)
+  anonymized                                         Boolean?                       @default(false)
+  deletion_reason                                    String?
+  source                                             booking_source?                @default(direct)
+  partner_id                                         String?                        @db.Uuid
+  created_by_partner_id                              String?                        @db.Uuid
+  bono_usage                                         bono_usage[]
+  bookings                                           bookings[]
+  customer_certifications                            customer_certifications[]
+  customer_consents                                  customer_consents[]
+  customer_stays                                     customer_stays[]
+  partners_customers_created_by_partner_idTopartners partners?                      @relation("customers_created_by_partner_idTopartners", fields: [created_by_partner_id], references: [id], onUpdate: NoAction)
+  partners_customers_partner_idTopartners            partners?                      @relation("customers_partner_idTopartners", fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  data_subject_access_requests                       data_subject_access_requests[]
 
   @@index([anonymized], map: "idx_customers_anonymized")
+  @@index([created_by_partner_id], map: "idx_customers_created_by_partner")
   @@index([deleted_at], map: "idx_customers_deleted_at")
   @@index([email], map: "idx_customers_email")
   @@index([partner_id], map: "idx_customers_partner")
   @@index([source], map: "idx_customers_source")
-  @@index([created_by_partner_id], map: "idx_customers_created_by_partner")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model data_subject_access_requests {
-  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_id              String    @db.Uuid
-  request_type             String    @default("access") @db.VarChar(50)
-  status                   String    @default("pending") @db.VarChar(20)
-  requested_at             DateTime  @default(now()) @db.Timestamptz(6)
-  completed_at             DateTime? @db.Timestamptz(6)
-  deadline                 DateTime  @db.Timestamptz(6)
-  requested_by             String?   @db.VarChar(100)
-  request_details          Json?     @default("{}")
-  response_data            Json?
-  response_format          String?   @db.VarChar(20)
-  response_delivery_method String?   @db.VarChar(50)
-  response_delivered_at    DateTime? @db.Timestamptz(6)
-  rejection_reason         String?
-  notes                    String?
-  created_at               DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
-  customers                customers @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([customer_id], map: "idx_dsar_customer")
-  @@index([deadline], map: "idx_dsar_deadline")
-  @@index([requested_at], map: "idx_dsar_requested_at")
-  @@index([status], map: "idx_dsar_status")
-}
-
-model dive_sites {
-  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  location_id        String        @db.Uuid
-  name               String        @db.VarChar(100)
-  type               activity_type
-  depth_range        Json
-  difficulty_level   String        @db.VarChar(50)
-  conditions         Json?         @default("{}")
-  is_active          Boolean?      @default(true)
-  created_at         DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime?     @default(now()) @db.Timestamptz(6)
-  bookings           bookings[]
-  locations          Location      @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  boat_preps_planned boat_preps[]  @relation("prep_dive_sites")
-  boat_preps_actual  boat_preps[]  @relation("prep_actual_dive_sites")
-
-  @@index([location_id], map: "idx_dive_sites_location")
-}
-
-model boat_preps {
-  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  location_id         String      @db.Uuid
-  date                DateTime    @db.Date
-  session             String      @db.VarChar(50)
-  boat_id             String?     @db.Uuid
-  diver_ids           Json        @default("[]")
-  dive_site_id        String?     @db.Uuid
-  actual_dive_site_id String?     @db.Uuid
-  dive_site_status    Json?       @default("{}")
-  post_dive_report    Json?       @default("{}")
-  staff               Json?       @default("{}")
-  created_at          DateTime?   @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime?   @default(now()) @updatedAt @db.Timestamptz(6)
-  locations           Location    @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  boats               boats?      @relation(fields: [boat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dive_sites          dive_sites? @relation("prep_dive_sites", fields: [dive_site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  actual_dive_sites   dive_sites? @relation("prep_actual_dive_sites", fields: [actual_dive_site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([location_id], map: "idx_boat_preps_location")
-  @@index([date], map: "idx_boat_preps_date")
-  @@index([boat_id], map: "idx_boat_preps_boat")
-  @@map("boat_preps")
-}
-
-model settings {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key         String    @unique @db.VarChar(100)
-  value       Json      @default("{}")
-  description String?
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
-
-  @@map("settings")
-}
-
-model equipment {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  location_id   String         @db.Uuid
-  name          String         @db.VarChar(100)
-  category      equipment_type
-  type          equipment_type
-  size          String?        @db.VarChar(50)
-  condition     String?        @db.VarChar(50)
-  serial_number String?        @db.VarChar(100)
-  is_available  Boolean?       @default(true)
-  is_active     Boolean?       @default(true)
-  created_at    DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime?      @default(now()) @db.Timestamptz(6)
-  locations     Location       @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([category], map: "idx_equipment_category")
-  @@index([location_id], map: "idx_equipment_location")
-}
-
-model government_bonos {
-  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code                String       @unique @db.VarChar(50)
-  type                String       @db.VarChar(50)
-  discount_percentage Decimal?     @db.Decimal(5, 2)
-  max_amount          Decimal?     @db.Decimal(10, 2)
-  valid_from          DateTime     @db.Date
-  valid_until         DateTime     @db.Date
-  usage_limit         Int?
-  current_usage       Int?         @default(0)
-  is_active           Boolean?     @default(true)
-  created_at          DateTime?    @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime?    @default(now()) @db.Timestamptz(6)
-  bono_usage          bono_usage[]
-}
-
-model pricing_configs {
-  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  location_id           String?        @db.Uuid
-  pricing_type          String         @default("standard") @db.VarChar(50)
-  activity_type         activity_type?
-  activity_reference_id String?        @db.Uuid
-  name                  String         @db.VarChar(100)
-  description           String?
-  pricing_rules         Json
-  conditions            Json?          @default("{}")
-  priority              Int?           @default(0)
-  valid_from            DateTime       @db.Date
-  valid_until           DateTime?      @db.Date
-  is_active             Boolean?       @default(true)
-  created_at            DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?      @default(now()) @db.Timestamptz(6)
-  locations             Location?      @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model users {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  username       String    @unique @db.VarChar(100)
-  name           String    @db.VarChar(200)
-  email          String?   @unique @db.VarChar(100)
-  password_hash  String    @db.VarChar(255)
-  role           user_role @default(admin)
-  permissions    String[]  @default([])
-  location_access String[] @default([]) @map("location_access") @db.Uuid
-  is_active      Boolean?  @default(true) @map("is_active")
-  created_at     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updated_at     DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([username], map: "idx_users_username")
-  @@index([email], map: "idx_users_email")
-  @@index([role], map: "idx_users_role")
-  @@index([is_active], map: "idx_users_active")
-  @@map("users")
-}
-
-model staff {
-  id                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  location_id           String     @db.Uuid
-  first_name            String     @db.VarChar(50)
-  last_name             String     @db.VarChar(50)
-  email                 String     @unique @db.VarChar(100)
-  phone                 String?    @db.VarChar(20)
-  role                  staff_role
-  certifications        Json?      @default("[]")
-  emergency_contact     Json?      @default("{}")
-  employment_start_date DateTime?  @db.Date
-  is_active             Boolean?   @default(true)
-  created_at            DateTime?  @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?  @default(now()) @db.Timestamptz(6)
-  bookings              bookings[]
-  locations             Location   @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([location_id], map: "idx_staff_location")
-  @@index([role], map: "idx_staff_role")
-}
-
-model partners {
-  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String      @db.VarChar(100)
-  company_name      String      @db.VarChar(200)
-  contact_email     String      @unique @db.VarChar(100)
-  contact_phone     String?     @db.VarChar(20)
-  api_key           String      @unique @db.VarChar(255)
-  api_secret_hash   String      @db.VarChar(255)
-  webhook_url       String?     @db.VarChar(255)
-  commission_rate   Decimal?    @db.Decimal(5, 2)
-  allowed_locations String[]    @db.Uuid
-  is_active         Boolean?    @default(true)
-  settings          Json?       @default("{}")
-  created_at        DateTime?   @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime?   @default(now()) @updatedAt @db.Timestamptz(6)
-  customers         customers[] @relation("partner_customers")
-  bookings          bookings[]  @relation("partner_bookings")
-  customers_created customers[] @relation("partner_created_customers")
-  bookings_created  bookings[]  @relation("partner_created_bookings")
-
-  @@index([api_key], map: "idx_partners_api_key")
-  @@index([is_active], map: "idx_partners_active")
-  @@map("partners")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model data_breaches {
   id                             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   breach_type                    breach_type
@@ -477,7 +271,229 @@ model data_breaches {
   @@index([reported_to_authority], map: "idx_data_breaches_reported_to_authority")
   @@index([severity], map: "idx_data_breaches_severity")
   @@index([status], map: "idx_data_breaches_status")
-  @@map("data_breaches")
+}
+
+model data_subject_access_requests {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id              String    @db.Uuid
+  request_type             String    @default("access") @db.VarChar(50)
+  status                   String    @default("pending") @db.VarChar(20)
+  requested_at             DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at             DateTime? @db.Timestamptz(6)
+  deadline                 DateTime  @db.Timestamptz(6)
+  requested_by             String?   @db.VarChar(100)
+  request_details          Json?     @default("{}")
+  response_data            Json?
+  response_format          String?   @db.VarChar(20)
+  response_delivery_method String?   @db.VarChar(50)
+  response_delivered_at    DateTime? @db.Timestamptz(6)
+  rejection_reason         String?
+  notes                    String?
+  created_at               DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
+  customers                customers @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_dsar_customer")
+  @@index([deadline], map: "idx_dsar_deadline")
+  @@index([requested_at], map: "idx_dsar_requested_at")
+  @@index([status], map: "idx_dsar_status")
+}
+
+model dive_sites {
+  id                                                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id                                           String        @db.Uuid
+  name                                                  String        @db.VarChar(100)
+  type                                                  activity_type
+  depth_range                                           Json
+  difficulty_level                                      String        @db.VarChar(50)
+  conditions                                            Json?         @default("{}")
+  is_active                                             Boolean?      @default(true)
+  created_at                                            DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at                                            DateTime?     @default(now()) @db.Timestamptz(6)
+  boat_preps_boat_preps_actual_dive_site_idTodive_sites boat_preps[]  @relation("boat_preps_actual_dive_site_idTodive_sites")
+  boat_preps_boat_preps_dive_site_idTodive_sites        boat_preps[]  @relation("boat_preps_dive_site_idTodive_sites")
+  bookings                                              bookings[]
+  locations                                             locations     @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([location_id], map: "idx_dive_sites_location")
+}
+
+model equipment {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id   String         @db.Uuid
+  name          String         @db.VarChar(100)
+  category      equipment_type
+  type          equipment_type
+  size          String?        @db.VarChar(50)
+  condition     String?        @db.VarChar(50)
+  serial_number String?        @db.VarChar(100)
+  is_available  Boolean?       @default(true)
+  is_active     Boolean?       @default(true)
+  created_at    DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?      @default(now()) @db.Timestamptz(6)
+  locations     locations      @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([category], map: "idx_equipment_category")
+  @@index([location_id], map: "idx_equipment_location")
+}
+
+model government_bonos {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                String       @unique @db.VarChar(50)
+  type                String       @db.VarChar(50)
+  discount_percentage Decimal?     @db.Decimal(5, 2)
+  max_amount          Decimal?     @db.Decimal(10, 2)
+  valid_from          DateTime     @db.Date
+  valid_until         DateTime     @db.Date
+  usage_limit         Int?
+  current_usage       Int?         @default(0)
+  is_active           Boolean?     @default(true)
+  created_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  bono_usage          bono_usage[]
+}
+
+model locations {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String            @db.VarChar(100)
+  type            location_type
+  address         Json
+  contact_info    Json
+  settings        Json?             @default("{}")
+  is_active       Boolean?          @default(true)
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  boat_preps      boat_preps[]
+  boats           boats[]
+  bookings        bookings[]
+  dive_sites      dive_sites[]
+  equipment       equipment[]
+  pricing_configs pricing_configs[]
+  staff           staff[]
+
+  @@index([is_active], map: "idx_locations_active")
+  @@index([type], map: "idx_locations_type")
+}
+
+model partner_invoices {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partner_id         String    @db.Uuid
+  invoice_number     String    @unique @db.VarChar(50)
+  customer_id        String?   @db.Uuid
+  bill_id            String?   @db.VarChar(100)
+  location_id        String    @db.Uuid
+  invoice_date       DateTime  @db.Date
+  due_date           DateTime  @db.Date
+  payment_terms_days Int       @default(30)
+  subtotal           Decimal   @db.Decimal(10, 2)
+  tax                Decimal   @db.Decimal(10, 2)
+  total              Decimal   @db.Decimal(10, 2)
+  paid_amount        Decimal?  @default(0) @db.Decimal(10, 2)
+  status             String    @default("pending") @db.VarChar(20)
+  booking_ids        Json?     @default("[]")
+  notes              String?
+  paid_at            DateTime? @db.Timestamptz(6)
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  partners           partners  @relation(fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([due_date], map: "idx_partner_invoices_due_date")
+  @@index([invoice_number], map: "idx_partner_invoices_number")
+  @@index([partner_id], map: "idx_partner_invoices_partner")
+  @@index([status], map: "idx_partner_invoices_status")
+}
+
+model partners {
+  id                                                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                                                String             @db.VarChar(100)
+  company_name                                        String             @db.VarChar(200)
+  contact_email                                       String             @unique @db.VarChar(100)
+  contact_phone                                       String?            @db.VarChar(20)
+  api_key                                             String             @unique @db.VarChar(255)
+  api_secret_hash                                     String             @db.VarChar(255)
+  webhook_url                                         String?            @db.VarChar(255)
+  commission_rate                                     Decimal?           @db.Decimal(5, 2)
+  allowed_locations                                   String[]           @db.Uuid
+  is_active                                           Boolean?           @default(true)
+  settings                                            Json?              @default("{}")
+  created_at                                          DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime?          @default(now()) @db.Timestamptz(6)
+  bookings_bookings_created_by_partner_idTopartners   bookings[]         @relation("bookings_created_by_partner_idTopartners")
+  bookings_bookings_partner_idTopartners              bookings[]         @relation("bookings_partner_idTopartners")
+  customers_customers_created_by_partner_idTopartners customers[]        @relation("customers_created_by_partner_idTopartners")
+  customers_customers_partner_idTopartners            customers[]        @relation("customers_partner_idTopartners")
+  partner_invoices                                    partner_invoices[]
+
+  @@index([is_active], map: "idx_partners_active")
+  @@index([api_key], map: "idx_partners_api_key")
+}
+
+model pricing_configs {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id           String?        @db.Uuid
+  pricing_type          String         @default("standard") @db.VarChar(50)
+  activity_type         activity_type?
+  activity_reference_id String?        @db.Uuid
+  name                  String         @db.VarChar(100)
+  description           String?
+  pricing_rules         Json
+  conditions            Json?          @default("{}")
+  priority              Int?           @default(0)
+  valid_from            DateTime       @db.Date
+  valid_until           DateTime?      @db.Date
+  is_active             Boolean?       @default(true)
+  created_at            DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?      @default(now()) @db.Timestamptz(6)
+  locations             locations?     @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model settings {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String    @unique @db.VarChar(100)
+  value       Json      @default("{}")
+  description String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model staff {
+  id                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id           String     @db.Uuid
+  first_name            String     @db.VarChar(50)
+  last_name             String     @db.VarChar(50)
+  email                 String     @unique @db.VarChar(100)
+  phone                 String?    @db.VarChar(20)
+  role                  staff_role
+  certifications        Json?      @default("[]")
+  emergency_contact     Json?      @default("{}")
+  employment_start_date DateTime?  @db.Date
+  is_active             Boolean?   @default(true)
+  created_at            DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?  @default(now()) @db.Timestamptz(6)
+  bookings              bookings[]
+  locations             locations  @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([location_id], map: "idx_staff_location")
+  @@index([role], map: "idx_staff_role")
+}
+
+model users {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username        String    @unique @db.VarChar(100)
+  name            String    @db.VarChar(200)
+  email           String?   @unique @db.VarChar(100)
+  password_hash   String    @db.VarChar(255)
+  role            user_role @default(admin)
+  permissions     String[]  @default([])
+  location_access String[]  @default([]) @db.Uuid
+  is_active       Boolean?  @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([is_active], map: "idx_users_active")
+  @@index([email], map: "idx_users_email")
+  @@index([role], map: "idx_users_role")
+  @@index([username], map: "idx_users_username")
 }
 
 enum activity_type {
@@ -649,15 +665,6 @@ enum severity {
   critical
 }
 
-enum user_role {
-  superadmin
-  admin
-  boat_pilot
-  guide
-  trainer
-  intern
-}
-
 enum staff_role {
   owner
   manager
@@ -676,6 +683,15 @@ enum status {
   pending
   completed
   cancelled
+}
+
+enum user_role {
+  superadmin
+  admin
+  boat_pilot
+  guide
+  trainer
+  intern
 }
 
 enum withdrawal_method {

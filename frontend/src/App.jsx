@@ -14,6 +14,12 @@ import Settings from './pages/Settings';
 import BoatPrep from './pages/BoatPrep';
 import Breaches from './pages/Breaches';
 import Bill from './pages/Bill';
+import Partners from './pages/Partners';
+import PartnerInvoices from './pages/PartnerInvoices';
+import PartnerLogin from './pages/partner/PartnerLogin';
+import PartnerDashboard from './pages/partner/PartnerDashboard';
+import ProtectedPartnerRoute from './components/Partner/ProtectedPartnerRoute';
+import { PartnerAuthProvider } from './utils/partnerAuthContext';
 
 // Components
 import Navigation from './components/Common/Navigation';
@@ -39,40 +45,63 @@ function App() {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <Router>
-            <ProtectedRoute>
-              <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-                <Navigation />
-                <Box 
-                  component="main" 
-                  sx={{ 
-                    flexGrow: 1, 
-                    bgcolor: '#f5f5f5',
-                    minHeight: '100vh',
-                    p: 3,
-                    mt: 8 // Space for top nav
-                  }}
-                >
-                  <Routes>
-                    <Route path="/" element={<ProtectedRoute requiredPermission="dashboard"><Dashboard /></ProtectedRoute>} />
-                    <Route path="/bookings" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
-                    <Route path="/bookings/new" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
-                    <Route path="/bookings/:id" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
-                    <Route path="/stays" element={<ProtectedRoute requiredPermission="stays"><Stays /></ProtectedRoute>} />
-                    <Route path="/customers" element={<ProtectedRoute requiredPermission="customers"><Customers /></ProtectedRoute>} />
-                    <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
-                    <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="boatPrep"><BoatPrep /></ProtectedRoute>} />
-                    <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
-                    <Route path="/breaches" element={<ProtectedRoute requiredPermission="settings"><Breaches /></ProtectedRoute>} />
-                    <Route path="/bill" element={<ProtectedRoute requiredPermission="stays"><Bill /></ProtectedRoute>} />
-                  </Routes>
-                </Box>
-              </Box>
-            </ProtectedRoute>
-          </Router>
-        </ThemeProvider>
+        <PartnerAuthProvider>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <Router>
+              <Routes>
+                {/* Partner Portal Routes */}
+                <Route path="/partner/login" element={<PartnerLogin />} />
+                <Route
+                  path="/partner/dashboard"
+                  element={
+                    <ProtectedPartnerRoute>
+                      <PartnerDashboard />
+                    </ProtectedPartnerRoute>
+                  }
+                />
+                
+                {/* Admin Portal Routes */}
+                <Route
+                  path="/*"
+                  element={
+                    <ProtectedRoute>
+                      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+                        <Navigation />
+                        <Box 
+                          component="main" 
+                          sx={{ 
+                            flexGrow: 1, 
+                            bgcolor: '#f5f5f5',
+                            minHeight: '100vh',
+                            p: 3,
+                            mt: 8 // Space for top nav
+                          }}
+                        >
+                          <Routes>
+                            <Route path="/" element={<ProtectedRoute requiredPermission="dashboard"><Dashboard /></ProtectedRoute>} />
+                            <Route path="/bookings" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
+                            <Route path="/bookings/new" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
+                            <Route path="/bookings/:id" element={<ProtectedRoute requiredPermission="bookings"><Bookings /></ProtectedRoute>} />
+                            <Route path="/stays" element={<ProtectedRoute requiredPermission="stays"><Stays /></ProtectedRoute>} />
+                            <Route path="/customers" element={<ProtectedRoute requiredPermission="customers"><Customers /></ProtectedRoute>} />
+                            <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
+                            <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="boatPrep"><BoatPrep /></ProtectedRoute>} />
+                            <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
+                            <Route path="/breaches" element={<ProtectedRoute requiredPermission="settings"><Breaches /></ProtectedRoute>} />
+                            <Route path="/bill" element={<ProtectedRoute requiredPermission="stays"><Bill /></ProtectedRoute>} />
+                            <Route path="/partners" element={<ProtectedRoute requiredPermission="settings"><Partners /></ProtectedRoute>} />
+                            <Route path="/partner-invoices" element={<ProtectedRoute requiredPermission="settings"><PartnerInvoices /></ProtectedRoute>} />
+                          </Routes>
+                        </Box>
+                      </Box>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </Router>
+          </ThemeProvider>
+        </PartnerAuthProvider>
       </LanguageProvider>
     </AuthProvider>
   );

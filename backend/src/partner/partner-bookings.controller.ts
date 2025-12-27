@@ -11,15 +11,15 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiSecurity } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { PartnerBookingsService, CreatePartnerBookingDto, UpdatePartnerBookingDto } from './partner-bookings.service';
-import { PartnerAuthGuard } from '../common/guards/partner-auth.guard';
+import { JwtPartnerGuard } from '../partner-auth/jwt-partner.guard';
 import { Partner } from '../common/decorators/partner.decorator';
 
 @ApiTags('partner')
-@ApiSecurity('api-key')
+@ApiBearerAuth()
 @Controller('partner/bookings')
-@UseGuards(PartnerAuthGuard)
+@UseGuards(JwtPartnerGuard)
 export class PartnerBookingsController {
   constructor(private readonly partnerBookingsService: PartnerBookingsService) {}
 

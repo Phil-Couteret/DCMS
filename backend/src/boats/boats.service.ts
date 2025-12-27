@@ -63,7 +63,7 @@ export class BoatsService {
 
   async create(dto: CreateBoatDto) {
     // Verify location exists
-    const location = await this.prisma.location.findUnique({
+    const location = await this.prisma.locations.findUnique({
       where: { id: dto.locationId },
     });
     if (!location) {
@@ -89,7 +89,7 @@ export class BoatsService {
     const boat = await this.findOne(id);
 
     if (dto.locationId) {
-      const location = await this.prisma.location.findUnique({
+      const location = await this.prisma.locations.findUnique({
         where: { id: dto.locationId },
       });
       if (!location) {

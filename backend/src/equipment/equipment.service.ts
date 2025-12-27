@@ -83,7 +83,7 @@ export class EquipmentService {
 
   async create(dto: CreateEquipmentDto) {
     // Verify location exists
-    const location = await this.prisma.location.findUnique({
+    const location = await this.prisma.locations.findUnique({
       where: { id: dto.locationId },
     });
     if (!location) {
@@ -112,7 +112,7 @@ export class EquipmentService {
     const equipment = await this.findOne(id);
 
     if (dto.locationId) {
-      const location = await this.prisma.location.findUnique({
+      const location = await this.prisma.locations.findUnique({
         where: { id: dto.locationId },
       });
       if (!location) {

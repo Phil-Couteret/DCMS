@@ -113,17 +113,23 @@ class HttpClient {
   }
 
   getAuthToken() {
-    // Get auth token from localStorage or context
-    // This will be implemented when authentication is added
-    return localStorage.getItem('auth_token');
+    // Check for partner token first, then admin token
+    return localStorage.getItem('partner_token') || localStorage.getItem('auth_token');
   }
 
-  setAuthToken(token) {
-    localStorage.setItem('auth_token', token);
+  setAuthToken(token, type = 'admin') {
+    const key = type === 'partner' ? 'partner_token' : 'auth_token';
+    if (token) {
+      localStorage.setItem(key, token);
+    } else {
+      localStorage.removeItem('partner_token');
+      localStorage.removeItem('auth_token');
+    }
   }
 
   clearAuthToken() {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('partner_token');
   }
 }
 

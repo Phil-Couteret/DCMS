@@ -33,7 +33,9 @@ import {
   AttachMoney as PricesIcon,
   DirectionsBoat as BoatPrepIcon,
   LockReset as LockResetIcon,
-  Security as SecurityIcon
+  Security as SecurityIcon,
+  Business as BusinessIcon,
+  Receipt as ReceiptIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from '../../utils/languageContext';
@@ -62,7 +64,9 @@ const Navigation = () => {
   const globalMenu = [
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' },
-    { text: 'Data Breaches', icon: <SecurityIcon />, path: '/breaches', permission: 'settings' }
+    { text: 'Data Breaches', icon: <SecurityIcon />, path: '/breaches', permission: 'settings' },
+    { text: 'Partners', icon: <BusinessIcon />, path: '/partners', permission: 'settings' },
+    { text: 'Partner Invoices', icon: <ReceiptIcon />, path: '/partner-invoices', permission: 'settings' }
   ];
   // Get current location's boats to determine menu text
   const currentLocationId = selectedLocationId || localStorage.getItem('dcms_current_location');
