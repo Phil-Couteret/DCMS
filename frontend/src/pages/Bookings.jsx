@@ -18,7 +18,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   Edit as EditIcon,
   PriceChange as PriceChangeIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import BookingForm from '../components/Booking/BookingForm';
@@ -37,6 +38,7 @@ const Bookings = () => {
   
   const [bookings, setBookings] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [recalculating, setRecalculating] = useState(false);
 
@@ -45,6 +47,7 @@ const Bookings = () => {
       loadBookings().catch(error => {
         console.error('[Bookings] Error in useEffect loadBookings:', error);
       });
+      loadPartners();
     }
   }, [isNewMode, id]);
 
@@ -98,6 +101,25 @@ const Bookings = () => {
       window.removeEventListener('dcms_bookings_synced', onSync);
     };
   }, [isNewMode, id, bookings.length]);
+
+  const loadPartners = async () => {
+    try {
+      const allPartners = await dataService.getAll('partners');
+      setPartners(Array.isArray(allPartners) ? allPartners : []);
+    } catch (error) {
+      console.error('Error loading partners:', error);
+      setPartners([]);
+    }
+  };
+  
+  const getPartnerName = (partnerId) => {
+    if (!partnerId) return null;
+    const partner = partners.find(p => p.id === partnerId);
+    if (partner) {
+      return partner.name || partner.companyName || partner.company_name || 'Partner';
+    }
+    return null;
+  };
 
   const loadBookings = async () => {
     try {
@@ -324,6 +346,16 @@ const Bookings = () => {
                         size="small" 
                         color={getStatusColor(booking.status)}
                       />
+                      {/* Partner indicator */}
+                      {(booking.partnerId || booking.partner_id || booking.source === 'partner') && (
+                        <Chip
+                          icon={<BusinessIcon />}
+                          label={getPartnerName(booking.partnerId || booking.partner_id) || 'Partner'}
+                          size="small"
+                          color="secondary"
+                          variant="filled"
+                        />
+                      )}
                       <Typography variant="body2" color="text.secondary">
                         {formatDate(booking.bookingDate)}
                       </Typography>
@@ -407,6 +439,18 @@ const Bookings = () => {
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         <strong>{t('bookings.details.paymentStatus') || 'Payment Status'}:</strong> {booking.paymentStatus || 'pending'}
                       </Typography>
+                      {/* Partner Information */}
+                      {(booking.partnerId || booking.partner_id || booking.source === 'partner') && (
+                        <Box sx={{ mt: 1, mb: 1 }}>
+                          <Chip
+                            icon={<BusinessIcon />}
+                            label={`Partner: ${getPartnerName(booking.partnerId || booking.partner_id) || 'Unknown Partner'}`}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        </Box>
+                      )}
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <Typography variant="h6" gutterBottom>

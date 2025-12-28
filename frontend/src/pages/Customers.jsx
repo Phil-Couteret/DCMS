@@ -34,7 +34,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   Sync as SyncIcon,
   FileUpload as FileUploadIcon,
-  FileDownload as FileDownloadIcon
+  FileDownload as FileDownloadIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerForm from '../components/Customer/CustomerForm';
@@ -53,6 +54,7 @@ const Customers = () => {
   const [customers, setCustomers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [locations, setLocations] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [importProgress, setImportProgress] = useState({ total: 0, processed: 0, successful: 0, errors: [] });
   const [importing, setImporting] = useState(false);
@@ -60,8 +62,28 @@ const Customers = () => {
   useEffect(() => {
     if (!mode && !customerId) {
       loadCustomers();
+      loadPartners();
     }
   }, [mode, customerId]);
+  
+  const loadPartners = async () => {
+    try {
+      const allPartners = await dataService.getAll('partners');
+      setPartners(Array.isArray(allPartners) ? allPartners : []);
+    } catch (error) {
+      console.error('Error loading partners:', error);
+      setPartners([]);
+    }
+  };
+  
+  const getPartnerName = (partnerId) => {
+    if (!partnerId) return null;
+    const partner = partners.find(p => p.id === partnerId);
+    if (partner) {
+      return partner.name || partner.companyName || partner.company_name || 'Partner';
+    }
+    return null;
+  };
 
   // Refresh list when customers are created or updated
   useEffect(() => {
@@ -484,6 +506,16 @@ const Customers = () => {
                           color="info"
                           variant="outlined"
                         />
+                        {/* Partner indicator */}
+                        {(customer.partnerId || customer.partner_id || customer.source === 'partner') && (
+                          <Chip
+                            icon={<BusinessIcon />}
+                            label={getPartnerName(customer.partnerId || customer.partner_id) || 'Partner'}
+                            size="small"
+                            color="secondary"
+                            variant="filled"
+                          />
+                        )}
                       </>
                       {/* Approval status */}
                       <>
@@ -558,6 +590,18 @@ const Customers = () => {
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     {t('customers.type')}: {customer.customerType || 'tourist'}
                   </Typography>
+                  {/* Partner Information */}
+                  {(customer.partnerId || customer.partner_id || customer.source === 'partner') && (
+                    <Box sx={{ mt: 1, mb: 1 }}>
+                      <Chip
+                        icon={<BusinessIcon />}
+                        label={`Partner: ${getPartnerName(customer.partnerId || customer.partner_id) || 'Unknown Partner'}`}
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                      />
+                    </Box>
+                  )}
                   
                   {/* Medical Certificate Status */}
                   {customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
