@@ -23,7 +23,6 @@ import {
   ArrowBack as ArrowBackIcon,
   Business as BusinessIcon
 } from '@mui/icons-material';
-import { Chip } from '@mui/material';
 import dataService from '../services/dataService';
 import stayService, { getCustomerStayBookings } from '../services/stayService';
 import stayCostsService from '../services/stayCostsService';
