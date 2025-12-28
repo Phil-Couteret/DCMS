@@ -48,6 +48,31 @@ export interface UpdateBookingDto {
 export class BookingsService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Maps frontend activity type values to valid Prisma enum values
+   */
+  private mapActivityType(frontendType: string): activity_type {
+    const mapping: Record<string, activity_type> = {
+      'scuba_diving': 'diving',
+      'discover_scuba': 'discovery',
+      'discover': 'discovery', // Common shorthand
+      'dive_course': 'specialty',
+      'snorkeling': 'snorkeling',
+      'try_dive': 'try_dive',
+      'diving': 'diving',
+      'discovery': 'discovery',
+      'specialty': 'specialty',
+    };
+
+    const mapped = mapping[frontendType];
+    if (!mapped) {
+      // Default to diving if unknown type
+      console.warn(`[BookingsService] Unknown activity type "${frontendType}", defaulting to "diving"`);
+      return 'diving';
+    }
+    return mapped;
+  }
+
   async findAll() {
     return this.prisma.bookings.findMany({
       orderBy: { booking_date: 'desc' },
@@ -132,6 +157,9 @@ export class BookingsService {
         paymentMethod = 'deferred';
       }
       
+      // Map frontend activity type to valid Prisma enum value
+      const mappedActivityType = this.mapActivityType(dto.activityType as any);
+      
       return await this.prisma.bookings.create({
         data: {
           customer_id: dto.customerId,
@@ -140,7 +168,7 @@ export class BookingsService {
           dive_site_id: dto.diveSiteId || null,
           staff_primary_id: dto.staffPrimaryId || null,
           booking_date: typeof dto.bookingDate === 'string' ? new Date(dto.bookingDate) : dto.bookingDate,
-          activity_type: dto.activityType,
+          activity_type: mappedActivityType,
           number_of_dives: dto.numberOfDives || 1,
           price: dto.price,
           discount: dto.discount || 0,
@@ -173,18 +201,26 @@ export class BookingsService {
       paymentMethod = 'deferred';
     }
 
+    // Map activity type if provided
+    const updateData: any = {
+      ...(dto.customerId !== undefined && { customer_id: dto.customerId }),
+      ...(dto.locationId !== undefined && { location_id: dto.locationId }),
+      ...(dto.boatId !== undefined && { boat_id: dto.boatId || null }),
+      ...(dto.diveSiteId !== undefined && { dive_site_id: dto.diveSiteId || null }),
+      ...(dto.staffPrimaryId !== undefined && { staff_primary_id: dto.staffPrimaryId || null }),
+      ...(dto.bookingDate !== undefined && { 
+        booking_date: typeof dto.bookingDate === 'string' ? new Date(dto.bookingDate) : dto.bookingDate 
+      }),
+    };
+    
+    if (dto.activityType !== undefined) {
+      updateData.activity_type = this.mapActivityType(dto.activityType as any);
+    }
+
     return this.prisma.bookings.update({
       where: { id },
       data: {
-        ...(dto.customerId !== undefined && { customer_id: dto.customerId }),
-        ...(dto.locationId !== undefined && { location_id: dto.locationId }),
-        ...(dto.boatId !== undefined && { boat_id: dto.boatId || null }),
-        ...(dto.diveSiteId !== undefined && { dive_site_id: dto.diveSiteId || null }),
-        ...(dto.staffPrimaryId !== undefined && { staff_primary_id: dto.staffPrimaryId || null }),
-        ...(dto.bookingDate !== undefined && { 
-          booking_date: typeof dto.bookingDate === 'string' ? new Date(dto.bookingDate) : dto.bookingDate 
-        }),
-        ...(dto.activityType !== undefined && { activity_type: dto.activityType }),
+        ...updateData,
         ...(dto.numberOfDives !== undefined && { number_of_dives: dto.numberOfDives }),
         ...(dto.price !== undefined && { price: dto.price }),
         ...(dto.discount !== undefined && { discount: dto.discount }),
