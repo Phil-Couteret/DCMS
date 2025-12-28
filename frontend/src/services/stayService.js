@@ -305,6 +305,9 @@ export const getActiveStays = async (days = 30) => {
     return [];
   }
   
+  // Get list of billed stays from localStorage
+  const billedStays = JSON.parse(localStorage.getItem('dcms_billed_stays') || '[]');
+  
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
   
@@ -332,11 +335,24 @@ export const getActiveStays = async (days = 30) => {
         return dateA - dateB;
       });
     const stayStartDate = customerBookingsList[0]?.bookingDate || customerBookingsList[0]?.booking_date;
+    const stayKey = `${customerId}|${stayStartDate}`;
+    
+    // Skip stays that have been marked as billed
+    if (billedStays.includes(stayKey)) {
+      return null;
+    }
+    
+    // Also check if any booking in this stay has a billId (billed flag)
+    const hasBillId = customerBookingsList.some(b => b.billId || b.bill_id);
+    if (hasBillId) {
+      return null;
+    }
+    
     return await getCustomerStaySummary(customerId, stayStartDate);
   });
   
   const activeStays = await Promise.all(stayPromises);
-  return activeStays.filter(stay => stay.customer !== null);
+  return activeStays.filter(stay => stay !== null && stay.customer !== null);
 };
 
 export default {

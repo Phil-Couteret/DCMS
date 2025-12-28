@@ -24,6 +24,7 @@ import {
 import dataService from '../services/dataService';
 import stayService, { getCustomerStayBookings } from '../services/stayService';
 import stayCostsService from '../services/stayCostsService';
+import { calculateActivityPrice, calculateDivePrice, getCustomerType } from '../services/pricingService';
 
 const Bill = () => {
   const navigate = useNavigate();
@@ -41,9 +42,15 @@ const Bill = () => {
   const [calculatedBill, setCalculatedBill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [partnerInvoicesCreated, setPartnerInvoicesCreated] = useState(false);
+  const [stayBilled, setStayBilled] = useState(false);
 
   useEffect(() => {
     if (stay) {
+      // Check if stay is already billed
+      const stayKey = `${stay.customer.id}|${stay.stayStartDate}`;
+      const billedStays = JSON.parse(localStorage.getItem('dcms_billed_stays') || '[]');
+      setStayBilled(billedStays.includes(stayKey));
+      
       loadSettings().catch(err => console.error('[Bill] Error loading settings:', err));
       loadLocations().catch(err => console.error('[Bill] Error loading locations:', err));
       initializeBillData().catch(err => console.error('[Bill] Error initializing bill data:', err));
@@ -118,24 +125,47 @@ const Bill = () => {
         }
       }
 
-      // Calculate dive price from booking
-      const divePrice = booking.totalPrice || booking.price || 0;
+      // Calculate price based on activity type
+      const activityType = booking.activityType || booking.activity_type;
       const numberOfDives = booking.diveSessions ? 
         (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
-        (booking.numberOfDives || 1);
+        (booking.numberOfDives || booking.number_of_dives || 1);
+      
+      // Get location and customer info for pricing
+      const stayLocationId = (stay?.stayBookings && stay.stayBookings[0]?.locationId) || 
+                             booking.locationId || booking.location_id ||
+                             localStorage.getItem('dcms_current_location');
+      const customer = stay.customer;
+      const customerType = getCustomerType(customer);
+      
+      // Calculate price based on activity type
+      let calculatedPrice = 0;
+      const normalizedActivityType = activityType === 'try_dive' || activityType === 'discovery' ? 'discover' : activityType;
+      
+      if (normalizedActivityType === 'diving') {
+        // Use dive pricing (cumulative tiered pricing)
+        calculatedPrice = calculateDivePrice(stayLocationId, customerType, numberOfDives);
+      } else if (normalizedActivityType === 'discover' || normalizedActivityType === 'snorkeling' || normalizedActivityType === 'orientation') {
+        // Use activity-specific pricing
+        calculatedPrice = calculateActivityPrice(normalizedActivityType, numberOfDives, stayLocationId);
+      } else {
+        // Fallback to booking price if activity type unknown
+        calculatedPrice = booking.totalPrice || booking.total_price || booking.price || 0;
+      }
 
-      // Create a line item for each dive
+      // Create a line item for each dive/activity
       for (let i = 0; i < numberOfDives; i++) {
         const session = booking.diveSessions?.morning ? 'Morning' : 
                        booking.diveSessions?.afternoon ? 'Afternoon' : 
                        booking.diveSessions?.night ? 'Night' : 'Morning';
         
         dives.push({
-          date: booking.bookingDate,
+          date: booking.bookingDate || booking.booking_date,
           diveSite: diveSiteName,
           session,
-          price: divePrice / numberOfDives,
-          total: divePrice / numberOfDives
+          activityType: normalizedActivityType,
+          price: calculatedPrice / numberOfDives,
+          total: calculatedPrice / numberOfDives
         });
       }
     }
@@ -492,6 +522,22 @@ const Bill = () => {
           >
             Download
           </Button>
+          {stayBilled && (
+            <Button
+              variant="contained"
+              color="success"
+              disabled
+            >
+              Stay Closed
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/stays')}
+          >
+            Back to Stays
+          </Button>
         </Box>
       </Box>
 
@@ -643,9 +689,59 @@ const Bill = () => {
 
         {/* Footer */}
         <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Thank you for diving with Deep Blue Diving!
           </Typography>
+          
+          {/* Close Stay Button */}
+          {!stayBilled && (
+            <Button
+              variant="contained"
+              color="success"
+              onClick={async () => {
+                try {
+                  // Mark stay as billed by storing bill info
+                  const stayKey = `${stay.customer.id}|${stay.stayStartDate}`;
+                  const billedStays = JSON.parse(localStorage.getItem('dcms_billed_stays') || '[]');
+                  if (!billedStays.includes(stayKey)) {
+                    billedStays.push(stayKey);
+                    localStorage.setItem('dcms_billed_stays', JSON.stringify(billedStays));
+                  }
+                  
+                  // Also mark all bookings in this stay as billed
+                  const stayBookings = await getCustomerStayBookings(stay.customer.id, stay.stayStartDate);
+                  for (const booking of stayBookings) {
+                    try {
+                      // Try to update booking with bill reference if backend supports it
+                      await dataService.update('bookings', booking.id, {
+                        ...booking,
+                        billId: calculatedBill.billNumber,
+                        billDate: calculatedBill.billDate
+                      });
+                    } catch (err) {
+                      // If update fails, continue with other bookings
+                      console.warn(`Could not update booking ${booking.id} with bill info:`, err);
+                    }
+                  }
+                  
+                  setStayBilled(true);
+                  alert('Stay marked as billed. It will no longer appear in active stays.');
+                } catch (error) {
+                  console.error('Error closing stay:', error);
+                  alert('Error closing stay. Please try again.');
+                }
+              }}
+              sx={{ mt: 2 }}
+            >
+              Mark Stay as Billed / Close Stay
+            </Button>
+          )}
+          
+          {stayBilled && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              This stay has been marked as billed and will no longer appear in active stays.
+            </Alert>
+          )}
         </Box>
       </Paper>
     </Box>
