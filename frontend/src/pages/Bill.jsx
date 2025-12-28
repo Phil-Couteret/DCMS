@@ -13,14 +13,17 @@ import {
   TableRow,
   Divider,
   Alert,
-  IconButton
+  IconButton,
+  Chip
 } from '@mui/material';
 import {
   Print as PrintIcon,
   Download as DownloadIcon,
   Email as EmailIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
+import { Chip } from '@mui/material';
 import dataService from '../services/dataService';
 import stayService, { getCustomerStayBookings } from '../services/stayService';
 import stayCostsService from '../services/stayCostsService';
@@ -43,6 +46,7 @@ const Bill = () => {
   const [loading, setLoading] = useState(true);
   const [partnerInvoicesCreated, setPartnerInvoicesCreated] = useState(false);
   const [stayBilled, setStayBilled] = useState(false);
+  const [partners, setPartners] = useState([]);
 
   useEffect(() => {
     if (stay) {
@@ -53,6 +57,7 @@ const Bill = () => {
       
       loadSettings().catch(err => console.error('[Bill] Error loading settings:', err));
       loadLocations().catch(err => console.error('[Bill] Error loading locations:', err));
+      loadPartners().catch(err => console.error('[Bill] Error loading partners:', err));
       initializeBillData().catch(err => console.error('[Bill] Error initializing bill data:', err));
     } else {
       // No stay data - redirect back to stays
@@ -138,6 +143,9 @@ const Bill = () => {
       const customer = stay.customer;
       const customerType = getCustomerType(customer);
       
+      // Check if booking is from a partner
+      const isPartnerBooking = !!(booking.partnerId || booking.partner_id || booking.source === 'partner');
+      
       // Calculate price based on activity type
       let calculatedPrice = 0;
       const normalizedActivityType = activityType === 'try_dive' || activityType === 'discovery' ? 'discover' : activityType;
@@ -165,7 +173,9 @@ const Bill = () => {
           session,
           activityType: normalizedActivityType,
           price: calculatedPrice / numberOfDives,
-          total: calculatedPrice / numberOfDives
+          total: calculatedPrice / numberOfDives,
+          isPartnerBooking: isPartnerBooking,
+          partnerId: booking.partnerId || booking.partner_id || null
         });
       }
     }
@@ -256,9 +266,28 @@ const Bill = () => {
       }
     }
 
+    // Separate partner-paid (activities/dives) from customer-paid (extras)
+    let partnerPaidTotal = 0;
+    let customerPaidTotal = 0;
+    
+    billData.dives.forEach(dive => {
+      if (dive.isPartnerBooking) {
+        partnerPaidTotal += dive.total || 0;
+      } else {
+        customerPaidTotal += dive.total || 0;
+      }
+    });
+    
+    // Customer pays for extras (equipment, insurance, additional costs, other items)
+    customerPaidTotal += equipmentTotal + diveInsuranceTotal + additionalCostsTotal + otherTotal;
+    
     const subtotal = diveTotal + otherTotal + equipmentTotal + diveInsuranceTotal + additionalCostsTotal;
     const tax = subtotal * ((pricing.tax && pricing.tax.igic_rate) || 0.07);
     const total = subtotal + tax;
+    
+    // Calculate tax split proportionally
+    const partnerTax = partnerPaidTotal > 0 && subtotal > 0 ? (partnerPaidTotal / subtotal) * tax : 0;
+    const customerTax = customerPaidTotal > 0 && subtotal > 0 ? (customerPaidTotal / subtotal) * tax : 0;
 
     const bill = {
       customer: stay.customer,
@@ -273,6 +302,10 @@ const Bill = () => {
       subtotal,
       tax,
       total,
+      partnerPaidTotal,
+      customerPaidTotal,
+      partnerTax,
+      customerTax,
       breakdown: {
         dives: diveTotal,
         equipment: equipmentTotal,
@@ -596,28 +629,94 @@ const Bill = () => {
                 <TableCell align="right">Qty</TableCell>
                 <TableCell align="right">Unit Price</TableCell>
                 <TableCell align="right">Total</TableCell>
+                <TableCell>Paid By</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {/* Dives */}
-              {calculatedBill.dives.map((dive, index) => (
-                <TableRow key={`dive-${index}`}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="bold">
-                      {dive.diveSite}
-                    </Typography>
-                    {dive.session && (
-                      <Typography variant="caption" color="text.secondary">
-                        {dive.session}
+              {/* Partner-Paid Activities (Dives) */}
+              {calculatedBill.dives.filter(dive => dive.isPartnerBooking).length > 0 && (
+                <>
+                  <TableRow>
+                    <TableCell colSpan={6} sx={{ backgroundColor: 'secondary.light', py: 1 }}>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        <BusinessIcon sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+                        Activities Paid by Partner: {calculatedBill.dives.filter(d => d.isPartnerBooking).map(d => getPartnerName(d.partnerId)).filter(Boolean)[0] || 'Partner'}
                       </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>{dive.date}</TableCell>
-                  <TableCell align="right">1</TableCell>
-                  <TableCell align="right">€{dive.price.toFixed(2)}</TableCell>
-                  <TableCell align="right">€{dive.total.toFixed(2)}</TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                  {calculatedBill.dives.filter(dive => dive.isPartnerBooking).map((dive, index) => (
+                    <TableRow key={`partner-dive-${index}`}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="bold">
+                          {dive.diveSite}
+                        </Typography>
+                        {dive.session && (
+                          <Typography variant="caption" color="text.secondary">
+                            {dive.session}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{dive.date}</TableCell>
+                      <TableCell align="right">1</TableCell>
+                      <TableCell align="right">€{dive.price.toFixed(2)}</TableCell>
+                      <TableCell align="right">€{dive.total.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Chip
+                          icon={<BusinessIcon />}
+                          label={getPartnerName(dive.partnerId) || 'Partner'}
+                          size="small"
+                          color="secondary"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </>
+              )}
+              
+              {/* Customer-Paid Activities (Dives) */}
+              {calculatedBill.dives.filter(dive => !dive.isPartnerBooking).length > 0 && (
+                <>
+                  {calculatedBill.dives.filter(dive => dive.isPartnerBooking).length > 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} sx={{ py: 1 }}></TableCell>
+                    </TableRow>
+                  )}
+                  {calculatedBill.dives.filter(dive => !dive.isPartnerBooking).map((dive, index) => (
+                    <TableRow key={`customer-dive-${index}`}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="bold">
+                          {dive.diveSite}
+                        </Typography>
+                        {dive.session && (
+                          <Typography variant="caption" color="text.secondary">
+                            {dive.session}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{dive.date}</TableCell>
+                      <TableCell align="right">1</TableCell>
+                      <TableCell align="right">€{dive.price.toFixed(2)}</TableCell>
+                      <TableCell align="right">€{dive.total.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Typography variant="caption">Customer</Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </>
+              )}
+
+              {/* Customer-Paid Extras */}
+              {(calculatedBill.breakdown.equipment > 0 || calculatedBill.breakdown.diveInsurance > 0 || calculatedBill.additionalCosts.length > 0 || calculatedBill.otherItems.length > 0) && (
+                <>
+                  <TableRow>
+                    <TableCell colSpan={6} sx={{ backgroundColor: 'info.light', py: 1 }}>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        Items Paid by Customer
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                </>
+              )}
 
               {/* Additional Costs */}
               {calculatedBill.additionalCosts.map((cost, index) => (
@@ -627,6 +726,9 @@ const Bill = () => {
                   <TableCell align="right">{cost.quantity || 1}</TableCell>
                   <TableCell align="right">€{(cost.unitPrice || cost.total).toFixed(2)}</TableCell>
                   <TableCell align="right">€{cost.total.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Typography variant="caption">Customer</Typography>
+                  </TableCell>
                 </TableRow>
               ))}
 
@@ -638,6 +740,9 @@ const Bill = () => {
                   <TableCell align="right"></TableCell>
                   <TableCell align="right"></TableCell>
                   <TableCell align="right">€{calculatedBill.breakdown.equipment.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Typography variant="caption">Customer</Typography>
+                  </TableCell>
                 </TableRow>
               )}
 
@@ -649,9 +754,78 @@ const Bill = () => {
                   <TableCell align="right"></TableCell>
                   <TableCell align="right"></TableCell>
                   <TableCell align="right">€{calculatedBill.breakdown.diveInsurance.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Typography variant="caption">Customer</Typography>
+                  </TableCell>
                 </TableRow>
               )}
 
+              {/* Other Items */}
+              {calculatedBill.otherItems.map((item, index) => (
+                <TableRow key={`other-${index}`}>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell></TableCell>
+                  <TableCell align="right">1</TableCell>
+                  <TableCell align="right">€{item.price.toFixed(2)}</TableCell>
+                  <TableCell align="right">€{item.price.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Typography variant="caption">Customer</Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+
+              {/* Payment Summary */}
+              {calculatedBill.partnerPaidTotal > 0 && (
+                <>
+                  <TableRow>
+                    <TableCell colSpan={6} sx={{ py: 2, borderTop: 2, borderColor: 'divider' }}>
+                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                        Payment Summary
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <BusinessIcon sx={{ fontSize: 18, color: 'secondary.main' }} />
+                        <Typography variant="body2" fontWeight="bold">
+                          Paid by Partner ({getPartnerName(calculatedBill.dives.find(d => d.isPartnerBooking)?.partnerId) || 'Partner'}):
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight="bold">
+                        €{calculatedBill.partnerPaidTotal.toFixed(2)}
+                        {calculatedBill.partnerTax > 0 && (
+                          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                            + €{calculatedBill.partnerTax.toFixed(2)} tax
+                          </Typography>
+                        )}
+                      </Typography>
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <Typography variant="body2" fontWeight="bold">
+                        Paid by Customer:
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight="bold">
+                        €{calculatedBill.customerPaidTotal.toFixed(2)}
+                        {calculatedBill.customerTax > 0 && (
+                          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                            + €{calculatedBill.customerTax.toFixed(2)} tax
+                          </Typography>
+                        )}
+                      </Typography>
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                </>
+              )}
+              
               {/* Totals */}
               <TableRow>
                 <TableCell colSpan={4} align="right">
@@ -662,6 +836,7 @@ const Bill = () => {
                     €{calculatedBill.subtotal.toFixed(2)}
                   </Typography>
                 </TableCell>
+                <TableCell></TableCell>
               </TableRow>
               <TableRow>
                 <TableCell colSpan={4} align="right">
@@ -670,6 +845,7 @@ const Bill = () => {
                 <TableCell align="right">
                   <Typography variant="body1">€{calculatedBill.tax.toFixed(2)}</Typography>
                 </TableCell>
+                <TableCell></TableCell>
               </TableRow>
               <TableRow>
                 <TableCell colSpan={4} align="right">
@@ -680,6 +856,7 @@ const Bill = () => {
                     €{calculatedBill.total.toFixed(2)}
                   </Typography>
                 </TableCell>
+                <TableCell></TableCell>
               </TableRow>
             </TableBody>
           </Table>

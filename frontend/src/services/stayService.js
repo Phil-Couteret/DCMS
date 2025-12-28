@@ -231,6 +231,9 @@ export const getCumulativeStayPricing = async (customerId, stayStartDate = null)
     // Calculate total including all costs
     const totalForBooking = basePrice + nightDiveSurcharge + addonPrice + extra + equipmentRental + diveInsurance;
     
+    // Check if booking is from a partner
+    const isPartnerBooking = !!(booking.partnerId || booking.partner_id || booking.source === 'partner');
+    
     return {
       bookingId: booking.id,
       bookingDate: booking.bookingDate || booking.booking_date,
@@ -238,6 +241,11 @@ export const getCumulativeStayPricing = async (customerId, stayStartDate = null)
       pricePerDive: perDive,
       totalForBooking: totalForBooking,
       activityType: normalizedActivityType,
+      isPartnerBooking: isPartnerBooking,
+      partnerId: booking.partnerId || booking.partner_id || null,
+      // Separate base activity price from extras
+      baseActivityPrice: basePrice + nightDiveSurcharge + addonPrice + extra,
+      extrasPrice: equipmentRental + diveInsurance,
       sessions: booking.diveSessions ? {
         morning: booking.diveSessions.morning,
         afternoon: booking.diveSessions.afternoon,

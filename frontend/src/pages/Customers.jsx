@@ -489,9 +489,19 @@ const Customers = () => {
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 2 }}>
-                    <Typography variant="body1" fontWeight="medium" sx={{ color: 'text.primary' }}>
-                      {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.email || 'Unknown Customer'}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {(customer.partnerId || customer.partner_id || customer.source === 'partner') && (
+                        <BusinessIcon sx={{ color: 'secondary.main', fontSize: 20 }} />
+                      )}
+                      <Typography variant="body1" fontWeight="medium" sx={{ color: 'text.primary' }}>
+                        {[customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.email || 'Unknown Customer'}
+                      </Typography>
+                      {(customer.partnerId || customer.partner_id || customer.source === 'partner') && (
+                        <Typography variant="caption" color="secondary.main" sx={{ fontStyle: 'italic' }}>
+                          (Partner Customer)
+                        </Typography>
+                      )}
+                    </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       {/* Customer Type and Skill Level */}
                       <>

@@ -42,6 +42,10 @@ import { useNavigate } from 'react-router-dom';
 import stayService from '../services/stayService';
 import stayCostsService from '../services/stayCostsService';
 import { useTranslation } from '../utils/languageContext';
+import dataService from '../services/dataService';
+import {
+  Business as BusinessIcon
+} from '@mui/icons-material';
 
 const Stays = () => {
   const navigate = useNavigate();
@@ -49,6 +53,7 @@ const Stays = () => {
   const [activeStays, setActiveStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stayCosts, setStayCosts] = useState({}); // { 'customerId-stayStartDate': [...] }
+  const [partners, setPartners] = useState([]);
   const [showCostDialog, setShowCostDialog] = useState(false);
   const [editingCost, setEditingCost] = useState(null);
   const [currentStayKey, setCurrentStayKey] = useState(null);
@@ -64,7 +69,27 @@ const Stays = () => {
 
   useEffect(() => {
     loadActiveStays();
+    loadPartners();
   }, []);
+  
+  const loadPartners = async () => {
+    try {
+      const allPartners = await dataService.getAll('partners');
+      setPartners(Array.isArray(allPartners) ? allPartners : []);
+    } catch (error) {
+      console.error('Error loading partners:', error);
+      setPartners([]);
+    }
+  };
+  
+  const getPartnerName = (partnerId) => {
+    if (!partnerId) return null;
+    const partner = partners.find(p => p.id === partnerId);
+    if (partner) {
+      return partner.name || partner.companyName || partner.company_name || 'Partner';
+    }
+    return null;
+  };
 
   useEffect(() => {
     // Load costs for all active stays
@@ -333,13 +358,41 @@ const Stays = () => {
                       <TableBody>
                         {stay.breakdown.map((booking, index) => (
                           <TableRow key={booking.bookingId}>
-                            <TableCell>{formatDate(booking.bookingDate)}</TableCell>
+                            <TableCell>
+                              {formatDate(booking.bookingDate)}
+                              {booking.isPartnerBooking && (
+                                <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <BusinessIcon sx={{ fontSize: 14, color: 'secondary.main' }} />
+                                  <Typography variant="caption" color="secondary.main">
+                                    Paid by Partner: {getPartnerName(booking.partnerId) || 'Partner'}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </TableCell>
                             <TableCell>
                               {booking.sessions ? getSessionText(booking.sessions) : 'N/A'}
                             </TableCell>
                             <TableCell>{booking.dives}</TableCell>
                             <TableCell align="right">€{booking.pricePerDive.toFixed(2)}</TableCell>
-                            <TableCell align="right">€{booking.totalForBooking.toFixed(2)}</TableCell>
+                            <TableCell align="right">
+                              {booking.isPartnerBooking ? (
+                                <Box>
+                                  <Typography variant="body2">
+                                    €{booking.baseActivityPrice?.toFixed(2) || booking.totalForBooking.toFixed(2)}
+                                    <Typography component="span" variant="caption" color="secondary.main" sx={{ ml: 0.5 }}>
+                                      (Partner)
+                                    </Typography>
+                                  </Typography>
+                                  {booking.extrasPrice > 0 && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      +€{booking.extrasPrice.toFixed(2)} (Customer)
+                                    </Typography>
+                                  )}
+                                </Box>
+                              ) : (
+                                `€${booking.totalForBooking.toFixed(2)}`
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
