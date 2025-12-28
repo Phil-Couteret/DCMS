@@ -2,6 +2,7 @@
 // This service tracks all dives for a customer during their stay and applies cumulative pricing
 
 import dataService from './dataService';
+import { calculateActivityPrice, calculateDivePrice, getCustomerType } from './pricingService';
 
 // Get all bookings for a customer during their stay
 export const getCustomerStayBookings = async (customerId, stayStartDate = null) => {
@@ -39,17 +40,24 @@ export const getCustomerStayBookings = async (customerId, stayStartDate = null) 
 };
 
 // Calculate total dives for a customer during their stay
+// Note: Only counts actual diving activities, not discovery/snorkeling
 export const getCustomerStayDiveCount = async (customerId, stayStartDate = null) => {
   const stayBookings = await getCustomerStayBookings(customerId, stayStartDate);
   
   let totalDives = 0;
   stayBookings.forEach(booking => {
-    if (booking.diveSessions) {
-      // New format: count sessions
-      totalDives += (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0);
-    } else if (booking.numberOfDives || booking.number_of_dives) {
-      // Old format: use numberOfDives
-      totalDives += booking.numberOfDives || booking.number_of_dives || 0;
+    const activityType = booking.activityType || booking.activity_type;
+    const normalizedActivityType = activityType === 'try_dive' || activityType === 'discovery' ? 'discover' : activityType;
+    
+    // Only count diving activities, not discovery/snorkeling
+    if (normalizedActivityType === 'diving') {
+      if (booking.diveSessions) {
+        // New format: count sessions
+        totalDives += (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0);
+      } else if (booking.numberOfDives || booking.number_of_dives) {
+        // Old format: use numberOfDives
+        totalDives += booking.numberOfDives || booking.number_of_dives || 0;
+      }
     }
   });
   
@@ -132,8 +140,6 @@ export const getCumulativeStayPricing = async (customerId, stayStartDate = null)
     pricePerDive = customerPricing.pricePerDive;
   }
   
-  const totalPrice = totalDives * pricePerDive;
-  
   // Compute route-based pricing for Playitas specifics
   let caletaDivesCount = 0;
   const isPlayitas = !!location && location.name?.toLowerCase().includes('playitas');
@@ -173,25 +179,40 @@ export const getCumulativeStayPricing = async (customerId, stayStartDate = null)
   
   // Create breakdown for each booking
   const breakdown = stayBookings.map(booking => {
+    const activityType = booking.activityType || booking.activity_type;
+    const normalizedActivityType = activityType === 'try_dive' || activityType === 'discovery' ? 'discover' : activityType;
+    
     const bookingDives = booking.diveSessions ? 
       (booking.diveSessions.morning ? 1 : 0) + (booking.diveSessions.afternoon ? 1 : 0) + (booking.diveSessions.night ? 1 : 0) :
       (booking.numberOfDives || booking.number_of_dives || 0);
 
-    let perDive = pricePerDive;
+    let basePrice = 0;
+    let perDive = 0;
     let extra = 0;
-    if (isPlayitas) {
-      if (booking.routeType === 'playitas_local') perDive = 35;
-      if (booking.routeType === 'dive_trip') perDive = 45;
-      if (booking.routeType === 'caleta_from_playitas' && playitasCaletaTierPrice) perDive = playitasCaletaTierPrice;
-      if (booking.routeType === 'caleta_from_playitas' && bookingDives > 0) extra += 15; // transfer per day
+    
+    // Check if this is a non-diving activity (discovery, snorkeling, etc.)
+    if (normalizedActivityType === 'discover' || normalizedActivityType === 'snorkeling' || normalizedActivityType === 'orientation') {
+      // Use activity-specific pricing (not cumulative dive pricing)
+      const activityTotalPrice = calculateActivityPrice(normalizedActivityType, bookingDives, stayLocationId);
+      basePrice = activityTotalPrice;
+      perDive = bookingDives > 0 ? activityTotalPrice / bookingDives : 0;
+    } else {
+      // Regular diving activity - use cumulative dive pricing
+      perDive = pricePerDive;
+      if (isPlayitas) {
+        if (booking.routeType === 'playitas_local') perDive = 35;
+        if (booking.routeType === 'dive_trip') perDive = 45;
+        if (booking.routeType === 'caleta_from_playitas' && playitasCaletaTierPrice) perDive = playitasCaletaTierPrice;
+        if (booking.routeType === 'caleta_from_playitas' && bookingDives > 0) extra += 15; // transfer per day
+      }
+      
+      // Calculate base price for dives
+      basePrice = bookingDives * perDive;
     }
     
-    // Calculate base price for dives
-    const basePrice = bookingDives * perDive;
-    
-    // Add night dive surcharge if night dive is selected
+    // Add night dive surcharge if night dive is selected (only for diving activities)
     let nightDiveSurcharge = 0;
-    if (booking.diveSessions?.night) {
+    if (normalizedActivityType === 'diving' && booking.diveSessions?.night) {
       nightDiveSurcharge = locationPricingFull.addons?.night_dive ?? settings?.prices?.addons?.night_dive ?? 20;
     }
     
@@ -216,6 +237,7 @@ export const getCumulativeStayPricing = async (customerId, stayStartDate = null)
       dives: bookingDives,
       pricePerDive: perDive,
       totalForBooking: totalForBooking,
+      activityType: normalizedActivityType,
       sessions: booking.diveSessions ? {
         morning: booking.diveSessions.morning,
         afternoon: booking.diveSessions.afternoon,
@@ -223,6 +245,11 @@ export const getCumulativeStayPricing = async (customerId, stayStartDate = null)
       } : null
     };
   });
+  
+  // Calculate total price from breakdown (ensures discovery/snorkeling use correct pricing)
+  const calculatedTotalPrice = breakdown.reduce((sum, item) => sum + item.totalForBooking, 0);
+  // Keep old calculation as fallback for backwards compatibility
+  const totalPrice = calculatedTotalPrice || (totalDives * pricePerDive);
   
   return {
     totalDives,
