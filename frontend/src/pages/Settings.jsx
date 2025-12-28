@@ -2619,7 +2619,7 @@ const Settings = () => {
       {/* Version Information */}
       <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
         <Typography variant="caption" color="text.secondary" align="center" display="block">
-          DCMS v1.5.0 - Dive Center Management System
+          DCMS v1.5.1 - Dive Center Management System
         </Typography>
       </Box>
 
