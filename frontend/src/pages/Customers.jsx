@@ -142,11 +142,13 @@ const Customers = () => {
         return;
       }
       
-      // Show all customers with customerType (diving customers)
+      // Show all customers with customerType (diving customers) OR customers created by partners
       const filteredCustomers = allCustomers.filter(customer => {
         // Diving customers have customerType (tourist/local/recurrent)
         const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
-        return hasCustomerType;
+        // Also include customers created by partners (even if they don't have customerType yet)
+        const isPartnerCustomer = !!(customer.partnerId || customer.partner_id || customer.source === 'partner' || customer.created_by_partner_id);
+        return hasCustomerType || isPartnerCustomer;
       });
       
       setCustomers(filteredCustomers);
