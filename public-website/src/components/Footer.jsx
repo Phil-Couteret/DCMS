@@ -81,14 +81,28 @@ const Footer = () => {
               </Link>
             </Box>
           </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="h6" gutterBottom>
+              Legal & Privacy
+            </Typography>
+            <Box>
+              <Link href="/privacy-policy" color="inherit" underline="hover" sx={{ display: 'block', mb: 1 }}>
+                Privacy Policy
+              </Link>
+              <Link href="/cookie-policy" color="inherit" underline="hover" sx={{ display: 'block', mb: 1 }}>
+                Cookie Policy
+              </Link>
+              <Link href="/data-retention-policy" color="inherit" underline="hover" sx={{ display: 'block' }}>
+                Data Retention Policy
+              </Link>
+            </Box>
+          </Grid>
         </Grid>
 
         <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.1)', mt: 4, pt: 3, textAlign: 'center' }}>
           <Typography variant="body2" color="rgba(255,255,255,0.7)">
-            © 2024 Deep Blue Fuerteventura. All rights reserved. |{' '}
-            <Link href="/privacy-policy" color="inherit" underline="hover">
-              Privacy Policy
-            </Link>
+            © 2024 Deep Blue Fuerteventura. All rights reserved.
           </Typography>
         </Box>
       </Container>

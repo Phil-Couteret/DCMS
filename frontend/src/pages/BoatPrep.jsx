@@ -289,88 +289,6 @@ const BoatPrep = () => {
   const [boatAssignments, setBoatAssignments] = useState({});
   const [isInitializing, setIsInitializing] = useState(false);
   
-  // Initialize boat assignments from Schedule (bookings with boatId set)
-  useEffect(() => {
-    if (!shouldUseBoatPrep || !bookingsForDate.length) {
-      setBoatAssignments({});
-      setIsInitializing(false);
-      return;
-    }
-
-    setIsInitializing(true);
-
-    // Group bookings by boatId
-    const assignments = {};
-    bookingsForDate.forEach(booking => {
-      const bookingBoatId = booking.boatId || booking.boat_id;
-      const customerId = booking.customerId || booking.customer_id;
-      
-      if (bookingBoatId && customerId) {
-        if (!assignments[bookingBoatId]) {
-          assignments[bookingBoatId] = [];
-        }
-        if (!assignments[bookingBoatId].includes(customerId)) {
-          assignments[bookingBoatId].push(customerId);
-        }
-      }
-    });
-
-    setBoatAssignments(assignments);
-    // Set flag to false after state update completes
-    setTimeout(() => setIsInitializing(false), 0);
-  }, [bookingsForDate, shouldUseBoatPrep, date, session]);
-
-  // Update bookings when boatAssignments change (to persist overrides from Boat Prep)
-  // Skip updates during initialization to avoid unnecessary API calls
-  useEffect(() => {
-    if (isInitializing || !shouldUseBoatPrep || !bookingsForDate.length || !boatAssignments) return;
-
-    // Track if we need to update any bookings
-    const updates = [];
-
-    // Build a map of current assignments: customerId -> boatId
-    const currentAssignments = {};
-    Object.keys(boatAssignments).forEach(boatId => {
-      (boatAssignments[boatId] || []).forEach(customerId => {
-        currentAssignments[customerId] = boatId;
-      });
-    });
-
-    // Check each booking and update if boatId changed
-    bookingsForDate.forEach(booking => {
-      const bookingBoatId = booking.boatId || booking.boat_id;
-      const customerId = booking.customerId || booking.customer_id;
-      const expectedBoatId = currentAssignments[customerId] || null;
-
-      // If the booking's boatId doesn't match the current assignment, update it
-      if (bookingBoatId !== expectedBoatId) {
-        updates.push({
-          bookingId: booking.id,
-          boatId: expectedBoatId
-        });
-      }
-    });
-
-    // Apply updates (debounce to avoid too many API calls)
-    if (updates.length > 0) {
-      const timeoutId = setTimeout(async () => {
-        try {
-          await Promise.all(updates.map(({ bookingId, boatId }) => {
-            const updateData = { boatId };
-            // Clear slotAssignment since Boat Prep overrides Schedule assignments
-            updateData.slotAssignment = null;
-            return dataService.update('bookings', bookingId, updateData);
-          }));
-          console.log(`[BoatPrep] Updated ${updates.length} booking(s) with boat assignments`);
-        } catch (error) {
-          console.error('[BoatPrep] Error updating bookings with boat assignments:', error);
-        }
-      }, 500); // 500ms debounce
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [boatAssignments, bookingsForDate, shouldUseBoatPrep, isInitializing]);
-
   // Staff assignments: { boatId: { captain: userId, guides: [userId], trainees: [userId] } }
   const [staffAssignments, setStaffAssignments] = useState({});
   
@@ -503,12 +421,24 @@ const BoatPrep = () => {
     return filtered;
   }, [date, session, resolvedLocationId, locations, bookings]);
 
-  // Get customers who have bookings for the selected date and session
-  const customersWithBookings = useMemo(() => {
-    const customerIds = new Set(bookingsForDate.map(b => b.customerId));
-    const customers = allCustomers.filter(c => customerIds.has(c.id));
-    return customers;
-  }, [bookingsForDate, allCustomers]);
+  // Helper function to normalize activity type
+  const normalizeActivityType = (activityType) => {
+    if (!activityType) return null;
+    const normalized = String(activityType).toLowerCase().trim();
+    if (normalized === 'discover' || normalized === 'discovery') return 'discovery';
+    if (normalized === 'try-dive') return 'try_dive';
+    return normalized;
+  };
+
+  // Filter bookings for boat prep (exclude discovery/try_dive which are shore dives)
+  const boatPrepBookings = useMemo(() => {
+    return bookingsForDate.filter(b => {
+      const activityType = normalizeActivityType(b.activityType || b.activity_type);
+      // Only include boat dive activities: 'diving', 'snorkeling', 'specialty'
+      // Exclude shore dive activities: 'discovery', 'try_dive'
+      return activityType === 'diving' || activityType === 'snorkeling' || activityType === 'specialty';
+    });
+  }, [bookingsForDate]);
 
   // Determine if we should use boat or shore dive prep based on activity types and sessions
   // Discovery and orientation are always shore dives, even at locations with boats
@@ -526,47 +456,103 @@ const BoatPrep = () => {
       return hasBoats;
     }
     
-    // For morning and afternoon sessions, check activity types
-    // Regular diving activities ('diving', 'snorkeling', 'specialty') require boats
-    // Discovery/try_dive activities can be done from shore
-    
-    // Normalize activityType (handle both camelCase and snake_case, and variations)
-    const normalizeActivityType = (activityType) => {
-      if (!activityType) return null;
-      const normalized = String(activityType).toLowerCase().trim();
-      // Handle variations: 'diving', 'discover', 'discovery', 'try_dive', 'try-dive', 'orientation', 'snorkeling', 'specialty'
-      // Map 'discover' to 'discovery' to match enum
-      if (normalized === 'discover' || normalized === 'discovery') {
-        return 'discovery';
+    // Use boat prep if there are any boat dive bookings
+    return boatPrepBookings.length > 0;
+  }, [hasBoats, boatPrepBookings.length, session]);
+
+  // Get customers who have bookings for the selected date and session
+  // When using boat prep, exclude discovery/try_dive bookings (they're shore dives)
+  const customersWithBookings = useMemo(() => {
+    // Use filtered bookings for boat prep, all bookings for shore dive prep
+    const filteredBookings = shouldUseBoatPrep ? boatPrepBookings : bookingsForDate;
+    const customerIds = new Set(filteredBookings.map(b => b.customerId || b.customer_id));
+    const customers = allCustomers.filter(c => customerIds.has(c.id));
+    return customers;
+  }, [bookingsForDate, boatPrepBookings, allCustomers, shouldUseBoatPrep]);
+
+  // Initialize boat assignments from Schedule (bookings with boatId set)
+  // NOTE: This must come after bookingsForDate and shouldUseBoatPrep are declared
+  useEffect(() => {
+    if (!shouldUseBoatPrep || !bookingsForDate.length) {
+      setBoatAssignments({});
+      setIsInitializing(false);
+      return;
+    }
+
+    setIsInitializing(true);
+
+    // Group bookings by boatId
+    const assignments = {};
+    bookingsForDate.forEach(booking => {
+      const bookingBoatId = booking.boatId || booking.boat_id;
+      const customerId = booking.customerId || booking.customer_id;
+      
+      if (bookingBoatId && customerId) {
+        if (!assignments[bookingBoatId]) {
+          assignments[bookingBoatId] = [];
+        }
+        if (!assignments[bookingBoatId].includes(customerId)) {
+          assignments[bookingBoatId].push(customerId);
+        }
       }
-      // Map 'try-dive' to 'try_dive'
-      if (normalized === 'try-dive') {
-        return 'try_dive';
-      }
-      return normalized;
-    };
-    
-    // Check if ANY booking requires a boat (positive check)
-    // Based on backend enum: diving, snorkeling, try_dive, discovery, specialty
-    // Boat dives: 'diving', 'snorkeling', 'specialty', or null/undefined (default to boat)
-    // Shore dives: 'discovery', 'try_dive' only
-    const hasBoatDiveBooking = bookingsForDate.some(b => {
-      const activityType = normalizeActivityType(b.activityType || b.activity_type);
-      // If activityType is null/undefined, treat as regular diving (requires boat)
-      // This is a safe default - if we can't determine the type, assume boat dive
-      if (!activityType) {
-        return true; // Requires boat if we can't determine
-      }
-      // Boat dive activities: 'diving', 'snorkeling', 'specialty'
-      // Shore dive activities: 'discovery', 'try_dive'
-      return activityType === 'diving' || activityType === 'snorkeling' || activityType === 'specialty';
     });
-    
-    // Use boat prep if ANY booking requires a boat (even if no boats are currently found)
-    // This allows the user to see boat prep and potentially add boats if needed
-    // Only use shore dive prep if ALL bookings are discovery/try_dive (no boat dives)
-    return hasBoatDiveBooking;
-  }, [hasBoats, bookingsForDate, session]);
+
+    setBoatAssignments(assignments);
+    // Set flag to false after state update completes
+    setTimeout(() => setIsInitializing(false), 0);
+  }, [bookingsForDate, shouldUseBoatPrep, date, session]);
+
+  // Update bookings when boatAssignments change (to persist overrides from Boat Prep)
+  // Skip updates during initialization to avoid unnecessary API calls
+  // NOTE: This must come after bookingsForDate and shouldUseBoatPrep are declared
+  useEffect(() => {
+    if (isInitializing || !shouldUseBoatPrep || !bookingsForDate.length || !boatAssignments) return;
+
+    // Track if we need to update any bookings
+    const updates = [];
+
+    // Build a map of current assignments: customerId -> boatId
+    const currentAssignments = {};
+    Object.keys(boatAssignments).forEach(boatId => {
+      (boatAssignments[boatId] || []).forEach(customerId => {
+        currentAssignments[customerId] = boatId;
+      });
+    });
+
+    // Check each booking and update if boatId changed
+    bookingsForDate.forEach(booking => {
+      const bookingBoatId = booking.boatId || booking.boat_id;
+      const customerId = booking.customerId || booking.customer_id;
+      const expectedBoatId = currentAssignments[customerId] || null;
+
+      // If the booking's boatId doesn't match the current assignment, update it
+      if (bookingBoatId !== expectedBoatId) {
+        updates.push({
+          bookingId: booking.id,
+          boatId: expectedBoatId
+        });
+      }
+    });
+
+    // Apply updates (debounce to avoid too many API calls)
+    if (updates.length > 0) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          await Promise.all(updates.map(({ bookingId, boatId }) => {
+            const updateData = { boatId };
+            // Clear slotAssignment since Boat Prep overrides Schedule assignments
+            updateData.slotAssignment = null;
+            return dataService.update('bookings', bookingId, updateData);
+          }));
+          console.log(`[BoatPrep] Updated ${updates.length} booking(s) with boat assignments`);
+        } catch (error) {
+          console.error('[BoatPrep] Error updating bookings with boat assignments:', error);
+        }
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [boatAssignments, bookingsForDate, shouldUseBoatPrep, isInitializing]);
   
   // Filter customers by search, but only show those with bookings
   const filteredCustomers = useMemo(() => {

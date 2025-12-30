@@ -80,18 +80,39 @@ const Schedule = () => {
       setDiveSites(Array.isArray(diveSitesData) ? diveSitesData : []);
 
       // Initialize slot assignments from existing bookings
-      const initialAssignments = {};
-      allBookings.forEach(booking => {
-        if (booking.slotAssignment) {
-          const slotAssign = booking.slotAssignment;
-          if (slotAssign.type === 'mole' && slotAssign.slotId) {
-            initialAssignments[slotAssign.slotId] = booking.id;
-          } else if (slotAssign.type === 'boat' && slotAssign.boatId && slotAssign.session) {
-            initialAssignments[`boat-${slotAssign.boatId}-${slotAssign.session}`] = booking.id;
+      // Store arrays of booking IDs per slot to allow multiple divers
+      // Preserve any existing optimistic updates that might not be in the database yet
+      setSlotAssignments(prev => {
+        const initialAssignments = {};
+        allBookings.forEach(booking => {
+          if (booking.slotAssignment) {
+            const slotAssign = booking.slotAssignment;
+            if (slotAssign.type === 'mole' && slotAssign.slotId) {
+              if (!initialAssignments[slotAssign.slotId]) {
+                initialAssignments[slotAssign.slotId] = [];
+              }
+              if (!initialAssignments[slotAssign.slotId].includes(booking.id)) {
+                initialAssignments[slotAssign.slotId].push(booking.id);
+              }
+            } else if (slotAssign.type === 'boat' && slotAssign.boatId && slotAssign.session) {
+              const boatSlotId = `boat-${slotAssign.boatId}-${slotAssign.session}`;
+              if (!initialAssignments[boatSlotId]) {
+                initialAssignments[boatSlotId] = [];
+              }
+              if (!initialAssignments[boatSlotId].includes(booking.id)) {
+                initialAssignments[boatSlotId].push(booking.id);
+              }
+            }
           }
-        }
+        });
+        // Merge with previous state to preserve optimistic updates
+        Object.keys(initialAssignments).forEach(slotId => {
+          if (prev[slotId] && Array.isArray(prev[slotId])) {
+            initialAssignments[slotId] = [...new Set([...prev[slotId], ...initialAssignments[slotId]])];
+          }
+        });
+        return { ...prev, ...initialAssignments };
       });
-      setSlotAssignments(initialAssignments);
     } catch (error) {
       console.error('Error loading schedule data:', error);
     } finally {
@@ -220,53 +241,146 @@ const Schedule = () => {
 
   const handleAssignCustomer = async (bookingId, slotId, slotType, boatId = null, sessionTime = null) => {
     try {
-      // Update local state
-      setSlotAssignments(prev => ({
-        ...prev,
-        [slotId]: bookingId
-      }));
-
+      console.log('[Schedule] handleAssignCustomer called:', { bookingId, slotId, slotType, boatId, sessionTime });
+      
       // Update booking with slot assignment
       const booking = bookings.find(b => b.id === bookingId);
-      if (booking) {
-        const updateData = {};
-        
-        if (slotType === 'mole') {
-          // Store slot time for Mole assignments
-          const slotInfo = slotId.split('-');
-          if (slotInfo.length >= 5) {
-            const slotTime = `${slotInfo[3]}:${slotInfo[4]}`;
-            updateData.slotAssignment = {
-              type: 'mole',
-              slotId: slotId,
-              slotTime: slotTime
-            };
-          }
-        } else if (slotType === 'boat') {
-          // Store boat and session for boat assignments
-          updateData.boatId = boatId;
+      if (!booking) {
+        console.error('[Schedule] Booking not found:', bookingId);
+        return;
+      }
+
+      const updateData = {};
+      
+      if (slotType === 'mole') {
+        // Store slot time for Mole assignments
+        // Slot ID format: mole-yyyy-MM-dd-HH-mm
+        // So after split by '-': [0]=mole, [1]=yyyy, [2]=MM, [3]=dd, [4]=HH, [5]=mm
+        const slotInfo = slotId.split('-');
+        if (slotInfo.length >= 6) {
+          const slotTime = `${slotInfo[4]}:${slotInfo[5]}`; // HH:mm (indices 4 and 5)
           updateData.slotAssignment = {
-            type: 'boat',
-            boatId: boatId,
-            session: sessionTime || 'morning'
+            type: 'mole',
+            slotId: slotId,
+            slotTime: slotTime
+          };
+        } else {
+          // Fallback: still set slotAssignment even if time parsing fails
+          console.warn('[Schedule] Invalid Mole slot ID format, using slotId only:', slotId);
+          updateData.slotAssignment = {
+            type: 'mole',
+            slotId: slotId
           };
         }
-
-        // Update booking via API
-        await dataService.update('bookings', bookingId, updateData);
-        
-        // Reload bookings to get updated data
-        await loadData();
+      } else if (slotType === 'boat') {
+        // Store boat and session for boat assignments
+        updateData.boatId = boatId;
+        updateData.slotAssignment = {
+          type: 'boat',
+          boatId: boatId,
+          session: sessionTime || 'morning'
+        };
       }
+
+      console.log('[Schedule] Updating booking with:', updateData);
+      
+      // Check if assignment is allowed (personal instructor check)
+      const bookingToAssign = bookings.find(b => b.id === bookingId);
+      if (!bookingToAssign) {
+        console.error('[Schedule] Booking not found:', bookingId);
+        return;
+      }
+      
+      const hasPersonalInstructor = bookingToAssign.addons?.personalInstructor || 
+                                    bookingToAssign.addons?.personal_instructor ||
+                                    bookingToAssign.addons?.personalInstructor === 1;
+      
+      // Get current assignments for this slot (handle both array and single value for backward compatibility)
+      const currentSlotAssignments = slotAssignments[slotId] || [];
+      const assignmentIds = Array.isArray(currentSlotAssignments) ? currentSlotAssignments : (currentSlotAssignments ? [currentSlotAssignments] : []);
+      const assignedBookings = assignmentIds
+        .map(id => bookings.find(b => b.id === id))
+        .filter(Boolean);
+      
+      // Check if any existing assignment has personal instructor
+      const hasExistingPersonalInstructor = assignedBookings.some(b => 
+        b.addons?.personalInstructor || 
+        b.addons?.personal_instructor ||
+        b.addons?.personalInstructor === 1
+      );
+      
+      // Prevent assignment if: 
+      // 1. New booking has personal instructor and slot already has someone, OR
+      // 2. Slot already has someone with personal instructor
+      if (hasPersonalInstructor && assignedBookings.length > 0) {
+        alert('Cannot assign: This booking requires a personal instructor and the slot already has divers assigned.');
+        return;
+      }
+      if (hasExistingPersonalInstructor) {
+        alert('Cannot assign: This slot already has a diver with a personal instructor requirement.');
+        return;
+      }
+      
+      // Update local state optimistically (before API call for immediate UI feedback)
+      setSlotAssignments(prev => {
+        const prevSlotAssignments = prev[slotId];
+        // Handle both array and single value for backward compatibility
+        const prevArray = Array.isArray(prevSlotAssignments) 
+          ? prevSlotAssignments 
+          : (prevSlotAssignments ? [prevSlotAssignments] : []);
+        return {
+          ...prev,
+          [slotId]: [...prevArray, bookingId]
+        };
+      });
+      
+      // Update booking via API
+      await dataService.update('bookings', bookingId, updateData);
+      
+      // Update the local bookings state to reflect the change
+      setBookings(prev => prev.map(b => 
+        b.id === bookingId 
+          ? { ...b, slotAssignment: updateData.slotAssignment }
+          : b
+      ));
+      
+      // Reload bookings to get updated data and refresh slotAssignments
+      // This ensures slotAssignments is synced with the database
+      await loadData();
+      
+      console.log('[Schedule] Customer assigned successfully');
     } catch (error) {
-      console.error('Error assigning customer to slot:', error);
+      console.error('[Schedule] Error assigning customer to slot:', error);
+      // Revert optimistic update on error
+      setSlotAssignments(prev => {
+        const newState = { ...prev };
+        if (Array.isArray(newState[slotId])) {
+          newState[slotId] = newState[slotId].filter(id => id !== bookingId);
+          if (newState[slotId].length === 0) {
+            delete newState[slotId];
+          }
+        } else {
+          delete newState[slotId];
+        }
+        return newState;
+      });
     }
   };
 
-  const handleRemoveAssignment = async (slotId, slotType) => {
+  const handleRemoveAssignment = async (slotId, slotType, bookingIdToRemove = null) => {
     try {
-      const bookingId = slotAssignments[slotId];
-      if (bookingId) {
+      const slotBookings = slotAssignments[slotId];
+      if (!slotBookings || (Array.isArray(slotBookings) && slotBookings.length === 0)) {
+        return;
+      }
+      
+      // If bookingIdToRemove is provided, remove only that booking; otherwise remove all
+      const bookingIdsToRemove = bookingIdToRemove 
+        ? [bookingIdToRemove]
+        : (Array.isArray(slotBookings) ? slotBookings : [slotBookings]);
+      
+      // Update each booking
+      for (const bookingId of bookingIdsToRemove) {
         const booking = bookings.find(b => b.id === bookingId);
         if (booking) {
           // Remove slot assignment from booking
@@ -276,18 +390,27 @@ const Schedule = () => {
           }
           
           await dataService.update('bookings', bookingId, updateData);
-          
-          // Update local state
-          setSlotAssignments(prev => {
-            const newState = { ...prev };
-            delete newState[slotId];
-            return newState;
-          });
-          
-          // Reload bookings
-          await loadData();
         }
       }
+      
+      // Update local state
+      setSlotAssignments(prev => {
+        const newState = { ...prev };
+        if (bookingIdToRemove && Array.isArray(newState[slotId])) {
+          // Remove specific booking from array
+          newState[slotId] = newState[slotId].filter(id => id !== bookingIdToRemove);
+          if (newState[slotId].length === 0) {
+            delete newState[slotId];
+          }
+        } else {
+          // Remove entire slot
+          delete newState[slotId];
+        }
+        return newState;
+      });
+      
+      // Reload bookings
+      await loadData();
     } catch (error) {
       console.error('Error removing assignment:', error);
     }
@@ -686,11 +809,23 @@ const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onA
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {slots.map((slotItem) => {
-            const assignedBookingId = slotAssignments[slotItem.id];
-            const assignedBooking = assignedBookingId ? bookings.find(b => b.id === assignedBookingId) : null;
+            const slotAssignmentsForSlot = slotAssignments[slotItem.id];
+            // Handle both array and single value for backward compatibility
+            const assignedBookingIds = Array.isArray(slotAssignmentsForSlot) 
+              ? slotAssignmentsForSlot 
+              : (slotAssignmentsForSlot ? [slotAssignmentsForSlot] : []);
+            const assignedBookings = assignedBookingIds
+              .map(id => bookings.find(b => b.id === id))
+              .filter(Boolean);
+            
+            // Filter out bookings that are already assigned to any slot
             const unassignedBookings = bookings.filter(b => {
-              // Filter out already assigned bookings
-              return !Object.values(slotAssignments).includes(b.id);
+              const bookingId = b.id;
+              // Check if this booking is assigned to any slot
+              const isAssigned = Object.values(slotAssignments).some(slotBookings => 
+                Array.isArray(slotBookings) ? slotBookings.includes(bookingId) : slotBookings === bookingId
+              );
+              return !isAssigned;
             });
 
             return (
@@ -699,10 +834,10 @@ const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onA
                 sx={{
                   p: 2,
                   border: 1,
-                  borderColor: assignedBooking ? 'primary.main' : 'divider',
-                  backgroundColor: assignedBooking ? 'primary.light' : 'background.paper',
+                  borderColor: assignedBookings.length > 0 ? 'primary.main' : 'divider',
+                  backgroundColor: assignedBookings.length > 0 ? 'primary.light' : 'background.paper',
                   '&:hover': {
-                    backgroundColor: assignedBooking ? 'primary.light' : 'action.hover'
+                    backgroundColor: assignedBookings.length > 0 ? 'primary.light' : 'action.hover'
                   }
                 }}
               >
@@ -711,21 +846,24 @@ const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onA
                     {format(slotItem.start, 'HH:mm')} - {format(slotItem.end, 'HH:mm')}
                   </Typography>
                   <Chip
-                    label={assignedBooking ? 'Assigned' : 'Available'}
+                    label={assignedBookings.length > 0 ? `${assignedBookings.length} assigned` : 'Available'}
                     size="small"
-                    color={assignedBooking ? 'primary' : 'default'}
+                    color={assignedBookings.length > 0 ? 'primary' : 'default'}
                   />
                 </Box>
-                {assignedBooking ? (
+                {assignedBookings.length > 0 ? (
                   <Box sx={{ mt: 1 }}>
-                    <Chip
-                      icon={<PersonIcon />}
-                      label={getCustomerName(assignedBooking.customerId || assignedBooking.customer_id)}
-                      size="medium"
-                      color="primary"
-                      onDelete={() => onRemoveAssignment(slotItem.id, 'mole')}
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
+                    {assignedBookings.map((assignedBooking) => (
+                      <Chip
+                        key={assignedBooking.id}
+                        icon={<PersonIcon />}
+                        label={getCustomerName(assignedBooking.customerId || assignedBooking.customer_id)}
+                        size="medium"
+                        color="primary"
+                        onDelete={() => onRemoveAssignment(slotItem.id, 'mole', assignedBooking.id)}
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
                   </Box>
                 ) : (
                   <Box sx={{ mt: 1 }}>

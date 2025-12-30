@@ -134,22 +134,33 @@ const PrivacyPolicy = () => {
           </Typography>
           <Typography component="div" variant="body2">
             <ul>
-              <li><strong>Customer Accounts:</strong> Retained for 7 years (2,555 days) after your last activity 
-              (last login, booking, or profile update). After this period, your account and all associated data 
-              will be automatically deleted.</li>
-              <li><strong>Booking Records:</strong> Retained for 7 years from the booking date to comply with 
-              legal and accounting requirements (Spanish tax law). Records are automatically deleted after this period.</li>
-              <li><strong>Medical Certificates:</strong> Retained for 3 years (1,095 days) after the certificate expiry date, 
-              or until the certificate expires if valid. Expired certificates are automatically anonymized after the retention period.</li>
+              <li><strong>Customer Personal Data:</strong> Retained for 5 years (1,825 days) after your last activity 
+              (last login, booking, or profile update). After this period, your personal information will be automatically 
+              anonymized (names, emails, phone numbers, addresses removed, but transaction records kept for tax compliance).</li>
+              <li><strong>Financial Records (Invoices/Bills):</strong> Retained for 7 years (2,555 days) from the invoice date 
+              to comply with Spanish tax law requirements. Personal identifiers are anonymized after 5 years, but financial 
+              amounts and transaction dates are preserved.</li>
+              <li><strong>Booking Records:</strong> Retained for 5 years from the booking date. After this period, personal 
+              data is anonymized, but aggregate statistics may be kept for business analysis.</li>
+              <li><strong>Medical Certificates:</strong> Retained for 3 years (1,095 days) after the certificate expiry date. 
+              Expired certificates are automatically anonymized after the retention period.</li>
               <li><strong>Marketing Consent:</strong> Remains active until you withdraw it, or expires after 3 years of account 
               inactivity. You can withdraw marketing consent at any time through your account settings.</li>
-              <li><strong>Consent Records:</strong> Retained for 5 years after withdrawal for audit and compliance purposes.</li>
+              <li><strong>Communication Data:</strong> Retained for 3 years (1,095 days) after the communication date.</li>
             </ul>
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            <strong>Data Anonymization:</strong> Instead of deleting data, we anonymize personal identifiers (names, emails, 
+            phone numbers, addresses) while preserving anonymized transaction records for tax compliance and business statistics. 
+            This allows us to comply with both GDPR requirements and Spanish tax law (7-year retention of financial records).
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             <strong>Automated Cleanup:</strong> Our system automatically runs data retention cleanup processes to ensure 
-            data is deleted according to these policies. You will not receive individual notifications when your data 
-            is deleted due to retention policies, but you can request your data at any time before deletion.
+            data is anonymized according to these policies. You will not receive individual notifications when your data 
+            is anonymized due to retention policies, but you can request your data at any time before anonymization.
+          </Typography>
+          <Typography variant="body2" color="primary" sx={{ mt: 2 }}>
+            For more details, see our <Link href="/data-retention-policy">Data Retention Policy</Link>.
           </Typography>
         </Box>
 

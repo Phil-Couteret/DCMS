@@ -1,6 +1,6 @@
 {
   "name": "dcms-backend",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Dive Center Management System - Backend API",
   "author": "Philippe Couteret",
   "private": true,

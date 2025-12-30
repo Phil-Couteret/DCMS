@@ -14,6 +14,8 @@ import Contact from './pages/Contact';
 import Login from './pages/Login';
 import MyAccount from './pages/MyAccount';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import CookiePolicy from './pages/CookiePolicy';
+import DataRetentionPolicy from './pages/DataRetentionPolicy';
 import passwordMigrationService from './services/passwordMigrationService';
 import dataRetentionService from './services/dataRetentionService';
 
@@ -61,6 +63,8 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/my-account" element={<MyAccount />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/cookie-policy" element={<CookiePolicy />} />
+              <Route path="/data-retention-policy" element={<DataRetentionPolicy />} />
             </Routes>
           </main>
           <Footer />

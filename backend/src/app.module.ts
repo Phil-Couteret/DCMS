@@ -23,6 +23,7 @@ import { PartnerInvoicesModule } from './partner-invoices/partner-invoices.modul
 import { PartnerAuthModule } from './partner-auth/partner-auth.module';
 import { CustomerBillsModule } from './customer-bills/customer-bills.module';
 import { UsersModule } from './users/users.module';
+import { DataRetentionModule } from './data-retention/data-retention.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { UsersModule } from './users/users.module';
     PartnerAuthModule,
     CustomerBillsModule,
     UsersModule,
+    DataRetentionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
