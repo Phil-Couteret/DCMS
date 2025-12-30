@@ -287,7 +287,90 @@ const BoatPrep = () => {
   
   // Boat assignments: { boatId: [customerId, ...] }
   const [boatAssignments, setBoatAssignments] = useState({});
+  const [isInitializing, setIsInitializing] = useState(false);
   
+  // Initialize boat assignments from Schedule (bookings with boatId set)
+  useEffect(() => {
+    if (!shouldUseBoatPrep || !bookingsForDate.length) {
+      setBoatAssignments({});
+      setIsInitializing(false);
+      return;
+    }
+
+    setIsInitializing(true);
+
+    // Group bookings by boatId
+    const assignments = {};
+    bookingsForDate.forEach(booking => {
+      const bookingBoatId = booking.boatId || booking.boat_id;
+      const customerId = booking.customerId || booking.customer_id;
+      
+      if (bookingBoatId && customerId) {
+        if (!assignments[bookingBoatId]) {
+          assignments[bookingBoatId] = [];
+        }
+        if (!assignments[bookingBoatId].includes(customerId)) {
+          assignments[bookingBoatId].push(customerId);
+        }
+      }
+    });
+
+    setBoatAssignments(assignments);
+    // Set flag to false after state update completes
+    setTimeout(() => setIsInitializing(false), 0);
+  }, [bookingsForDate, shouldUseBoatPrep, date, session]);
+
+  // Update bookings when boatAssignments change (to persist overrides from Boat Prep)
+  // Skip updates during initialization to avoid unnecessary API calls
+  useEffect(() => {
+    if (isInitializing || !shouldUseBoatPrep || !bookingsForDate.length || !boatAssignments) return;
+
+    // Track if we need to update any bookings
+    const updates = [];
+
+    // Build a map of current assignments: customerId -> boatId
+    const currentAssignments = {};
+    Object.keys(boatAssignments).forEach(boatId => {
+      (boatAssignments[boatId] || []).forEach(customerId => {
+        currentAssignments[customerId] = boatId;
+      });
+    });
+
+    // Check each booking and update if boatId changed
+    bookingsForDate.forEach(booking => {
+      const bookingBoatId = booking.boatId || booking.boat_id;
+      const customerId = booking.customerId || booking.customer_id;
+      const expectedBoatId = currentAssignments[customerId] || null;
+
+      // If the booking's boatId doesn't match the current assignment, update it
+      if (bookingBoatId !== expectedBoatId) {
+        updates.push({
+          bookingId: booking.id,
+          boatId: expectedBoatId
+        });
+      }
+    });
+
+    // Apply updates (debounce to avoid too many API calls)
+    if (updates.length > 0) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          await Promise.all(updates.map(({ bookingId, boatId }) => {
+            const updateData = { boatId };
+            // Clear slotAssignment since Boat Prep overrides Schedule assignments
+            updateData.slotAssignment = null;
+            return dataService.update('bookings', bookingId, updateData);
+          }));
+          console.log(`[BoatPrep] Updated ${updates.length} booking(s) with boat assignments`);
+        } catch (error) {
+          console.error('[BoatPrep] Error updating bookings with boat assignments:', error);
+        }
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [boatAssignments, bookingsForDate, shouldUseBoatPrep, isInitializing]);
+
   // Staff assignments: { boatId: { captain: userId, guides: [userId], trainees: [userId] } }
   const [staffAssignments, setStaffAssignments] = useState({});
   

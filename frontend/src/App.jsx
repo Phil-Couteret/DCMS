@@ -12,6 +12,7 @@ import Customers from './pages/Customers';
 import Equipment from './pages/Equipment';
 import Settings from './pages/Settings';
 import BoatPrep from './pages/BoatPrep';
+import Schedule from './pages/Schedule';
 import Breaches from './pages/Breaches';
 import Bill from './pages/Bill';
 import Partners from './pages/Partners';
@@ -19,6 +20,7 @@ import PartnerInvoices from './pages/PartnerInvoices';
 import PartnerLogin from './pages/partner/PartnerLogin';
 import PartnerDashboard from './pages/partner/PartnerDashboard';
 import ProtectedPartnerRoute from './components/Partner/ProtectedPartnerRoute';
+import Bills from './pages/Bills';
 import { PartnerAuthProvider } from './utils/partnerAuthContext';
 
 // Components
@@ -87,11 +89,13 @@ function App() {
                             <Route path="/customers" element={<ProtectedRoute requiredPermission="customers"><Customers /></ProtectedRoute>} />
                             <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
                             <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="boatPrep"><BoatPrep /></ProtectedRoute>} />
+                            <Route path="/schedule" element={<ProtectedRoute requiredPermission="boatPrep"><Schedule /></ProtectedRoute>} />
                             <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
                             <Route path="/breaches" element={<ProtectedRoute requiredPermission="settings"><Breaches /></ProtectedRoute>} />
                             <Route path="/bill" element={<ProtectedRoute requiredPermission="stays"><Bill /></ProtectedRoute>} />
                             <Route path="/partners" element={<ProtectedRoute requiredPermission="settings"><Partners /></ProtectedRoute>} />
                             <Route path="/partner-invoices" element={<ProtectedRoute requiredPermission="settings"><PartnerInvoices /></ProtectedRoute>} />
+                            <Route path="/bills" element={<ProtectedRoute requiredPermission="stays"><Bills /></ProtectedRoute>} />
                           </Routes>
                         </Box>
                       </Box>

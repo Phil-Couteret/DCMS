@@ -65,6 +65,7 @@ const PartnerInvoices = () => {
   const loadInvoices = async () => {
     try {
       const allInvoices = await dataService.getAll('partnerInvoices') || [];
+      console.log('[PartnerInvoices] Loaded invoices:', allInvoices);
       setInvoices(Array.isArray(allInvoices) ? allInvoices : []);
     } catch (error) {
       console.error('Error loading invoices:', error);
@@ -312,7 +313,7 @@ const PartnerInvoices = () => {
                 <TableCell colSpan={isAdmin() ? 9 : 8} align="center">
                   <Typography color="text.secondary" sx={{ py: 2 }}>
                     {invoices.length === 0
-                      ? 'No invoices found. Partner invoices are created automatically when bills are generated.'
+                      ? 'No invoices found. Partner invoices are created automatically when bills are finalized for partner customers. Check the browser console (F12) for debugging information.'
                       : 'No invoices match the selected filters.'}
                   </Typography>
                 </TableCell>

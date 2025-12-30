@@ -66,7 +66,9 @@ const Prices = () => {
         one_month: 25,
         one_year: 45
       },
-      beverages: {},
+      beverages: {
+        price: 0 // Single price for all beverages
+      },
       tax: {
         igic_rate: 0.07
       }
@@ -375,15 +377,14 @@ const Prices = () => {
     });
   };
 
-  // Beverage prices are global across locations
-  const handleBeveragePriceChange = (beverage, value) => {
+  // Beverage price is global across locations (all beverages same price)
+  const handleBeveragePriceChange = (value) => {
     setSettings({
       ...settings,
       prices: {
         ...settings.prices,
         beverages: {
-          ...settings.prices.beverages,
-          [beverage]: parseFloat(value) || 0
+          price: parseFloat(value) || 0
         }
       }
     });
@@ -965,25 +966,23 @@ const Prices = () => {
         {/* Beverages */}
         <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader title="Beverage Prices" />
+            <CardHeader 
+              title="Beverage Price" 
+              subheader="Single price for all beverages"
+            />
             <CardContent>
-              <Grid container spacing={2}>
-                {Object.entries(settings.prices.beverages || {}).map(([beverage, price]) => (
-                  <Grid item xs={12} key={beverage}>
-                    <TextField
-                      label={beverage.replace(/_/g, ' ').toUpperCase()}
-                      type="number"
-                      value={price}
-                      onChange={(e) => handleBeveragePriceChange(beverage, e.target.value)}
-                      fullWidth
-                      size="small"
-                      InputProps={{
-                        startAdornment: '€'
-                      }}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
+              <TextField
+                label="Price per Beverage"
+                type="number"
+                value={settings.prices.beverages?.price || 0}
+                onChange={(e) => handleBeveragePriceChange(e.target.value)}
+                fullWidth
+                size="small"
+                InputProps={{
+                  startAdornment: '€'
+                }}
+                helperText="This price applies to all beverages (water, soda, beer, wine, coffee, etc.)"
+              />
             </CardContent>
           </Card>
         </Grid>

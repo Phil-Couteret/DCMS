@@ -21,6 +21,7 @@ import { PartnersModule } from './partners/partners.module';
 import { PartnerModule } from './partner/partner.module';
 import { PartnerInvoicesModule } from './partner-invoices/partner-invoices.module';
 import { PartnerAuthModule } from './partner-auth/partner-auth.module';
+import { CustomerBillsModule } from './customer-bills/customer-bills.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -48,6 +49,7 @@ import { UsersModule } from './users/users.module';
     PartnerModule,
     PartnerInvoicesModule,
     PartnerAuthModule,
+    CustomerBillsModule,
     UsersModule,
   ],
   controllers: [AppController],

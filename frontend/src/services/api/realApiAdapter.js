@@ -28,6 +28,9 @@ const realApiAdapter = {
     } else if (resource === 'partnerInvoices') {
       // Frontend calls it 'partnerInvoices', backend uses 'partner-invoices'
       endpoint = 'partner-invoices';
+    } else if (resource === 'customerBills') {
+      // Frontend calls it 'customerBills', backend uses 'customer-bills'
+      endpoint = 'customer-bills';
     } else if (resource === 'staff') {
       // Frontend calls it 'staff', backend uses 'staff'
       endpoint = 'staff';
@@ -46,6 +49,7 @@ const realApiAdapter = {
     else if (resource === 'boatPreps') endpoint = 'boat-preps';
     else if (resource === 'partners') endpoint = 'partners';
     else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
+    else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'staff') endpoint = 'staff';
     
     const response = await httpClient.get(`/${endpoint}/${id}`);
@@ -81,7 +85,12 @@ const realApiAdapter = {
       transformedData = this.transformBoatPrepToBackend(data);
     } else if (resource === 'partnerInvoices') {
       transformedData = this.transformPartnerInvoiceToBackend(data);
+      endpoint = 'partner-invoices';
+    } else if (resource === 'customerBills') {
+      transformedData = this.transformCustomerBillToBackend(data);
+      endpoint = 'customer-bills';
     }
+    
     const response = await httpClient.post(`/${endpoint}`, transformedData);
     return this.transformResponse(resource, response.data || response);
   },
@@ -403,6 +412,57 @@ const realApiAdapter = {
     };
   },
 
+  transformCustomerBillToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      customerId: data.customerId || data.customer_id,
+      locationId: data.locationId || data.location_id,
+      billNumber: data.billNumber || data.bill_number,
+      stayStartDate: data.stayStartDate || data.stay_start_date,
+      billDate: data.billDate || data.bill_date,
+      bookingIds: data.bookingIds || data.booking_ids || [],
+      billItems: data.billItems || data.bill_items || [],
+      subtotal: data.subtotal || 0,
+      tax: data.tax || 0,
+      total: data.total || 0,
+      partnerPaidTotal: data.partnerPaidTotal || data.partner_paid_total || 0,
+      customerPaidTotal: data.customerPaidTotal || data.customer_paid_total || 0,
+      partnerTax: data.partnerTax || data.partner_tax || 0,
+      customerTax: data.customerTax || data.customer_tax || 0,
+      breakdown: data.breakdown || {},
+      notes: data.notes,
+    };
+  },
+
+  transformCustomerBillFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    return {
+      id: data.id,
+      customerId: data.customer_id || data.customerId,
+      locationId: data.location_id || data.locationId,
+      billNumber: data.bill_number || data.billNumber,
+      stayStartDate: data.stay_start_date || data.stayStartDate,
+      billDate: data.bill_date || data.billDate,
+      bookingIds: data.booking_ids || data.bookingIds || [],
+      billItems: data.bill_items || data.billItems || [],
+      subtotal: parseFloat(data.subtotal) || 0,
+      tax: parseFloat(data.tax) || 0,
+      total: parseFloat(data.total) || 0,
+      partnerPaidTotal: parseFloat(data.partner_paid_total || data.partnerPaidTotal || 0),
+      customerPaidTotal: parseFloat(data.customer_paid_total || data.customerPaidTotal || 0),
+      partnerTax: parseFloat(data.partner_tax || data.partnerTax || 0),
+      customerTax: parseFloat(data.customer_tax || data.customerTax || 0),
+      breakdown: data.breakdown || {},
+      notes: data.notes,
+      customer: data.customers || data.customer,
+      location: data.locations || data.location,
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
   transformPartnerInvoiceFromBackend(data) {
     if (!data || typeof data !== 'object') return data;
     
@@ -491,6 +551,12 @@ const realApiAdapter = {
         return data.map(item => this.transformPartnerInvoiceFromBackend(item));
       }
       return this.transformPartnerInvoiceFromBackend(data);
+    }
+    if (resource === 'customerBills') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformCustomerBillFromBackend(item));
+      }
+      return this.transformCustomerBillFromBackend(data);
     }
     return data;
   },
@@ -744,6 +810,7 @@ const realApiAdapter = {
     else if (resource === 'boatPreps') endpoint = 'boat-preps';
     else if (resource === 'partners') endpoint = 'partners';
     else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
+    else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'staff') endpoint = 'staff';
     
     const response = await httpClient.delete(`/${endpoint}/${id}`);

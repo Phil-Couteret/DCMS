@@ -2,7 +2,7 @@
   "short_name": "DCMS",
   "name": "Dive Center Management System",
   "description": "Complete diving center management system for Deep Blue Diving",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "icons": [
     {
       "src": "favicon.ico",

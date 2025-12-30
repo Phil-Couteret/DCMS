@@ -223,6 +223,7 @@ model customers {
   created_by_partner_id                              String?                        @db.Uuid
   bono_usage                                         bono_usage[]
   bookings                                           bookings[]
+  customer_bills                                     customer_bills[]
   customer_certifications                            customer_certifications[]
   customer_consents                                  customer_consents[]
   customer_stays                                     customer_stays[]
@@ -366,6 +367,7 @@ model locations {
   boat_preps      boat_preps[]
   boats           boats[]
   bookings        bookings[]
+  customer_bills  customer_bills[]
   dive_sites      dive_sites[]
   equipment       equipment[]
   pricing_configs pricing_configs[]
@@ -373,6 +375,35 @@ model locations {
 
   @@index([is_active], map: "idx_locations_active")
   @@index([type], map: "idx_locations_type")
+}
+
+model customer_bills {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id         String    @db.Uuid
+  location_id         String    @db.Uuid
+  bill_number         String    @unique @db.VarChar(100)
+  stay_start_date     DateTime  @db.Date
+  bill_date           DateTime  @db.Date
+  booking_ids         Json      @default("[]")
+  bill_items          Json      @default("[]")
+  subtotal            Decimal   @db.Decimal(10, 2)
+  tax                 Decimal   @db.Decimal(10, 2)
+  total               Decimal   @db.Decimal(10, 2)
+  partner_paid_total  Decimal?  @default(0) @db.Decimal(10, 2)
+  customer_paid_total Decimal?  @default(0) @db.Decimal(10, 2)
+  partner_tax         Decimal?  @default(0) @db.Decimal(10, 2)
+  customer_tax        Decimal?  @default(0) @db.Decimal(10, 2)
+  breakdown           Json?     @default("{}")
+  notes               String?
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+  customers           customers @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locations           locations @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([bill_date], map: "idx_customer_bills_date")
+  @@index([bill_number], map: "idx_customer_bills_number")
+  @@index([customer_id], map: "idx_customer_bills_customer")
+  @@index([stay_start_date], map: "idx_customer_bills_stay_start")
 }
 
 model partner_invoices {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -54,6 +54,7 @@ const Stays = () => {
   const [loading, setLoading] = useState(true);
   const [stayCosts, setStayCosts] = useState({}); // { 'customerId-stayStartDate': [...] }
   const [partners, setPartners] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [showCostDialog, setShowCostDialog] = useState(false);
   const [editingCost, setEditingCost] = useState(null);
   const [currentStayKey, setCurrentStayKey] = useState(null);
@@ -67,12 +68,8 @@ const Stays = () => {
     notes: ''
   });
 
-  useEffect(() => {
-    loadActiveStays();
-    loadPartners();
-  }, []);
-  
-  const loadPartners = async () => {
+
+  const loadPartners = useCallback(async () => {
     try {
       const allPartners = await dataService.getAll('partners');
       setPartners(Array.isArray(allPartners) ? allPartners : []);
@@ -80,28 +77,22 @@ const Stays = () => {
       console.error('Error loading partners:', error);
       setPartners([]);
     }
-  };
-  
-  const getPartnerName = (partnerId) => {
-    if (!partnerId) return null;
-    const partner = partners.find(p => p.id === partnerId);
-    if (partner) {
-      return partner.name || partner.companyName || partner.company_name || 'Partner';
+  }, []);
+
+  const loadSettings = useCallback(async () => {
+    try {
+      const settingsData = await dataService.getAll('settings');
+      const loadedSettings = Array.isArray(settingsData) && settingsData.length > 0 ? settingsData[0] : null;
+      console.log('[Stays] Loaded settings:', loadedSettings);
+      console.log('[Stays] Beverage price in loaded settings:', loadedSettings?.prices?.beverages?.price);
+      setSettings(loadedSettings);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      setSettings(null);
     }
-    return null;
-  };
+  }, []);
 
-  useEffect(() => {
-    // Load costs for all active stays
-    const costsMap = {};
-    activeStays.forEach(stay => {
-      const key = `${stay.customer.id}|${stay.stayStartDate}`;
-      costsMap[key] = stayCostsService.getStayCosts(stay.customer.id, stay.stayStartDate);
-    });
-    setStayCosts(costsMap);
-  }, [activeStays]);
-
-  const loadActiveStays = async () => {
+  const loadActiveStays = useCallback(async () => {
     setLoading(true);
     try {
       const stays = await stayService.getActiveStays(30); // Last 30 days
@@ -112,7 +103,57 @@ const Stays = () => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const getPartnerName = (partnerId) => {
+    if (!partnerId) return null;
+    const partner = partners.find(p => p.id === partnerId);
+    if (partner) {
+      return partner.name || partner.companyName || partner.company_name || 'Partner';
+    }
+    return null;
   };
+
+  useEffect(() => {
+    loadActiveStays();
+    loadPartners();
+    loadSettings();
+  }, [loadActiveStays, loadPartners, loadSettings]);
+
+  // Auto-populate beverage price when category is beverages and settings are available
+  useEffect(() => {
+    if (showCostDialog && costFormData.category === 'beverages') {
+      const beveragePrice = settings?.prices?.beverages?.price;
+      console.log('[Stays] useEffect triggered. Dialog open:', showCostDialog, 'Category:', costFormData.category);
+      console.log('[Stays] Settings available:', !!settings, 'Beverage price:', beveragePrice);
+      
+      if (beveragePrice !== undefined && beveragePrice !== null) {
+        let priceValue = typeof beveragePrice === 'number' ? beveragePrice : parseFloat(beveragePrice);
+        if (isNaN(priceValue)) priceValue = 0;
+        
+        if (priceValue > 0) {
+          const priceString = priceValue.toFixed(2);
+          if (costFormData.unitPrice !== priceString) {
+            console.log('[Stays] Setting unit price to:', priceString);
+            setCostFormData(prev => ({ 
+              ...prev, 
+              unitPrice: priceString
+            }));
+          }
+        }
+      }
+    }
+  }, [showCostDialog, costFormData.category, settings]);
+
+  useEffect(() => {
+    // Load costs for all active stays
+    const costsMap = {};
+    activeStays.forEach(stay => {
+      const key = `${stay.customer.id}|${stay.stayStartDate}`;
+      costsMap[key] = stayCostsService.getStayCosts(stay.customer.id, stay.stayStartDate);
+    });
+    setStayCosts(costsMap);
+  }, [activeStays]);
 
   const getStatusColor = (totalDives) => {
     if (totalDives >= 9) return 'success';
@@ -186,6 +227,49 @@ const Stays = () => {
     setShowCostDialog(true);
   };
 
+  // Handle category change - auto-populate beverage price
+  const handleCategoryChange = (category) => {
+    if (category === 'beverages') {
+      // Try to get beverage price from settings
+      const beveragePrice = settings?.prices?.beverages?.price;
+      console.log('[Stays] Category changed to beverages. Settings:', settings);
+      console.log('[Stays] Beverage price from settings:', beveragePrice);
+      
+      // Convert to number and check if it's a valid positive number
+      let priceValue = 0;
+      if (beveragePrice !== undefined && beveragePrice !== null) {
+        priceValue = typeof beveragePrice === 'number' ? beveragePrice : parseFloat(beveragePrice);
+        if (isNaN(priceValue)) priceValue = 0;
+      }
+      
+      console.log('[Stays] Calculated price value:', priceValue);
+      
+      if (priceValue > 0) {
+        setCostFormData(prev => ({ 
+          ...prev, 
+          category,
+          description: '', // Reset description when changing to beverages
+          unitPrice: priceValue.toFixed(2)
+        }));
+      } else {
+        // If price is 0 or not set, show empty but indicate it needs to be set in settings
+        setCostFormData(prev => ({ 
+          ...prev, 
+          category,
+          description: '', // Reset description when changing to beverages
+          unitPrice: ''
+        }));
+      }
+    } else {
+      setCostFormData(prev => ({ 
+        ...prev, 
+        category,
+        description: '', // Reset description when changing category
+        unitPrice: '' // Reset unit price when changing from beverages
+      }));
+    }
+  };
+
   const handleCloseCostDialog = () => {
     setShowCostDialog(false);
     setEditingCost(null);
@@ -242,6 +326,8 @@ const Stays = () => {
       equipment: 'Equipment',
       clothes: 'Clothes',
       goodies: 'Goodies',
+      beverages: 'Beverages',
+      drinks: 'Drinks',
       other: 'Other'
     };
     return labels[category] || category;
@@ -543,13 +629,14 @@ const Stays = () => {
                 <InputLabel>Category</InputLabel>
                 <Select
                   value={costFormData.category}
-                  onChange={(e) => setCostFormData({ ...costFormData, category: e.target.value })}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
                   label="Category"
                 >
                   <MenuItem value="insurance">Insurance</MenuItem>
                   <MenuItem value="equipment">Equipment</MenuItem>
                   <MenuItem value="clothes">Clothes</MenuItem>
                   <MenuItem value="goodies">Goodies</MenuItem>
+                  <MenuItem value="beverages">Beverages</MenuItem>
                   <MenuItem value="other">Other</MenuItem>
                 </Select>
               </FormControl>
@@ -560,8 +647,8 @@ const Stays = () => {
                 label="Description"
                 value={costFormData.description}
                 onChange={(e) => setCostFormData({ ...costFormData, description: e.target.value })}
-                placeholder="e.g., Dive Insurance, T-shirt, Equipment purchase"
-                required
+                placeholder={costFormData.category === 'beverages' ? "e.g., Water, Soda, Beer, Wine (optional)" : "e.g., Dive Insurance, T-shirt, Equipment purchase"}
+                required={costFormData.category !== 'beverages'}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -586,6 +673,14 @@ const Stays = () => {
                 onChange={(e) => setCostFormData({ ...costFormData, unitPrice: e.target.value })}
                 inputProps={{ min: 0, step: 0.01 }}
                 required
+                disabled={costFormData.category === 'beverages'}
+                helperText={
+                  costFormData.category === 'beverages' 
+                    ? settings?.prices?.beverages?.price 
+                      ? `Price from settings: €${settings.prices.beverages.price.toFixed(2)}` 
+                      : 'Beverage price not set in settings'
+                    : ''
+                }
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -615,7 +710,7 @@ const Stays = () => {
           <Button
             onClick={handleSaveCost}
             variant="contained"
-            disabled={!costFormData.description || !costFormData.unitPrice}
+            disabled={!costFormData.unitPrice || (costFormData.category !== 'beverages' && !costFormData.description)}
           >
             {editingCost ? 'Update' : 'Add'} Cost
           </Button>
