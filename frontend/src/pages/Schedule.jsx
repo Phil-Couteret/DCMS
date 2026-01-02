@@ -10,7 +10,11 @@ import {
   DialogActions,
   IconButton,
   Chip,
-  Divider
+  Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   ChevronLeft as ChevronLeftIcon,
@@ -41,8 +45,10 @@ const Schedule = () => {
   const [bookings, setBookings] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [diveSites, setDiveSites] = useState([]);
+  const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [slotAssignments, setSlotAssignments] = useState({});
+  const [slotGuides, setSlotGuides] = useState({}); // { slotId: [guideId1, guideId2, ...] }
 
   const currentLocationId = localStorage.getItem('dcms_current_location');
   
@@ -60,12 +66,13 @@ const Schedule = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [locationsData, boatsData, bookingsData, customersData, diveSitesData] = await Promise.all([
+      const [locationsData, boatsData, bookingsData, customersData, diveSitesData, staffData] = await Promise.all([
         dataService.getAll('locations'),
         dataService.getAll('boats'),
         dataService.getAll('bookings'),
         dataService.getAll('customers'),
-        dataService.getAll('diveSites')
+        dataService.getAll('diveSites'),
+        dataService.getAll('staff')
       ]);
 
       setLocations(Array.isArray(locationsData) ? locationsData : []);
@@ -78,6 +85,7 @@ const Schedule = () => {
       setBookings(allBookings);
       setCustomers(Array.isArray(customersData) ? customersData : []);
       setDiveSites(Array.isArray(diveSitesData) ? diveSitesData : []);
+      setStaff(Array.isArray(staffData) ? staffData.filter(s => s.isActive !== false) : []);
 
       // Initialize slot assignments from existing bookings
       // Store arrays of booking IDs per slot to allow multiple divers
@@ -112,6 +120,30 @@ const Schedule = () => {
           }
         });
         return { ...prev, ...initialAssignments };
+      });
+
+      // Initialize guide assignments from slotAssignments (if guides are stored in booking.slotAssignment)
+      setSlotGuides(prev => {
+        const initialGuides = {};
+        allBookings.forEach(booking => {
+          if (booking.slotAssignment && booking.slotAssignment.guideIds) {
+            const slotAssign = booking.slotAssignment;
+            let slotId = null;
+            if (slotAssign.type === 'mole' && slotAssign.slotId) {
+              slotId = slotAssign.slotId;
+            } else if (slotAssign.type === 'boat' && slotAssign.boatId && slotAssign.session) {
+              slotId = `boat-${slotAssign.boatId}-${slotAssign.session}`;
+            }
+            if (slotId && Array.isArray(slotAssign.guideIds)) {
+              if (!initialGuides[slotId]) {
+                initialGuides[slotId] = [];
+              }
+              // Merge guide IDs (avoid duplicates)
+              initialGuides[slotId] = [...new Set([...initialGuides[slotId], ...slotAssign.guideIds])];
+            }
+          }
+        });
+        return { ...prev, ...initialGuides };
       });
     } catch (error) {
       console.error('Error loading schedule data:', error);
@@ -284,42 +316,9 @@ const Schedule = () => {
 
       console.log('[Schedule] Updating booking with:', updateData);
       
-      // Check if assignment is allowed (personal instructor check)
-      const bookingToAssign = bookings.find(b => b.id === bookingId);
-      if (!bookingToAssign) {
-        console.error('[Schedule] Booking not found:', bookingId);
-        return;
-      }
-      
-      const hasPersonalInstructor = bookingToAssign.addons?.personalInstructor || 
-                                    bookingToAssign.addons?.personal_instructor ||
-                                    bookingToAssign.addons?.personalInstructor === 1;
-      
-      // Get current assignments for this slot (handle both array and single value for backward compatibility)
-      const currentSlotAssignments = slotAssignments[slotId] || [];
-      const assignmentIds = Array.isArray(currentSlotAssignments) ? currentSlotAssignments : (currentSlotAssignments ? [currentSlotAssignments] : []);
-      const assignedBookings = assignmentIds
-        .map(id => bookings.find(b => b.id === id))
-        .filter(Boolean);
-      
-      // Check if any existing assignment has personal instructor
-      const hasExistingPersonalInstructor = assignedBookings.some(b => 
-        b.addons?.personalInstructor || 
-        b.addons?.personal_instructor ||
-        b.addons?.personalInstructor === 1
-      );
-      
-      // Prevent assignment if: 
-      // 1. New booking has personal instructor and slot already has someone, OR
-      // 2. Slot already has someone with personal instructor
-      if (hasPersonalInstructor && assignedBookings.length > 0) {
-        alert('Cannot assign: This booking requires a personal instructor and the slot already has divers assigned.');
-        return;
-      }
-      if (hasExistingPersonalInstructor) {
-        alert('Cannot assign: This slot already has a diver with a personal instructor requirement.');
-        return;
-      }
+      // Note: Multiple customers can always be assigned to the same slot
+      // - Discovery dives (Mole slots): Always shore dives, multiple customers allowed
+      // - Boat slots: Multiple customers allowed, personal instructor customers count as 2 in capacity calculations
       
       // Update local state optimistically (before API call for immediate UI feedback)
       setSlotAssignments(prev => {
@@ -433,6 +432,50 @@ const Schedule = () => {
       }
     } catch (error) {
       console.error('Error removing boat assignment:', error);
+    }
+  };
+
+  const handleUpdateGuides = async (slotId, guideIds) => {
+    try {
+      // Update local state
+      setSlotGuides(prev => ({
+        ...prev,
+        [slotId]: guideIds
+      }));
+
+      // Determine slot type and update all bookings for this slot
+      const slotBookings = slotAssignments[slotId];
+      if (!slotBookings || (Array.isArray(slotBookings) && slotBookings.length === 0)) {
+        // No bookings yet, just store the guide assignment (could store in a separate slotGuides table)
+        return;
+      }
+
+      const bookingIds = Array.isArray(slotBookings) ? slotBookings : [slotBookings];
+      
+      // Update each booking's slotAssignment to include guideIds
+      for (const bookingId of bookingIds) {
+        const booking = bookings.find(b => b.id === bookingId);
+        if (booking && booking.slotAssignment) {
+          const updateData = {
+            slotAssignment: {
+              ...booking.slotAssignment,
+              guideIds: guideIds
+            }
+          };
+          await dataService.update('bookings', bookingId, updateData);
+        }
+      }
+      
+      // Reload bookings to sync
+      await loadData();
+    } catch (error) {
+      console.error('Error updating guides:', error);
+      // Revert on error
+      setSlotGuides(prev => {
+        const newState = { ...prev };
+        delete newState[slotId];
+        return newState;
+      });
     }
   };
 
@@ -669,9 +712,12 @@ const Schedule = () => {
               bookings={getDiscoveryBookings(selectedSlot.date)} 
               customers={customers} 
               boats={activeBoats} 
-              slotAssignments={slotAssignments} 
+              staff={staff}
+              slotAssignments={slotAssignments}
+              slotGuides={slotGuides}
               onAssign={handleAssignCustomer} 
-              onRemoveAssignment={handleRemoveAssignment} 
+              onRemoveAssignment={handleRemoveAssignment}
+              onUpdateGuides={handleUpdateGuides}
             />
           )}
           {selectedSlot && selectedSlot.type === 'boat' && (
@@ -680,9 +726,12 @@ const Schedule = () => {
               bookings={getDiveBookings(selectedSlot.date)} 
               customers={customers} 
               boats={activeBoats} 
-              slotAssignments={slotAssignments} 
+              staff={staff}
+              slotAssignments={slotAssignments}
+              slotGuides={slotGuides}
               onAssign={handleAssignCustomer} 
               onRemoveAssignment={handleRemoveAssignment}
+              onUpdateGuides={handleUpdateGuides}
               onRemoveBoatAssignment={handleRemoveBoatAssignment}
             />
           )}
@@ -766,11 +815,11 @@ const DayDetailView = ({ slot, discoveryBookings, diveBookings, customers, boats
   }
 
   // For specific slot types (mole or boat), show the slot detail view
-  return <SlotDetailView slot={slot} bookings={slot.type === 'mole' ? discoveryBookings : diveBookings} customers={customers} boats={boats} slotAssignments={slotAssignments} onAssign={onAssign} onRemoveAssignment={onRemoveAssignment} />;
+  return <SlotDetailView slot={slot} bookings={slot.type === 'mole' ? discoveryBookings : diveBookings} customers={customers} boats={boats} staff={staff} slotAssignments={slotAssignments} slotGuides={slotGuides} onAssign={onAssign} onRemoveAssignment={onRemoveAssignment} onUpdateGuides={onUpdateGuides} />;
 };
 
 // Slot Detail View Component - For specific slot types
-const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onAssign, onRemoveAssignment }) => {
+const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignments, slotGuides, onAssign, onRemoveAssignment, onUpdateGuides }) => {
   const getCustomerName = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
     if (!customer) return 'Unknown';
@@ -818,14 +867,16 @@ const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onA
               .map(id => bookings.find(b => b.id === id))
               .filter(Boolean);
             
-            // Filter out bookings that are already assigned to any slot
+            // Filter out bookings that are already assigned to THIS specific slot
+            // Allow multiple bookings per slot, so only filter if already in this slot
             const unassignedBookings = bookings.filter(b => {
               const bookingId = b.id;
-              // Check if this booking is assigned to any slot
-              const isAssigned = Object.values(slotAssignments).some(slotBookings => 
-                Array.isArray(slotBookings) ? slotBookings.includes(bookingId) : slotBookings === bookingId
-              );
-              return !isAssigned;
+              // Check if this booking is already assigned to THIS slot
+              const slotBookings = slotAssignments[slotItem.id];
+              const isAssignedToThisSlot = Array.isArray(slotBookings) 
+                ? slotBookings.includes(bookingId) 
+                : slotBookings === bookingId;
+              return !isAssignedToThisSlot;
             });
 
             return (
@@ -851,25 +902,59 @@ const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onA
                     color={assignedBookings.length > 0 ? 'primary' : 'default'}
                   />
                 </Box>
-                {assignedBookings.length > 0 ? (
-                  <Box sx={{ mt: 1 }}>
-                    {assignedBookings.map((assignedBooking) => (
-                      <Chip
-                        key={assignedBooking.id}
-                        icon={<PersonIcon />}
-                        label={getCustomerName(assignedBooking.customerId || assignedBooking.customer_id)}
-                        size="medium"
-                        color="primary"
-                        onDelete={() => onRemoveAssignment(slotItem.id, 'mole', assignedBooking.id)}
-                        sx={{ mr: 0.5, mb: 0.5 }}
-                      />
-                    ))}
-                  </Box>
-                ) : (
-                  <Box sx={{ mt: 1 }}>
+                {/* Always show assigned bookings if any */}
+                {assignedBookings.length > 0 && (
+                  <Box sx={{ mt: 1, mb: 2 }}>
                     <Typography variant="caption" color="text.secondary" gutterBottom>
-                      Click a customer below to assign:
+                      Assigned customers:
                     </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                      {assignedBookings.map((assignedBooking) => (
+                        <Chip
+                          key={assignedBooking.id}
+                          icon={<PersonIcon />}
+                          label={getCustomerName(assignedBooking.customerId || assignedBooking.customer_id)}
+                          size="medium"
+                          color="primary"
+                          onDelete={() => onRemoveAssignment(slotItem.id, 'mole', assignedBooking.id)}
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+                
+                {/* Guide Assignment */}
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Guides</InputLabel>
+                    <Select
+                      multiple
+                      value={slotGuides[slotItem.id] || []}
+                      onChange={(e) => onUpdateGuides(slotItem.id, e.target.value)}
+                      renderValue={(selected) => {
+                        if (selected.length === 0) return 'Select guides';
+                        return selected.map(id => {
+                          const guide = staff.find(s => s.id === id);
+                          return guide ? `${guide.firstName || ''} ${guide.lastName || ''}`.trim() : id;
+                        }).join(', ');
+                      }}
+                    >
+                      {staff.filter(s => s.role === 'divemaster' || s.role === 'instructor' || s.role === 'assistant').map((guide) => (
+                        <MenuItem key={guide.id} value={guide.id}>
+                          {`${guide.firstName || ''} ${guide.lastName || ''}`.trim() || guide.email || guide.id}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                {/* Always show unassigned bookings so more can be added */}
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="caption" color="text.secondary" gutterBottom>
+                    {assignedBookings.length > 0 ? 'Add more customers:' : 'Click a customer below to assign:'}
+                  </Typography>
+                  {unassignedBookings.length > 0 ? (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
                       {unassignedBookings.map((booking) => (
                         <Chip
@@ -882,14 +967,13 @@ const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onA
                           sx={{ cursor: 'pointer' }}
                         />
                       ))}
-                      {unassignedBookings.length === 0 && (
-                        <Typography variant="caption" color="text.secondary">
-                          No unassigned customers
-                        </Typography>
-                      )}
                     </Box>
-                  </Box>
-                )}
+                  ) : (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                      No unassigned customers
+                    </Typography>
+                  )}
+                </Box>
               </Paper>
             );
           })}
@@ -958,6 +1042,31 @@ const SlotDetailView = ({ slot, bookings, customers, boats, slotAssignments, onA
               </Box>
             </Box>
           )}
+
+          {/* Guide Assignment */}
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Guides</InputLabel>
+              <Select
+                multiple
+                value={slotGuides[`boat-${slot.boatId}-${sessionKey}`] || []}
+                onChange={(e) => onUpdateGuides(`boat-${slot.boatId}-${sessionKey}`, e.target.value)}
+                renderValue={(selected) => {
+                  if (selected.length === 0) return 'Select guides';
+                  return selected.map(id => {
+                    const guide = staff.find(s => s.id === id);
+                    return guide ? `${guide.firstName || ''} ${guide.lastName || ''}`.trim() : id;
+                  }).join(', ');
+                }}
+              >
+                {staff.filter(s => s.role === 'divemaster' || s.role === 'instructor' || s.role === 'assistant').map((guide) => (
+                  <MenuItem key={guide.id} value={guide.id}>
+                    {`${guide.firstName || ''} ${guide.lastName || ''}`.trim() || guide.email || guide.id}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
 
           {/* Always show unassigned bookings so they can be added */}
           <Box>

@@ -404,21 +404,36 @@ const Bill = () => {
               continue;
             }
 
-            // Calculate subtotal and commission from ALL bookings (partner pays for all activities)
-            const subtotal = bookings.reduce((sum, booking) => {
+            // Calculate subtotal and commission from ALL bookings
+            // Business model: Customer pays full price to partner, partner keeps commission,
+            // partner pays diving center (booking price - commission) + tax
+            const bookingTotal = bookings.reduce((sum, booking) => {
               return sum + (parseFloat(booking.totalPrice || booking.total_price || booking.price || 0));
             }, 0);
 
-            if (subtotal === 0) {
+            if (bookingTotal === 0) {
               console.warn(`[Bill] useEffect: Partner ${partnerId} has no bookings with prices, skipping`);
               continue;
             }
 
-            const commissionAmount = subtotal * parseFloat(commissionRate);
-            const tax = commissionAmount * 0.07; // IGIC tax
-            const total = commissionAmount + tax;
+            // Calculate commission (what partner keeps)
+            const commissionAmount = bookingTotal * parseFloat(commissionRate);
+            
+            // Partner pays diving center: booking total minus commission
+            const amountDueBeforeTax = bookingTotal - commissionAmount;
+            
+            // Tax is 7% IGIC on the amount the partner pays to diving center
+            const tax = amountDueBeforeTax * 0.07;
+            
+            // Total invoice amount: amount due + tax
+            const invoiceTotal = amountDueBeforeTax + tax;
 
             // Create invoice
+            // Note: For partner invoices:
+            // - subtotal: Amount partner owes before tax (booking total - commission)
+            // - commissionAmount: Partner's commission (what they keep)
+            // - tax: IGIC tax (7% on amount due)
+            // - total: Total amount partner pays to diving center (subtotal + tax)
             const invoiceDate = new Date().toISOString().split('T')[0];
             const dueDate = new Date();
             dueDate.setDate(dueDate.getDate() + 30); // 30 days payment terms
@@ -431,11 +446,11 @@ const Bill = () => {
               invoiceDate,
               dueDate: dueDate.toISOString().split('T')[0],
               paymentTermsDays: 30,
-              subtotal,
-              tax,
-              total,
+              subtotal: amountDueBeforeTax, // Amount partner owes before tax (booking total - commission)
+              tax: tax, // Tax (7% IGIC on amount due)
+              total: invoiceTotal, // Total amount partner pays to diving center
               bookingIds,
-              notes: `Commission for bill ${calculatedBill.billNumber} - ${bookings.length} booking(s)`
+              notes: `Partner invoice for bill ${calculatedBill.billNumber} - ${bookings.length} booking(s). Customer paid: €${bookingTotal.toFixed(2)}, Partner commission (${(parseFloat(commissionRate) * 100).toFixed(1)}%): €${commissionAmount.toFixed(2)}, Amount due before tax: €${amountDueBeforeTax.toFixed(2)}, Tax (7% IGIC): €${tax.toFixed(2)}, Total due: €${invoiceTotal.toFixed(2)}`
             });
             
             invoicesCreated++;
@@ -1003,19 +1018,29 @@ const Bill = () => {
                             continue;
                           }
 
-                          // Calculate subtotal and commission from all bookings (partner pays for all activities)
-                          const subtotal = bookings.reduce((sum, booking) => {
+                          // Calculate subtotal and commission from all bookings
+                          // Business model: Customer pays full price to partner, partner keeps commission,
+                          // partner pays diving center (booking price - commission) + tax
+                          const bookingTotal = bookings.reduce((sum, booking) => {
                             return sum + (parseFloat(booking.totalPrice || booking.total_price || booking.price || 0));
                           }, 0);
 
-                          if (subtotal === 0) {
+                          if (bookingTotal === 0) {
                             console.warn(`Partner ${partnerId} has no bookings with prices, skipping invoice creation`);
                             continue;
                           }
 
-                          const commissionAmount = subtotal * parseFloat(commissionRate);
-                          const tax = commissionAmount * 0.07; // IGIC tax
-                          const total = commissionAmount + tax;
+                          // Calculate commission (what partner keeps)
+                          const commissionAmount = bookingTotal * parseFloat(commissionRate);
+                          
+                          // Partner pays diving center: booking total minus commission
+                          const amountDueBeforeTax = bookingTotal - commissionAmount;
+                          
+                          // Tax is 7% IGIC on the amount the partner pays to diving center
+                          const tax = amountDueBeforeTax * 0.07;
+                          
+                          // Total invoice amount: amount due + tax
+                          const invoiceTotal = amountDueBeforeTax + tax;
 
                           // Create invoice
                           const invoiceDate = new Date().toISOString().split('T')[0];
@@ -1030,11 +1055,11 @@ const Bill = () => {
                             invoiceDate,
                             dueDate: dueDate.toISOString().split('T')[0],
                             paymentTermsDays: 30,
-                            subtotal,
-                            tax,
-                            total,
+                            subtotal: amountDueBeforeTax, // Amount partner owes before tax (booking total - commission)
+                            tax: tax, // Tax (7% IGIC on amount due)
+                            total: invoiceTotal, // Total amount partner pays to diving center
                             bookingIds,
-                            notes: `Commission for bill ${calculatedBill.billNumber} - ${bookings.length} booking(s)`
+                            notes: `Partner invoice for bill ${calculatedBill.billNumber} - ${bookings.length} booking(s). Customer paid: €${bookingTotal.toFixed(2)}, Partner commission (${(parseFloat(commissionRate) * 100).toFixed(1)}%): €${commissionAmount.toFixed(2)}, Amount due before tax: €${amountDueBeforeTax.toFixed(2)}, Tax (7% IGIC): €${tax.toFixed(2)}, Total due: €${invoiceTotal.toFixed(2)}`
                           });
                           
                           invoicesCreated++;

@@ -104,6 +104,8 @@ const realApiAdapter = {
     else if (resource === 'boatPreps') endpoint = 'boat-preps';
     else if (resource === 'partners') endpoint = 'partners';
     else if (resource === 'staff') endpoint = 'staff';
+    else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
+    else if (resource === 'customerBills') endpoint = 'customer-bills';
     
     // Transform data from frontend to backend format
     let transformedData = data;
@@ -125,6 +127,8 @@ const realApiAdapter = {
       transformedData = this.transformBoatPrepToBackend(data);
     } else if (resource === 'partnerInvoices') {
       transformedData = this.transformPartnerInvoiceToBackend(data);
+    } else if (resource === 'customerBills') {
+      transformedData = this.transformCustomerBillToBackend(data);
     }
     const response = await httpClient.put(`/${endpoint}/${id}`, transformedData);
     return this.transformResponse(resource, response.data || response);
@@ -396,20 +400,53 @@ const realApiAdapter = {
     if (!data || typeof data !== 'object') return data;
     
     // Backend DTO expects camelCase
-    return {
-      partnerId: data.partnerId || data.partner_id,
-      customerId: data.customerId || data.customer_id || null,
-      billId: data.billId || data.bill_id || null,
-      locationId: data.locationId || data.location_id,
-      invoiceDate: data.invoiceDate || data.invoice_date,
-      dueDate: data.dueDate || data.due_date,
-      paymentTermsDays: data.paymentTermsDays || data.payment_terms_days || 30,
-      subtotal: data.subtotal,
-      tax: data.tax || 0,
-      total: data.total,
-      bookingIds: data.bookingIds || data.booking_ids || [],
-      notes: data.notes || null,
-    };
+    // Only include defined fields (for updates, we only send changed fields)
+    const result = {};
+    
+    if (data.partnerId !== undefined || data.partner_id !== undefined) {
+      result.partnerId = data.partnerId || data.partner_id;
+    }
+    if (data.customerId !== undefined || data.customer_id !== undefined) {
+      result.customerId = data.customerId || data.customer_id || null;
+    }
+    if (data.billId !== undefined || data.bill_id !== undefined) {
+      result.billId = data.billId || data.bill_id || null;
+    }
+    if (data.locationId !== undefined || data.location_id !== undefined) {
+      result.locationId = data.locationId || data.location_id;
+    }
+    if (data.invoiceDate !== undefined || data.invoice_date !== undefined) {
+      result.invoiceDate = data.invoiceDate || data.invoice_date;
+    }
+    if (data.dueDate !== undefined || data.due_date !== undefined) {
+      result.dueDate = data.dueDate || data.due_date;
+    }
+    if (data.paymentTermsDays !== undefined || data.payment_terms_days !== undefined) {
+      result.paymentTermsDays = data.paymentTermsDays || data.payment_terms_days || 30;
+    }
+    if (data.subtotal !== undefined) {
+      result.subtotal = data.subtotal;
+    }
+    if (data.tax !== undefined) {
+      result.tax = data.tax;
+    }
+    if (data.total !== undefined) {
+      result.total = data.total;
+    }
+    if (data.bookingIds !== undefined || data.booking_ids !== undefined) {
+      result.bookingIds = data.bookingIds || data.booking_ids || [];
+    }
+    if (data.notes !== undefined) {
+      result.notes = data.notes;
+    }
+    if (data.paidAmount !== undefined || data.paid_amount !== undefined) {
+      result.paidAmount = data.paidAmount !== undefined ? data.paidAmount : data.paid_amount;
+    }
+    if (data.status !== undefined) {
+      result.status = data.status;
+    }
+    
+    return result;
   },
 
   transformCustomerBillToBackend(data) {

@@ -20,6 +20,9 @@ export interface UpdatePartnerInvoiceDto {
   paidAmount?: number;
   status?: string;
   notes?: string;
+  subtotal?: number;
+  tax?: number;
+  total?: number;
 }
 
 @Injectable()
@@ -154,6 +157,30 @@ export class PartnerInvoicesService {
       updateData.notes = updatePartnerInvoiceDto.notes;
     }
 
+    if (updatePartnerInvoiceDto.subtotal !== undefined) {
+      updateData.subtotal = updatePartnerInvoiceDto.subtotal;
+    }
+
+    if (updatePartnerInvoiceDto.tax !== undefined) {
+      updateData.tax = updatePartnerInvoiceDto.tax;
+    }
+
+    if (updatePartnerInvoiceDto.total !== undefined) {
+      updateData.total = updatePartnerInvoiceDto.total;
+      // When total is updated, we need to use the new total for status calculation
+      if (updatePartnerInvoiceDto.paidAmount === undefined && invoice.paid_amount) {
+        const newTotal = parseFloat(updatePartnerInvoiceDto.total.toString());
+        const paidAmount = parseFloat(invoice.paid_amount.toString());
+        if (paidAmount === 0) {
+          updateData.status = 'pending';
+        } else if (paidAmount >= newTotal) {
+          updateData.status = 'paid';
+        } else if (paidAmount > 0) {
+          updateData.status = 'partial';
+        }
+      }
+    }
+
     // Check if invoice is overdue
     if (invoice.status !== 'paid' && new Date() > invoice.due_date) {
       if (updateData.status !== 'paid') {
@@ -227,17 +254,28 @@ export class PartnerInvoicesService {
       },
     });
 
-    const subtotal = bookings.reduce((sum, booking) => {
+    // Business model: Customer pays full price to partner, partner keeps commission,
+    // partner pays diving center (booking price - commission) + tax
+    const bookingTotal = bookings.reduce((sum, booking) => {
       return sum + parseFloat(booking.total_price.toString());
     }, 0);
 
-    const commissionAmount = subtotal * commissionRate;
-    const total = commissionAmount; // Total invoice amount is the commission
+    // Calculate commission (what partner keeps)
+    const commissionAmount = bookingTotal * commissionRate;
+    
+    // Partner pays diving center: booking total minus commission
+    const amountDueBeforeTax = bookingTotal - commissionAmount;
+    
+    // Tax is 7% IGIC on the amount the partner pays to diving center
+    const tax = amountDueBeforeTax * 0.07;
+    
+    // Total invoice amount: amount due + tax
+    const invoiceTotal = amountDueBeforeTax + tax;
 
     return {
-      subtotal,
-      commissionAmount,
-      total,
+      subtotal: amountDueBeforeTax, // Amount partner owes before tax (booking total - commission)
+      commissionAmount, // Commission partner keeps
+      total: invoiceTotal, // Total amount partner pays to diving center
     };
   }
 }

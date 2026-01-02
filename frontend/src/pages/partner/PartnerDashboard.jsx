@@ -24,6 +24,7 @@ import {
   MenuItem,
   Alert,
   Snackbar,
+  Divider,
 } from '@mui/material';
 import {
   Receipt as ReceiptIcon,
@@ -80,6 +81,8 @@ const PartnerDashboard = () => {
   });
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [invoiceDetailOpen, setInvoiceDetailOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -95,6 +98,7 @@ const PartnerDashboard = () => {
       const partnerInvoices = Array.isArray(invoicesData)
         ? invoicesData.filter(inv => inv.partnerId === partner.id || inv.partner_id === partner.id)
         : [];
+      
       setInvoices(partnerInvoices);
 
       // Load bookings for this partner
@@ -474,19 +478,24 @@ const PartnerDashboard = () => {
                     <TableCell>Invoice Number</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell>Due Date</TableCell>
+                    <TableCell align="right">Subtotal</TableCell>
+                    <TableCell align="right">Tax</TableCell>
                     <TableCell align="right">Total</TableCell>
                     <TableCell align="right">Paid</TableCell>
                     <TableCell align="right">Outstanding</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>Details</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {invoices.slice(0, 10).map((invoice) => {
+                    const subtotal = parseFloat(invoice.subtotal) || 0;
+                    const tax = parseFloat(invoice.tax) || 0;
                     const total = parseFloat(invoice.total) || 0;
                     const paid = parseFloat(invoice.paidAmount || invoice.paid_amount) || 0;
                     const outstanding = total - paid;
                     return (
-                      <TableRow key={invoice.id}>
+                      <TableRow key={invoice.id} hover>
                         <TableCell>{invoice.invoiceNumber || invoice.invoice_number}</TableCell>
                         <TableCell>
                           {invoice.invoiceDate ? format(new Date(invoice.invoiceDate || invoice.invoice_date), 'dd/MM/yyyy') : 'N/A'}
@@ -494,15 +503,30 @@ const PartnerDashboard = () => {
                         <TableCell>
                           {invoice.dueDate ? format(new Date(invoice.dueDate || invoice.due_date), 'dd/MM/yyyy') : 'N/A'}
                         </TableCell>
-                        <TableCell align="right">{formatCurrency(total)}</TableCell>
+                        <TableCell align="right">{formatCurrency(subtotal)}</TableCell>
+                        <TableCell align="right">{formatCurrency(tax)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(total)}</TableCell>
                         <TableCell align="right">{formatCurrency(paid)}</TableCell>
-                        <TableCell align="right">{formatCurrency(outstanding)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: outstanding > 0 ? 'bold' : 'normal', color: outstanding > 0 ? 'error.main' : 'text.primary' }}>
+                          {formatCurrency(outstanding)}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             label={invoice.status || 'pending'}
                             size="small"
                             color={getStatusColor(invoice.status)}
                           />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="small"
+                            onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setInvoiceDetailOpen(true);
+                            }}
+                          >
+                            View
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -793,6 +817,159 @@ const PartnerDashboard = () => {
           >
             Create Booking
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Invoice Detail Dialog */}
+      <Dialog open={invoiceDetailOpen} onClose={() => setInvoiceDetailOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Invoice Details - {selectedInvoice?.invoiceNumber || selectedInvoice?.invoice_number || 'N/A'}
+        </DialogTitle>
+        <DialogContent>
+          {selectedInvoice && (
+            <Box sx={{ mt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">Invoice Date</Typography>
+                  <Typography variant="body1">
+                    {selectedInvoice.invoiceDate ? format(new Date(selectedInvoice.invoiceDate || selectedInvoice.invoice_date), 'dd/MM/yyyy') : 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">Due Date</Typography>
+                  <Typography variant="body1">
+                    {selectedInvoice.dueDate ? format(new Date(selectedInvoice.dueDate || selectedInvoice.due_date), 'dd/MM/yyyy') : 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                </Grid>
+                {selectedInvoice.notes && (
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>Breakdown</Typography>
+                    <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                        {selectedInvoice.notes}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>Invoice Summary</Typography>
+                  <Paper sx={{ p: 2, bgcolor: 'primary.light', bgcolor: 'rgba(25, 118, 210, 0.08)' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2">Subtotal (Amount due before tax):</Typography>
+                      <Typography variant="body1" fontWeight="bold">
+                        {formatCurrency(selectedInvoice.subtotal || 0)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2">Tax (IGIC 7%):</Typography>
+                      <Typography variant="body1" fontWeight="bold">
+                        {formatCurrency(selectedInvoice.tax || 0)}
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ my: 1 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="h6">Total Due:</Typography>
+                      <Typography variant="h6" color="primary.main" fontWeight="bold">
+                        {formatCurrency(selectedInvoice.total || 0)}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      This is the amount you pay to the diving center (booking total - your commission + tax)
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                    <Typography variant="body1">Paid</Typography>
+                    <Typography variant="body1">{formatCurrency(selectedInvoice.paidAmount || selectedInvoice.paid_amount || 0)}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                    <Typography variant="body1" fontWeight="bold">Outstanding</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="error.main">
+                      {formatCurrency((selectedInvoice.total || 0) - (selectedInvoice.paidAmount || selectedInvoice.paid_amount || 0))}
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {selectedInvoice && (() => {
+            // Check if invoice has wrong calculation (old format)
+            // Old calculation: subtotal = booking total, tax = commission * 0.07, total = commission + tax
+            // New calculation: subtotal = booking total - commission, tax = (booking total - commission) * 0.07, total = subtotal + tax
+            const subtotal = parseFloat(selectedInvoice.subtotal) || 0;
+            const tax = parseFloat(selectedInvoice.tax) || 0;
+            const total = parseFloat(selectedInvoice.total) || 0;
+            // If total is very small compared to subtotal, it's likely the old calculation
+            const isOldCalculation = subtotal > 0 && total < subtotal * 0.2;
+            
+            return (
+              <>
+                {isOldCalculation && (
+                  <Button
+                    color="warning"
+                    onClick={async () => {
+                      try {
+                        // Get partner commission rate
+                        const partnerData = await dataService.getById('partners', selectedInvoice.partnerId || selectedInvoice.partner_id);
+                        const commissionRate = partnerData?.commissionRate || partnerData?.commission_rate || 0.1;
+                        
+                        // Recalculate: bookingTotal is the subtotal (what customer paid)
+                        const bookingTotal = subtotal;
+                        const commissionAmount = bookingTotal * parseFloat(commissionRate);
+                        const amountDueBeforeTax = bookingTotal - commissionAmount;
+                        const newTax = amountDueBeforeTax * 0.07;
+                        const newTotal = amountDueBeforeTax + newTax;
+                        
+                        // Update invoice
+                        const billId = selectedInvoice.billId || selectedInvoice.bill_id || 'N/A';
+                        
+                        await dataService.update('partnerInvoices', selectedInvoice.id, {
+                          subtotal: amountDueBeforeTax,
+                          tax: newTax,
+                          total: newTotal,
+                          notes: `Partner invoice - ${billId}. Customer paid: €${bookingTotal.toFixed(2)}, Partner commission (${(parseFloat(commissionRate) * 100).toFixed(1)}%): €${commissionAmount.toFixed(2)}, Amount due before tax: €${amountDueBeforeTax.toFixed(2)}, Tax (7% IGIC): €${newTax.toFixed(2)}, Total due: €${newTotal.toFixed(2)}`
+                        });
+                        
+                        // Reload invoices
+                        const invoicesData = await dataService.getAll('partnerInvoices');
+                        const partnerInvoices = Array.isArray(invoicesData)
+                          ? invoicesData.filter(inv => inv.partnerId === partner.id || inv.partner_id === partner.id)
+                          : [];
+                        setInvoices(partnerInvoices);
+                        
+                        // Update selected invoice
+                        const updatedInvoice = partnerInvoices.find(inv => inv.id === selectedInvoice.id);
+                        if (updatedInvoice) {
+                          setSelectedInvoice(updatedInvoice);
+                        }
+                        
+                        setSnackbar({ open: true, message: 'Invoice recalculated successfully!', severity: 'success' });
+                        setInvoiceDetailOpen(false); // Close dialog to show updated table
+                      } catch (error) {
+                        console.error('Error recalculating invoice:', error);
+                        setSnackbar({ open: true, message: `Error recalculating invoice: ${error.message || 'Please try again.'}`, severity: 'error' });
+                      }
+                    }}
+                  >
+                    Fix Calculation
+                  </Button>
+                )}
+                <Button onClick={() => setInvoiceDetailOpen(false)}>Close</Button>
+              </>
+            );
+          })()}
         </DialogActions>
       </Dialog>
 
