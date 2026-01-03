@@ -36,7 +36,9 @@ const PrivacyPolicy = () => {
           <Typography variant="body1" paragraph>
             <strong>Data Controller:</strong> Deep Blue Diving<br />
             <strong>Location:</strong> Canary Islands, Spain (EU)<br />
-            <strong>Contact:</strong> [Contact information to be added]
+            <strong>Address:</strong> Muelle Deportivo / Calle Teneriffe, E - 35610 Caleta de Fuste, Fuerteventura, Spain<br />
+            <strong>Email:</strong> info@deep-blue-diving.com<br />
+            <strong>Phone:</strong> +34.928 163 712
           </Typography>
         </Box>
 
@@ -111,14 +113,19 @@ const PrivacyPolicy = () => {
             6. Data Sharing and Disclosure
           </Typography>
           <Typography variant="body1" paragraph>
-            We do not sell your personal data. We may share your data with:
+            We do not sell your personal data. We currently do not use third-party data processors for automated data processing. 
+            We may share your data with:
           </Typography>
           <Typography component="div" variant="body2">
             <ul>
               <li><strong>Maritime Authorities:</strong> As required by Spanish regulations for dive log reporting</li>
-              <li><strong>Service Providers:</strong> IT services, payment processors (only as necessary for service provision)</li>
               <li><strong>Legal Authorities:</strong> When required by law or to protect safety</li>
             </ul>
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            <strong>Note:</strong> If we begin using third-party data processors (such as payment processors, hosting providers, 
+            or email services) in the future, we will update this Privacy Policy to disclose their identities, purposes, 
+            and locations, and ensure appropriate data processing agreements are in place.
           </Typography>
         </Box>
 
@@ -218,7 +225,21 @@ const PrivacyPolicy = () => {
           </Typography>
           <Typography variant="body1" paragraph>
             We use essential cookies for the functioning of the website. We do not use tracking cookies 
-            or analytics without your explicit consent.
+            or analytics without your explicit consent. For more information, please see our{' '}
+            <Link href="/cookie-policy">Cookie Policy</Link>.
+          </Typography>
+        </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            10a. Automated Decision-Making
+          </Typography>
+          <Typography variant="body1" paragraph>
+            We do not use automated decision-making or profiling that produces legal effects concerning you 
+            or similarly significantly affects you. All decisions regarding your bookings, services, and 
+            account are made by our staff or through manual processes.
           </Typography>
         </Box>
 
@@ -257,9 +278,10 @@ const PrivacyPolicy = () => {
             If you have questions about this Privacy Policy or wish to exercise your rights, please contact us:
           </Typography>
           <Typography variant="body2">
-            <strong>Email:</strong> [To be added]<br />
-            <strong>Address:</strong> [To be added]<br />
-            <strong>Phone:</strong> [To be added]
+            <strong>Email:</strong> info@deep-blue-diving.com<br />
+            <strong>Address:</strong> Muelle Deportivo / Calle Teneriffe<br />
+            E - 35610 Caleta de Fuste, Fuerteventura, Spain<br />
+            <strong>Phone:</strong> +34.928 163 712
           </Typography>
         </Box>
 

@@ -20,9 +20,11 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Close as CloseIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, addMinutes, startOfDay } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, addMinutes, startOfDay, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, startOfDay as startOfDayFn } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import dataService from '../services/dataService';
 
 // Slot configuration for Mole (discovery)
@@ -38,8 +40,11 @@ const BOAT_SESSIONS = [
 ];
 
 const Schedule = () => {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState('month'); // 'month', 'week', or 'daily'
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null); // For month view date selection
   const [locations, setLocations] = useState([]);
   const [boats, setBoats] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -52,7 +57,15 @@ const Schedule = () => {
 
   const currentLocationId = localStorage.getItem('dcms_current_location');
   
-  // Calculate 4 rolling weeks: 1 week before, current week, 2 weeks after
+  // Month view calculations
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  // Get first day of week for the month (Monday = 1, so we adjust)
+  const firstDayOfWeek = monthStart.getDay();
+  const daysBeforeMonth = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1; // Adjust for Monday start
+  
+  // Calculate 4 rolling weeks: 1 week before, current week, 2 weeks after (for week view)
   const weekStart = startOfWeek(startOfDay(currentDate), { weekStartsOn: 1 }); // Monday
   const displayStart = subWeeks(weekStart, 1); // 1 week before
   const displayEnd = addWeeks(weekStart, 3); // 3 weeks after (total 4 weeks)
@@ -245,6 +258,57 @@ const Schedule = () => {
     return `${firstName} ${lastName}`.trim() || customer.email || 'Unknown';
   };
 
+  // Get dive site name for a booking
+  const getDiveSiteName = (booking) => {
+    const diveSiteId = booking.diveSiteId || booking.dive_site_id;
+    if (diveSiteId) {
+      const site = diveSites.find(s => s.id === diveSiteId);
+      if (site) return site.name;
+    }
+    return null;
+  };
+
+  // Get boat name for a booking
+  const getBoatNameForBooking = (booking) => {
+    const boatId = booking.boatId || booking.boat_id;
+    if (boatId) {
+      const boat = boats.find(b => b.id === boatId);
+      if (boat) return boat.name;
+    }
+    return null;
+  };
+
+  // Format trip entry for calendar display (like "9a (1) Shore, Jemelos")
+  const formatTripEntry = (booking) => {
+    const time = booking.bookingTime || booking.booking_time || booking.bookingDate || '09:00';
+    let timeStr = '9a';
+    if (typeof time === 'string') {
+      if (time.includes('T')) {
+        const timePart = time.split('T')[1];
+        if (timePart) {
+          const hours = parseInt(timePart.substring(0, 2));
+          if (hours === 9) timeStr = '9a';
+          else if (hours === 12) timeStr = '12p';
+          else timeStr = `${hours}${hours >= 12 ? 'p' : 'a'}`;
+        }
+      } else if (time.includes(':')) {
+        const hours = parseInt(time.substring(0, 2));
+        if (hours === 9) timeStr = '9a';
+        else if (hours === 12) timeStr = '12p';
+        else timeStr = `${hours}${hours >= 12 ? 'p' : 'a'}`;
+      }
+    }
+    const customerCount = 1; // Each booking is one customer
+    const activityType = booking.activityType || booking.activity_type;
+    const isShore = activityType === 'discovery' || activityType === 'discover' || activityType === 'try_dive' || activityType === 'orientation';
+    const tripType = isShore ? 'Shore' : 'Boat';
+    const diveSiteName = getDiveSiteName(booking);
+    const boatName = !isShore ? getBoatNameForBooking(booking) : null;
+    
+    const location = diveSiteName || boatName || '';
+    return `${timeStr} (${customerCount}) ${tripType}${location ? ', ' + location : ''}`;
+  };
+
   const handlePreviousWeek = () => {
     setCurrentDate(subWeeks(currentDate, 1));
   };
@@ -253,8 +317,25 @@ const Schedule = () => {
     setCurrentDate(addWeeks(currentDate, 1));
   };
 
+  const handlePreviousMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1));
+  };
+
+  const handleToday = () => {
+    setCurrentDate(new Date());
+  };
+
   const handleDayClick = (date) => {
     // Don't do anything on day click - each rectangle is independent
+  };
+
+  const handleMonthDayClick = (date) => {
+    // In month view, clicking a day opens the day's detail view
+    setSelectedDate(date);
   };
 
   const handleMoleClick = (date, event) => {
@@ -490,22 +571,268 @@ const Schedule = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h5">Dive Schedule</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={handlePreviousWeek}>
-            <ChevronLeftIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ minWidth: 180, textAlign: 'center' }}>
-            {format(displayStart, 'MMM d')} - {format(displayEndDate, 'MMM d, yyyy')}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          {/* Action Buttons */}
+          <Button
+            variant="contained"
+            color="success"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/bookings/new')}
+          >
+            Add New Dive Trip
+          </Button>
+          
+          {/* View Mode Toggle */}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant={viewMode === 'month' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setViewMode('month')}
+            >
+              Trip Schedules
+            </Button>
+            <Button
+              variant={viewMode === 'daily' ? 'contained' : 'outlined'}
+              size="small"
+              color="warning"
+              onClick={() => setViewMode('daily')}
+            >
+              Daily Summary
+            </Button>
+            <Button
+              variant={viewMode === 'week' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setViewMode('week')}
+            >
+              Week
+            </Button>
+          </Box>
+          
+          {/* Navigation Buttons */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={viewMode === 'month' ? handlePreviousMonth : handlePreviousWeek}
+            >
+              Previous
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleToday}
+            >
+              Today
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={viewMode === 'month' ? handleNextMonth : handleNextWeek}
+            >
+              Next
+            </Button>
+          </Box>
+          
+          {/* Date Display */}
+          <Typography variant="h6" sx={{ minWidth: 200, textAlign: 'center' }}>
+            {viewMode === 'month' 
+              ? format(currentDate, 'MMMM yyyy')
+              : viewMode === 'daily'
+              ? format(currentDate, 'EEEE, MMMM d, yyyy')
+              : `${format(displayStart, 'MMM d')} - ${format(displayEndDate, 'MMM d, yyyy')}`
+            }
           </Typography>
-          <IconButton onClick={handleNextWeek}>
-            <ChevronRightIcon />
-          </IconButton>
         </Box>
       </Box>
 
-      {/* Calendar Grid - 7 columns for days of week, rows for weeks */}
+      {/* Month View Calendar Grid */}
+      {viewMode === 'month' && (
+        <Box sx={{ mb: 2 }}>
+          {/* Day headers */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, mb: 1 }}>
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+              <Box key={day} sx={{ textAlign: 'center', py: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                  {day}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {/* Calendar grid */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+            {/* Empty cells for days before month start */}
+            {Array.from({ length: daysBeforeMonth }).map((_, index) => (
+              <Box key={`empty-${index}`} sx={{ minHeight: 100 }} />
+            ))}
+            
+            {/* Days in month */}
+            {daysInMonth.map((date) => {
+              const dayBookings = getBookingsForDate(date);
+              const discoveryBookings = getDiscoveryBookings(date);
+              const diveBookings = getDiveBookings(date);
+              const isToday = isSameDay(date, new Date());
+              const isCurrentMonth = isSameMonth(date, currentDate);
+              const totalBookings = discoveryBookings.length + diveBookings.length;
+              
+              return (
+                <Paper
+                  key={format(date, 'yyyy-MM-dd')}
+                  onClick={() => handleMonthDayClick(date)}
+                  sx={{
+                    minHeight: 100,
+                    p: 1,
+                    border: isToday ? 2 : 1,
+                    borderColor: isToday ? 'primary.main' : 'divider',
+                    cursor: 'pointer',
+                    backgroundColor: isToday ? 'primary.light' : (isCurrentMonth ? 'background.paper' : 'action.hover'),
+                    opacity: isCurrentMonth ? 1 : 0.5,
+                    '&:hover': {
+                      backgroundColor: isToday ? 'primary.main' : 'action.hover',
+                      borderColor: 'primary.dark'
+                    }
+                  }}
+                >
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      fontWeight: isToday ? 'bold' : 'normal',
+                      display: 'block',
+                      mb: 0.5
+                    }}
+                  >
+                    {format(date, 'd')}
+                  </Typography>
+                  {/* Show trip entries like DiveAdmin: "9a (1) Shore, Jemelos" */}
+                  <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {discoveryBookings.map((booking, idx) => (
+                      <Box
+                        key={booking.id}
+                        sx={{
+                          backgroundColor: 'info.main',
+                          color: 'white',
+                          px: 0.5,
+                          py: 0.25,
+                          borderRadius: 0.5,
+                          fontSize: '0.65rem',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'info.dark'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const dateStr = format(date, 'yyyy-MM-dd');
+                          navigate(`/schedule/trip/${dateStr}/mole`);
+                        }}
+                      >
+                        {formatTripEntry(booking)}
+                      </Box>
+                    ))}
+                    {diveBookings.slice(0, 2).map((booking, idx) => (
+                      <Box
+                        key={booking.id}
+                        sx={{
+                          backgroundColor: 'primary.main',
+                          color: 'white',
+                          px: 0.5,
+                          py: 0.25,
+                          borderRadius: 0.5,
+                          fontSize: '0.65rem',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'primary.dark'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const dateStr = format(date, 'yyyy-MM-dd');
+                          const boatId = booking.boatId || booking.boat_id;
+                          if (boatId) {
+                            navigate(`/schedule/trip/${dateStr}/boat/${boatId}/morning`);
+                          }
+                        }}
+                      >
+                        {formatTripEntry(booking)}
+                      </Box>
+                    ))}
+                    {diveBookings.length > 2 && (
+                      <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                        +{diveBookings.length - 2} more
+                      </Typography>
+                    )}
+                  </Box>
+                </Paper>
+              );
+            })}
+          </Box>
+        </Box>
+      )}
+
+      {/* Daily Summary View */}
+      {viewMode === 'daily' && (
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Daily Summary for {format(currentDate, 'EEEE, MMMM d, yyyy')}
+          </Typography>
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Discovery/Shore Dives */}
+              {getDiscoveryBookings(currentDate).length > 0 && (
+                <Box>
+                  <Typography variant="subtitle1" color="info.main" gutterBottom>
+                    Shore Dives (Discovery/Try Scuba)
+                  </Typography>
+                  {getDiscoveryBookings(currentDate).map(booking => {
+                    const customer = customers.find(c => c.id === (booking.customerId || booking.customer_id));
+                    const customerName = customer ? `${customer.firstName || customer.first_name || ''} ${customer.lastName || customer.last_name || ''}`.trim() : 'Unknown';
+                    return (
+                      <Box key={booking.id} sx={{ p: 1, border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }}>
+                        <Typography variant="body2">
+                          {customerName} - {formatTripEntry(booking)}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+              
+              {/* Boat Dives */}
+              {getDiveBookings(currentDate).length > 0 && (
+                <Box>
+                  <Typography variant="subtitle1" color="primary.main" gutterBottom>
+                    Boat Dives
+                  </Typography>
+                  {getDiveBookings(currentDate).map(booking => {
+                    const customer = customers.find(c => c.id === (booking.customerId || booking.customer_id));
+                    const customerName = customer ? `${customer.firstName || customer.first_name || ''} ${customer.lastName || customer.last_name || ''}`.trim() : 'Unknown';
+                    const boatName = getBoatNameForBooking(booking) || 'Unassigned';
+                    return (
+                      <Box key={booking.id} sx={{ p: 1, border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }}>
+                        <Typography variant="body2">
+                          {customerName} - {formatTripEntry(booking)} ({boatName})
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+              
+              {getDiscoveryBookings(currentDate).length === 0 && getDiveBookings(currentDate).length === 0 && (
+                <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+                  No trips scheduled for this day
+                </Typography>
+              )}
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Week View Calendar Grid - 7 columns for days of week, rows for weeks */}
+      {viewMode === 'week' && (
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
         {daysToDisplay.map((day) => {
           const dayBookings = getBookingsForDate(day);
@@ -680,10 +1007,56 @@ const Schedule = () => {
           );
         })}
       </Box>
+      )}
+
+      {/* Month View Day Detail Dialog */}
+      <Dialog
+        open={selectedDate !== null && viewMode === 'month'}
+        onClose={() => setSelectedDate(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">
+              {selectedDate && format(selectedDate, 'EEEE, MMMM d, yyyy')}
+            </Typography>
+            <IconButton onClick={() => setSelectedDate(null)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedDate && (
+            <DayDetailView
+              slot={{ type: 'day', date: selectedDate }}
+              discoveryBookings={getDiscoveryBookings(selectedDate)}
+              diveBookings={getDiveBookings(selectedDate)}
+              customers={customers}
+              boats={activeBoats}
+              slotAssignments={slotAssignments}
+              onSlotClick={(type, date, boatId, sessionTime) => {
+                setSelectedDate(null);
+                setViewMode('week'); // Switch to week view to show slot details
+                if (type === 'mole') {
+                  setSelectedSlot({ type: 'mole', date });
+                } else if (type === 'boat') {
+                  setSelectedSlot({ type: 'boat', date, boatId, sessionTime });
+                }
+              }}
+              onAssign={handleAssignCustomer}
+              onRemoveAssignment={handleRemoveAssignment}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedDate(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Slot Detail Dialog */}
       <Dialog
-        open={!!selectedSlot}
+        open={!!selectedSlot && viewMode === 'week'}
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
@@ -766,9 +1139,22 @@ const DayDetailView = ({ slot, discoveryBookings, diveBookings, customers, boats
         <Paper sx={{ p: 2, mb: 2, border: 1, borderColor: 'secondary.main' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="h6" color="secondary.main">Mole - Discovery / Try Scuba / Orientation</Typography>
-            <Button variant="outlined" size="small" color="secondary" onClick={() => onSlotClick('mole', slot.date)}>
-              View Slots
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button variant="outlined" size="small" color="secondary" onClick={() => onSlotClick('mole', slot.date)}>
+                View Slots
+              </Button>
+              <Button 
+                variant="contained" 
+                size="small" 
+                color="secondary"
+                onClick={() => {
+                  const dateStr = format(slot.date, 'yyyy-MM-dd');
+                  navigate(`/schedule/trip/${dateStr}/mole`);
+                }}
+              >
+                Trip Details
+              </Button>
+            </Box>
           </Box>
           <Typography variant="body2" color="text.secondary">
             {discoveryBookings.length} booking{discoveryBookings.length !== 1 ? 's' : ''} (Discovery/Try Scuba/Orientation)
@@ -784,24 +1170,38 @@ const DayDetailView = ({ slot, discoveryBookings, diveBookings, customers, boats
           return (
             <Paper key={boat.id} sx={{ p: 2, mb: 2, border: 1, borderColor: 'primary.main' }}>
               <Typography variant="h6" color="primary.main" gutterBottom>{boat.name}</Typography>
-              <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button 
+                    variant="outlined" 
+                    size="small" 
+                    color="primary" 
+                    onClick={() => onSlotClick('boat', slot.date, boat.id, 'morning')}
+                    sx={{ flex: 1 }}
+                  >
+                    Morning (9AM)
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    size="small" 
+                    color="primary" 
+                    onClick={() => onSlotClick('boat', slot.date, boat.id, 'afternoon')}
+                    sx={{ flex: 1 }}
+                  >
+                    Afternoon (12PM)
+                  </Button>
+                </Box>
                 <Button 
-                  variant="outlined" 
+                  variant="contained" 
                   size="small" 
-                  color="primary" 
-                  onClick={() => onSlotClick('boat', slot.date, boat.id, 'morning')}
-                  sx={{ flex: 1 }}
+                  color="primary"
+                  fullWidth
+                  onClick={() => {
+                    const dateStr = format(slot.date, 'yyyy-MM-dd');
+                    window.location.href = `/schedule/trip/${dateStr}/boat/${boat.id}/morning`;
+                  }}
                 >
-                  Morning (9AM)
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  color="primary" 
-                  onClick={() => onSlotClick('boat', slot.date, boat.id, 'afternoon')}
-                  sx={{ flex: 1 }}
-                >
-                  Afternoon (12PM)
+                  Trip Details
                 </Button>
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
@@ -820,12 +1220,63 @@ const DayDetailView = ({ slot, discoveryBookings, diveBookings, customers, boats
 
 // Slot Detail View Component - For specific slot types
 const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignments, slotGuides, onAssign, onRemoveAssignment, onUpdateGuides }) => {
+  const [draggedBookingId, setDraggedBookingId] = useState(null);
+  const [dragOverSlotId, setDragOverSlotId] = useState(null);
+  const [dragOverBoatId, setDragOverBoatId] = useState(null);
+
   const getCustomerName = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
     if (!customer) return 'Unknown';
     const firstName = customer.firstName || customer.first_name || '';
     const lastName = customer.lastName || customer.last_name || '';
     return `${firstName} ${lastName}`.trim() || customer.email || 'Unknown';
+  };
+
+  const handleDragStart = (e, bookingId) => {
+    setDraggedBookingId(bookingId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', bookingId);
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    setDraggedBookingId(null);
+    setDragOverSlotId(null);
+    setDragOverBoatId(null);
+    e.currentTarget.style.opacity = '1';
+  };
+
+  const handleDragOver = (e, slotId = null, boatId = null) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (slotId) {
+      setDragOverSlotId(slotId);
+    } else if (boatId) {
+      setDragOverBoatId(boatId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverSlotId(null);
+    setDragOverBoatId(null);
+  };
+
+  const handleDrop = (e, slotId, slotType, boatId = null, sessionTime = null) => {
+    e.preventDefault();
+    const bookingId = e.dataTransfer.getData('text/plain') || draggedBookingId;
+    
+    if (bookingId && onAssign) {
+      if (slotType === 'mole' && slotId) {
+        onAssign(bookingId, slotId, 'mole');
+      } else if (slotType === 'boat' && boatId) {
+        onAssign(bookingId, `boat-${boatId}-${sessionTime || 'morning'}`, 'boat', boatId, sessionTime || 'morning');
+      }
+    }
+    
+    setDraggedBookingId(null);
+    setDragOverSlotId(null);
+    setDragOverBoatId(null);
   };
 
   if (slot.type === 'mole') {
@@ -879,16 +1330,22 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
               return !isAssignedToThisSlot;
             });
 
+            const isDragOver = dragOverSlotId === slotItem.id;
+
             return (
               <Paper
                 key={slotItem.id}
+                onDragOver={(e) => handleDragOver(e, slotItem.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, slotItem.id, 'mole')}
                 sx={{
                   p: 2,
-                  border: 1,
-                  borderColor: assignedBookings.length > 0 ? 'primary.main' : 'divider',
-                  backgroundColor: assignedBookings.length > 0 ? 'primary.light' : 'background.paper',
+                  border: 2,
+                  borderColor: isDragOver ? 'success.main' : (assignedBookings.length > 0 ? 'primary.main' : 'divider'),
+                  backgroundColor: isDragOver ? 'success.light' : (assignedBookings.length > 0 ? 'primary.light' : 'background.paper'),
+                  transition: 'all 0.2s ease-in-out',
                   '&:hover': {
-                    backgroundColor: assignedBookings.length > 0 ? 'primary.light' : 'action.hover'
+                    backgroundColor: isDragOver ? 'success.light' : (assignedBookings.length > 0 ? 'primary.light' : 'action.hover')
                   }
                 }}
               >
@@ -917,7 +1374,16 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
                           size="medium"
                           color="primary"
                           onDelete={() => onRemoveAssignment(slotItem.id, 'mole', assignedBooking.id)}
-                          sx={{ mr: 0.5, mb: 0.5 }}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, assignedBooking.id)}
+                          onDragEnd={handleDragEnd}
+                          sx={{ 
+                            mr: 0.5, 
+                            mb: 0.5,
+                            cursor: 'grab',
+                            '&:active': { cursor: 'grabbing' },
+                            opacity: draggedBookingId === assignedBooking.id ? 0.5 : 1
+                          }}
                         />
                       ))}
                     </Box>
@@ -952,7 +1418,7 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
                 {/* Always show unassigned bookings so more can be added */}
                 <Box sx={{ mt: 1 }}>
                   <Typography variant="caption" color="text.secondary" gutterBottom>
-                    {assignedBookings.length > 0 ? 'Add more customers:' : 'Click a customer below to assign:'}
+                    {assignedBookings.length > 0 ? 'Add more customers (drag & drop or click):' : 'Drag customers here or click to assign:'}
                   </Typography>
                   {unassignedBookings.length > 0 ? (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
@@ -964,7 +1430,14 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
                           size="small"
                           clickable
                           onClick={() => onAssign(booking.id, slotItem.id, 'mole')}
-                          sx={{ cursor: 'pointer' }}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, booking.id)}
+                          onDragEnd={handleDragEnd}
+                          sx={{ 
+                            cursor: 'grab',
+                            '&:active': { cursor: 'grabbing' },
+                            opacity: draggedBookingId === booking.id ? 0.5 : 1
+                          }}
                         />
                       ))}
                     </Box>
@@ -997,20 +1470,29 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
       return !bookingBoatId;
     });
 
+    const isDragOverBoat = dragOverBoatId === slot.boatId;
+
     return (
       <Box>
         <Typography variant="subtitle1" gutterBottom sx={{ mb: 2 }}>
           {boats.find(b => b.id === slot.boatId)?.name || 'Boat'} - {selectedSession?.name || 'Morning'} ({selectedSession?.time})
         </Typography>
         
-        <Paper
-          sx={{
-            p: 2,
-            border: 1,
-            borderColor: assignedBookings.length > 0 ? 'primary.main' : 'divider',
-            backgroundColor: assignedBookings.length > 0 ? 'primary.light' : 'background.paper'
-          }}
-        >
+          <Paper
+            onDragOver={(e) => handleDragOver(e, null, slot.boatId)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, null, 'boat', slot.boatId, sessionKey)}
+            sx={{
+              p: 2,
+              border: 2,
+              borderColor: isDragOverBoat ? 'success.main' : (assignedBookings.length > 0 ? 'primary.main' : 'divider'),
+              backgroundColor: isDragOverBoat ? 'success.light' : (assignedBookings.length > 0 ? 'primary.light' : 'background.paper'),
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                backgroundColor: isDragOverBoat ? 'success.light' : (assignedBookings.length > 0 ? 'primary.light' : 'action.hover')
+              }
+            }}
+          >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="body1" fontWeight="bold">
               {selectedSession?.name} Session - {selectedSession?.time} ({selectedSession?.duration} min)
@@ -1037,6 +1519,14 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
                     size="medium"
                     color="primary"
                     onDelete={() => onRemoveBoatAssignment(booking.id, slot.boatId)}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, booking.id)}
+                    onDragEnd={handleDragEnd}
+                    sx={{ 
+                      cursor: 'grab',
+                      '&:active': { cursor: 'grabbing' },
+                      opacity: draggedBookingId === booking.id ? 0.5 : 1
+                    }}
                   />
                 ))}
               </Box>
@@ -1071,7 +1561,7 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
           {/* Always show unassigned bookings so they can be added */}
           <Box>
             <Typography variant="caption" color="text.secondary" gutterBottom>
-              {assignedBookings.length > 0 ? 'Add more customers:' : 'Click a customer below to assign to this session:'}
+              {assignedBookings.length > 0 ? 'Add more customers (drag & drop or click):' : 'Drag customers here or click to assign:'}
             </Typography>
             {unassignedBookings.length > 0 ? (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>

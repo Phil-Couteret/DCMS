@@ -156,9 +156,10 @@ const CookiePolicy = () => {
             If you have questions about our use of cookies, please contact us:
           </Typography>
           <Typography variant="body2">
-            <strong>Email:</strong> [To be added]<br />
-            <strong>Address:</strong> [To be added]<br />
-            <strong>Phone:</strong> [To be added]
+            <strong>Email:</strong> info@deep-blue-diving.com<br />
+            <strong>Address:</strong> Muelle Deportivo / Calle Teneriffe<br />
+            E - 35610 Caleta de Fuste, Fuerteventura, Spain<br />
+            <strong>Phone:</strong> +34.928 163 712
           </Typography>
         </Box>
       </Paper>

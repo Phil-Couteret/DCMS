@@ -5,6 +5,7 @@ import { createTheme } from '@mui/material/styles';
 import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import CookieConsentBanner from './components/CookieConsentBanner';
 import Home from './pages/Home';
 import BookDive from './pages/BookDive';
 import DiveSites from './pages/DiveSites';
@@ -69,6 +70,7 @@ function App() {
           </main>
           <Footer />
           <PWAInstallPrompt />
+          <CookieConsentBanner />
         </div>
       </Router>
     </ThemeProvider>

@@ -13,6 +13,7 @@ import Equipment from './pages/Equipment';
 import Settings from './pages/Settings';
 import BoatPrep from './pages/BoatPrep';
 import Schedule from './pages/Schedule';
+import TripDetails from './pages/TripDetails';
 import Breaches from './pages/Breaches';
 import Bill from './pages/Bill';
 import Partners from './pages/Partners';
@@ -90,6 +91,7 @@ function App() {
                             <Route path="/equipment" element={<ProtectedRoute requiredPermission="equipment"><Equipment /></ProtectedRoute>} />
                             <Route path="/boat-prep" element={<ProtectedRoute requiredPermission="boatPrep"><BoatPrep /></ProtectedRoute>} />
                             <Route path="/schedule" element={<ProtectedRoute requiredPermission="boatPrep"><Schedule /></ProtectedRoute>} />
+                            <Route path="/schedule/trip/:date/:type/:boatId?/:session?" element={<ProtectedRoute requiredPermission="boatPrep"><TripDetails /></ProtectedRoute>} />
                             <Route path="/settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
                             <Route path="/breaches" element={<ProtectedRoute requiredPermission="settings"><Breaches /></ProtectedRoute>} />
                             <Route path="/bill" element={<ProtectedRoute requiredPermission="stays"><Bill /></ProtectedRoute>} />
