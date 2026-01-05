@@ -207,8 +207,12 @@ const Settings = () => {
     try {
       const savedSettings = await dataService.getAll('settings') || [];
       if (Array.isArray(savedSettings) && savedSettings.length > 0) {
-        setSettings(savedSettings[0]);
-        setSettingsId(savedSettings[0].id);
+        const loadedSettings = savedSettings[0];
+        setSettings(prev => ({
+          ...prev,
+          ...loadedSettings
+        }));
+        setSettingsId(loadedSettings.id);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -1514,7 +1518,7 @@ const Settings = () => {
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box sx={{ pt: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                       <Typography variant="body2" color="text.secondary">
                         Manage all dive sites for each location. Configure difficulty levels, depth ranges, and site descriptions.
                       </Typography>
@@ -1541,6 +1545,78 @@ const Settings = () => {
                       >
                         Add Dive Site
                       </Button>
+                    </Box>
+                    <Divider sx={{ my: 3 }} />
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Compliance Reports Settings (per Location)
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Enable compliance reports for diving locations in natural reserves. When enabled, the Compliance Reports tab will appear in Dive Preparation.
+                      </Typography>
+                      {locations.filter(loc => loc.type === 'diving').length > 0 ? (
+                        <TableContainer component={Paper} variant="outlined">
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell><strong>Location</strong></TableCell>
+                                <TableCell align="right"><strong>Compliance Reports Mandatory</strong></TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {locations.filter(loc => loc.type === 'diving').map((location) => {
+                                const locationSettings = location.settings || {};
+                                const isEnabled = locationSettings.complianceReportsMandatory || false;
+                                return (
+                                  <TableRow key={location.id}>
+                                    <TableCell>{location.name}</TableCell>
+                                    <TableCell align="right">
+                                      <Switch
+                                        checked={isEnabled}
+                                        onChange={async (e) => {
+                                          const newValue = e.target.checked;
+                                          const updatedSettings = {
+                                            ...locationSettings,
+                                            complianceReportsMandatory: newValue
+                                          };
+                                          try {
+                                            await dataService.update('locations', location.id, {
+                                              settings: updatedSettings
+                                            });
+                                            // Update local state
+                                            setLocations(prev => prev.map(loc => 
+                                              loc.id === location.id 
+                                                ? { ...loc, settings: updatedSettings }
+                                                : loc
+                                            ));
+                                            setSnackbar({
+                                              open: true,
+                                              message: `Compliance reports setting updated for ${location.name}`,
+                                              severity: 'success'
+                                            });
+                                          } catch (error) {
+                                            console.error('Error saving location setting:', error);
+                                            setSnackbar({
+                                              open: true,
+                                              message: 'Error saving setting',
+                                              severity: 'error'
+                                            });
+                                          }
+                                        }}
+                                        size="small"
+                                      />
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          No diving locations found
+                        </Typography>
+                      )}
                     </Box>
 
                     {diveSites.length === 0 ? (

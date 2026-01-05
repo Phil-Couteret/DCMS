@@ -167,7 +167,7 @@ const BoatPrep = () => {
     return storedLocationId;
   }, [storedLocationId, locations]);
   
-  const [activeTab, setActiveTab] = useState(0); // 0 = Preparation, 1 = Post-Dive Reports, 2 = Compliance Reports
+  const [activeTab, setActiveTab] = useState(0); // 0 = Preparation, 1 = Post-Dive Reports
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd')); // Date for post-dive reports
   const [session, setSession] = useState('morning');
@@ -1528,12 +1528,25 @@ const BoatPrep = () => {
     }
   };
 
+  // Check if compliance reports are enabled for current location
+  const isComplianceReportsEnabled = useMemo(() => {
+    if (!currentLocation || !currentLocation.settings) return false;
+    return currentLocation.settings.complianceReportsMandatory === true;
+  }, [currentLocation]);
+
+  // Reset activeTab if compliance reports gets disabled while on tab 2
+  useEffect(() => {
+    if (!isComplianceReportsEnabled && activeTab === 2) {
+      setActiveTab(0);
+    }
+  }, [isComplianceReportsEnabled, activeTab]);
+
   return (
     <Box>
       <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
         <Tab label="Dive Preparation" />
         <Tab label="Post-Dive Reports" />
-        <Tab label="Compliance Reports" />
+        {isComplianceReportsEnabled && <Tab label="Compliance Reports" />}
       </Tabs>
 
       {activeTab === 0 && (
@@ -2455,7 +2468,7 @@ const BoatPrep = () => {
         </Box>
       )}
 
-      {activeTab === 2 && (
+      {isComplianceReportsEnabled && activeTab === 2 && (
         <Box>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
             <Typography variant="h5">

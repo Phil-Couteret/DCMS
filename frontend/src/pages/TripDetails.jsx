@@ -15,17 +15,14 @@ import {
   Select,
   MenuItem,
   Divider,
-  Avatar
+  Avatar,
+  Checkbox,
+  FormControlLabel,
+  FormGroup
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   CalendarToday as CalendarIcon,
-  DirectionsCar as CarIcon,
-  DesktopWindows as MonitorIcon,
-  GetApp as CSVIcon,
-  Image as ImageIcon,
-  Share as ShareIcon,
-  Edit as EditIcon,
   Person as PersonIcon,
   Close as CloseIcon,
   Search as SearchIcon,
@@ -46,7 +43,7 @@ const TripDetails = () => {
   const tripBoatId = boatId || searchParams.get('boatId');
   const tripSession = session || searchParams.get('session') || 'morning';
 
-  const [activeMode, setActiveMode] = useState(0); // 0 = Diving, 1 = Equipment, 2 = Transfer, 3 = Forms
+  const [activeMode, setActiveMode] = useState(0); // 0 = Diving, 1 = Equipment
   const [bookings, setBookings] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [boats, setBoats] = useState([]);
@@ -117,12 +114,43 @@ const TripDetails = () => {
 
         const initialSelected = {};
         relevantBookings.forEach(booking => {
+          // Handle equipment as object for checkboxes
+          let equipmentObject = {};
+          const equipmentNeeded = booking.equipmentNeeded || booking.equipment_needed;
+          if (equipmentNeeded) {
+            if (typeof equipmentNeeded === 'string') {
+              try {
+                const parsed = JSON.parse(equipmentNeeded);
+                if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                  // Check if it's rentedEquipment object
+                  if (parsed.rentedEquipment && typeof parsed.rentedEquipment === 'object') {
+                    equipmentObject = parsed.rentedEquipment;
+                  } else {
+                    // Use the object directly if it's already in the right format
+                    equipmentObject = parsed;
+                  }
+                }
+              } catch {
+                // Not JSON, ignore
+              }
+            } else if (typeof equipmentNeeded === 'object' && equipmentNeeded !== null && !Array.isArray(equipmentNeeded)) {
+              // Check if it's rentedEquipment object
+              if (equipmentNeeded.rentedEquipment && typeof equipmentNeeded.rentedEquipment === 'object') {
+                equipmentObject = equipmentNeeded.rentedEquipment;
+              } else {
+                equipmentObject = equipmentNeeded;
+              }
+            }
+          }
+          
           initialSelected[booking.id] = {
             activity: booking.activityType || booking.activity_type || '',
-            equipment: booking.equipmentNeeded || '',
+            equipment: equipmentObject, // Store as object for checkboxes
             notes: booking.notes || '',
             diet: booking.dietaryRequirements || booking.dietary_requirements || '',
-            assignment: booking.boatId || booking.boat_id || 'unassigned'
+            assignment: booking.boatId || booking.boat_id || 'unassigned',
+            diveSiteId: booking.diveSiteId || booking.dive_site_id || '',
+            numberOfDives: booking.numberOfDives || booking.number_of_dives || 1
           };
         });
         setSelectedBookings(initialSelected);
@@ -184,6 +212,33 @@ const TripDetails = () => {
     return customers.find(c => c.id === customerId);
   };
 
+  const getGuideNames = (booking) => {
+    let slotAssignment = booking.slotAssignment || booking.slot_assignment;
+    
+    // Handle case where slotAssignment might be a JSON string
+    if (typeof slotAssignment === 'string') {
+      try {
+        slotAssignment = JSON.parse(slotAssignment);
+      } catch {
+        return [];
+      }
+    }
+    
+    if (!slotAssignment || !slotAssignment.guideIds || !Array.isArray(slotAssignment.guideIds)) {
+      return [];
+    }
+    
+    return slotAssignment.guideIds
+      .map(guideId => {
+        const guide = staff.find(s => s.id === guideId);
+        if (!guide) return null;
+        const firstName = guide.firstName || guide.first_name || '';
+        const lastName = guide.lastName || guide.last_name || '';
+        return `${firstName} ${lastName}`.trim() || guide.email || guideId;
+      })
+      .filter(Boolean);
+  };
+
   // Filter customers for search
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -243,7 +298,15 @@ const TripDetails = () => {
       if (field === 'activity') {
         updateData.activityType = value;
       } else if (field === 'equipment') {
-        updateData.equipmentNeeded = value;
+        // Store equipment as JSON object with rentedEquipment structure
+        // This matches the format used in BookingForm
+        if (typeof value === 'object' && value !== null) {
+          updateData.equipmentNeeded = JSON.stringify({
+            rentedEquipment: value
+          });
+        } else {
+          updateData.equipmentNeeded = value;
+        }
       } else if (field === 'notes') {
         updateData.notes = value;
       } else if (field === 'diet') {
@@ -254,6 +317,14 @@ const TripDetails = () => {
         } else {
           updateData.boatId = value;
         }
+      } else if (field === 'diveSiteId') {
+        if (value === '') {
+          updateData.diveSiteId = null;
+        } else {
+          updateData.diveSiteId = value;
+        }
+      } else if (field === 'numberOfDives') {
+        updateData.numberOfDives = value;
       }
 
       await dataService.update('bookings', bookingId, updateData);
@@ -301,13 +372,6 @@ const TripDetails = () => {
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <IconButton><CalendarIcon /></IconButton>
-          <IconButton><CarIcon /></IconButton>
-          <IconButton><MonitorIcon /></IconButton>
-          <IconButton><CSVIcon /></IconButton>
-          <IconButton><ImageIcon /></IconButton>
-          <IconButton><ShareIcon /></IconButton>
-          <Button variant="contained" startIcon={<EditIcon />}>Edit</Button>
           <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/schedule')}>
             Back to list
           </Button>
@@ -319,8 +383,6 @@ const TripDetails = () => {
         <Tabs value={activeMode} onChange={(e, newValue) => setActiveMode(newValue)}>
           <Tab label="Diving Mode" />
           <Tab label="Equipment Mode" />
-          <Tab label="Transfer Mode" />
-          <Tab label="Forms Mode" />
         </Tabs>
       </Paper>
 
@@ -348,64 +410,297 @@ const TripDetails = () => {
                           <Typography variant="h6" color="primary">
                             {getCustomerName(booking.customerId || booking.customer_id)}
                           </Typography>
-                          <FormControl fullWidth size="small" sx={{ mt: 1, mb: 1 }}>
-                            <InputLabel>Assignment</InputLabel>
-                            <Select
-                              value={bookingData.assignment || 'unassigned'}
-                              label="Assignment"
-                              onChange={(e) => handleUpdateBookingField(booking.id, 'assignment', e.target.value)}
-                            >
-                              <MenuItem value="unassigned">Unassigned</MenuItem>
-                              {boats.filter(b => {
-                                const boatLocationId = b.locationId || b.location_id;
-                                return boatLocationId === currentLocationId && (b.isActive !== false);
-                              }).map(boat => (
-                                <MenuItem key={boat.id} value={boat.id}>{boat.name}</MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                          <Grid container spacing={1}>
-                            <Grid item xs={6}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Activity"
-                                value={bookingData.activity || ''}
-                                onChange={(e) => handleUpdateBookingField(booking.id, 'activity', e.target.value)}
-                              />
+                          {tripType === 'boat' && (
+                            <FormControl fullWidth size="small" sx={{ mt: 1, mb: 1 }}>
+                              <InputLabel>Assignment</InputLabel>
+                              <Select
+                                value={bookingData.assignment || 'unassigned'}
+                                label="Assignment"
+                                onChange={(e) => handleUpdateBookingField(booking.id, 'assignment', e.target.value)}
+                              >
+                                <MenuItem value="unassigned">Unassigned</MenuItem>
+                                {boats.filter(b => {
+                                  const boatLocationId = b.locationId || b.location_id;
+                                  return boatLocationId === currentLocationId && (b.isActive !== false);
+                                }).map(boat => (
+                                  <MenuItem key={boat.id} value={boat.id}>{boat.name}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          )}
+                          {/* Diving Mode */}
+                          {activeMode === 0 && (
+                            <Grid container spacing={1}>
+                              <Grid item xs={6}>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  label="Activity"
+                                  value={bookingData.activity || ''}
+                                  onChange={(e) => handleUpdateBookingField(booking.id, 'activity', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                                    Assigned Guides
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', minHeight: '32px', alignItems: 'center' }}>
+                                    {getGuideNames(booking).length > 0 ? (
+                                      getGuideNames(booking).map((guideName, index) => (
+                                        <Chip key={index} label={guideName} size="small" color="primary" />
+                                      ))
+                                    ) : (
+                                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                        No guides assigned
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                </Box>
+                              </Grid>
+                              {tripType === 'boat' && (
+                                <Grid item xs={6}>
+                                  <FormControl fullWidth size="small">
+                                    <InputLabel>Dive Site</InputLabel>
+                                    <Select
+                                      value={bookingData.diveSiteId || ''}
+                                      label="Dive Site"
+                                      onChange={(e) => handleUpdateBookingField(booking.id, 'diveSiteId', e.target.value)}
+                                    >
+                                      <MenuItem value="">None</MenuItem>
+                                      {diveSites.filter(site => {
+                                        const siteLocationId = site.locationId || site.location_id;
+                                        return siteLocationId === currentLocationId;
+                                      }).map(site => (
+                                        <MenuItem key={site.id} value={site.id}>
+                                          {site.nameEn || site.name_en || site.name || 'Unnamed Site'}
+                                        </MenuItem>
+                                      ))}
+                                    </Select>
+                                  </FormControl>
+                                </Grid>
+                              )}
+                              {tripType === 'boat' && (
+                                <Grid item xs={6}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="number"
+                                    label="Number of Dives"
+                                    value={bookingData.numberOfDives || 1}
+                                    onChange={(e) => handleUpdateBookingField(booking.id, 'numberOfDives', parseInt(e.target.value) || 1)}
+                                    inputProps={{ min: 1 }}
+                                  />
+                                </Grid>
+                              )}
+                              <Grid item xs={tripType === 'boat' ? 6 : 12}>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  label="Notes"
+                                  value={bookingData.notes || ''}
+                                  onChange={(e) => handleUpdateBookingField(booking.id, 'notes', e.target.value)}
+                                  multiline
+                                  rows={2}
+                                />
+                              </Grid>
                             </Grid>
-                            <Grid item xs={6}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Equipment"
-                                value={bookingData.equipment || ''}
-                                onChange={(e) => handleUpdateBookingField(booking.id, 'equipment', e.target.value)}
-                              />
+                          )}
+                          
+                          {/* Equipment Mode */}
+                          {activeMode === 1 && (
+                            <Grid container spacing={1}>
+                              <Grid item xs={12}>
+                                <Typography variant="subtitle2" gutterBottom sx={{ mb: 1 }}>
+                                  Equipment Needed
+                                </Typography>
+                                <FormGroup>
+                                  <Grid container spacing={1}>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.completeEquipment || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                completeEquipment: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Complete Equipment"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.Suit || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                Suit: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Wetsuit"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.BCD || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                BCD: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="BCD"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.Regulator || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                Regulator: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Regulator"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.Mask || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                Mask: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Mask"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.Fins || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                Fins: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Fins"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.Boots || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                Boots: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Boots"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.Torch || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                Torch: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Torch"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.Computer || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                Computer: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="Dive Computer"
+                                      />
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox
+                                            checked={bookingData.equipment?.UWCamera || false}
+                                            onChange={(e) => {
+                                              const newEquipment = {
+                                                ...(bookingData.equipment || {}),
+                                                UWCamera: e.target.checked
+                                              };
+                                              handleUpdateBookingField(booking.id, 'equipment', newEquipment);
+                                            }}
+                                            size="small"
+                                          />
+                                        }
+                                        label="UW Camera"
+                                      />
+                                    </Grid>
+                                  </Grid>
+                                </FormGroup>
+                              </Grid>
                             </Grid>
-                            <Grid item xs={6}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Notes"
-                                value={bookingData.notes || ''}
-                                onChange={(e) => handleUpdateBookingField(booking.id, 'notes', e.target.value)}
-                                multiline
-                                rows={2}
-                              />
-                            </Grid>
-                            <Grid item xs={6}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Diet"
-                                value={bookingData.diet || ''}
-                                onChange={(e) => handleUpdateBookingField(booking.id, 'diet', e.target.value)}
-                                multiline
-                                rows={2}
-                              />
-                            </Grid>
-                          </Grid>
+                          )}
                         </Box>
                         <IconButton 
                           color="error" 
