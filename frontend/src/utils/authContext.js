@@ -18,7 +18,7 @@ export const AVAILABLE_PERMISSIONS = {
   dashboard: 'Dashboard',
   bookings: 'Bookings',
   customers: 'Customers',
-  stays: 'Customer Stays',
+  stays: 'Current Customers',
   equipment: 'Equipment',
   boatPrep: 'Boat Preparation',
   settings: 'Settings'

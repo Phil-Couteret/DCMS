@@ -345,7 +345,7 @@ const Stays = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4" gutterBottom>
-          {t('stays.title') || 'Customer Stays'}
+          {t('stays.title') || 'Current Customers'}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button

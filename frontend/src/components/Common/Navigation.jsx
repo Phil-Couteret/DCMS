@@ -36,7 +36,8 @@ import {
   LockReset as LockResetIcon,
   Security as SecurityIcon,
   Business as BusinessIcon,
-  Receipt as ReceiptIcon
+  Receipt as ReceiptIcon,
+  AccountBalance as FinancialIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from '../../utils/languageContext';
@@ -90,8 +91,9 @@ const Navigation = () => {
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.ADMIN] },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
     { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
-        { text: t('nav.stays') || 'Customer Stays', icon: <StaysIcon />, path: '/stays', permission: 'stays', roles: [USER_ROLES.ADMIN] },
+        { text: t('nav.stays') || 'Current Customers', icon: <StaysIcon />, path: '/stays', permission: 'stays', roles: [USER_ROLES.ADMIN] },
         { text: 'Historical Bills', icon: <ReceiptIcon />, path: '/bills', permission: 'stays', roles: [USER_ROLES.ADMIN] },
+        { text: 'Financial', icon: <FinancialIcon />, path: '/financial', permission: 'settings', roles: [USER_ROLES.ADMIN] },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.ADMIN] },
     
     // Equipment & Operations (Owners, Trainers)

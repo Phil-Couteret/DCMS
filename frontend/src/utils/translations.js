@@ -254,7 +254,7 @@ export const translations = {
       roles: { admin: 'Admin', boatPilot: 'Boat Pilot', guide: 'Guide', trainer: 'Trainer', intern: 'Intern' }
     },
     stays: {
-      title: 'Customer Stays',
+      title: 'Current Customers',
       loading: 'Loading stays...',
       refresh: 'Refresh',
       empty: 'No active stays found',
@@ -284,7 +284,7 @@ export const translations = {
       global: 'Global',
       bookings: 'Bookings',
       newBooking: 'New Booking',
-      stays: 'Customer Stays',
+      stays: 'Current Customers',
       customers: 'Customers',
       equipment: 'Equipment',
       settings: 'Settings'

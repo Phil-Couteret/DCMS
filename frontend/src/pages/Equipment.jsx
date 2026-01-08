@@ -20,7 +20,17 @@ import {
   Alert,
   Snackbar,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton
 } from '@mui/material';
 import {
   ScubaDiving as DivingEquipmentIcon,
@@ -32,13 +42,15 @@ import {
   Upload as UploadIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  LocalGasStation as TankIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../utils/languageContext';
 import { useAuth, USER_ROLES } from '../utils/authContext';
 import dataService from '../services/dataService';
-import { format, parseISO, isBefore, addMonths } from 'date-fns';
+import tankService from '../services/tankService';
+import { format, parseISO, isBefore, addMonths, addDays, isAfter } from 'date-fns';
 
 const Equipment = () => {
   const navigate = useNavigate();
@@ -65,6 +77,12 @@ const Equipment = () => {
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [activeTab, setActiveTab] = useState(0); // 0 = Equipment, 1 = Tanks
+  const [tanks, setTanks] = useState([]);
+  const [tankDialogOpen, setTankDialogOpen] = useState(false);
+  const [tankBulkDialogOpen, setTankBulkDialogOpen] = useState(false);
+  const [editingTank, setEditingTank] = useState(null);
+  const [tankFilter, setTankFilter] = useState('all'); // all, overdue, dueSoon, ok
   
   const [formData, setFormData] = useState({
     name: '',
@@ -93,11 +111,50 @@ const Equipment = () => {
     octopusModel: ''
   });
 
+  const [tankFormData, setTankFormData] = useState({
+    size: '',
+    number: '',
+    lastVisualTest: '',
+    nextVisualTest: '',
+    lastHydrostaticTest: '',
+    nextHydrostaticTest: '',
+    serialNumber: '',
+    netColour: '',
+    remarks: '',
+    locationId: isGlobalAdmin ? '' : currentLocationId
+  });
+
   useEffect(() => {
     loadEquipment();
     loadLocations();
     loadCurrentLocation();
+    loadTanks();
   }, [currentLocationId, isGlobalAdmin]);
+
+  const loadTanks = async () => {
+    try {
+      const allEquipment = await dataService.getAll('equipment') || [];
+      // Filter for tanks - check if category is 'Tank' (type will be 'diving' for tanks)
+      const tankEquipment = allEquipment.filter(eq => {
+        const category = (eq.category || '').toLowerCase();
+        const name = (eq.name || '').toLowerCase();
+        return category === 'tank' || name.includes('tank') || name.includes('cylinder');
+      });
+      
+      // Filter by location if not global admin
+      const filteredTanks = isGlobalAdmin 
+        ? tankEquipment 
+        : tankEquipment.filter(t => (t.locationId || t.location_id) === currentLocationId);
+      
+      // Enrich tanks with metadata from tankService
+      const enrichedTanks = filteredTanks.map(tank => tankService.enrichTankWithMetadata(tank));
+      
+      setTanks(Array.isArray(enrichedTanks) ? enrichedTanks : []);
+    } catch (error) {
+      console.error('Error loading tanks:', error);
+      setTanks([]);
+    }
+  };
 
   const loadCurrentLocation = async () => {
     try {
@@ -275,6 +332,7 @@ const Equipment = () => {
       }
 
       loadEquipment();
+      loadTanks(); // Also reload tanks in case a tank was edited as equipment
       setAddDialogOpen(false);
     } catch (error) {
       console.error('Error saving equipment:', error);
@@ -307,6 +365,553 @@ const Equipment = () => {
     if (isBefore(nextDate, addMonths(now, 3))) return 'dueSoon';
     return 'ok';
   };
+
+  // Tank-specific functions
+  const getTestStatus = (nextTestDate) => {
+    if (!nextTestDate) return null;
+    try {
+      const nextDate = typeof nextTestDate === 'string' ? parseISO(nextTestDate) : new Date(nextTestDate);
+      const now = new Date();
+      if (isBefore(nextDate, now)) return 'overdue';
+      if (isBefore(nextDate, addDays(now, 30))) return 'dueSoon';
+      return 'ok';
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const handleAddTank = () => {
+    const effectiveLocationId = isGlobalAdmin ? '' : (currentLocationId || localStorage.getItem('dcms_current_location'));
+    setTankFormData({
+      size: '',
+      number: '',
+      lastVisualTest: '',
+      nextVisualTest: '',
+      lastHydrostaticTest: '',
+      nextHydrostaticTest: '',
+      serialNumber: '',
+      netColour: '',
+      remarks: '',
+      locationId: effectiveLocationId || ''
+    });
+    setEditingTank(null);
+    setTankDialogOpen(true);
+  };
+
+  const handleEditTank = (tank) => {
+    if (!canManageEquipment) {
+      setSnackbar({ open: true, message: 'You do not have permission to edit tanks', severity: 'error' });
+      return;
+    }
+    
+    // Get tank metadata from tankService
+    const tankMetadata = tankService.getTankMetadata(tank.id);
+    
+    // Extract tank-specific data from equipment item or metadata
+    const tankData = {
+      size: tank.size || '',
+      number: tank.number || tank.tankNumber || tankMetadata.number || '',
+      lastVisualTest: tank.lastVisualTest || tank.lastVisualTestDate || tankMetadata.lastVisualTest || '',
+      nextVisualTest: tank.nextVisualTest || tank.nextVisualTestDate || tankMetadata.nextVisualTest || '',
+      lastHydrostaticTest: tank.lastHydrostaticTest || tank.lastHydrostaticTestDate || tankMetadata.lastHydrostaticTest || '',
+      nextHydrostaticTest: tank.nextHydrostaticTest || tank.nextHydrostaticTestDate || tankMetadata.nextHydrostaticTest || '',
+      serialNumber: tank.serialNumber || tank.serial_number || '',
+      netColour: tank.netColour || tankMetadata.netColour || '',
+      remarks: tank.remarks || tank.notes || tankMetadata.remarks || '',
+      locationId: tank.locationId || tank.location_id || ''
+    };
+    setTankFormData(tankData);
+    setEditingTank(tank);
+    setTankDialogOpen(true);
+  };
+
+  const handleSaveTank = async () => {
+    if (!canManageEquipment) {
+      setSnackbar({ open: true, message: 'You do not have permission to save tanks', severity: 'error' });
+      return;
+    }
+    
+    if (!tankFormData.size || !tankFormData.number || !tankFormData.serialNumber) {
+      setSnackbar({ open: true, message: 'Please fill in Size, Number, and Serial Number', severity: 'error' });
+      return;
+    }
+
+    const effectiveLocationId = tankFormData.locationId || currentLocationId;
+    if (!effectiveLocationId) {
+      setSnackbar({ open: true, message: 'Location ID is required. Please select a location.', severity: 'error' });
+      return;
+    }
+
+    if (!isGlobalAdmin && effectiveLocationId !== currentLocationId) {
+      setSnackbar({ open: true, message: 'You can only modify tanks for your location', severity: 'error' });
+      return;
+    }
+
+    try {
+      const tankData = {
+        name: `Tank ${tankFormData.number} - ${tankFormData.size}L`,
+        category: 'diving', // Must be one of enum values: 'diving', 'snorkeling', 'accessory'
+        type: 'diving', // Must be one of enum values: 'diving', 'snorkeling', 'accessory'
+        size: tankFormData.size,
+        serialNumber: tankFormData.serialNumber,
+        locationId: effectiveLocationId,
+        isAvailable: true,
+        condition: 'good' // Regular condition field
+      };
+
+      let equipmentId;
+      if (editingTank) {
+        await dataService.update('equipment', editingTank.id, tankData);
+        equipmentId = editingTank.id;
+        setSnackbar({ open: true, message: 'Tank updated successfully', severity: 'success' });
+      } else {
+        const result = await dataService.create('equipment', tankData);
+        if (!result || !result.id) {
+          throw new Error('Failed to create tank - no result or ID returned');
+        }
+        equipmentId = result.id;
+        setSnackbar({ open: true, message: 'Tank added successfully', severity: 'success' });
+      }
+
+      // Store tank-specific metadata separately
+      const tankMetadata = {
+        number: tankFormData.number,
+        netColour: tankFormData.netColour || '',
+        lastVisualTest: tankFormData.lastVisualTest || null,
+        nextVisualTest: tankFormData.nextVisualTest || null,
+        lastHydrostaticTest: tankFormData.lastHydrostaticTest || null,
+        nextHydrostaticTest: tankFormData.nextHydrostaticTest || null,
+        remarks: tankFormData.remarks || ''
+      };
+      tankService.saveTankMetadata(equipmentId, tankMetadata);
+
+      await loadTanks();
+      setTankDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving tank:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+      setSnackbar({ 
+        open: true, 
+        message: `Error saving tank: ${errorMessage}`, 
+        severity: 'error' 
+      });
+    }
+  };
+
+  const handleBulkImportTanks = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const csv = e.target.result;
+        // Properly handle multi-line quoted CSV values
+        // We need to merge lines that are part of a multi-line quoted value
+        const rawLines = csv.split(/\r?\n/);
+        const mergedLines = [];
+        let currentLine = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < rawLines.length; i++) {
+          const line = rawLines[i];
+          
+          if (!currentLine) {
+            currentLine = line;
+          } else {
+            // If we're continuing a multi-line value, add newline; otherwise add as comma-separated
+            currentLine += inQuotes ? '\n' + line : line;
+          }
+          
+          // Track quote state - handle escaped quotes
+          for (let j = 0; j < line.length; j++) {
+            if (line[j] === '"') {
+              // Check if it's an escaped quote (double quote)
+              if (j + 1 < line.length && line[j + 1] === '"') {
+                j++; // Skip the next quote (escaped)
+              } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+              }
+            }
+          }
+          
+          // If we're not in quotes after processing this line, the CSV row is complete
+          if (!inQuotes && currentLine) {
+            mergedLines.push({ line: currentLine.trim(), originalIndex: i });
+            currentLine = '';
+          }
+        }
+        
+        // Add any remaining line (in case file ends while still in quotes)
+        if (currentLine.trim()) {
+          mergedLines.push({ line: currentLine.trim(), originalIndex: rawLines.length - 1 });
+        }
+        
+        // Filter out empty lines
+        const lines = mergedLines.filter(item => item.line);
+        
+        console.log(`Total raw lines: ${rawLines.length}, Merged lines: ${mergedLines.length}, Non-empty: ${lines.length}`);
+        console.log('First few merged lines:', mergedLines.slice(0, 5).map(l => l.line.substring(0, 100)));
+        
+        // Find the header row (look for "SIZE" and "NUMBER" as separate columns)
+        // The CSV has a two-row header: first row has "VISUAL", "HYDROSTATIC", second row has actual column names
+        let headerRowIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+          const lineText = lines[i].line;
+          const lineUpper = lineText.toUpperCase();
+          // Check if this line has "SIZE" and "NUMBER" as separate words (not "SERIAL NUMBER")
+          // Split by comma and check each column
+          const columns = lineText.split(',').map(c => c.trim().toUpperCase());
+          const hasSize = columns.some(c => c === 'SIZE');
+          // Check for "NUMBER" column (not part of "SERIAL NUMBER")
+          // "SERIAL NUMBER" appears as two columns: "SERIAL" and "NUMBER", so we need to check position
+          const numberIdx = columns.findIndex(c => c === 'NUMBER');
+          const serialIdx = columns.findIndex(c => c.includes('SERIAL'));
+          const hasNumber = numberIdx >= 0 && (serialIdx < 0 || Math.abs(numberIdx - serialIdx) > 1);
+          // Check if "SERIAL NUMBER" appears (either as one column or two adjacent columns)
+          const hasSerialNumber = columns.some(c => c.includes('SERIAL') && c.includes('NUMBER')) || 
+                                 (serialIdx >= 0 && numberIdx >= 0 && Math.abs(serialIdx - numberIdx) === 1);
+          
+          console.log(`Line ${i + 1}: hasSize=${hasSize}, hasNumber=${hasNumber}, hasSerialNumber=${hasSerialNumber}`, { columns, numberIdx, serialIdx });
+          
+          if (hasSize && hasNumber && hasSerialNumber) {
+            headerRowIndex = i;
+            console.log(`Found header row at index ${i} (original line ${lines[i].originalIndex + 1}):`, lineText);
+            break;
+          }
+        }
+        
+        if (headerRowIndex === -1) {
+          console.error('All lines:', lines.map(l => l.line));
+          throw new Error('Could not find header row. Please ensure the CSV has a header row with "SIZE", "NUMBER", and "SERIAL NUMBER" columns.');
+        }
+
+        const headerLine = lines[headerRowIndex].line;
+        const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+        
+        console.log('Header line:', headerLine);
+        console.log('Parsed headers:', headers);
+        
+        console.log('Found headers at row', headerRowIndex + 1, ':', headers);
+        
+        // Map column indices - handle duplicate column names
+        const sizeIdx = headers.findIndex(h => h.includes('size') && !h.includes('serial'));
+        const numberIdx = headers.findIndex(h => h.includes('number') && !h.includes('serial'));
+        const serialIdx = headers.findIndex(h => h.includes('serial'));
+        const netColourIdx = headers.findIndex(h => (h.includes('net') && h.includes('colour')) || h.includes('net colour'));
+        
+        // For duplicate "LAST TEST" and "NEXT TEST", find them by position
+        // Based on the CSV: SIZE, NUMBER, LAST TEST (VISUAL), NEXT TEST (VISUAL), LAST TEST (HYDROSTATIC), NEXT TEST (HYDROSTATIC), SERIAL NUMBER, NET COLOUR, REMARKS
+        let lastVisualIdx = -1;
+        let nextVisualIdx = -1;
+        let lastHydroIdx = -1;
+        let nextHydroIdx = -1;
+        
+        // Find indices by checking context (visual comes before hydrostatic, and they're in pairs)
+        for (let i = 0; i < headers.length; i++) {
+          const h = headers[i];
+          if (h.includes('last') && h.includes('test')) {
+            if (lastVisualIdx === -1) {
+              lastVisualIdx = i; // First "LAST TEST" is visual
+            } else {
+              lastHydroIdx = i; // Second "LAST TEST" is hydrostatic
+            }
+          }
+          if (h.includes('next') && h.includes('test')) {
+            if (nextVisualIdx === -1) {
+              nextVisualIdx = i; // First "NEXT TEST" is visual
+            } else {
+              nextHydroIdx = i; // Second "NEXT TEST" is hydrostatic
+            }
+          }
+        }
+        
+        const remarksIdx = headers.findIndex(h => h.includes('remark'));
+
+        console.log('Column indices:', { sizeIdx, numberIdx, serialIdx, netColourIdx, lastVisualIdx, nextVisualIdx, lastHydroIdx, nextHydroIdx, remarksIdx });
+
+        if (sizeIdx === -1 || numberIdx === -1 || serialIdx === -1) {
+          throw new Error(`Missing required columns. Found: SIZE=${sizeIdx}, NUMBER=${numberIdx}, SERIAL NUMBER=${serialIdx}`);
+        }
+
+        const importedTanks = [];
+        const skippedTanks = [];
+        
+        // Get location ID - for global admins, try to use a selected location or prompt
+        let effectiveLocationId = '';
+        if (isGlobalAdmin) {
+          // For global admins, check if they have a location selected in the form
+          effectiveLocationId = tankFormData.locationId || '';
+          if (!effectiveLocationId && locations.length > 0) {
+            // Use first location as default for global admins if none selected
+            effectiveLocationId = locations[0].id;
+            console.log(`No location selected, using first location: ${effectiveLocationId}`);
+          }
+        } else {
+          // For non-global admins, use their assigned location
+          const storedLocationId = localStorage.getItem('dcms_current_location');
+          effectiveLocationId = currentLocationId || storedLocationId || '';
+        }
+        
+        if (!effectiveLocationId) {
+          if (isGlobalAdmin) {
+            throw new Error('Please select a location in the import dialog before importing tanks.');
+          } else {
+            throw new Error('Location ID is required. Please ensure you have a location assigned.');
+          }
+        }
+        
+        console.log('Using location ID for import:', effectiveLocationId);
+        
+        // Parse dates - handle various formats
+        const parseDate = (dateStr) => {
+          if (!dateStr) return null;
+          const cleaned = dateStr.trim().replace(/^"|"$/g, '').replace(/\n/g, ' ').trim();
+          if (!cleaned || cleaned.toLowerCase() === 'missing' || cleaned === '?' || cleaned === '-' || cleaned === '') return null;
+          
+          // Handle month names (Feb, July, Sept, etc.)
+          const monthNames = {
+            'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+            'jul': '07', 'july': '07', 'aug': '08', 'sep': '09', 'sept': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+          };
+          
+          // Try DD/MM/YYYY format first
+          if (cleaned.includes('/')) {
+            const parts = cleaned.split('/').map(p => p.trim());
+            if (parts.length === 3 && parts[0].length <= 2 && parts[1].length <= 2) {
+              const day = parts[0].padStart(2, '0');
+              const month = parts[1].padStart(2, '0');
+              const year = parts[2];
+              if (year.length === 4) {
+                return `${year}-${month}-${day}`;
+              }
+            }
+          }
+          
+          // Try YYYY-MM-DD format
+          if (cleaned.includes('-') && cleaned.length >= 10) {
+            return cleaned.substring(0, 10);
+          }
+          
+          // Try month name format (e.g., "Feb", "July")
+          const monthLower = cleaned.toLowerCase();
+          for (const [month, num] of Object.entries(monthNames)) {
+            if (monthLower.startsWith(month)) {
+              // Return null for month-only dates (no full date available)
+              return null;
+            }
+          }
+          
+          return null;
+        };
+
+        console.log(`Processing ${lines.length - headerRowIndex - 1} data rows (header at row ${headerRowIndex + 1})`);
+        
+        // Process data rows (start after header row)
+        for (let i = headerRowIndex + 1; i < lines.length; i++) {
+          const line = lines[i].line;
+          const originalRowNum = lines[i].originalIndex + 1;
+          
+          if (!line) {
+            console.log(`Skipping empty row ${i + 1} (original ${originalRowNum})`);
+            continue;
+          }
+          
+          console.log(`Processing row ${i + 1} (original ${originalRowNum}):`, line.substring(0, 100));
+          
+          try {
+            // Simple CSV parsing - split by comma, but handle quoted values
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let j = 0; j < line.length; j++) {
+              const char = line[j];
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            values.push(current.trim()); // Add last value
+            
+            // Clean up values (remove quotes, normalize whitespace, handle newlines)
+            const cleanedValues = values.map(v => {
+              let cleaned = v.replace(/^"|"$/g, ''); // Remove surrounding quotes
+              cleaned = cleaned.replace(/\n/g, ' '); // Replace newlines with spaces
+              cleaned = cleaned.replace(/\r/g, ''); // Remove carriage returns
+              cleaned = cleaned.replace(/\s+/g, ' '); // Normalize whitespace
+              return cleaned.trim();
+            });
+            
+            // Ensure we have enough columns
+            while (cleanedValues.length < headers.length) {
+              cleanedValues.push('');
+            }
+            
+            const size = cleanedValues[sizeIdx] || '';
+            const number = cleanedValues[numberIdx] || '';
+            const serialNumber = cleanedValues[serialIdx] || '';
+            
+            console.log(`Row ${i + 1} (original ${originalRowNum}) parsed values:`, { size, number, serialNumber, allValues: cleanedValues });
+            
+            if (!size || !number || !serialNumber) {
+              const reason = `Missing required fields - Size: "${size}", Number: "${number}", Serial: "${serialNumber}"`;
+              skippedTanks.push({ row: originalRowNum, reason, data: { size, number, serialNumber, allValues: cleanedValues } });
+              console.warn(`Skipping row ${i + 1} (original ${originalRowNum}):`, reason);
+              continue;
+            }
+
+            const lastVisualTest = lastVisualIdx >= 0 && cleanedValues[lastVisualIdx] ? parseDate(cleanedValues[lastVisualIdx]) : null;
+            const nextVisualTest = nextVisualIdx >= 0 && cleanedValues[nextVisualIdx] ? parseDate(cleanedValues[nextVisualIdx]) : null;
+            const lastHydrostaticTest = lastHydroIdx >= 0 && cleanedValues[lastHydroIdx] ? parseDate(cleanedValues[lastHydroIdx]) : null;
+            const nextHydrostaticTest = nextHydroIdx >= 0 && cleanedValues[nextHydroIdx] ? parseDate(cleanedValues[nextHydroIdx]) : null;
+            const netColour = (netColourIdx >= 0 ? (cleanedValues[netColourIdx] || '') : '').trim();
+            const remarks = (remarksIdx >= 0 ? (cleanedValues[remarksIdx] || '') : '').trim();
+
+            // Create equipment record
+            const equipmentData = {
+              name: `Tank ${number} - ${size}L`,
+              category: 'diving',
+              type: 'diving',
+              size: size,
+              serialNumber: serialNumber,
+              locationId: effectiveLocationId,
+              isAvailable: true,
+              condition: 'good'
+            };
+
+            try {
+              console.log(`Creating equipment for row ${i + 1} (original ${originalRowNum}):`, equipmentData);
+              const result = await dataService.create('equipment', equipmentData);
+              console.log(`Create result for row ${i + 1} (original ${originalRowNum}):`, result);
+              
+              if (result && result.id) {
+                // Store tank metadata
+                const tankMetadata = {
+                  number: number,
+                  netColour: netColour,
+                  lastVisualTest: lastVisualTest,
+                  nextVisualTest: nextVisualTest,
+                  lastHydrostaticTest: lastHydrostaticTest,
+                  nextHydrostaticTest: nextHydrostaticTest,
+                  remarks: remarks
+                };
+                tankService.saveTankMetadata(result.id, tankMetadata);
+                importedTanks.push({ number, size, serialNumber });
+                console.log(`Imported tank ${number} (${size}L) - Serial: ${serialNumber}`);
+              } else {
+                skippedTanks.push({ row: originalRowNum, reason: 'Failed to create equipment record - no ID returned', data: { size, number, serialNumber } });
+                console.error(`Failed to create tank ${number} (row ${originalRowNum}):`, result);
+              }
+            } catch (createError) {
+              skippedTanks.push({ row: originalRowNum, reason: `Create error: ${createError.message}`, data: { size, number, serialNumber } });
+              console.error(`Error creating tank ${number} (row ${originalRowNum}):`, createError);
+            }
+          } catch (rowError) {
+            const originalRowNum = lines[i].originalIndex + 1;
+            console.error(`Error processing row ${i + 1} (original ${originalRowNum}):`, rowError);
+            skippedTanks.push({ row: originalRowNum, reason: rowError.message || 'Parse error', data: null });
+          }
+        }
+
+        let message = '';
+        if (importedTanks.length > 0) {
+          message = `${importedTanks.length} tank(s) imported successfully`;
+          if (skippedTanks.length > 0) {
+            message += `. ${skippedTanks.length} row(s) skipped.`;
+          }
+        } else if (skippedTanks.length > 0) {
+          message = `No tanks imported. ${skippedTanks.length} row(s) skipped. Check browser console (F12) for details.`;
+        } else {
+          message = 'No data rows found to import.';
+        }
+
+        if (skippedTanks.length > 0) {
+          console.log('Skipped tanks details:', skippedTanks);
+        }
+
+        setSnackbar({ 
+          open: true, 
+          message: message, 
+          severity: importedTanks.length > 0 ? 'success' : (skippedTanks.length > 0 ? 'warning' : 'error')
+        });
+        await loadTanks();
+        setTankBulkDialogOpen(false);
+      } catch (error) {
+        console.error('Error importing tanks:', error);
+        setSnackbar({ 
+          open: true, 
+          message: `Error importing file: ${error.message || 'Please check the format.'}`, 
+          severity: 'error' 
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDeleteTank = async (id) => {
+    if (!canManageEquipment) {
+      setSnackbar({ open: true, message: 'You do not have permission to delete tanks', severity: 'error' });
+      return;
+    }
+    if (window.confirm('Are you sure you want to delete this tank?')) {
+      try {
+        await dataService.remove('equipment', id);
+        // Also delete the tank metadata
+        tankService.deleteTankMetadata(id);
+        setSnackbar({ open: true, message: 'Tank deleted successfully', severity: 'success' });
+        loadTanks();
+      } catch (error) {
+        console.error('Error deleting tank:', error);
+        setSnackbar({ open: true, message: 'Error deleting tank', severity: 'error' });
+      }
+    }
+  };
+
+  // Helper function to extract tank metadata
+  const getTankMetadata = (tank) => {
+    const metadata = tankService.getTankMetadata(tank.id);
+    return {
+      number: tank.number || tank.tankNumber || metadata.number,
+      nextVisualTest: tank.nextVisualTest || tank.nextVisualTestDate || metadata.nextVisualTest,
+      nextHydrostaticTest: tank.nextHydrostaticTest || tank.nextHydrostaticTestDate || metadata.nextHydrostaticTest
+    };
+  };
+
+  const filteredTanks = tanks.filter(tank => {
+    if (tankFilter === 'all') return true;
+    const metadata = getTankMetadata(tank);
+    const visualStatus = getTestStatus(metadata.nextVisualTest);
+    const hydroStatus = getTestStatus(metadata.nextHydrostaticTest);
+    
+    if (tankFilter === 'overdue') {
+      return visualStatus === 'overdue' || hydroStatus === 'overdue';
+    }
+    if (tankFilter === 'dueSoon') {
+      return visualStatus === 'dueSoon' || hydroStatus === 'dueSoon';
+    }
+    return visualStatus === 'ok' && hydroStatus === 'ok';
+  });
+
+  const overdueTanks = tanks.filter(tank => {
+    const metadata = getTankMetadata(tank);
+    const visualStatus = getTestStatus(metadata.nextVisualTest);
+    const hydroStatus = getTestStatus(metadata.nextHydrostaticTest);
+    return visualStatus === 'overdue' || hydroStatus === 'overdue';
+  }).length;
+
+  const dueSoonTanks = tanks.filter(tank => {
+    const metadata = getTankMetadata(tank);
+    const visualStatus = getTestStatus(metadata.nextVisualTest);
+    const hydroStatus = getTestStatus(metadata.nextHydrostaticTest);
+    return (visualStatus === 'dueSoon' || hydroStatus === 'dueSoon') && 
+           visualStatus !== 'overdue' && hydroStatus !== 'overdue';
+  }).length;
 
   const handleBulkImport = (event) => {
     const file = event.target.files[0];
@@ -394,6 +999,13 @@ const Equipment = () => {
 
   return (
     <Box>
+      <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+        <Tab label="Equipment" icon={<DivingEquipmentIcon />} iconPosition="start" />
+        <Tab label="Tanks / Cylinders" icon={<TankIcon />} iconPosition="start" disabled={isBikeRental} />
+      </Tabs>
+
+      {activeTab === 0 && (
+        <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
           {isBikeRental 
@@ -981,6 +1593,350 @@ const Equipment = () => {
           <Button onClick={() => setBulkDialogOpen(false)}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>
+
+        </>
+      )}
+
+      {activeTab === 1 && !isBikeRental && (
+        <>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">Tanks / Cylinders Testing Tracker</Typography>
+        {canManageEquipment && (
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<UploadIcon />}
+              onClick={() => setTankBulkDialogOpen(true)}
+            >
+              Bulk Import
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleAddTank}
+            >
+              Add Tank
+            </Button>
+          </Box>
+        )}
+      </Box>
+
+      {(overdueTanks > 0 || dueSoonTanks > 0) && (
+        <Box sx={{ mb: 3 }}>
+          {overdueTanks > 0 && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {overdueTanks} tank(s) have overdue tests
+            </Alert>
+          )}
+          {dueSoonTanks > 0 && (
+            <Alert severity="warning">
+              {dueSoonTanks} tank(s) need testing within 30 days
+            </Alert>
+          )}
+        </Box>
+      )}
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel>Filter by Test Status</InputLabel>
+          <Select
+            value={tankFilter}
+            label="Filter by Test Status"
+            onChange={(e) => setTankFilter(e.target.value)}
+          >
+            <MenuItem value="all">All Tanks</MenuItem>
+            <MenuItem value="overdue">Overdue Tests</MenuItem>
+            <MenuItem value="dueSoon">Due Soon (30 days)</MenuItem>
+            <MenuItem value="ok">All Tests OK</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      {filteredTanks.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <TankIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No tanks found
+          </Typography>
+        </Box>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'primary.main' }}>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>#</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Size (L)</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Serial Number</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Net Colour</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Last Visual Test</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Next Visual Test</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Last Hydrostatic Test</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Next Hydrostatic Test</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Remarks</TableCell>
+                {canManageEquipment && <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredTanks.map((tank) => {
+                // Tank data is already enriched by loadTanks() using tankService
+                const tankNumber = tank.number || '-';
+                const tankSize = tank.size || '-';
+                const serialNumber = tank.serialNumber || tank.serial_number || '-';
+                const netColour = tank.netColour || '';
+                const lastVisualTest = tank.lastVisualTest;
+                const nextVisualTest = tank.nextVisualTest;
+                const lastHydrostaticTest = tank.lastHydrostaticTest;
+                const nextHydrostaticTest = tank.nextHydrostaticTest;
+                const remarks = tank.remarks || tank.notes || '-';
+
+                const visualStatus = getTestStatus(nextVisualTest);
+                const hydroStatus = getTestStatus(nextHydrostaticTest);
+                const getRowBgColor = () => {
+                  if (visualStatus === 'overdue' || hydroStatus === 'overdue') return '#ffebee';
+                  if (visualStatus === 'dueSoon' || hydroStatus === 'dueSoon') return '#fff3e0';
+                  return 'white';
+                };
+                
+                return (
+                  <TableRow key={tank.id} sx={{ bgcolor: getRowBgColor() }}>
+                    <TableCell>{tankNumber}</TableCell>
+                    <TableCell>{tankSize}</TableCell>
+                    <TableCell>{serialNumber}</TableCell>
+                    <TableCell>
+                      {netColour && (
+                        <Chip 
+                          label={netColour} 
+                          size="small"
+                          sx={{ 
+                            bgcolor: netColour.toLowerCase() === 'black' ? '#424242' :
+                                    netColour.toLowerCase() === 'blue' ? '#2196f3' :
+                                    netColour.toLowerCase() === 'yellow' ? '#ffeb3b' :
+                                    netColour.toLowerCase() === 'white' ? '#f5f5f5' : 'default',
+                            color: netColour.toLowerCase() === 'yellow' || netColour.toLowerCase() === 'white' ? '#000' : '#fff'
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {lastVisualTest 
+                        ? format(parseISO(lastVisualTest), 'dd/MM/yyyy')
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {nextVisualTest 
+                          ? format(parseISO(nextVisualTest), 'dd/MM/yyyy')
+                          : '-'}
+                        {visualStatus === 'overdue' && <Chip label="OVERDUE" color="error" size="small" />}
+                        {visualStatus === 'dueSoon' && <Chip label="DUE SOON" color="warning" size="small" />}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {lastHydrostaticTest 
+                        ? format(parseISO(lastHydrostaticTest), 'dd/MM/yyyy')
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {nextHydrostaticTest 
+                          ? format(parseISO(nextHydrostaticTest), 'dd/MM/yyyy')
+                          : '-'}
+                        {hydroStatus === 'overdue' && <Chip label="OVERDUE" color="error" size="small" />}
+                        {hydroStatus === 'dueSoon' && <Chip label="DUE SOON" color="warning" size="small" />}
+                      </Box>
+                    </TableCell>
+                    <TableCell>{remarks}</TableCell>
+                    {canManageEquipment && (
+                      <TableCell>
+                        <IconButton size="small" onClick={() => handleEditTank(tank)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDeleteTank(tank.id)} color="error">
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {/* Tank Add/Edit Dialog */}
+      <Dialog open={tankDialogOpen} onClose={() => setTankDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{editingTank ? 'Edit Tank' : 'Add Tank'}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Size (Liters)</InputLabel>
+                <Select
+                  value={tankFormData.size}
+                  label="Size (Liters)"
+                  onChange={(e) => setTankFormData({ ...tankFormData, size: e.target.value })}
+                >
+                  <MenuItem value="6">6</MenuItem>
+                  <MenuItem value="7">7</MenuItem>
+                  <MenuItem value="10">10</MenuItem>
+                  <MenuItem value="12">12</MenuItem>
+                  <MenuItem value="15">15</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                required
+                label="Number"
+                value={tankFormData.number}
+                onChange={(e) => setTankFormData({ ...tankFormData, number: e.target.value })}
+                placeholder="Sequential number"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                required
+                label="Serial Number"
+                value={tankFormData.serialNumber}
+                onChange={(e) => setTankFormData({ ...tankFormData, serialNumber: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Net Colour</InputLabel>
+                <Select
+                  value={tankFormData.netColour}
+                  label="Net Colour"
+                  onChange={(e) => setTankFormData({ ...tankFormData, netColour: e.target.value })}
+                >
+                  <MenuItem value="Black">Black</MenuItem>
+                  <MenuItem value="Blue">Blue</MenuItem>
+                  <MenuItem value="Yellow">Yellow</MenuItem>
+                  <MenuItem value="White">White</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Last Visual Test"
+                type="date"
+                value={tankFormData.lastVisualTest}
+                onChange={(e) => setTankFormData({ ...tankFormData, lastVisualTest: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Next Visual Test"
+                type="date"
+                value={tankFormData.nextVisualTest}
+                onChange={(e) => setTankFormData({ ...tankFormData, nextVisualTest: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Last Hydrostatic Test"
+                type="date"
+                value={tankFormData.lastHydrostaticTest}
+                onChange={(e) => setTankFormData({ ...tankFormData, lastHydrostaticTest: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Next Hydrostatic Test"
+                type="date"
+                value={tankFormData.nextHydrostaticTest}
+                onChange={(e) => setTankFormData({ ...tankFormData, nextHydrostaticTest: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Remarks"
+                multiline
+                rows={3}
+                value={tankFormData.remarks}
+                onChange={(e) => setTankFormData({ ...tankFormData, remarks: e.target.value })}
+                placeholder="Location, painted dates, test status, etc."
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTankDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleSaveTank} variant="contained">
+            {editingTank ? 'Update' : 'Add'} Tank
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Tank Bulk Import Dialog */}
+      <Dialog open={tankBulkDialogOpen} onClose={() => setTankBulkDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Bulk Import Tanks</DialogTitle>
+        <DialogContent>
+          {isGlobalAdmin && locations.length > 0 && (
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Location *</InputLabel>
+              <Select
+                value={tankFormData.locationId || ''}
+                label="Location *"
+                onChange={(e) => setTankFormData({ ...tankFormData, locationId: e.target.value })}
+                required
+              >
+                {locations.map((loc) => (
+                  <MenuItem key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Upload a CSV file with tank data. The file should have the following columns:
+          </Typography>
+          <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Typography variant="body2" component="pre" sx={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>
+              SIZE, NUMBER, SERIAL NUMBER, NET COLOUR, LAST TEST (VISUAL), NEXT TEST (VISUAL), LAST TEST (HYDROSTATIC), NEXT TEST (HYDROSTATIC), REMARKS
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Example:
+          </Typography>
+          <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Typography variant="body2" component="pre" sx={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>
+              7, 1, 12431042, Black, 30/04/2020, 30/03/2026, 01/03/2028, 01/03/2028, basement
+              10, 2, 2027/159, Blue, 31/01/2026, 01/04/2021, 01/02/2028, 01/04/2021, Painted feb 2024
+              12, 3, D24374, Yellow, 01/05/2025, 01/05/2027, 30/05/2027, 01/05/2027, Las playitas 230923
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <strong>Required fields:</strong> SIZE, NUMBER, SERIAL NUMBER<br/>
+            <strong>Date formats:</strong> DD/MM/YYYY or YYYY-MM-DD (leave empty or use "-" for missing dates)<br/>
+            <strong>Note:</strong> Dates can be left empty if not available
+          </Typography>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleBulkImportTanks}
+            style={{ marginTop: 16 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTankBulkDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+        </>
+      )}
 
       {/* Snackbar for notifications */}
       <Snackbar

@@ -22,6 +22,7 @@ import PartnerLogin from './pages/partner/PartnerLogin';
 import PartnerDashboard from './pages/partner/PartnerDashboard';
 import ProtectedPartnerRoute from './components/Partner/ProtectedPartnerRoute';
 import Bills from './pages/Bills';
+import Financial from './pages/Financial';
 import { PartnerAuthProvider } from './utils/partnerAuthContext';
 
 // Components
@@ -98,6 +99,7 @@ function App() {
                             <Route path="/partners" element={<ProtectedRoute requiredPermission="settings"><Partners /></ProtectedRoute>} />
                             <Route path="/partner-invoices" element={<ProtectedRoute requiredPermission="settings"><PartnerInvoices /></ProtectedRoute>} />
                             <Route path="/bills" element={<ProtectedRoute requiredPermission="stays"><Bills /></ProtectedRoute>} />
+                            <Route path="/financial" element={<ProtectedRoute requiredPermission="settings"><Financial /></ProtectedRoute>} />
                           </Routes>
                         </Box>
                       </Box>

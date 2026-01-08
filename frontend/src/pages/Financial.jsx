@@ -1,0 +1,1076 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  Divider,
+  Card,
+  CardContent,
+  IconButton,
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  AttachMoney as MoneyIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  Close as CloseIcon,
+  Print as PrintIcon,
+  Download as DownloadIcon,
+  Save as SaveIcon,
+  Email as EmailIcon
+} from '@mui/icons-material';
+import financialService from '../services/financialService';
+import dataService from '../services/dataService';
+import { useTranslation } from '../utils/languageContext';
+import { useAuth, USER_ROLES } from '../utils/authContext';
+
+const Financial = () => {
+  const { t } = useTranslation();
+  const { currentUser } = useAuth();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [loading, setLoading] = useState(true);
+  const [financialSummary, setFinancialSummary] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [showIncomeDialog, setShowIncomeDialog] = useState(false);
+  const [showCloseDayDialog, setShowCloseDayDialog] = useState(false);
+  const [dailyReportHtml, setDailyReportHtml] = useState('');
+  const [expenseFormData, setExpenseFormData] = useState({
+    description: '',
+    category: 'gasoline',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+  const [incomeFormData, setIncomeFormData] = useState({
+    description: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+
+  const expenseCategories = [
+    { value: 'gasoline', label: 'Gasoline' },
+    { value: 'tank_net', label: 'Tank Net' },
+    { value: 'glue', label: 'Glue' },
+    { value: 'equipment', label: 'New Equipment' },
+    { value: 'maintenance', label: 'Maintenance' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  const isAdmin = currentUser?.role === USER_ROLES.ADMIN || currentUser?.role === USER_ROLES.SUPERADMIN;
+
+  const loadCustomers = useCallback(async () => {
+    try {
+      const allCustomers = await dataService.getAll('customers');
+      setCustomers(Array.isArray(allCustomers) ? allCustomers : []);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      setCustomers([]);
+    }
+  }, []);
+
+  const loadLocations = useCallback(async () => {
+    try {
+      const allLocations = await dataService.getAll('locations');
+      setLocations(Array.isArray(allLocations) ? allLocations : []);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+      setLocations([]);
+    }
+  }, []);
+
+  const loadFinancialSummary = useCallback(async () => {
+    setLoading(true);
+    try {
+      const dateStr = selectedDate instanceof Date 
+        ? selectedDate.toISOString().split('T')[0] 
+        : selectedDate;
+      const summary = await financialService.getDailyFinancialSummary(dateStr);
+      setFinancialSummary(summary);
+    } catch (error) {
+      console.error('Error loading financial summary:', error);
+      setFinancialSummary(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    loadCustomers();
+    loadLocations();
+  }, [loadCustomers, loadLocations]);
+
+  useEffect(() => {
+    loadFinancialSummary();
+  }, [loadFinancialSummary]);
+
+  const handleDateChange = (newDate) => {
+    setSelectedDate(newDate);
+  };
+
+  const handleAddExpense = () => {
+    setExpenseFormData({
+      description: '',
+      category: 'gasoline',
+      amount: '',
+      date: selectedDate instanceof Date 
+        ? selectedDate.toISOString().split('T')[0] 
+        : selectedDate,
+      notes: ''
+    });
+    setShowExpenseDialog(true);
+  };
+
+  const handleAddIncome = () => {
+    setIncomeFormData({
+      description: '',
+      amount: '',
+      date: selectedDate instanceof Date 
+        ? selectedDate.toISOString().split('T')[0] 
+        : selectedDate,
+      notes: ''
+    });
+    setShowIncomeDialog(true);
+  };
+
+  const handleSaveExpense = () => {
+    if (!expenseFormData.description || !expenseFormData.amount) {
+      return;
+    }
+    try {
+      financialService.addExpense(expenseFormData);
+      setShowExpenseDialog(false);
+      loadFinancialSummary();
+    } catch (error) {
+      console.error('Error saving expense:', error);
+      alert('Error saving expense. Please try again.');
+    }
+  };
+
+  const handleSaveIncome = () => {
+    if (!incomeFormData.description || !incomeFormData.amount) {
+      return;
+    }
+    try {
+      financialService.addManualIncome(incomeFormData);
+      setShowIncomeDialog(false);
+      loadFinancialSummary();
+    } catch (error) {
+      console.error('Error saving income:', error);
+      alert('Error saving income. Please try again.');
+    }
+  };
+
+  const handleDeleteExpense = (expenseId) => {
+    if (window.confirm('Are you sure you want to delete this expense?')) {
+      try {
+        financialService.deleteExpense(expenseId);
+        loadFinancialSummary();
+      } catch (error) {
+        console.error('Error deleting expense:', error);
+        alert('Error deleting expense. Please try again.');
+      }
+    }
+  };
+
+  const handleDeleteIncome = (incomeId) => {
+    if (window.confirm('Are you sure you want to delete this income entry?')) {
+      try {
+        financialService.deleteManualIncome(incomeId);
+        loadFinancialSummary();
+      } catch (error) {
+        console.error('Error deleting income:', error);
+        alert('Error deleting income. Please try again.');
+      }
+    }
+  };
+
+  const getCustomerName = (customerId) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer) return 'Unknown';
+    return `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || 'Unknown';
+  };
+
+  const formatCurrency = (amount) => {
+    return `€${parseFloat(amount || 0).toFixed(2)}`;
+  };
+
+  const generateDailyReportHTML = () => {
+    if (!financialSummary) return '';
+    
+    const dateStr = selectedDate instanceof Date 
+      ? selectedDate.toISOString().split('T')[0] 
+      : selectedDate;
+    const location = locations.find(l => l.id === localStorage.getItem('dcms_current_location'));
+    const locationName = location?.name || 'All Locations';
+    
+    let html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Daily Financial Report - ${dateStr}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #fff;
+          }
+          .header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            border-bottom: 3px solid #1976d2;
+            padding-bottom: 20px;
+          }
+          .header h1 { 
+            color: #1976d2; 
+            margin: 0;
+          }
+          .header h2 {
+            color: #666;
+            margin: 10px 0;
+            font-weight: normal;
+          }
+          .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+          }
+          .summary-card {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #ddd;
+          }
+          .summary-card h3 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+            font-weight: normal;
+          }
+          .summary-card .amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1976d2;
+          }
+          .summary-card.income .amount { color: #2e7d32; }
+          .summary-card.expense .amount { color: #d32f2f; }
+          .summary-card.profit .amount { color: #ed6c02; }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 20px 0; 
+            font-size: 14px;
+          }
+          th, td { 
+            border: 1px solid #ddd; 
+            padding: 12px; 
+            text-align: left; 
+          }
+          th { 
+            background-color: #1976d2; 
+            color: white; 
+            font-weight: bold;
+          }
+          tr:nth-child(even) { 
+            background-color: #f9f9f9; 
+          }
+          .section {
+            margin: 40px 0;
+            page-break-inside: avoid;
+          }
+          .section-title {
+            color: #1976d2;
+            border-bottom: 2px solid #1976d2;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 24px;
+          }
+          .footer { 
+            margin-top: 60px; 
+            font-size: 12px; 
+            color: #666; 
+            text-align: center; 
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+          }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+          }
+          .badge-diving { background-color: #2196f3; color: white; }
+          .badge-discovery { background-color: #9c27b0; color: white; }
+          .badge-snorkeling { background-color: #00bcd4; color: white; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Daily Financial Report</h1>
+          <h2>${locationName}</h2>
+          <p><strong>Date:</strong> ${new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+
+        <div class="summary-cards">
+          <div class="summary-card income">
+            <h3>Total Income</h3>
+            <div class="amount">${formatCurrency(financialSummary.totalIncome)}</div>
+          </div>
+          <div class="summary-card expense">
+            <h3>Total Expenses</h3>
+            <div class="amount">${formatCurrency(financialSummary.expenses.total)}</div>
+          </div>
+          <div class="summary-card profit">
+            <h3>Net Profit</h3>
+            <div class="amount">${formatCurrency(financialSummary.netProfit)}</div>
+          </div>
+          <div class="summary-card">
+            <h3>Booking Income</h3>
+            <div class="amount">${formatCurrency(financialSummary.bookingIncome.total)}</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">Income from Bookings</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Activity Type</th>
+                <th class="text-center">Number of Dives</th>
+                <th class="text-right">Total Income</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge badge-diving">Diving</span></td>
+                <td class="text-center">${financialSummary.bookingIncome.details
+                  .filter(d => d.activityType === 'diving')
+                  .reduce((sum, d) => sum + d.numberOfDives, 0)}</td>
+                <td class="text-right">${formatCurrency(financialSummary.bookingIncome.diving)}</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-discovery">Discovery</span></td>
+                <td class="text-center">${financialSummary.bookingIncome.details
+                  .filter(d => d.activityType === 'discover' || d.activityType === 'discovery' || d.activityType === 'try_dive' || d.activityType === 'try_scuba' || d.activityType === 'orientation')
+                  .reduce((sum, d) => sum + d.numberOfDives, 0)}</td>
+                <td class="text-right">${formatCurrency(financialSummary.bookingIncome.discovery)}</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-snorkeling">Snorkeling</span></td>
+                <td class="text-center">${financialSummary.bookingIncome.details
+                  .filter(d => d.activityType === 'snorkeling' || d.activityType === 'snorkel')
+                  .reduce((sum, d) => sum + d.numberOfDives, 0)}</td>
+                <td class="text-right">${formatCurrency(financialSummary.bookingIncome.snorkeling)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        ${financialSummary.bookingIncome.details.length > 0 ? `
+        <div class="section">
+          <h2 class="section-title">Booking Details</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Activity Type</th>
+                <th>Customer</th>
+                <th class="text-center">Number of Dives</th>
+                <th class="text-right">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${financialSummary.bookingIncome.details.map((detail) => {
+                const activityTypeLabel = detail.activityType === 'diving' ? 'Diving' : 
+                  (detail.activityType === 'discover' || detail.activityType === 'discovery' || detail.activityType === 'try_dive' || detail.activityType === 'try_scuba' || detail.activityType === 'orientation') ? 'Discovery' :
+                  'Snorkeling';
+                const badgeClass = detail.activityType === 'diving' ? 'badge-diving' : 
+                  (detail.activityType === 'discover' || detail.activityType === 'discovery' || detail.activityType === 'try_dive' || detail.activityType === 'try_scuba' || detail.activityType === 'orientation') ? 'badge-discovery' :
+                  'badge-snorkeling';
+                return `
+                  <tr>
+                    <td><span class="badge ${badgeClass}">${activityTypeLabel}</span></td>
+                    <td>${getCustomerName(detail.customerId)}</td>
+                    <td class="text-center">${detail.numberOfDives}</td>
+                    <td class="text-right">${formatCurrency(detail.price)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${financialSummary.manualIncome.entries.length > 0 ? `
+        <div class="section">
+          <h2 class="section-title">Manual Income</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="text-right">Amount</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${financialSummary.manualIncome.entries.map((income) => `
+                <tr>
+                  <td>${income.description}</td>
+                  <td class="text-right">${formatCurrency(income.amount)}</td>
+                  <td>${income.notes || '-'}</td>
+                </tr>
+              `).join('')}
+              <tr style="font-weight: bold; background-color: #e3f2fd;">
+                <td>Total Manual Income</td>
+                <td class="text-right">${formatCurrency(financialSummary.manualIncome.total)}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        ${financialSummary.expenses.entries.length > 0 ? `
+        <div class="section">
+          <h2 class="section-title">Expenses</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Description</th>
+                <th class="text-right">Amount</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${financialSummary.expenses.entries.map((expense) => {
+                const categoryLabel = expenseCategories.find(c => c.value === expense.category)?.label || expense.category;
+                return `
+                  <tr>
+                    <td>${categoryLabel}</td>
+                    <td>${expense.description}</td>
+                    <td class="text-right">${formatCurrency(expense.amount)}</td>
+                    <td>${expense.notes || '-'}</td>
+                  </tr>
+                `;
+              }).join('')}
+              <tr style="font-weight: bold; background-color: #ffebee;">
+                <td colspan="2">Total Expenses</td>
+                <td class="text-right">${formatCurrency(financialSummary.expenses.total)}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <div class="footer">
+          <p>This report was generated by DCMS - Dive Center Management System</p>
+          <p>Deep Blue Diving - Fuerteventura, Canary Islands, Spain</p>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    return html;
+  };
+
+  const handleCloseDay = () => {
+    const html = generateDailyReportHTML();
+    setDailyReportHtml(html);
+    setShowCloseDayDialog(true);
+  };
+
+  const handleDownloadReport = () => {
+    const html = dailyReportHtml || generateDailyReportHTML();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const dateStr = selectedDate instanceof Date 
+      ? selectedDate.toISOString().split('T')[0] 
+      : selectedDate;
+    link.setAttribute('download', `daily_financial_report_${dateStr}.html`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleStoreReport = () => {
+    try {
+      const dateStr = selectedDate instanceof Date 
+        ? selectedDate.toISOString().split('T')[0] 
+        : selectedDate;
+      const storedReports = JSON.parse(localStorage.getItem('dcms_stored_reports') || '[]');
+      const report = {
+        id: Date.now().toString(),
+        date: dateStr,
+        html: dailyReportHtml || generateDailyReportHTML(),
+        storedAt: new Date().toISOString(),
+        financialSummary: financialSummary
+      };
+      storedReports.push(report);
+      localStorage.setItem('dcms_stored_reports', JSON.stringify(storedReports));
+      alert('Report stored successfully!');
+    } catch (error) {
+      console.error('Error storing report:', error);
+      alert('Error storing report. Please try again.');
+    }
+  };
+
+  const handleEmailReport = () => {
+    const dateStr = selectedDate instanceof Date 
+      ? selectedDate.toISOString().split('T')[0] 
+      : selectedDate;
+    const subject = encodeURIComponent(`Daily Financial Report - ${dateStr}`);
+    const body = encodeURIComponent(
+      `Please find attached the daily financial report for ${dateStr}.\n\n` +
+      `Total Income: ${formatCurrency(financialSummary.totalIncome)}\n` +
+      `Total Expenses: ${formatCurrency(financialSummary.expenses.total)}\n` +
+      `Net Profit: ${formatCurrency(financialSummary.netProfit)}\n\n` +
+      `The detailed report is attached.\n\n` +
+      `Best regards,\nDCMS`
+    );
+    
+    // For email, we'll include the HTML content in the body and suggest attaching the downloaded file
+    // In a real implementation, you'd use an email service API
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
+  if (loading) {
+    return (
+      <Box>
+        <Typography>Loading financial data...</Typography>
+      </Box>
+    );
+  }
+
+  if (!financialSummary) {
+    return (
+      <Box>
+        <Alert severity="error">Error loading financial data. Please try again.</Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Financial
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <TextField
+            label="Select Date"
+            type="date"
+            value={selectedDate instanceof Date 
+              ? selectedDate.toISOString().split('T')[0] 
+              : selectedDate}
+            onChange={(e) => handleDateChange(new Date(e.target.value))}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 200 }}
+          />
+          {isAdmin && (
+            <>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<TrendingDownIcon />}
+                onClick={handleAddExpense}
+              >
+                Add Expense
+              </Button>
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<TrendingUpIcon />}
+                onClick={handleAddIncome}
+              >
+                Add Income
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<CloseIcon />}
+                onClick={handleCloseDay}
+              >
+                Close the Day
+              </Button>
+            </>
+          )}
+        </Box>
+      </Box>
+
+      {/* Daily Summary Cards */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Income
+              </Typography>
+              <Typography variant="h4" color="primary">
+                {formatCurrency(financialSummary.totalIncome)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Expenses
+              </Typography>
+              <Typography variant="h4" color="error">
+                {formatCurrency(financialSummary.expenses.total)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Net Profit
+              </Typography>
+              <Typography 
+                variant="h4" 
+                color={financialSummary.netProfit >= 0 ? 'success.main' : 'error.main'}
+              >
+                {formatCurrency(financialSummary.netProfit)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Booking Income
+              </Typography>
+              <Typography variant="h4" color="info.main">
+                {formatCurrency(financialSummary.bookingIncome.total)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Income Breakdown */}
+      <Paper sx={{ mb: 3, p: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          Income from Bookings
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={4}>
+            <Typography variant="body2" color="textSecondary">
+              Diving: {formatCurrency(financialSummary.bookingIncome.diving)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Number of dives: {financialSummary.bookingIncome.details
+                .filter(d => d.activityType === 'diving')
+                .reduce((sum, d) => sum + d.numberOfDives, 0)}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Typography variant="body2" color="textSecondary">
+              Discovery: {formatCurrency(financialSummary.bookingIncome.discovery)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Number of dives: {financialSummary.bookingIncome.details
+                .filter(d => d.activityType === 'discover' || d.activityType === 'discovery' || d.activityType === 'try_dive' || d.activityType === 'try_scuba' || d.activityType === 'orientation')
+                .reduce((sum, d) => sum + d.numberOfDives, 0)}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Typography variant="body2" color="textSecondary">
+              Snorkeling: {formatCurrency(financialSummary.bookingIncome.snorkeling)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Number of dives: {financialSummary.bookingIncome.details
+                .filter(d => d.activityType === 'snorkeling' || d.activityType === 'snorkel')
+                .reduce((sum, d) => sum + d.numberOfDives, 0)}
+            </Typography>
+          </Grid>
+        </Grid>
+
+        {financialSummary.bookingIncome.details.length > 0 && (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Activity Type</TableCell>
+                  <TableCell>Number of Dives</TableCell>
+                  <TableCell>Price</TableCell>
+                  <TableCell>Customer</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {financialSummary.bookingIncome.details.map((detail) => (
+                  <TableRow key={detail.id}>
+                    <TableCell>
+                      <Chip 
+                        label={detail.activityType === 'diving' ? 'Diving' : 
+                               (detail.activityType === 'discover' || detail.activityType === 'discovery' || detail.activityType === 'try_dive' || detail.activityType === 'try_scuba' || detail.activityType === 'orientation') ? 'Discovery' :
+                               'Snorkeling'}
+                        size="small"
+                        color={detail.activityType === 'diving' ? 'primary' : 
+                               (detail.activityType === 'discover' || detail.activityType === 'discovery' || detail.activityType === 'try_dive' || detail.activityType === 'try_scuba' || detail.activityType === 'orientation') ? 'secondary' :
+                               'info'}
+                      />
+                    </TableCell>
+                    <TableCell>{detail.numberOfDives}</TableCell>
+                    <TableCell>{formatCurrency(detail.price)}</TableCell>
+                    <TableCell>{getCustomerName(detail.customerId)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      {/* Manual Income */}
+      <Paper sx={{ mb: 3, p: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">
+            Manual Income (Not from Bookings)
+          </Typography>
+          <Typography variant="body1" color="primary">
+            Total: {formatCurrency(financialSummary.manualIncome.total)}
+          </Typography>
+        </Box>
+        {financialSummary.manualIncome.entries.length > 0 ? (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Description</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Notes</TableCell>
+                  {isAdmin && <TableCell>Actions</TableCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {financialSummary.manualIncome.entries.map((income) => (
+                  <TableRow key={income.id}>
+                    <TableCell>{income.description}</TableCell>
+                    <TableCell>{formatCurrency(income.amount)}</TableCell>
+                    <TableCell>{income.notes || '-'}</TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteIncome(income.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography variant="body2" color="textSecondary">
+            No manual income entries for this date.
+          </Typography>
+        )}
+      </Paper>
+
+      {/* Expenses */}
+      <Paper sx={{ mb: 3, p: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">
+            Expenses
+          </Typography>
+          <Typography variant="body1" color="error">
+            Total: {formatCurrency(financialSummary.expenses.total)}
+          </Typography>
+        </Box>
+        {financialSummary.expenses.entries.length > 0 ? (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Description</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Notes</TableCell>
+                  {isAdmin && <TableCell>Actions</TableCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {financialSummary.expenses.entries.map((expense) => (
+                  <TableRow key={expense.id}>
+                    <TableCell>
+                      <Chip 
+                        label={expenseCategories.find(c => c.value === expense.category)?.label || expense.category}
+                        size="small"
+                        color="error"
+                      />
+                    </TableCell>
+                    <TableCell>{expense.description}</TableCell>
+                    <TableCell>{formatCurrency(expense.amount)}</TableCell>
+                    <TableCell>{expense.notes || '-'}</TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography variant="body2" color="textSecondary">
+            No expenses recorded for this date.
+          </Typography>
+        )}
+      </Paper>
+
+      {/* Expense Dialog */}
+      <Dialog open={showExpenseDialog} onClose={() => setShowExpenseDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Expense</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={expenseFormData.category}
+                  label="Category"
+                  onChange={(e) => setExpenseFormData({ ...expenseFormData, category: e.target.value })}
+                >
+                  {expenseCategories.map((cat) => (
+                    <MenuItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                value={expenseFormData.description}
+                onChange={(e) => setExpenseFormData({ ...expenseFormData, description: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Amount (€)"
+                type="number"
+                value={expenseFormData.amount}
+                onChange={(e) => setExpenseFormData({ ...expenseFormData, amount: e.target.value })}
+                required
+                inputProps={{ step: '0.01', min: '0' }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Date"
+                type="date"
+                value={expenseFormData.date}
+                onChange={(e) => setExpenseFormData({ ...expenseFormData, date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Notes"
+                multiline
+                rows={3}
+                value={expenseFormData.notes}
+                onChange={(e) => setExpenseFormData({ ...expenseFormData, notes: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowExpenseDialog(false)}>Cancel</Button>
+          <Button onClick={handleSaveExpense} variant="contained" color="error">
+            Save Expense
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Income Dialog */}
+      <Dialog open={showIncomeDialog} onClose={() => setShowIncomeDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Manual Income</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                value={incomeFormData.description}
+                onChange={(e) => setIncomeFormData({ ...incomeFormData, description: e.target.value })}
+                required
+                placeholder="e.g., Equipment sale, Service fee, etc."
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Amount (€)"
+                type="number"
+                value={incomeFormData.amount}
+                onChange={(e) => setIncomeFormData({ ...incomeFormData, amount: e.target.value })}
+                required
+                inputProps={{ step: '0.01', min: '0' }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Date"
+                type="date"
+                value={incomeFormData.date}
+                onChange={(e) => setIncomeFormData({ ...incomeFormData, date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Notes"
+                multiline
+                rows={3}
+                value={incomeFormData.notes}
+                onChange={(e) => setIncomeFormData({ ...incomeFormData, notes: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowIncomeDialog(false)}>Cancel</Button>
+          <Button onClick={handleSaveIncome} variant="contained" color="success">
+            Save Income
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Close the Day Dialog */}
+      <Dialog 
+        open={showCloseDayDialog} 
+        onClose={() => setShowCloseDayDialog(false)} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: { height: '90vh' }
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">
+              Daily Financial Report - {selectedDate instanceof Date 
+                ? selectedDate.toISOString().split('T')[0] 
+                : selectedDate}
+            </Typography>
+            <IconButton onClick={() => setShowCloseDayDialog(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0, height: '100%' }}>
+          <iframe
+            srcDoc={dailyReportHtml || generateDailyReportHTML()}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              minHeight: '600px'
+            }}
+            title="Daily Financial Report"
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
+          <Box>
+            <Button
+              variant="outlined"
+              startIcon={<PrintIcon />}
+              onClick={() => {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(dailyReportHtml || generateDailyReportHTML());
+                printWindow.document.close();
+                printWindow.print();
+              }}
+            >
+              Print
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownloadReport}
+            >
+              Download
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<SaveIcon />}
+              onClick={handleStoreReport}
+            >
+              Store
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<EmailIcon />}
+              onClick={handleEmailReport}
+            >
+              Share by Email
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default Financial;
