@@ -30,7 +30,8 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton
+  IconButton,
+  TableSortLabel
 } from '@mui/material';
 import {
   ScubaDiving as DivingEquipmentIcon,
@@ -83,6 +84,9 @@ const Equipment = () => {
   const [tankBulkDialogOpen, setTankBulkDialogOpen] = useState(false);
   const [editingTank, setEditingTank] = useState(null);
   const [tankFilter, setTankFilter] = useState('all'); // all, overdue, dueSoon, ok
+  const [tankSizeFilter, setTankSizeFilter] = useState('all'); // all, 6, 7, 10, 12, 15
+  const [tankOrderBy, setTankOrderBy] = useState('number'); // Column to sort by
+  const [tankOrder, setTankOrder] = useState('asc'); // 'asc' or 'desc'
   
   const [formData, setFormData] = useState({
     name: '',
@@ -171,10 +175,19 @@ const Equipment = () => {
   const loadEquipment = async () => {
     try {
       const allEquipment = await dataService.getAll('equipment') || [];
+      
+      // Filter out tanks - they are managed separately in the Tanks tab
+      const nonTankEquipment = allEquipment.filter(eq => {
+        const category = (eq.category || '').toLowerCase();
+        const name = (eq.name || '').toLowerCase();
+        // Exclude tanks - same logic as loadTanks but inverted
+        return !(category === 'tank' || name.includes('tank') || name.includes('cylinder'));
+      });
+      
       // For site managers, only show equipment for their location
       const filteredEquipment = isGlobalAdmin 
-        ? allEquipment 
-        : allEquipment.filter(eq => (eq.locationId || eq.location_id) === currentLocationId);
+        ? nonTankEquipment 
+        : nonTankEquipment.filter(eq => (eq.locationId || eq.location_id) === currentLocationId);
       setEquipment(Array.isArray(filteredEquipment) ? filteredEquipment : []);
     } catch (error) {
       console.error('Error loading equipment:', error);
@@ -884,6 +897,15 @@ const Equipment = () => {
   };
 
   const filteredTanks = tanks.filter(tank => {
+    // Filter by size first
+    if (tankSizeFilter !== 'all') {
+      const tankSize = String(tank.size || '').trim();
+      if (tankSize !== tankSizeFilter) {
+        return false;
+      }
+    }
+    
+    // Filter by test status
     if (tankFilter === 'all') return true;
     const metadata = getTankMetadata(tank);
     const visualStatus = getTestStatus(metadata.nextVisualTest);
@@ -897,6 +919,73 @@ const Equipment = () => {
     }
     return visualStatus === 'ok' && hydroStatus === 'ok';
   });
+
+  // Sorting function for tanks
+  const handleTankSort = (property) => {
+    const isAsc = tankOrderBy === property && tankOrder === 'asc';
+    setTankOrder(isAsc ? 'desc' : 'asc');
+    setTankOrderBy(property);
+  };
+
+  // Sort filtered tanks
+  const sortedTanks = React.useMemo(() => {
+    if (!tankOrderBy) return filteredTanks;
+    
+    return [...filteredTanks].sort((a, b) => {
+      let aValue, bValue;
+      
+      // Get values based on sort column
+      switch (tankOrderBy) {
+        case 'size':
+          aValue = parseFloat(a.size) || 0;
+          bValue = parseFloat(b.size) || 0;
+          break;
+        case 'number':
+          aValue = parseFloat(a.number || a.tankNumber || '0') || 0;
+          bValue = parseFloat(b.number || b.tankNumber || '0') || 0;
+          break;
+        case 'serialNumber':
+          aValue = (a.serialNumber || a.serial_number || '').toLowerCase();
+          bValue = (b.serialNumber || b.serial_number || '').toLowerCase();
+          break;
+        case 'netColour':
+          aValue = (a.netColour || '').toLowerCase();
+          bValue = (b.netColour || '').toLowerCase();
+          break;
+        case 'lastVisualTest':
+          aValue = a.lastVisualTest ? new Date(a.lastVisualTest) : new Date(0);
+          bValue = b.lastVisualTest ? new Date(b.lastVisualTest) : new Date(0);
+          break;
+        case 'nextVisualTest':
+          aValue = a.nextVisualTest ? new Date(a.nextVisualTest) : new Date(0);
+          bValue = b.nextVisualTest ? new Date(b.nextVisualTest) : new Date(0);
+          break;
+        case 'lastHydrostaticTest':
+          aValue = a.lastHydrostaticTest ? new Date(a.lastHydrostaticTest) : new Date(0);
+          bValue = b.lastHydrostaticTest ? new Date(b.lastHydrostaticTest) : new Date(0);
+          break;
+        case 'nextHydrostaticTest':
+          aValue = a.nextHydrostaticTest ? new Date(a.nextHydrostaticTest) : new Date(0);
+          bValue = b.nextHydrostaticTest ? new Date(b.nextHydrostaticTest) : new Date(0);
+          break;
+        case 'remarks':
+          aValue = (a.remarks || a.notes || '').toLowerCase();
+          bValue = (b.remarks || b.notes || '').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+      
+      // Compare values
+      if (aValue < bValue) {
+        return tankOrder === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return tankOrder === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [filteredTanks, tankOrderBy, tankOrder]);
 
   const overdueTanks = tanks.filter(tank => {
     const metadata = getTankMetadata(tank);
@@ -1136,7 +1225,6 @@ const Equipment = () => {
                 <MenuItem value="Wetsuit">Wetsuit</MenuItem>
                 <MenuItem value="Semi-Dry">Semi-Dry</MenuItem>
                 <MenuItem value="Dry Suit">Dry Suit</MenuItem>
-                <MenuItem value="Tank">Tank</MenuItem>
                 <MenuItem value="Computer">Computer</MenuItem>
                 <MenuItem value="Torch">Torch</MenuItem>
                 <MenuItem value="Accessory">Accessory</MenuItem>
@@ -1638,6 +1726,21 @@ const Equipment = () => {
 
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel>Filter by Size</InputLabel>
+          <Select
+            value={tankSizeFilter}
+            label="Filter by Size"
+            onChange={(e) => setTankSizeFilter(e.target.value)}
+          >
+            <MenuItem value="all">All Sizes</MenuItem>
+            <MenuItem value="6">6 Liters</MenuItem>
+            <MenuItem value="7">7 Liters</MenuItem>
+            <MenuItem value="10">10 Liters</MenuItem>
+            <MenuItem value="12">12 Liters</MenuItem>
+            <MenuItem value="15">15 Liters</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>Filter by Test Status</InputLabel>
           <Select
             value={tankFilter}
@@ -1652,7 +1755,7 @@ const Equipment = () => {
         </FormControl>
       </Box>
 
-      {filteredTanks.length === 0 ? (
+      {sortedTanks.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <TankIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -1664,20 +1767,128 @@ const Equipment = () => {
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: 'primary.main' }}>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>#</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Size (L)</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Serial Number</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Net Colour</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Last Visual Test</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Next Visual Test</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Last Hydrostatic Test</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Next Hydrostatic Test</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Remarks</TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'size' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'size'}
+                    direction={tankOrderBy === 'size' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('size')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Size (L)
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'number' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'number'}
+                    direction={tankOrderBy === 'number' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('number')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    #
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'lastVisualTest' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'lastVisualTest'}
+                    direction={tankOrderBy === 'lastVisualTest' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('lastVisualTest')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Last Visual Test
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'nextVisualTest' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'nextVisualTest'}
+                    direction={tankOrderBy === 'nextVisualTest' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('nextVisualTest')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Next Visual Test
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'lastHydrostaticTest' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'lastHydrostaticTest'}
+                    direction={tankOrderBy === 'lastHydrostaticTest' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('lastHydrostaticTest')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Last Hydrostatic Test
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'nextHydrostaticTest' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'nextHydrostaticTest'}
+                    direction={tankOrderBy === 'nextHydrostaticTest' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('nextHydrostaticTest')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Next Hydrostatic Test
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'serialNumber' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'serialNumber'}
+                    direction={tankOrderBy === 'serialNumber' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('serialNumber')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Serial Number
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'netColour' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'netColour'}
+                    direction={tankOrderBy === 'netColour' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('netColour')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Net Colour
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell 
+                  sx={{ color: 'white', fontWeight: 'bold' }}
+                  sortDirection={tankOrderBy === 'remarks' ? tankOrder : false}
+                >
+                  <TableSortLabel
+                    active={tankOrderBy === 'remarks'}
+                    direction={tankOrderBy === 'remarks' ? tankOrder : 'asc'}
+                    onClick={() => handleTankSort('remarks')}
+                    sx={{ color: 'white', '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                  >
+                    Remarks
+                  </TableSortLabel>
+                </TableCell>
                 {canManageEquipment && <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredTanks.map((tank) => {
+              {sortedTanks.map((tank) => {
                 // Tank data is already enriched by loadTanks() using tankService
                 const tankNumber = tank.number || '-';
                 const tankSize = tank.size || '-';
@@ -1699,24 +1910,8 @@ const Equipment = () => {
                 
                 return (
                   <TableRow key={tank.id} sx={{ bgcolor: getRowBgColor() }}>
-                    <TableCell>{tankNumber}</TableCell>
                     <TableCell>{tankSize}</TableCell>
-                    <TableCell>{serialNumber}</TableCell>
-                    <TableCell>
-                      {netColour && (
-                        <Chip 
-                          label={netColour} 
-                          size="small"
-                          sx={{ 
-                            bgcolor: netColour.toLowerCase() === 'black' ? '#424242' :
-                                    netColour.toLowerCase() === 'blue' ? '#2196f3' :
-                                    netColour.toLowerCase() === 'yellow' ? '#ffeb3b' :
-                                    netColour.toLowerCase() === 'white' ? '#f5f5f5' : 'default',
-                            color: netColour.toLowerCase() === 'yellow' || netColour.toLowerCase() === 'white' ? '#000' : '#fff'
-                          }}
-                        />
-                      )}
-                    </TableCell>
+                    <TableCell>{tankNumber}</TableCell>
                     <TableCell>
                       {lastVisualTest 
                         ? format(parseISO(lastVisualTest), 'dd/MM/yyyy')
@@ -1744,6 +1939,22 @@ const Equipment = () => {
                         {hydroStatus === 'overdue' && <Chip label="OVERDUE" color="error" size="small" />}
                         {hydroStatus === 'dueSoon' && <Chip label="DUE SOON" color="warning" size="small" />}
                       </Box>
+                    </TableCell>
+                    <TableCell>{serialNumber}</TableCell>
+                    <TableCell>
+                      {netColour && (
+                        <Chip 
+                          label={netColour} 
+                          size="small"
+                          sx={{ 
+                            bgcolor: netColour.toLowerCase() === 'black' ? '#424242' :
+                                    netColour.toLowerCase() === 'blue' ? '#2196f3' :
+                                    netColour.toLowerCase() === 'yellow' ? '#ffeb3b' :
+                                    netColour.toLowerCase() === 'white' ? '#f5f5f5' : 'default',
+                            color: netColour.toLowerCase() === 'yellow' || netColour.toLowerCase() === 'white' ? '#000' : '#fff'
+                          }}
+                        />
+                      )}
                     </TableCell>
                     <TableCell>{remarks}</TableCell>
                     {canManageEquipment && (
