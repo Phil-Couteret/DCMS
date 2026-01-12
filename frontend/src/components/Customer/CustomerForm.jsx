@@ -182,6 +182,7 @@ const CustomerForm = () => {
   const customerId = searchParams.get('id');
   const isReadOnly = !isAdmin() && customerId; // Read-only for non-admins viewing existing customers
   const [locations, setLocations] = useState([]);
+  const [currentLocation, setCurrentLocation] = useState(null);
   
   useEffect(() => {
     const checkLocation = async () => {
@@ -189,13 +190,28 @@ const CustomerForm = () => {
         const allLocations = await dataService.getAll('locations') || [];
         if (Array.isArray(allLocations)) {
           setLocations(allLocations);
+          // Get current location
+          const currentLocationId = localStorage.getItem('dcms_current_location');
+          const loc = allLocations.find(l => l.id === currentLocationId);
+          setCurrentLocation(loc);
         }
       } catch (error) {
         console.error('Error loading locations:', error);
       }
     };
     checkLocation();
+    
+    // Listen for location changes
+    const onLocationChange = () => {
+      checkLocation();
+    };
+    window.addEventListener('dcms_location_changed', onLocationChange);
+    return () => {
+      window.removeEventListener('dcms_location_changed', onLocationChange);
+    };
   }, []);
+  
+  const isBikeRental = currentLocation?.type === 'bike_rental';
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -205,14 +221,17 @@ const CustomerForm = () => {
     dob: '',
     nationality: '',
     gender: '',
-    customerType: 'tourist',
-    centerSkillLevel: 'beginner',
-    isApproved: false, // Customer approval status - required before booking
-    preferences: getDefaultPreferences(),
-    medicalConditions: [],
-    certifications: [],
-    medicalCertificate: getDefaultMedicalCertificate(),
-    divingInsurance: getDefaultDivingInsurance()
+    // Only set diving-specific defaults if not bike rental
+    ...(isBikeRental ? {} : {
+      customerType: 'tourist',
+      centerSkillLevel: 'beginner',
+      certifications: [],
+      medicalCertificate: getDefaultMedicalCertificate(),
+      divingInsurance: getDefaultDivingInsurance()
+    }),
+    isApproved: isBikeRental ? true : false, // Bike rental customers are auto-approved
+    preferences: isBikeRental ? {} : getDefaultPreferences(), // No diving preferences for bike rental
+    medicalConditions: []
   });
   const [saved, setSaved] = useState(false);
   const [newCertification, setNewCertification] = useState({
@@ -508,20 +527,70 @@ const CustomerForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate required fields
+    if (!formData.firstName || !formData.lastName) {
+      alert('First name and last name are required.');
+      return;
+    }
+    
     try {
+      // Prepare customer data, excluding diving-specific fields for bike rental customers
+      const prepareCustomerData = (data) => {
+        if (isBikeRental) {
+          // For bike rental, exclude diving-specific fields
+          const {
+            customerType,
+            centerSkillLevel,
+            certifications,
+            medicalCertificate,
+            divingInsurance,
+            preferences,
+            medicalConditions,
+            ...bikeRentalData
+          } = data;
+          
+          // Ensure required fields are present
+          const prepared = {
+            ...bikeRentalData,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            preferences: {
+              // Keep only non-diving preferences if any
+              gender: data.gender || '',
+              ...(preferences || {})
+            }
+          };
+          
+          // Remove any diving-related fields from preferences
+          delete prepared.preferences.equipmentOwnership;
+          delete prepared.preferences.suitPreferences;
+          delete prepared.preferences.ownEquipment;
+          
+          console.log('Prepared bike rental customer data:', prepared);
+          return prepared;
+        }
+        // For diving locations, include all fields
+        return data;
+      };
+
       if (isReadOnly) {
         // In read-only mode, only update equipment preferences
         if (customerId) {
           const customer = await dataService.getById('customers', customerId);
           if (customer) {
             // Preserve all existing fields, only update what's allowed
-            await dataService.update('customers', customerId, {
+            const updateData = {
               ...customer, // Preserve all existing fields
               preferences: formData.preferences,
-              // Allow guides/staff to update centerSkillLevel even in read-only mode
-              centerSkillLevel: formData.centerSkillLevel,
               updatedAt: new Date().toISOString()
-            });
+            };
+            
+            // Only update centerSkillLevel for diving locations
+            if (!isBikeRental) {
+              updateData.centerSkillLevel = formData.centerSkillLevel;
+            }
+            
+            await dataService.update('customers', customerId, updateData);
           }
         }
       } else {
@@ -532,30 +601,38 @@ const CustomerForm = () => {
           if (existingCustomer) {
             // Merge formData with existing customer to preserve all fields
             // This ensures fields like medicalCertificate, divingInsurance, isApproved, etc. are preserved
-            const updatedCustomer = {
+            const mergedData = {
               ...existingCustomer, // Preserve all existing fields first
               ...formData, // Then apply form data (this will update changed fields)
               id: existingCustomer.id, // Ensure ID is preserved
               createdAt: existingCustomer.createdAt, // Preserve creation date
               updatedAt: new Date().toISOString() // Update timestamp
             };
+            
+            const updatedCustomer = prepareCustomerData(mergedData);
+            console.log('Updating customer:', updatedCustomer);
             await dataService.update('customers', customerId, updatedCustomer);
           } else {
             // Customer not found, create new
-            await dataService.create('customers', {
+            const newCustomerData = prepareCustomerData({
               ...formData,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             });
+            console.log('Creating new customer:', newCustomerData);
+            await dataService.create('customers', newCustomerData);
           }
         } else {
           // Creating new customer
-          await dataService.create('customers', {
+          const newCustomerData = prepareCustomerData({
             ...formData,
-            isApproved: formData.isApproved || false, // Ensure isApproved is set
+            isApproved: isBikeRental ? true : (formData.isApproved || false), // Bike rental customers are auto-approved
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
+          console.log('Creating new customer:', newCustomerData);
+          const createdCustomer = await dataService.create('customers', newCustomerData);
+          console.log('Customer created successfully:', createdCustomer);
         }
       }
       
@@ -565,7 +642,10 @@ const CustomerForm = () => {
       }, 1500);
     } catch (error) {
       console.error('Error saving customer:', error);
-      alert('Error saving customer. Please try again.');
+      console.error('Error details:', error.response?.data || error.message);
+      console.error('Full error object:', error);
+      const errorMessage = error.response?.data?.message || error.message || error.toString() || 'Please try again.';
+      alert(`Error saving customer: ${errorMessage}`);
     }
   };
 
@@ -672,6 +752,8 @@ const CustomerForm = () => {
             </Grid>
 
             {/* Customer Type and Skill Level - only for diving locations */}
+            {!isBikeRental && (
+            <>
             <Grid item xs={12} md={6}>
                   <TextField
                     select
@@ -701,8 +783,10 @@ const CustomerForm = () => {
                     <MenuItem value="advanced">Advanced</MenuItem>
                   </TextField>
                 </Grid>
+            </>
+            )}
 
-            {isAdmin() && (
+            {isAdmin() && customerId && !isBikeRental && (
               <Grid item xs={12}>
                 <FormControlLabel
                   control={
@@ -726,7 +810,9 @@ const CustomerForm = () => {
               </Grid>
             )}
 
-            {/* Equipment & Suit Preferences */}
+            {/* Equipment & Suit Preferences - only for diving locations */}
+            {!isBikeRental && (
+            <>
             <Divider sx={{ my: 2, width: '100%' }} />
 
                 <Grid item xs={12}>
@@ -939,9 +1025,11 @@ const CustomerForm = () => {
                 </Alert>
               </Grid>
             )}
+            </>
+            )}
 
-            {/* Certifications Section - Admin only */}
-            {isAdmin() && (
+            {/* Certifications Section - Admin only, only for diving locations */}
+            {!isBikeRental && isAdmin() && (
               <>
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
@@ -1193,7 +1281,8 @@ const CustomerForm = () => {
                   </>
                 )}
 
-                {/* Diving Insurance Section */}
+                {/* Diving Insurance Section - only for diving locations */}
+                {!isBikeRental && (
                 <>
                     <Divider sx={{ my: 2, width: '100%' }} />
 

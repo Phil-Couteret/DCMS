@@ -91,7 +91,9 @@ const realApiAdapter = {
       endpoint = 'customer-bills';
     }
     
+    console.log(`realApiAdapter.create - POST to /${endpoint}`, transformedData);
     const response = await httpClient.post(`/${endpoint}`, transformedData);
+    console.log('realApiAdapter.create - Response from backend:', response);
     return this.transformResponse(resource, response.data || response);
   },
 
@@ -148,7 +150,7 @@ const realApiAdapter = {
     const isDivingCustomer = data.customerType !== undefined && data.customerType !== null && data.customerType !== '';
     
     const extraFields = {
-      gender: data.gender, // Gender is universal, not diving-specific
+      gender: data.gender || '', // Gender is universal, not diving-specific
     };
     
     // Only include diving-specific fields for diving customers
@@ -184,6 +186,9 @@ const realApiAdapter = {
       delete cleanPreferences.certifications;
       delete cleanPreferences.medicalCertificate;
       delete cleanPreferences.divingInsurance;
+      delete cleanPreferences.equipmentOwnership;
+      delete cleanPreferences.suitPreferences;
+      delete cleanPreferences.ownEquipment;
       // Keep uploadedDocuments and gender for all customers
     }
     
@@ -197,6 +202,7 @@ const realApiAdapter = {
     const transformed = {};
     
     // Only include fields that the backend DTO supports
+    // firstName and lastName are REQUIRED
     if (data.firstName !== undefined) transformed.firstName = data.firstName;
     if (data.lastName !== undefined) transformed.lastName = data.lastName;
     if (data.email !== undefined) transformed.email = data.email;
@@ -217,6 +223,8 @@ const realApiAdapter = {
     if (data.notes !== undefined) transformed.notes = data.notes;
     if (data.isActive !== undefined) transformed.isActive = data.isActive;
 
+    console.log('transformCustomerToBackend - Input:', data);
+    console.log('transformCustomerToBackend - Output:', transformed);
     return transformed;
   },
 

@@ -58,6 +58,7 @@ const Customers = () => {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [importProgress, setImportProgress] = useState({ total: 0, processed: 0, successful: 0, errors: [] });
   const [importing, setImporting] = useState(false);
+  const [isBikeRental, setIsBikeRental] = useState(false);
 
   useEffect(() => {
     if (!mode && !customerId) {
@@ -155,38 +156,21 @@ const Customers = () => {
       const currentLocationId = localStorage.getItem('dcms_current_location');
       const allLocations = await dataService.getAll('locations') || [];
       const currentLocation = allLocations.find(l => l.id === currentLocationId);
-      const isBikeRental = currentLocation?.type === 'bike_rental';
+      const bikeRental = currentLocation?.type === 'bike_rental';
+      setIsBikeRental(bikeRental);
       
       let filteredCustomers = allCustomers;
       
-      if (isBikeRental) {
-        // For bike rental locations: only show customers with bike rental bookings
-        const allBookings = await dataService.getAll('bookings') || [];
-        
-        // Helper to check if a booking is bike rental
-        const isBikeRentalBooking = (booking) => {
-          if (booking.equipmentNeeded?.activityType === 'bike_rental') return true;
-          const bookingLocationId = booking.locationId || booking.location_id;
-          const bookingLocation = allLocations.find(l => l.id === bookingLocationId);
-          return bookingLocation?.type === 'bike_rental';
-        };
-        
-        // Get customer IDs who have bike rental bookings for this location
-        const bikeRentalCustomerIds = new Set();
-        allBookings.forEach(booking => {
-          const bookingLocationId = booking.locationId || booking.location_id;
-          if (isBikeRentalBooking(booking) && bookingLocationId === currentLocationId) {
-            const customerId = booking.customerId || booking.customer_id;
-            if (customerId) {
-              bikeRentalCustomerIds.add(customerId);
-            }
-          }
-        });
-        
-        // Filter to only customers with bike rental bookings
+      if (bikeRental) {
+        // For bike rental locations: show only bike rental customers (no customerType, no partner customers)
+        // Partner customers are diving customers and should not appear in bike rental locations
         filteredCustomers = allCustomers.filter(customer => {
-          const customerId = customer.id;
-          return bikeRentalCustomerIds.has(customerId);
+          // Exclude diving customers (those with customerType)
+          const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
+          // Exclude partner customers (they are diving customers)
+          const isPartnerCustomer = !!(customer.partnerId || customer.partner_id || customer.source === 'partner' || customer.created_by_partner_id);
+          // Only show customers without customerType AND not partner customers (true bike rental customers)
+          return !hasCustomerType && !isPartnerCustomer;
         });
       } else {
         // For diving locations: show customers with customerType (diving customers) OR customers created by partners
@@ -553,70 +537,74 @@ const Customers = () => {
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      {/* Customer Type and Skill Level */}
-                      <>
-                        <Chip 
-                          label={customer.customerType || 'tourist'} 
-                          size="small" 
-                          variant="outlined"
-                        />
-                        <Chip 
-                          label={`Skill: ${customer.centerSkillLevel || 'beginner'}`}
-                          size="small"
-                          color="info"
-                          variant="outlined"
-                        />
-                        {/* Partner indicator */}
-                        {(customer.partnerId || customer.partner_id || customer.source === 'partner') && (
-                          <Chip
-                            icon={<BusinessIcon />}
-                            label={getPartnerName(customer.partnerId || customer.partner_id) || 'Partner'}
-                            size="small"
-                            color="secondary"
-                            variant="filled"
+                      {/* Customer Type and Skill Level - only for diving locations */}
+                      {!isBikeRental && (
+                        <>
+                          <Chip 
+                            label={customer.customerType || 'tourist'} 
+                            size="small" 
+                            variant="outlined"
                           />
-                        )}
-                      </>
-                      {/* Approval status */}
-                      <>
-                        <Chip 
-                          label={customer.isApproved ? 'Approved' : 'Pending'}
+                          <Chip 
+                            label={`Skill: ${customer.centerSkillLevel || 'beginner'}`}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        </>
+                      )}
+                      {/* Partner indicator */}
+                      {(customer.partnerId || customer.partner_id || customer.source === 'partner') && (
+                        <Chip
+                          icon={<BusinessIcon />}
+                          label={getPartnerName(customer.partnerId || customer.partner_id) || 'Partner'}
                           size="small"
-                          color={customer.isApproved ? 'success' : 'warning'}
-                          variant={customer.isApproved ? 'filled' : 'outlined'}
-                          icon={customer.isApproved ? <VerifiedIcon /> : <PendingIcon />}
+                          color="secondary"
+                          variant="filled"
                         />
-                          {isAdmin() && (
-                            <Button
-                              size="small"
-                              variant={customer.isApproved ? 'outlined' : 'contained'}
-                              color={customer.isApproved ? 'error' : 'success'}
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  // Get fresh customer data to preserve all fields
-                                  const freshCustomer = await dataService.getById('customers', customer.id);
-                                  if (freshCustomer) {
-                                    const updatedCustomer = {
-                                      ...freshCustomer, // Preserve all existing fields
-                                      isApproved: !freshCustomer.isApproved,
-                                      updatedAt: new Date().toISOString()
-                                    };
-                                    await dataService.update('customers', customer.id, updatedCustomer);
-                                    // Reload after update
-                                    await loadCustomers();
+                      )}
+                      {/* Approval status - only for diving locations */}
+                      {!isBikeRental && (
+                        <>
+                          <Chip 
+                            label={customer.isApproved ? 'Approved' : 'Pending'}
+                            size="small"
+                            color={customer.isApproved ? 'success' : 'warning'}
+                            variant={customer.isApproved ? 'filled' : 'outlined'}
+                            icon={customer.isApproved ? <VerifiedIcon /> : <PendingIcon />}
+                          />
+                            {isAdmin() && (
+                              <Button
+                                size="small"
+                                variant={customer.isApproved ? 'outlined' : 'contained'}
+                                color={customer.isApproved ? 'error' : 'success'}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    // Get fresh customer data to preserve all fields
+                                    const freshCustomer = await dataService.getById('customers', customer.id);
+                                    if (freshCustomer) {
+                                      const updatedCustomer = {
+                                        ...freshCustomer, // Preserve all existing fields
+                                        isApproved: !freshCustomer.isApproved,
+                                        updatedAt: new Date().toISOString()
+                                      };
+                                      await dataService.update('customers', customer.id, updatedCustomer);
+                                      // Reload after update
+                                      await loadCustomers();
+                                    }
+                                  } catch (error) {
+                                    console.error('Error updating customer approval:', error);
+                                    alert('Error updating customer approval. Please try again.');
                                   }
-                                } catch (error) {
-                                  console.error('Error updating customer approval:', error);
-                                  alert('Error updating customer approval. Please try again.');
-                                }
-                              }}
-                              sx={{ minWidth: '100px' }}
-                            >
-                              {customer.isApproved ? 'Revoke' : 'Approve'}
-                            </Button>
-                          )}
-                      </>
+                                }}
+                                sx={{ minWidth: '100px' }}
+                              >
+                                {customer.isApproved ? 'Revoke' : 'Approve'}
+                              </Button>
+                            )}
+                        </>
+                      )}
                       <Typography variant="body2" color="text.secondary">
                         {customer.email}
                       </Typography>
@@ -646,10 +634,12 @@ const Customers = () => {
                       {t('customers.nationality')}: {customer.nationality}
                     </Typography>
                   )}
-                  {/* Customer Type */}
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {t('customers.type')}: {customer.customerType || 'tourist'}
-                  </Typography>
+                  {/* Customer Type - only for diving locations */}
+                  {!isBikeRental && (
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {t('customers.type')}: {customer.customerType || 'tourist'}
+                    </Typography>
+                  )}
                   {/* Partner Information */}
                   {(customer.partnerId || customer.partner_id || customer.source === 'partner') && (
                     <Box sx={{ mt: 1, mb: 1 }}>
@@ -663,8 +653,8 @@ const Customers = () => {
                     </Box>
                   )}
                   
-                  {/* Medical Certificate Status */}
-                  {customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
+                  {/* Medical Certificate Status - only for diving locations */}
+                  {!isBikeRental && customer.medicalCertificate && customer.medicalCertificate.hasCertificate && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                         {t('customers.medicalCertificate') || 'Medical Certificate'}:
@@ -703,8 +693,8 @@ const Customers = () => {
                     </Box>
                       )}
 
-                      {/* Diving Insurance Status */}
-                      {customer.divingInsurance && customer.divingInsurance.hasInsurance && (
+                      {/* Diving Insurance Status - only for diving locations */}
+                      {!isBikeRental && customer.divingInsurance && customer.divingInsurance.hasInsurance && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                         {t('customers.divingInsurance') || 'Diving Insurance'}:
@@ -743,8 +733,8 @@ const Customers = () => {
                     </Box>
                       )}
                       
-                      {/* Certifications */}
-                      {customer.certifications && customer.certifications.length > 0 && (
+                      {/* Certifications - only for diving locations */}
+                      {!isBikeRental && customer.certifications && customer.certifications.length > 0 && (
                         <Box sx={{ mt: 2 }}>
                           <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
                             {t('customers.certifications') || 'Certifications'}:
