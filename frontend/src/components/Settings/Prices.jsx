@@ -197,12 +197,9 @@ const Prices = () => {
       const locs = await dataService.getAll('locations') || [];
       if (!Array.isArray(locs)) return;
       
-      // Filter out bike rental locations (removed for now)
-      const filteredLocs = locs.filter(loc => loc.type !== 'bike_rental');
-      
       // Handle pricing that might be in settings.pricing or directly in pricing
       // And initialize default pricing if missing
-      const processedLocs = filteredLocs.map(loc => {
+      const processedLocs = locs.map(loc => {
         if (loc.settings?.pricing && !loc.pricing) {
           return { ...loc, pricing: loc.settings.pricing };
         }
@@ -271,8 +268,8 @@ const Prices = () => {
   // Check if selected location is Las Playitas
   const isPlayitas = selectedLocation && (selectedLocation.name === 'Las Playitas' || selectedLocation.id === 'playitas' || selectedLocation.id === '550e8400-e29b-41d4-a716-446655440002');
   
-  // Bike rental functionality removed for now
-  const isBikeRental = false;
+  // Check if selected location is bike rental
+  const isBikeRental = selectedLocation?.type === 'bike_rental';
 
   const updateLocationPricing = (updater) => {
     setLocations(prev => prev.map(l => {
@@ -682,7 +679,8 @@ const Prices = () => {
           </>
         )}
 
-        {/* Diving-related pricing */}
+        {/* Diving-related pricing - Only show for diving locations */}
+        {!isBikeRental && (
         <>
             {/* Customer Type Pricing */}
             <Grid item xs={12}>
@@ -1056,6 +1054,7 @@ const Prices = () => {
           </Card>
         </Grid>
         </>
+        )}
 
         {/* Save Button */}
         <Grid item xs={12}>

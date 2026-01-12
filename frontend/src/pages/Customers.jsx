@@ -98,6 +98,13 @@ const Customers = () => {
       }
     };
     
+    // Listen for location changes to reload customers with proper filtering
+    const onLocationChange = () => {
+      if (!mode && !customerId) {
+        loadCustomers();
+      }
+    };
+    
     // Listen for sync events
     const onSync = () => {
       if (!mode && !customerId) {
@@ -105,6 +112,7 @@ const Customers = () => {
       }
     };
     window.addEventListener('dcms_customers_synced', onSync);
+    window.addEventListener('dcms_location_changed', onLocationChange);
     
     // Poll for changes every 2 seconds (since different ports = separate localStorage)
     const pollInterval = setInterval(async () => {
@@ -130,6 +138,7 @@ const Customers = () => {
       window.removeEventListener('dcms_customer_updated', onCustomerUpdate);
       window.removeEventListener('storage', onStorageChange);
       window.removeEventListener('dcms_customers_synced', onSync);
+      window.removeEventListener('dcms_location_changed', onLocationChange);
     };
   }, [mode, customerId, customers.length]);
 
@@ -142,14 +151,53 @@ const Customers = () => {
         return;
       }
       
-      // Show all customers with customerType (diving customers) OR customers created by partners
-      const filteredCustomers = allCustomers.filter(customer => {
-        // Diving customers have customerType (tourist/local/recurrent)
-        const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
-        // Also include customers created by partners (even if they don't have customerType yet)
-        const isPartnerCustomer = !!(customer.partnerId || customer.partner_id || customer.source === 'partner' || customer.created_by_partner_id);
-        return hasCustomerType || isPartnerCustomer;
-      });
+      // Get current location to determine if we should filter by location type
+      const currentLocationId = localStorage.getItem('dcms_current_location');
+      const allLocations = await dataService.getAll('locations') || [];
+      const currentLocation = allLocations.find(l => l.id === currentLocationId);
+      const isBikeRental = currentLocation?.type === 'bike_rental';
+      
+      let filteredCustomers = allCustomers;
+      
+      if (isBikeRental) {
+        // For bike rental locations: only show customers with bike rental bookings
+        const allBookings = await dataService.getAll('bookings') || [];
+        
+        // Helper to check if a booking is bike rental
+        const isBikeRentalBooking = (booking) => {
+          if (booking.equipmentNeeded?.activityType === 'bike_rental') return true;
+          const bookingLocationId = booking.locationId || booking.location_id;
+          const bookingLocation = allLocations.find(l => l.id === bookingLocationId);
+          return bookingLocation?.type === 'bike_rental';
+        };
+        
+        // Get customer IDs who have bike rental bookings for this location
+        const bikeRentalCustomerIds = new Set();
+        allBookings.forEach(booking => {
+          const bookingLocationId = booking.locationId || booking.location_id;
+          if (isBikeRentalBooking(booking) && bookingLocationId === currentLocationId) {
+            const customerId = booking.customerId || booking.customer_id;
+            if (customerId) {
+              bikeRentalCustomerIds.add(customerId);
+            }
+          }
+        });
+        
+        // Filter to only customers with bike rental bookings
+        filteredCustomers = allCustomers.filter(customer => {
+          const customerId = customer.id;
+          return bikeRentalCustomerIds.has(customerId);
+        });
+      } else {
+        // For diving locations: show customers with customerType (diving customers) OR customers created by partners
+        filteredCustomers = allCustomers.filter(customer => {
+          // Diving customers have customerType (tourist/local/recurrent)
+          const hasCustomerType = customer.customerType && customer.customerType.trim() !== '';
+          // Also include customers created by partners (even if they don't have customerType yet)
+          const isPartnerCustomer = !!(customer.partnerId || customer.partner_id || customer.source === 'partner' || customer.created_by_partner_id);
+          return hasCustomerType || isPartnerCustomer;
+        });
+      }
       
       setCustomers(filteredCustomers);
     } catch (error) {

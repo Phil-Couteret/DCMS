@@ -44,7 +44,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Warning as WarningIcon,
-  LocalGasStation as TankIcon
+  LocalGasStation as TankIcon,
+  DirectionsBike as BikeIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../utils/languageContext';
@@ -78,7 +79,7 @@ const Equipment = () => {
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [activeTab, setActiveTab] = useState(0); // 0 = Equipment, 1 = Tanks
+  const [activeTab, setActiveTab] = useState(0); // 0 = Equipment/Bike Rental, 1 = Tanks (when not bike rental)
   const [tanks, setTanks] = useState([]);
   const [tankDialogOpen, setTankDialogOpen] = useState(false);
   const [tankBulkDialogOpen, setTankBulkDialogOpen] = useState(false);
@@ -164,8 +165,14 @@ const Equipment = () => {
     try {
       if (currentLocationId) {
         const allLocations = await dataService.getAll('locations') || [];
-        const loc = allLocations.find(l => l.id === currentLocationId);
-        setCurrentLocation(loc);
+        let loc = allLocations.find(l => l.id === currentLocationId);
+        if (loc) {
+          // Process pricing - map settings.pricing to pricing (like Prices component does)
+          if (loc.settings?.pricing && !loc.pricing) {
+            loc = { ...loc, pricing: loc.settings.pricing };
+          }
+          setCurrentLocation(loc);
+        }
       }
     } catch (error) {
       console.error('Error loading current location:', error);
@@ -1097,9 +1104,7 @@ const Equipment = () => {
         <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          {isBikeRental 
-            ? 'Bike Rental Equipment' 
-            : (isGlobalAdmin ? 'Global Equipment Inventory' : t('equipment.title'))}
+          {isGlobalAdmin ? 'Global Equipment Inventory' : t('equipment.title')}
         </Typography>
         {canManageEquipment && (
           <Box sx={{ display: 'flex', gap: 2 }}>

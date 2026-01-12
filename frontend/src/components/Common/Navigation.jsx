@@ -37,7 +37,8 @@ import {
   Security as SecurityIcon,
   Business as BusinessIcon,
   Receipt as ReceiptIcon,
-  AccountBalance as FinancialIcon
+  AccountBalance as FinancialIcon,
+  DirectionsBike as BikeIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from '../../utils/languageContext';
@@ -60,8 +61,9 @@ const Navigation = () => {
 
   // Build menu items by scope
   const userHasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
+  // Dashboard is location-specific when a location is selected, global only when explicitly set to global
   const scope = userHasGlobalAccess
-    ? (localStorage.getItem('dcms_dashboard_scope') === 'global' || location.pathname === '/' ? 'global' : 'location')
+    ? (localStorage.getItem('dcms_dashboard_scope') === 'global' ? 'global' : 'location')
     : 'location';
   const globalMenu = [
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
@@ -82,8 +84,12 @@ const Navigation = () => {
   }, [currentLocationId, boats]);
   const hasBoats = boatsForLocation.length > 0;
   
-  // Get the equipment icon (diving equipment for all locations)
-  const EquipmentIcon = DivingEquipmentIcon;
+  // Get current location type to filter diving-specific items for bike rental
+  const currentLocation = locations.find(l => l.id === currentLocationId);
+  const isBikeRental = currentLocation?.type === 'bike_rental';
+  
+  // Get the equipment icon - bike icon for bike rental, diving icon for diving locations
+  const EquipmentIcon = isBikeRental ? BikeIcon : DivingEquipmentIcon;
   
   // Build location menu items - organized by workflow
   const locationMenu = [
@@ -121,10 +127,18 @@ const Navigation = () => {
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.INTERN] }
   ];
 
+  // Diving-specific paths that should be hidden for bike rental locations
+  const divingOnlyPaths = ['/schedule', '/boat-prep', '/stays', '/bills'];
+  
   // Filter menu items based on role and permissions
   const allMenuItems = scope === 'global' ? globalMenu : locationMenu;
   const menuItems = allMenuItems.filter(item => {
     if (!currentUser) return false;
+    
+    // Hide diving-specific items for bike rental locations
+    if (isBikeRental && divingOnlyPaths.includes(item.path)) {
+      return false;
+    }
     
     // Check permission - this now uses the permission-based system
     return canAccess(item.permission);
@@ -143,8 +157,7 @@ const Navigation = () => {
         if (!Array.isArray(allLocations)) return;
         
         // Determine accessible locations based on user rights
-        // Filter out bike rental locations (removed for now)
-        let accessible = allLocations.filter(loc => loc.type !== 'bike_rental');
+        let accessible = allLocations;
         if (currentUser && Array.isArray(currentUser.locationAccess)) {
           // Treat empty array as global access (all locations)
           if (currentUser.locationAccess.length > 0) {
@@ -190,9 +203,8 @@ const Navigation = () => {
     setSelectedLocationId(newLocationId);
     localStorage.setItem('dcms_current_location', newLocationId);
     localStorage.setItem('dcms_dashboard_scope', 'location');
-    if (location.pathname === '/') {
-      navigate('/bookings');
-    }
+    // Navigate to dashboard when location changes
+    navigate('/');
     try {
       window.dispatchEvent(new CustomEvent('dcms_location_changed', { detail: { locationId: newLocationId } }));
     } catch (_) {
@@ -238,7 +250,7 @@ const Navigation = () => {
           {/* Global + Location Tabs unified */}
           {currentUser && locations.length > 0 && (
             <Tabs
-              value={(location.pathname === '/' && (!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0))) ? '__global__' : selectedLocationId}
+              value={localStorage.getItem('dcms_dashboard_scope') === 'global' ? '__global__' : selectedLocationId}
               onChange={(_e, val) => {
                 if (val === '__global__') {
                   localStorage.setItem('dcms_dashboard_scope', 'global');
@@ -318,6 +330,14 @@ const Navigation = () => {
       >
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
+          {/* Logo/Icon section - Show bike icon for bike rental, diving icon for diving locations */}
+          <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+            {isBikeRental ? (
+              <BikeIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+            ) : (
+              <DivingEquipmentIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+            )}
+          </Box>
           <List>
             {uniqueMenuItems.map((item) => (
               <ListItem 
@@ -336,7 +356,7 @@ const Navigation = () => {
           <Divider />
           <Box sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary" align="center" display="block">
-              DCMS v1.5.1
+              DCMS v1.5.2
             </Typography>
           </Box>
         </Box>

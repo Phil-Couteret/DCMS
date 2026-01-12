@@ -1,6 +1,6 @@
 {
   "name": "dcms-frontend",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "private": true,
   "description": "DCMS PWA Frontend - React Progressive Web App",
   "scripts": {

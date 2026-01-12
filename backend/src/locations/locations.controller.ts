@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -20,8 +21,8 @@ export class LocationsController {
   @Get()
   @ApiOperation({ summary: 'Get all active locations' })
   @ApiResponse({ status: 200, description: 'List of locations' })
-  async findAll() {
-    return this.locationsService.findAll();
+  async findAll(@Query('includeInactive') includeInactive?: string) {
+    return this.locationsService.findAll(includeInactive === 'true');
   }
 
   @Get(':id')

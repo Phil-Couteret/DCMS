@@ -24,9 +24,9 @@ export interface UpdateLocationDto {
 export class LocationsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(includeInactive: boolean = false) {
     return this.prisma.locations.findMany({
-      where: { is_active: true },
+      where: includeInactive ? {} : { is_active: true },
       orderBy: { name: 'asc' },
     });
   }
