@@ -356,7 +356,7 @@ const Navigation = () => {
           <Divider />
           <Box sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary" align="center" display="block">
-              DCMS v1.5.2
+              DCMS v1.6.3
             </Typography>
           </Box>
         </Box>
