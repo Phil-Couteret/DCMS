@@ -70,7 +70,8 @@ const Navigation = () => {
     { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' },
     { text: 'Data Breaches', icon: <SecurityIcon />, path: '/breaches', permission: 'settings' },
     { text: 'Partners', icon: <BusinessIcon />, path: '/partners', permission: 'settings' },
-    { text: 'Partner Invoices', icon: <ReceiptIcon />, path: '/partner-invoices', permission: 'settings' }
+    { text: 'Partner Invoices', icon: <ReceiptIcon />, path: '/partner-invoices', permission: 'settings' },
+    { text: 'Financial', icon: <FinancialIcon />, path: '/financial', permission: 'settings' }
   ];
   // Get current location's boats to determine menu text
   const currentLocationId = selectedLocationId || localStorage.getItem('dcms_current_location');
@@ -98,7 +99,6 @@ const Navigation = () => {
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
     { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
         { text: t('nav.stays') || 'Current Customers', icon: <StaysIcon />, path: '/stays', permission: 'stays', roles: [USER_ROLES.ADMIN] },
-        { text: 'Historical Bills', icon: <ReceiptIcon />, path: '/bills', permission: 'stays', roles: [USER_ROLES.ADMIN] },
         { text: 'Financial', icon: <FinancialIcon />, path: '/financial', permission: 'settings', roles: [USER_ROLES.ADMIN] },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.ADMIN] },
     
@@ -128,7 +128,7 @@ const Navigation = () => {
   ];
 
   // Diving-specific paths that should be hidden for bike rental locations
-  const divingOnlyPaths = ['/schedule', '/boat-prep', '/stays', '/bills'];
+  const divingOnlyPaths = ['/schedule', '/boat-prep', '/stays'];
   
   // Filter menu items based on role and permissions
   const allMenuItems = scope === 'global' ? globalMenu : locationMenu;
@@ -356,7 +356,7 @@ const Navigation = () => {
           <Divider />
           <Box sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary" align="center" display="block">
-              DCMS v1.6.3
+              DCMS v1.6.4
             </Typography>
           </Box>
         </Box>

@@ -112,7 +112,9 @@ export const getDailyIncomeFromBookings = async (date) => {
     if (!Array.isArray(allBookings)) return { diving: 0, discovery: 0, snorkeling: 0, total: 0, details: [] };
     
     const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-    const currentLocationId = localStorage.getItem('dcms_current_location');
+    const scope = localStorage.getItem('dcms_dashboard_scope');
+    const isGlobal = scope === 'global';
+    const currentLocationId = isGlobal ? null : localStorage.getItem('dcms_current_location');
     
     // Filter bookings for the selected date and location
     const dayBookings = allBookings.filter(booking => {

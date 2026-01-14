@@ -25,7 +25,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Tabs,
+  Tab,
+  Tooltip
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,8 +40,13 @@ import {
   Print as PrintIcon,
   Download as DownloadIcon,
   Save as SaveIcon,
-  Email as EmailIcon
+  Email as EmailIcon,
+  Receipt as ReceiptIcon,
+  Visibility as ViewIcon,
+  Refresh as RefreshIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
+import { format } from 'date-fns';
 import financialService from '../services/financialService';
 import dataService from '../services/dataService';
 import { useTranslation } from '../utils/languageContext';
@@ -47,6 +55,7 @@ import { useAuth, USER_ROLES } from '../utils/authContext';
 const Financial = () => {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [financialSummary, setFinancialSummary] = useState(null);
@@ -56,6 +65,21 @@ const Financial = () => {
   const [showIncomeDialog, setShowIncomeDialog] = useState(false);
   const [showCloseDayDialog, setShowCloseDayDialog] = useState(false);
   const [dailyReportHtml, setDailyReportHtml] = useState('');
+  
+  // Bills tab state
+  const [bills, setBills] = useState([]);
+  const [filteredBills, setFilteredBills] = useState([]);
+  const [billsLoading, setBillsLoading] = useState(false);
+  const [selectedBill, setSelectedBill] = useState(null);
+  const [viewBillDialogOpen, setViewBillDialogOpen] = useState(false);
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  
+  // Previous Closed Days state
+  const [storedReports, setStoredReports] = useState([]);
+  const [viewReportDialogOpen, setViewReportDialogOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
   const [expenseFormData, setExpenseFormData] = useState({
     description: '',
     category: 'gasoline',
@@ -122,9 +146,78 @@ const Financial = () => {
     loadLocations();
   }, [loadCustomers, loadLocations]);
 
+
+  // Load bills for Historical Bills tab
+  const loadBills = useCallback(async () => {
+    setBillsLoading(true);
+    try {
+      const allBills = await dataService.getAll('customerBills') || [];
+      // Filter bills by location unless in global scope
+      const scope = localStorage.getItem('dcms_dashboard_scope');
+      const isGlobal = scope === 'global';
+      let filteredBills = Array.isArray(allBills) ? allBills : [];
+      
+      if (!isGlobal) {
+        const currentLocationId = localStorage.getItem('dcms_current_location');
+        if (currentLocationId) {
+          filteredBills = filteredBills.filter(bill => {
+            const billLocationId = bill.locationId || bill.location_id;
+            return billLocationId === currentLocationId;
+          });
+        }
+      }
+      
+      setBills(filteredBills);
+    } catch (error) {
+      console.error('Error loading bills:', error);
+      setBills([]);
+    } finally {
+      setBillsLoading(false);
+    }
+  }, []);
+
+  // Load stored reports for Previous Closed Days tab
+  const loadStoredReports = useCallback(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('dcms_stored_reports') || '[]');
+      setStoredReports(Array.isArray(stored) ? stored : []);
+    } catch (error) {
+      console.error('Error loading stored reports:', error);
+      setStoredReports([]);
+    }
+  }, []);
+
   useEffect(() => {
-    loadFinancialSummary();
-  }, [loadFinancialSummary]);
+    if (activeTab === 1) {
+      loadStoredReports();
+    } else if (activeTab === 2) {
+      loadBills();
+      loadCustomers();
+    } else if (activeTab === 0) {
+      loadFinancialSummary();
+    }
+  }, [activeTab, loadStoredReports, loadBills, loadCustomers, loadFinancialSummary]);
+
+  useEffect(() => {
+    filterBills();
+  }, [bills, customerFilter, startDate, endDate]);
+
+  // Reload data when location changes
+  useEffect(() => {
+    const onLocChange = () => {
+      if (activeTab === 0) {
+        loadFinancialSummary();
+      } else if (activeTab === 2) {
+        loadBills();
+      }
+    };
+    window.addEventListener('dcms_location_changed', onLocChange);
+    window.addEventListener('storage', onLocChange);
+    return () => {
+      window.removeEventListener('dcms_location_changed', onLocChange);
+      window.removeEventListener('storage', onLocChange);
+    };
+  }, [activeTab, loadFinancialSummary, loadBills]);
 
   const handleDateChange = (newDate) => {
     setSelectedDate(newDate);
@@ -213,7 +306,57 @@ const Financial = () => {
     return `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || 'Unknown';
   };
 
+  const filterBills = () => {
+    let filtered = [...bills];
+
+    if (customerFilter) {
+      filtered = filtered.filter(bill => {
+        const billCustomerId = bill.customerId || bill.customer_id;
+        return billCustomerId === customerFilter;
+      });
+    }
+
+    if (startDate) {
+      filtered = filtered.filter(bill => {
+        const billDate = bill.billDate || bill.bill_date;
+        return billDate >= startDate;
+      });
+    }
+
+    if (endDate) {
+      filtered = filtered.filter(bill => {
+        const billDate = bill.billDate || bill.bill_date;
+        return billDate <= endDate;
+      });
+    }
+
+    setFilteredBills(filtered);
+  };
+
+  const getBillCustomerName = (bill) => {
+    if (bill.customer) {
+      const firstName = bill.customer.firstName || bill.customer.first_name || '';
+      const lastName = bill.customer.lastName || bill.customer.last_name || '';
+      return `${firstName} ${lastName}`.trim() || bill.customer.email || 'Unknown';
+    }
+    const customer = customers.find(c => c.id === (bill.customerId || bill.customer_id));
+    if (customer) {
+      return `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || 'Unknown';
+    }
+    return 'Unknown';
+  };
+
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    try {
+      return format(new Date(date), 'dd/MM/yyyy');
+    } catch {
+      return date;
+    }
+  };
+
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined) return '€0.00';
     return `€${parseFloat(amount || 0).toFixed(2)}`;
   };
 
@@ -566,71 +709,88 @@ const Financial = () => {
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
-  if (loading) {
-    return (
-      <Box>
-        <Typography>Loading financial data...</Typography>
-      </Box>
-    );
-  }
+  const handleViewBill = (bill) => {
+    setSelectedBill(bill);
+    setViewBillDialogOpen(true);
+  };
 
-  if (!financialSummary) {
-    return (
-      <Box>
-        <Alert severity="error">Error loading financial data. Please try again.</Alert>
-      </Box>
-    );
-  }
+  const handlePrintBill = (bill) => {
+    window.print();
+  };
+
+  const handleViewReport = (report) => {
+    setSelectedReport(report);
+    setViewReportDialogOpen(true);
+  };
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>
           Financial
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <TextField
-            label="Select Date"
-            type="date"
-            value={selectedDate instanceof Date 
-              ? selectedDate.toISOString().split('T')[0] 
-              : selectedDate}
-            onChange={(e) => handleDateChange(new Date(e.target.value))}
-            InputLabelProps={{ shrink: true }}
-            sx={{ width: 200 }}
-          />
-          {isAdmin && (
-            <>
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<TrendingDownIcon />}
-                onClick={handleAddExpense}
-              >
-                Add Expense
-              </Button>
-              <Button
-                variant="outlined"
-                color="success"
-                startIcon={<TrendingUpIcon />}
-                onClick={handleAddIncome}
-              >
-                Add Income
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<CloseIcon />}
-                onClick={handleCloseDay}
-              >
-                Close the Day
-              </Button>
-            </>
-          )}
-        </Box>
       </Box>
+      
+      <Paper sx={{ mb: 3 }}>
+        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+          <Tab label="Current Financial" icon={<MoneyIcon />} iconPosition="start" />
+          <Tab label="Previous Closed Days" icon={<HistoryIcon />} iconPosition="start" />
+          <Tab label="Historical Bills" icon={<ReceiptIcon />} iconPosition="start" />
+        </Tabs>
+      </Paper>
 
-      {/* Daily Summary Cards */}
+      {activeTab === 0 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <TextField
+                label="Select Date"
+                type="date"
+                value={selectedDate instanceof Date 
+                  ? selectedDate.toISOString().split('T')[0] 
+                  : selectedDate}
+                onChange={(e) => handleDateChange(new Date(e.target.value))}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 200 }}
+              />
+              {isAdmin && (
+                <>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<TrendingDownIcon />}
+                    onClick={handleAddExpense}
+                  >
+                    Add Expense
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="success"
+                    startIcon={<TrendingUpIcon />}
+                    onClick={handleAddIncome}
+                  >
+                    Add Income
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<CloseIcon />}
+                    onClick={handleCloseDay}
+                  >
+                    Close the Day
+                  </Button>
+                </>
+              )}
+            </Box>
+          </Box>
+
+          {loading ? (
+            <Typography>Loading financial data...</Typography>
+          ) : !financialSummary ? (
+            <Alert severity="error">Error loading financial data. Please try again.</Alert>
+          ) : (
+            <>
+              {/* Daily Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={3}>
           <Card>
@@ -866,6 +1026,233 @@ const Financial = () => {
           </Typography>
         )}
       </Paper>
+            </>
+          )}
+        </Box>
+      )}
+
+      {activeTab === 1 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h5">Previous Closed Days</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={loadStoredReports}
+            >
+              Refresh
+            </Button>
+          </Box>
+          {storedReports.length === 0 ? (
+            <Alert severity="info">No stored reports found. Reports are stored when you close a day.</Alert>
+          ) : (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Stored At</TableCell>
+                    <TableCell>Total Income</TableCell>
+                    <TableCell>Total Expenses</TableCell>
+                    <TableCell>Net Profit</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {storedReports
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map((report) => (
+                      <TableRow key={report.id}>
+                        <TableCell>{formatDate(report.date)}</TableCell>
+                        <TableCell>{formatDate(report.storedAt)}</TableCell>
+                        <TableCell>{formatCurrency(report.financialSummary?.totalIncome)}</TableCell>
+                        <TableCell>{formatCurrency(report.financialSummary?.expenses?.total)}</TableCell>
+                        <TableCell>{formatCurrency(report.financialSummary?.netProfit)}</TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="View Report">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewReport(report)}
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      )}
+
+      {activeTab === 2 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Typography variant="h5">Historical Bills</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={loadBills}
+            >
+              Refresh
+            </Button>
+          </Box>
+
+          {/* Summary Cards */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={4}>
+              <Card>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom variant="body2">
+                    Total Bills
+                  </Typography>
+                  <Typography variant="h4">{bills.length}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Card>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom variant="body2">
+                    Total Amount
+                  </Typography>
+                  <Typography variant="h4">{formatCurrency(bills.reduce((sum, bill) => sum + (parseFloat(bill.total) || 0), 0))}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Card>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom variant="body2">
+                    Total Tax
+                  </Typography>
+                  <Typography variant="h4">{formatCurrency(bills.reduce((sum, bill) => sum + (parseFloat(bill.tax) || 0), 0))}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Filters */}
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={6} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Customer</InputLabel>
+                  <Select
+                    value={customerFilter}
+                    label="Customer"
+                    onChange={(e) => setCustomerFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Customers</MenuItem>
+                    {customers.map(customer => (
+                      <MenuItem key={customer.id} value={customer.id}>
+                        {customer.firstName || customer.first_name} {customer.lastName || customer.last_name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Start Date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="End Date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+            </Grid>
+          </Paper>
+
+          {/* Bills Table */}
+          {billsLoading ? (
+            <Typography>Loading bills...</Typography>
+          ) : (
+            <TableContainer component={Paper} variant="outlined">
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Bill Number</TableCell>
+                    <TableCell>Customer</TableCell>
+                    <TableCell>Bill Date</TableCell>
+                    <TableCell>Stay Start</TableCell>
+                    <TableCell align="right">Subtotal</TableCell>
+                    <TableCell align="right">Tax</TableCell>
+                    <TableCell align="right">Total</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredBills.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center">
+                        <Typography color="text.secondary" sx={{ py: 2 }}>
+                          {bills.length === 0
+                            ? 'No bills found. Bills are created automatically when stays are closed.'
+                            : 'No bills match the selected filters.'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBills.map((bill) => (
+                      <TableRow key={bill.id} hover>
+                        <TableCell>
+                          <Typography variant="body1" fontWeight="medium">
+                            {bill.billNumber || bill.bill_number}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{getBillCustomerName(bill)}</TableCell>
+                        <TableCell>{formatDate(bill.billDate || bill.bill_date)}</TableCell>
+                        <TableCell>{formatDate(bill.stayStartDate || bill.stay_start_date)}</TableCell>
+                        <TableCell align="right">{formatCurrency(bill.subtotal)}</TableCell>
+                        <TableCell align="right">{formatCurrency(bill.tax)}</TableCell>
+                        <TableCell align="right">
+                          <Typography fontWeight="bold">
+                            {formatCurrency(bill.total)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="View Bill">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewBill(bill)}
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Print">
+                            <IconButton
+                              size="small"
+                              onClick={() => handlePrintBill(bill)}
+                            >
+                              <PrintIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      )}
 
       {/* Expense Dialog */}
       <Dialog open={showExpenseDialog} onClose={() => setShowExpenseDialog(false)} maxWidth="sm" fullWidth>
@@ -1067,6 +1454,178 @@ const Financial = () => {
               Share by Email
             </Button>
           </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Stored Report Dialog */}
+      <Dialog
+        open={viewReportDialogOpen}
+        onClose={() => setViewReportDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { height: '90vh' }
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">
+              Daily Financial Report - {selectedReport?.date}
+            </Typography>
+            <IconButton onClick={() => setViewReportDialogOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0, height: '100%' }}>
+          {selectedReport && (
+            <iframe
+              srcDoc={selectedReport.html}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                minHeight: '600px'
+              }}
+              title="Stored Financial Report"
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewReportDialogOpen(false)}>Close</Button>
+          {selectedReport && (
+            <Button
+              variant="outlined"
+              startIcon={<PrintIcon />}
+              onClick={() => {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(selectedReport.html);
+                printWindow.document.close();
+                printWindow.print();
+              }}
+            >
+              Print
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* View Bill Dialog */}
+      <Dialog
+        open={viewBillDialogOpen}
+        onClose={() => setViewBillDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>
+          Bill Details - {selectedBill?.billNumber || selectedBill?.bill_number}
+        </DialogTitle>
+        <DialogContent>
+          {selectedBill && (
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">Customer</Typography>
+                  <Typography variant="body1">{getBillCustomerName(selectedBill)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">Bill Date</Typography>
+                  <Typography variant="body1">{formatDate(selectedBill.billDate || selectedBill.bill_date)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">Stay Start</Typography>
+                  <Typography variant="body1">{formatDate(selectedBill.stayStartDate || selectedBill.stay_start_date)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">Total Amount</Typography>
+                  <Typography variant="h6">{formatCurrency(selectedBill.total)}</Typography>
+                </Grid>
+              </Grid>
+
+              {/* Bill Items */}
+              {selectedBill.billItems && selectedBill.billItems.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>Bill Items</Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Type</TableCell>
+                          <TableCell>Description</TableCell>
+                          <TableCell>Date</TableCell>
+                          <TableCell align="right">Quantity</TableCell>
+                          <TableCell align="right">Unit Price</TableCell>
+                          <TableCell align="right">Total</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedBill.billItems.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <Chip label={item.type} size="small" />
+                            </TableCell>
+                            <TableCell>{item.description || item.name || item.diveSite || '-'}</TableCell>
+                            <TableCell>{item.date ? formatDate(item.date) : '-'}</TableCell>
+                            <TableCell align="right">{item.quantity || 1}</TableCell>
+                            <TableCell align="right">{formatCurrency(item.unitPrice || 0)}</TableCell>
+                            <TableCell align="right">{formatCurrency(item.total || 0)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
+
+              {/* Payment Split */}
+              {(selectedBill.partnerPaidTotal > 0 || selectedBill.partner_paid_total > 0) && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Partner Payment:</strong> {formatCurrency(selectedBill.partnerPaidTotal || selectedBill.partner_paid_total || 0)} 
+                    {selectedBill.partnerTax || selectedBill.partner_tax > 0 ? ` (Tax: ${formatCurrency(selectedBill.partnerTax || selectedBill.partner_tax)})` : ''}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Customer Payment:</strong> {formatCurrency(selectedBill.customerPaidTotal || selectedBill.customer_paid_total || 0)}
+                    {selectedBill.customerTax || selectedBill.customer_tax > 0 ? ` (Tax: ${formatCurrency(selectedBill.customerTax || selectedBill.customer_tax)})` : ''}
+                  </Typography>
+                </Alert>
+              )}
+
+              {/* Summary */}
+              <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+                  </Grid>
+                  <Grid item xs={6} sx={{ textAlign: 'right' }}>
+                    <Typography variant="body1">{formatCurrency(selectedBill.subtotal)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">Tax (IGIC)</Typography>
+                  </Grid>
+                  <Grid item xs={6} sx={{ textAlign: 'right' }}>
+                    <Typography variant="body1">{formatCurrency(selectedBill.tax)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="h6">Total</Typography>
+                  </Grid>
+                  <Grid item xs={6} sx={{ textAlign: 'right' }}>
+                    <Typography variant="h6">{formatCurrency(selectedBill.total)}</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewBillDialogOpen(false)}>Close</Button>
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={() => handlePrintBill(selectedBill)}
+          >
+            Print
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
