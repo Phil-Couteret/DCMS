@@ -105,6 +105,29 @@ const Financial = () => {
 
   const isAdmin = currentUser?.role === USER_ROLES.ADMIN || currentUser?.role === USER_ROLES.SUPERADMIN;
 
+  // Determine if current location is bike rental
+  const [currentLocationId, setCurrentLocationId] = useState(() => localStorage.getItem('dcms_current_location'));
+  const currentLocation = locations.find(l => l.id === currentLocationId);
+  const isBikeRental = currentLocation?.type === 'bike_rental';
+
+  // Update currentLocationId when location changes
+  useEffect(() => {
+    const onLocChange = () => {
+      const newLocationId = localStorage.getItem('dcms_current_location');
+      setCurrentLocationId(newLocationId);
+    };
+    // Initial load
+    const storedLocationId = localStorage.getItem('dcms_current_location');
+    setCurrentLocationId(storedLocationId);
+    
+    window.addEventListener('dcms_location_changed', onLocChange);
+    window.addEventListener('storage', onLocChange);
+    return () => {
+      window.removeEventListener('dcms_location_changed', onLocChange);
+      window.removeEventListener('storage', onLocChange);
+    };
+  }, []);
+
   const loadCustomers = useCallback(async () => {
     try {
       const allCustomers = await dataService.getAll('customers');
@@ -180,44 +203,68 @@ const Financial = () => {
   const loadStoredReports = useCallback(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('dcms_stored_reports') || '[]');
-      setStoredReports(Array.isArray(stored) ? stored : []);
+      let reports = Array.isArray(stored) ? stored : [];
+      
+      // Filter by location unless in global scope
+      const scope = localStorage.getItem('dcms_dashboard_scope');
+      const isGlobal = scope === 'global';
+      
+      if (!isGlobal && currentLocationId) {
+        reports = reports.filter(report => {
+          const reportLocationId = report.locationId || report.location_id;
+          return reportLocationId === currentLocationId;
+        });
+      }
+      
+      setStoredReports(reports);
     } catch (error) {
       console.error('Error loading stored reports:', error);
       setStoredReports([]);
     }
-  }, []);
+  }, [currentLocationId]);
 
   useEffect(() => {
-    if (activeTab === 1) {
+    // Adjust tab indices: if bike rental, tab 1 is Historical Bills (not Previous Closed Days)
+    const adjustedTab = isBikeRental && activeTab === 1 ? 2 : activeTab;
+    
+    if (adjustedTab === 1 && !isBikeRental) {
       loadStoredReports();
-    } else if (activeTab === 2) {
+    } else if ((adjustedTab === 2 && !isBikeRental) || (adjustedTab === 1 && isBikeRental)) {
       loadBills();
       loadCustomers();
-    } else if (activeTab === 0) {
+    } else if (adjustedTab === 0) {
       loadFinancialSummary();
     }
-  }, [activeTab, loadStoredReports, loadBills, loadCustomers, loadFinancialSummary]);
+  }, [activeTab, isBikeRental, loadStoredReports, loadBills, loadCustomers, loadFinancialSummary, currentLocationId]);
+
+  // Reload stored reports when scope changes (location to global or vice versa)
+  useEffect(() => {
+    if (activeTab === 1 && !isBikeRental) {
+      const onScopeChange = () => {
+        loadStoredReports();
+      };
+      window.addEventListener('dcms_location_changed', onScopeChange);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'dcms_dashboard_scope') {
+          loadStoredReports();
+        }
+      });
+      return () => {
+        window.removeEventListener('dcms_location_changed', onScopeChange);
+      };
+    }
+  }, [activeTab, isBikeRental, loadStoredReports]);
 
   useEffect(() => {
     filterBills();
   }, [bills, customerFilter, startDate, endDate]);
 
-  // Reload data when location changes
+  // Reset to tab 0 if switching to bike rental while on Closed Days tab
   useEffect(() => {
-    const onLocChange = () => {
-      if (activeTab === 0) {
-        loadFinancialSummary();
-      } else if (activeTab === 2) {
-        loadBills();
-      }
-    };
-    window.addEventListener('dcms_location_changed', onLocChange);
-    window.addEventListener('storage', onLocChange);
-    return () => {
-      window.removeEventListener('dcms_location_changed', onLocChange);
-      window.removeEventListener('storage', onLocChange);
-    };
-  }, [activeTab, loadFinancialSummary, loadBills]);
+    if (activeTab === 1 && isBikeRental) {
+      setActiveTab(0);
+    }
+  }, [isBikeRental, activeTab]);
 
   const handleDateChange = (newDate) => {
     setSelectedDate(newDate);
@@ -673,17 +720,29 @@ const Financial = () => {
       const dateStr = selectedDate instanceof Date 
         ? selectedDate.toISOString().split('T')[0] 
         : selectedDate;
+      // Always store the location when closing a day (even in global scope, we're closing for a specific location)
+      const locationIdToStore = currentLocationId;
+      const locationNameToStore = currentLocation?.name || 'All Locations';
+      
+      if (!locationIdToStore && !currentLocation) {
+        alert('Error: No location selected. Please select a location before closing the day.');
+        return;
+      }
+      
       const storedReports = JSON.parse(localStorage.getItem('dcms_stored_reports') || '[]');
       const report = {
         id: Date.now().toString(),
         date: dateStr,
+        locationId: locationIdToStore,
+        locationName: locationNameToStore,
         html: dailyReportHtml || generateDailyReportHTML(),
         storedAt: new Date().toISOString(),
         financialSummary: financialSummary
       };
       storedReports.push(report);
       localStorage.setItem('dcms_stored_reports', JSON.stringify(storedReports));
-      alert('Report stored successfully!');
+      alert(`Report stored successfully for ${locationNameToStore}!`);
+      loadStoredReports(); // Reload to show the new report
     } catch (error) {
       console.error('Error storing report:', error);
       alert('Error storing report. Please try again.');
@@ -734,7 +793,9 @@ const Financial = () => {
       <Paper sx={{ mb: 3 }}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
           <Tab label="Current Financial" icon={<MoneyIcon />} iconPosition="start" />
-          <Tab label="Previous Closed Days" icon={<HistoryIcon />} iconPosition="start" />
+          {!isBikeRental && (
+            <Tab label="Previous Closed Days" icon={<HistoryIcon />} iconPosition="start" />
+          )}
           <Tab label="Historical Bills" icon={<ReceiptIcon />} iconPosition="start" />
         </Tabs>
       </Paper>
@@ -771,14 +832,16 @@ const Financial = () => {
                   >
                     Add Income
                   </Button>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<CloseIcon />}
-                    onClick={handleCloseDay}
-                  >
-                    Close the Day
-                  </Button>
+                  {!isBikeRental && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<CloseIcon />}
+                      onClick={handleCloseDay}
+                    >
+                      Close the Day
+                    </Button>
+                  )}
                 </>
               )}
             </Box>
@@ -1031,7 +1094,7 @@ const Financial = () => {
         </Box>
       )}
 
-      {activeTab === 1 && (
+      {activeTab === 1 && !isBikeRental && (
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h5">Previous Closed Days</Typography>
@@ -1045,49 +1108,127 @@ const Financial = () => {
           </Box>
           {storedReports.length === 0 ? (
             <Alert severity="info">No stored reports found. Reports are stored when you close a day.</Alert>
-          ) : (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Stored At</TableCell>
-                    <TableCell>Total Income</TableCell>
-                    <TableCell>Total Expenses</TableCell>
-                    <TableCell>Net Profit</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {storedReports
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .map((report) => (
-                      <TableRow key={report.id}>
-                        <TableCell>{formatDate(report.date)}</TableCell>
-                        <TableCell>{formatDate(report.storedAt)}</TableCell>
-                        <TableCell>{formatCurrency(report.financialSummary?.totalIncome)}</TableCell>
-                        <TableCell>{formatCurrency(report.financialSummary?.expenses?.total)}</TableCell>
-                        <TableCell>{formatCurrency(report.financialSummary?.netProfit)}</TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="View Report">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleViewReport(report)}
-                            >
-                              <ViewIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
+          ) : (() => {
+            const scope = localStorage.getItem('dcms_dashboard_scope');
+            const isGlobal = scope === 'global';
+            
+            // Group reports by location if in global scope
+            if (isGlobal) {
+              const groupedByLocation = storedReports.reduce((acc, report) => {
+                const locationId = report.locationId || report.location_id;
+                const locationName = report.locationName || 
+                  (locationId ? locations.find(l => l.id === locationId)?.name : null) || 
+                  'All Locations';
+                // Use locationId or 'unknown' as key to handle null values
+                const groupKey = locationId || 'unknown';
+                if (!acc[groupKey]) {
+                  acc[groupKey] = {
+                    locationId,
+                    locationName,
+                    reports: []
+                  };
+                }
+                acc[groupKey].reports.push(report);
+                return acc;
+              }, {});
+              
+              const locationGroups = Object.values(groupedByLocation);
+              
+              return (
+                <>
+                  {locationGroups.map((group) => (
+                    <Box key={group.locationId} sx={{ mb: 4 }}>
+                      <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold' }}>
+                        {group.locationName}
+                      </Typography>
+                      <TableContainer component={Paper}>
+                        <Table>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Date</TableCell>
+                              <TableCell>Stored At</TableCell>
+                              <TableCell>Total Income</TableCell>
+                              <TableCell>Total Expenses</TableCell>
+                              <TableCell>Net Profit</TableCell>
+                              <TableCell align="right">Actions</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {group.reports
+                              .sort((a, b) => new Date(b.date) - new Date(a.date))
+                              .map((report) => (
+                                <TableRow key={report.id}>
+                                  <TableCell>{formatDate(report.date)}</TableCell>
+                                  <TableCell>{formatDate(report.storedAt)}</TableCell>
+                                  <TableCell>{formatCurrency(report.financialSummary?.totalIncome)}</TableCell>
+                                  <TableCell>{formatCurrency(report.financialSummary?.expenses?.total)}</TableCell>
+                                  <TableCell>{formatCurrency(report.financialSummary?.netProfit)}</TableCell>
+                                  <TableCell align="right">
+                                    <Tooltip title="View Report">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleViewReport(report)}
+                                      >
+                                        <ViewIcon />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Box>
+                  ))}
+                </>
+              );
+            } else {
+              // Single location view
+              return (
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Stored At</TableCell>
+                        <TableCell>Total Income</TableCell>
+                        <TableCell>Total Expenses</TableCell>
+                        <TableCell>Net Profit</TableCell>
+                        <TableCell align="right">Actions</TableCell>
                       </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                    </TableHead>
+                    <TableBody>
+                      {storedReports
+                        .sort((a, b) => new Date(b.date) - new Date(a.date))
+                        .map((report) => (
+                          <TableRow key={report.id}>
+                            <TableCell>{formatDate(report.date)}</TableCell>
+                            <TableCell>{formatDate(report.storedAt)}</TableCell>
+                            <TableCell>{formatCurrency(report.financialSummary?.totalIncome)}</TableCell>
+                            <TableCell>{formatCurrency(report.financialSummary?.expenses?.total)}</TableCell>
+                            <TableCell>{formatCurrency(report.financialSummary?.netProfit)}</TableCell>
+                            <TableCell align="right">
+                              <Tooltip title="View Report">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewReport(report)}
+                                >
+                                  <ViewIcon />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              );
+            }
+          })()}
         </Box>
       )}
 
-      {activeTab === 2 && (
+      {((activeTab === 2 && !isBikeRental) || (activeTab === 1 && isBikeRental)) && (
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
             <Typography variant="h5">Historical Bills</Typography>
