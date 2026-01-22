@@ -44,7 +44,8 @@ import {
   Receipt as ReceiptIcon,
   Visibility as ViewIcon,
   Refresh as RefreshIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Description as DescriptionIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import financialService from '../services/financialService';
@@ -80,6 +81,17 @@ const Financial = () => {
   const [storedReports, setStoredReports] = useState([]);
   const [viewReportDialogOpen, setViewReportDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
+  
+  // Quarterly IGIC Declaration state
+  const [selectedQuarter, setSelectedQuarter] = useState(() => {
+    const now = new Date();
+    const month = now.getMonth(); // 0-11
+    return Math.floor(month / 3) + 1; // Q1=1, Q2=2, Q3=3, Q4=4
+  });
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [igicDeclaration, setIgicDeclaration] = useState(null);
+  const [igicLoading, setIgicLoading] = useState(false);
+  const [settings, setSettings] = useState(null);
   const [expenseFormData, setExpenseFormData] = useState({
     description: '',
     category: 'gasoline',
@@ -148,6 +160,21 @@ const Financial = () => {
     }
   }, []);
 
+  const loadSettings = useCallback(async () => {
+    try {
+      const allSettings = await dataService.getAll('settings');
+      if (Array.isArray(allSettings) && allSettings.length > 0) {
+        setSettings(allSettings[0]);
+      } else {
+        // Fallback to default IGIC rate
+        setSettings({ prices: { tax: { igic_rate: 0.07 } } });
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      setSettings({ prices: { tax: { igic_rate: 0.07 } } });
+    }
+  }, []);
+
   const loadFinancialSummary = useCallback(async () => {
     setLoading(true);
     try {
@@ -167,7 +194,8 @@ const Financial = () => {
   useEffect(() => {
     loadCustomers();
     loadLocations();
-  }, [loadCustomers, loadLocations]);
+    loadSettings();
+  }, [loadCustomers, loadLocations, loadSettings]);
 
 
   // Load bills for Historical Bills tab
@@ -223,19 +251,153 @@ const Financial = () => {
     }
   }, [currentLocationId]);
 
+  // Calculate quarter date range
+  const getQuarterDateRange = (quarter, year) => {
+    const startMonth = (quarter - 1) * 3; // Q1=0, Q2=3, Q3=6, Q4=9
+    const startDate = new Date(year, startMonth, 1);
+    const endDate = new Date(year, startMonth + 3, 0); // Last day of the quarter
+    return {
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0]
+    };
+  };
+
+  // Load quarterly IGIC declaration data
+  const loadIgicDeclaration = useCallback(async () => {
+    setIgicLoading(true);
+    try {
+      const { start, end } = getQuarterDateRange(selectedQuarter, selectedYear);
+      const scope = localStorage.getItem('dcms_dashboard_scope');
+      const isGlobal = scope === 'global';
+      const currentLocationId = isGlobal ? null : localStorage.getItem('dcms_current_location');
+      
+      // Get IGIC rate from settings
+      const igicRate = settings?.prices?.tax?.igic_rate || 0.07;
+      
+      // Load all bills for the quarter
+      const allBills = await dataService.getAll('customerBills') || [];
+      let quarterBills = Array.isArray(allBills) ? allBills : [];
+      
+      // Filter by date range and location
+      quarterBills = quarterBills.filter(bill => {
+        const billDate = bill.billDate || bill.bill_date;
+        if (!billDate) return false;
+        const billDateStr = billDate instanceof Date 
+          ? billDate.toISOString().split('T')[0] 
+          : billDate.toString().split('T')[0];
+        const dateMatch = billDateStr >= start && billDateStr <= end;
+        
+        if (!dateMatch) return false;
+        if (!isGlobal && currentLocationId) {
+          const billLocationId = bill.locationId || bill.location_id;
+          return billLocationId === currentLocationId;
+        }
+        return true;
+      });
+      
+      // Calculate sales (Ventas)
+      const salesBaseImponible = quarterBills.reduce((sum, bill) => {
+        return sum + (parseFloat(bill.subtotal) || 0);
+      }, 0);
+      
+      const salesCuotaDevengada = quarterBills.reduce((sum, bill) => {
+        return sum + (parseFloat(bill.tax) || 0);
+      }, 0);
+      
+      // Load expenses for the quarter
+      const allExpenses = financialService.getAllExpenses();
+      let quarterExpenses = allExpenses.filter(exp => {
+        const expDate = exp.date;
+        if (!expDate) return false;
+        const expDateStr = expDate instanceof Date 
+          ? expDate.toISOString().split('T')[0] 
+          : expDate.toString().split('T')[0];
+        const dateMatch = expDateStr >= start && expDateStr <= end;
+        
+        if (!dateMatch) return false;
+        if (!isGlobal && currentLocationId) {
+          const expLocationId = exp.locationId || exp.location_id;
+          return expLocationId === currentLocationId;
+        }
+        return true;
+      });
+      
+      // Calculate purchases/expenses (Compras)
+      // For expenses, we assume they include IGIC and calculate the base and tax
+      const expensesTotal = quarterExpenses.reduce((sum, exp) => {
+        return sum + (parseFloat(exp.amount) || 0);
+      }, 0);
+      
+      // Calculate base imponible from expenses (assuming expenses include IGIC)
+      // If amount includes IGIC: base = amount / (1 + igicRate)
+      const purchasesBaseImponible = quarterExpenses.reduce((sum, exp) => {
+        const amount = parseFloat(exp.amount) || 0;
+        // If expense has a base field, use it; otherwise calculate from total
+        if (exp.baseImponible !== undefined) {
+          return sum + parseFloat(exp.baseImponible);
+        }
+        // Assume amount includes IGIC, so base = amount / (1 + rate)
+        return sum + (amount / (1 + igicRate));
+      }, 0);
+      
+      const purchasesCuotaSoportada = quarterExpenses.reduce((sum, exp) => {
+        const amount = parseFloat(exp.amount) || 0;
+        // If expense has a tax field, use it; otherwise calculate from total
+        if (exp.tax !== undefined) {
+          return sum + parseFloat(exp.tax);
+        }
+        // Calculate IGIC from amount: tax = amount - base
+        const base = exp.baseImponible !== undefined 
+          ? parseFloat(exp.baseImponible) 
+          : (amount / (1 + igicRate));
+        return sum + (amount - base);
+      }, 0);
+      
+      // Calculate net IGIC to pay
+      const netIgicToPay = salesCuotaDevengada - purchasesCuotaSoportada;
+      
+      setIgicDeclaration({
+        quarter: selectedQuarter,
+        year: selectedYear,
+        dateRange: { start, end },
+        sales: {
+          baseImponible: salesBaseImponible,
+          cuotaDevengada: salesCuotaDevengada,
+          numberOfBills: quarterBills.length
+        },
+        purchases: {
+          baseImponible: purchasesBaseImponible,
+          cuotaSoportada: purchasesCuotaSoportada,
+          numberOfExpenses: quarterExpenses.length
+        },
+        netIgicToPay,
+        igicRate
+      });
+    } catch (error) {
+      console.error('Error loading IGIC declaration:', error);
+      setIgicDeclaration(null);
+    } finally {
+      setIgicLoading(false);
+    }
+  }, [selectedQuarter, selectedYear, settings, currentLocationId]);
+
   useEffect(() => {
-    // Adjust tab indices: if bike rental, tab 1 is Historical Bills (not Previous Closed Days)
-    const adjustedTab = isBikeRental && activeTab === 1 ? 2 : activeTab;
+    // Tab indices: 
+    // For diving: 0=Current Financial, 1=Previous Closed Days, 2=Historical Bills, 3=IGIC Declaration
+    // For bike rental: 0=Current Financial, 1=Historical Bills, 2=IGIC Declaration
     
-    if (adjustedTab === 1 && !isBikeRental) {
+    if (activeTab === 0) {
+      loadFinancialSummary();
+    } else if (activeTab === 1 && !isBikeRental) {
       loadStoredReports();
-    } else if ((adjustedTab === 2 && !isBikeRental) || (adjustedTab === 1 && isBikeRental)) {
+    } else if ((activeTab === 2 && !isBikeRental) || (activeTab === 1 && isBikeRental)) {
       loadBills();
       loadCustomers();
-    } else if (adjustedTab === 0) {
-      loadFinancialSummary();
+    } else if ((activeTab === 3 && !isBikeRental) || (activeTab === 2 && isBikeRental)) {
+      // IGIC Declaration tab
+      loadIgicDeclaration();
     }
-  }, [activeTab, isBikeRental, loadStoredReports, loadBills, loadCustomers, loadFinancialSummary, currentLocationId]);
+  }, [activeTab, isBikeRental, loadStoredReports, loadBills, loadCustomers, loadFinancialSummary, loadIgicDeclaration, currentLocationId]);
 
   // Reload stored reports when scope changes (location to global or vice versa)
   useEffect(() => {
@@ -254,6 +416,37 @@ const Financial = () => {
       };
     }
   }, [activeTab, isBikeRental, loadStoredReports]);
+
+  // Reload IGIC declaration when quarter or year changes
+  useEffect(() => {
+    if ((activeTab === 3 && !isBikeRental) || (activeTab === 2 && isBikeRental)) {
+      if (settings) {
+        loadIgicDeclaration();
+      }
+    }
+  }, [selectedQuarter, selectedYear, activeTab, isBikeRental, settings, loadIgicDeclaration, currentLocationId]);
+
+  // Reload IGIC declaration when scope or location changes
+  useEffect(() => {
+    if ((activeTab === 3 && !isBikeRental) || (activeTab === 2 && isBikeRental)) {
+      const onScopeChange = () => {
+        if (settings) {
+          loadIgicDeclaration();
+        }
+      };
+      window.addEventListener('dcms_location_changed', onScopeChange);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'dcms_dashboard_scope' || e.key === 'dcms_current_location') {
+          if (settings) {
+            loadIgicDeclaration();
+          }
+        }
+      });
+      return () => {
+        window.removeEventListener('dcms_location_changed', onScopeChange);
+      };
+    }
+  }, [activeTab, isBikeRental, settings, loadIgicDeclaration]);
 
   useEffect(() => {
     filterBills();
@@ -782,6 +975,172 @@ const Financial = () => {
     setViewReportDialogOpen(true);
   };
 
+  const generateIgicDeclarationHTML = (declaration) => {
+    if (!declaration) return '';
+    
+    const location = locations.find(l => l.id === localStorage.getItem('dcms_current_location'));
+    const locationName = location?.name || 'All Locations';
+    const quarterNames = ['', 'Q1 (January - March)', 'Q2 (April - June)', 'Q3 (July - September)', 'Q4 (October - December)'];
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>IGIC Declaration - ${quarterNames[declaration.quarter]} ${declaration.year}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #fff;
+          }
+          .header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            border-bottom: 3px solid #1976d2;
+            padding-bottom: 20px;
+          }
+          .header h1 { 
+            color: #1976d2; 
+            margin: 0;
+          }
+          .header h2 {
+            color: #666;
+            margin: 10px 0;
+            font-weight: normal;
+          }
+          .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+          }
+          .summary-card {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #ddd;
+          }
+          .summary-card h3 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+            font-weight: normal;
+          }
+          .summary-card .amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1976d2;
+          }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 20px 0; 
+            font-size: 14px;
+          }
+          th, td { 
+            border: 1px solid #ddd; 
+            padding: 12px; 
+            text-align: left; 
+          }
+          th { 
+            background-color: #1976d2; 
+            color: white; 
+            font-weight: bold;
+          }
+          tr:nth-child(even) { 
+            background-color: #f9f9f9; 
+          }
+          .net-result {
+            background-color: ${declaration.netIgicToPay >= 0 ? '#c8e6c9' : '#bbdefb'};
+            font-weight: bold;
+            font-size: 16px;
+          }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .footer { 
+            margin-top: 60px; 
+            font-size: 12px; 
+            color: #666; 
+            text-align: center; 
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>IGIC Quarterly Declaration</h1>
+          <h2>${locationName}</h2>
+          <p><strong>Period:</strong> ${quarterNames[declaration.quarter]} ${declaration.year}</p>
+          <p><strong>Date Range:</strong> ${format(new Date(declaration.dateRange.start), 'dd/MM/yyyy')} - ${format(new Date(declaration.dateRange.end), 'dd/MM/yyyy')}</p>
+          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+
+        <div class="summary-cards">
+          <div class="summary-card">
+            <h3>Sales Base (Base Imponible)</h3>
+            <div class="amount">${formatCurrency(declaration.sales.baseImponible)}</div>
+            <p style="margin-top: 10px; font-size: 12px;">${declaration.sales.numberOfBills} bills</p>
+          </div>
+          <div class="summary-card">
+            <h3>IGIC Collected (Cuota Devengada)</h3>
+            <div class="amount" style="color: #2e7d32;">${formatCurrency(declaration.sales.cuotaDevengada)}</div>
+            <p style="margin-top: 10px; font-size: 12px;">IGIC Rate: ${(declaration.igicRate * 100).toFixed(1)}%</p>
+          </div>
+          <div class="summary-card">
+            <h3>Purchases Base (Base Imponible)</h3>
+            <div class="amount" style="color: #0288d1;">${formatCurrency(declaration.purchases.baseImponible)}</div>
+            <p style="margin-top: 10px; font-size: 12px;">${declaration.purchases.numberOfExpenses} expenses</p>
+          </div>
+          <div class="summary-card">
+            <h3>IGIC Paid (Cuota Soportada)</h3>
+            <div class="amount" style="color: #f57c00;">${formatCurrency(declaration.purchases.cuotaSoportada)}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Concept</th>
+              <th class="text-right">Base Imponible</th>
+              <th class="text-right">IGIC (${(declaration.igicRate * 100).toFixed(1)}%)</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Sales (Ventas)</strong></td>
+              <td class="text-right">${formatCurrency(declaration.sales.baseImponible)}</td>
+              <td class="text-right">${formatCurrency(declaration.sales.cuotaDevengada)}</td>
+              <td class="text-right">${formatCurrency(declaration.sales.baseImponible + declaration.sales.cuotaDevengada)}</td>
+            </tr>
+            <tr>
+              <td><strong>Purchases (Compras)</strong></td>
+              <td class="text-right">${formatCurrency(declaration.purchases.baseImponible)}</td>
+              <td class="text-right">${formatCurrency(declaration.purchases.cuotaSoportada)}</td>
+              <td class="text-right">${formatCurrency(declaration.purchases.baseImponible + declaration.purchases.cuotaSoportada)}</td>
+            </tr>
+            <tr class="net-result">
+              <td><strong>Net IGIC to ${declaration.netIgicToPay >= 0 ? 'Pay' : 'Receive'}</strong></td>
+              <td class="text-right">-</td>
+              <td class="text-right"><strong>${formatCurrency(Math.abs(declaration.netIgicToPay))}</strong></td>
+              <td class="text-right">-</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p>This declaration was generated by DCMS - Dive Center Management System</p>
+          <p>Deep Blue Diving - Fuerteventura, Canary Islands, Spain</p>
+          <p><strong>Note:</strong> This is a summary document. Please verify all amounts before submitting to Hacienda/AEAT.</p>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -797,6 +1156,7 @@ const Financial = () => {
             <Tab label="Previous Closed Days" icon={<HistoryIcon />} iconPosition="start" />
           )}
           <Tab label="Historical Bills" icon={<ReceiptIcon />} iconPosition="start" />
+          <Tab label="Quarterly IGIC Declaration" icon={<DescriptionIcon />} iconPosition="start" />
         </Tabs>
       </Paper>
 
@@ -1225,6 +1585,230 @@ const Financial = () => {
               );
             }
           })()}
+        </Box>
+      )}
+
+      {((activeTab === 3 && !isBikeRental) || (activeTab === 2 && isBikeRental)) && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Typography variant="h5">Quarterly IGIC Declaration</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={loadIgicDeclaration}
+            >
+              Refresh
+            </Button>
+          </Box>
+
+          {/* Quarter and Year Selector */}
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Quarter</InputLabel>
+                  <Select
+                    value={selectedQuarter}
+                    label="Quarter"
+                    onChange={(e) => setSelectedQuarter(parseInt(e.target.value))}
+                  >
+                    <MenuItem value={1}>Q1 (Jan - Mar)</MenuItem>
+                    <MenuItem value={2}>Q2 (Apr - Jun)</MenuItem>
+                    <MenuItem value={3}>Q3 (Jul - Sep)</MenuItem>
+                    <MenuItem value={4}>Q4 (Oct - Dec)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Year"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value) || new Date().getFullYear())}
+                  inputProps={{ min: 2020, max: 2100 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">
+                  Period: {igicDeclaration?.dateRange ? 
+                    `${format(new Date(igicDeclaration.dateRange.start), 'dd/MM/yyyy')} - ${format(new Date(igicDeclaration.dateRange.end), 'dd/MM/yyyy')}` 
+                    : getQuarterDateRange(selectedQuarter, selectedYear).start + ' - ' + getQuarterDateRange(selectedQuarter, selectedYear).end}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          {igicLoading ? (
+            <Typography>Loading IGIC declaration data...</Typography>
+          ) : igicDeclaration ? (
+            <>
+              {/* Summary Cards */}
+              <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom variant="body2">
+                        Sales Base (Base Imponible)
+                      </Typography>
+                      <Typography variant="h4" color="primary">
+                        {formatCurrency(igicDeclaration.sales.baseImponible)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        {igicDeclaration.sales.numberOfBills} bills
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom variant="body2">
+                        IGIC Collected (Cuota Devengada)
+                      </Typography>
+                      <Typography variant="h4" color="success.main">
+                        {formatCurrency(igicDeclaration.sales.cuotaDevengada)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        IGIC Rate: {(igicDeclaration.igicRate * 100).toFixed(1)}%
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom variant="body2">
+                        Purchases Base (Base Imponible)
+                      </Typography>
+                      <Typography variant="h4" color="info.main">
+                        {formatCurrency(igicDeclaration.purchases.baseImponible)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        {igicDeclaration.purchases.numberOfExpenses} expenses
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom variant="body2">
+                        IGIC Paid (Cuota Soportada)
+                      </Typography>
+                      <Typography variant="h4" color="warning.main">
+                        {formatCurrency(igicDeclaration.purchases.cuotaSoportada)}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {/* Net IGIC Result */}
+              <Paper sx={{ p: 3, mb: 3, bgcolor: igicDeclaration.netIgicToPay >= 0 ? 'success.light' : 'info.light' }}>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="h6" gutterBottom>
+                      Net IGIC to {igicDeclaration.netIgicToPay >= 0 ? 'Pay' : 'Receive'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Resultado a {igicDeclaration.netIgicToPay >= 0 ? 'ingresar' : 'compensar'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+                    <Typography 
+                      variant="h3" 
+                      color={igicDeclaration.netIgicToPay >= 0 ? 'success.main' : 'info.main'}
+                      fontWeight="bold"
+                    >
+                      {formatCurrency(Math.abs(igicDeclaration.netIgicToPay))}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+
+              {/* Detailed Breakdown */}
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                  Detailed Breakdown
+                </Typography>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell><strong>Concept</strong></TableCell>
+                        <TableCell align="right"><strong>Base Imponible</strong></TableCell>
+                        <TableCell align="right"><strong>IGIC ({(igicDeclaration.igicRate * 100).toFixed(1)}%)</strong></TableCell>
+                        <TableCell align="right"><strong>Total</strong></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell><strong>Sales (Ventas)</strong></TableCell>
+                        <TableCell align="right">{formatCurrency(igicDeclaration.sales.baseImponible)}</TableCell>
+                        <TableCell align="right">{formatCurrency(igicDeclaration.sales.cuotaDevengada)}</TableCell>
+                        <TableCell align="right">{formatCurrency(igicDeclaration.sales.baseImponible + igicDeclaration.sales.cuotaDevengada)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><strong>Purchases (Compras)</strong></TableCell>
+                        <TableCell align="right">{formatCurrency(igicDeclaration.purchases.baseImponible)}</TableCell>
+                        <TableCell align="right">{formatCurrency(igicDeclaration.purchases.cuotaSoportada)}</TableCell>
+                        <TableCell align="right">{formatCurrency(igicDeclaration.purchases.baseImponible + igicDeclaration.purchases.cuotaSoportada)}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ bgcolor: 'action.hover' }}>
+                        <TableCell><strong>Net Result</strong></TableCell>
+                        <TableCell align="right">-</TableCell>
+                        <TableCell align="right">
+                          <strong>{formatCurrency(igicDeclaration.netIgicToPay)}</strong>
+                        </TableCell>
+                        <TableCell align="right">-</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+
+              {/* Action Buttons */}
+              <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<PrintIcon />}
+                  onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    const html = generateIgicDeclarationHTML(igicDeclaration);
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                    printWindow.print();
+                  }}
+                >
+                  Print Declaration
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => {
+                    const html = generateIgicDeclarationHTML(igicDeclaration);
+                    const blob = new Blob([html], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', `igic_declaration_Q${igicDeclaration.quarter}_${igicDeclaration.year}.html`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Download Declaration
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Alert severity="info">
+              Select a quarter and year, then the declaration will be calculated automatically.
+            </Alert>
+          )}
         </Box>
       )}
 
