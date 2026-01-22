@@ -91,7 +91,7 @@ const Financial = () => {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [igicDeclaration, setIgicDeclaration] = useState(null);
   const [igicLoading, setIgicLoading] = useState(false);
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState({ prices: {} });
   const [expenseFormData, setExpenseFormData] = useState({
     description: '',
     category: 'gasoline',
@@ -161,17 +161,18 @@ const Financial = () => {
   }, []);
 
   const loadSettings = useCallback(async () => {
+    // Settings are now loaded from location pricing, but we keep this for backward compatibility
+    // Tax settings are read from current location's pricing
     try {
       const allSettings = await dataService.getAll('settings');
       if (Array.isArray(allSettings) && allSettings.length > 0) {
         setSettings(allSettings[0]);
       } else {
-        // Fallback to default IGIC rate
-        setSettings({ prices: { tax: { igic_rate: 0.07 } } });
+        setSettings({ prices: {} });
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      setSettings({ prices: { tax: { igic_rate: 0.07 } } });
+      setSettings({ prices: {} });
     }
   }, []);
 
@@ -271,8 +272,10 @@ const Financial = () => {
       const isGlobal = scope === 'global';
       const currentLocationId = isGlobal ? null : localStorage.getItem('dcms_current_location');
       
-      // Get IGIC rate from settings
-      const igicRate = settings?.prices?.tax?.igic_rate || 0.07;
+      // Get tax name and rate from current location's pricing (location-specific)
+      const currentLoc = locations.find(l => l.id === currentLocationId);
+      const taxName = currentLoc?.pricing?.tax?.tax_name || currentLoc?.settings?.pricing?.tax?.tax_name || 'IGIC';
+      const igicRate = currentLoc?.pricing?.tax?.igic_rate || currentLoc?.settings?.pricing?.tax?.igic_rate || 0.07;
       
       // Load all bills for the quarter
       const allBills = await dataService.getAll('customerBills') || [];
@@ -371,7 +374,8 @@ const Financial = () => {
           numberOfExpenses: quarterExpenses.length
         },
         netIgicToPay,
-        igicRate
+        igicRate,
+        taxName
       });
     } catch (error) {
       console.error('Error loading IGIC declaration:', error);
@@ -420,24 +424,24 @@ const Financial = () => {
   // Reload IGIC declaration when quarter or year changes
   useEffect(() => {
     if ((activeTab === 3 && !isBikeRental) || (activeTab === 2 && isBikeRental)) {
-      if (settings) {
+      if (locations.length > 0) {
         loadIgicDeclaration();
       }
     }
-  }, [selectedQuarter, selectedYear, activeTab, isBikeRental, settings, loadIgicDeclaration, currentLocationId]);
+  }, [selectedQuarter, selectedYear, activeTab, isBikeRental, locations, loadIgicDeclaration, currentLocationId]);
 
   // Reload IGIC declaration when scope or location changes
   useEffect(() => {
     if ((activeTab === 3 && !isBikeRental) || (activeTab === 2 && isBikeRental)) {
       const onScopeChange = () => {
-        if (settings) {
+        if (locations.length > 0) {
           loadIgicDeclaration();
         }
       };
       window.addEventListener('dcms_location_changed', onScopeChange);
       window.addEventListener('storage', (e) => {
         if (e.key === 'dcms_dashboard_scope' || e.key === 'dcms_current_location') {
-          if (settings) {
+          if (locations.length > 0) {
             loadIgicDeclaration();
           }
         }
@@ -446,7 +450,7 @@ const Financial = () => {
         window.removeEventListener('dcms_location_changed', onScopeChange);
       };
     }
-  }, [activeTab, isBikeRental, settings, loadIgicDeclaration]);
+  }, [activeTab, isBikeRental, locations, currentLocationId, loadIgicDeclaration]);
 
   useEffect(() => {
     filterBills();
@@ -981,13 +985,14 @@ const Financial = () => {
     const location = locations.find(l => l.id === localStorage.getItem('dcms_current_location'));
     const locationName = location?.name || 'All Locations';
     const quarterNames = ['', 'Q1 (January - March)', 'Q2 (April - June)', 'Q3 (July - September)', 'Q4 (October - December)'];
+    const taxName = declaration.taxName || 'IGIC';
     
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>IGIC Declaration - ${quarterNames[declaration.quarter]} ${declaration.year}</title>
+        <title>${taxName} Declaration - ${quarterNames[declaration.quarter]} ${declaration.year}</title>
         <style>
           body { 
             font-family: Arial, sans-serif; 
@@ -1071,7 +1076,7 @@ const Financial = () => {
       </head>
       <body>
         <div class="header">
-          <h1>IGIC Quarterly Declaration</h1>
+          <h1>${taxName} Quarterly Declaration</h1>
           <h2>${locationName}</h2>
           <p><strong>Period:</strong> ${quarterNames[declaration.quarter]} ${declaration.year}</p>
           <p><strong>Date Range:</strong> ${format(new Date(declaration.dateRange.start), 'dd/MM/yyyy')} - ${format(new Date(declaration.dateRange.end), 'dd/MM/yyyy')}</p>
@@ -1085,9 +1090,9 @@ const Financial = () => {
             <p style="margin-top: 10px; font-size: 12px;">${declaration.sales.numberOfBills} bills</p>
           </div>
           <div class="summary-card">
-            <h3>IGIC Collected (Cuota Devengada)</h3>
+            <h3>${taxName} Collected (Cuota Devengada)</h3>
             <div class="amount" style="color: #2e7d32;">${formatCurrency(declaration.sales.cuotaDevengada)}</div>
-            <p style="margin-top: 10px; font-size: 12px;">IGIC Rate: ${(declaration.igicRate * 100).toFixed(1)}%</p>
+            <p style="margin-top: 10px; font-size: 12px;">${taxName} Rate: ${(declaration.igicRate * 100).toFixed(1)}%</p>
           </div>
           <div class="summary-card">
             <h3>Purchases Base (Base Imponible)</h3>
@@ -1095,7 +1100,7 @@ const Financial = () => {
             <p style="margin-top: 10px; font-size: 12px;">${declaration.purchases.numberOfExpenses} expenses</p>
           </div>
           <div class="summary-card">
-            <h3>IGIC Paid (Cuota Soportada)</h3>
+            <h3>${taxName} Paid (Cuota Soportada)</h3>
             <div class="amount" style="color: #f57c00;">${formatCurrency(declaration.purchases.cuotaSoportada)}</div>
           </div>
         </div>
@@ -1105,7 +1110,7 @@ const Financial = () => {
             <tr>
               <th>Concept</th>
               <th class="text-right">Base Imponible</th>
-              <th class="text-right">IGIC (${(declaration.igicRate * 100).toFixed(1)}%)</th>
+              <th class="text-right">${taxName} (${(declaration.igicRate * 100).toFixed(1)}%)</th>
               <th class="text-right">Total</th>
             </tr>
           </thead>
@@ -1123,7 +1128,7 @@ const Financial = () => {
               <td class="text-right">${formatCurrency(declaration.purchases.baseImponible + declaration.purchases.cuotaSoportada)}</td>
             </tr>
             <tr class="net-result">
-              <td><strong>Net IGIC to ${declaration.netIgicToPay >= 0 ? 'Pay' : 'Receive'}</strong></td>
+              <td><strong>Net ${taxName} to ${declaration.netIgicToPay >= 0 ? 'Pay' : 'Receive'}</strong></td>
               <td class="text-right">-</td>
               <td class="text-right"><strong>${formatCurrency(Math.abs(declaration.netIgicToPay))}</strong></td>
               <td class="text-right">-</td>
@@ -1141,6 +1146,10 @@ const Financial = () => {
     `;
   };
 
+  // Compute tax name from current location's pricing (location-specific)
+  const taxName = currentLocation?.pricing?.tax?.tax_name || currentLocation?.settings?.pricing?.tax?.tax_name || 'IGIC';
+  const taxRate = currentLocation?.pricing?.tax?.igic_rate || currentLocation?.settings?.pricing?.tax?.igic_rate || 0.07;
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1156,7 +1165,7 @@ const Financial = () => {
             <Tab label="Previous Closed Days" icon={<HistoryIcon />} iconPosition="start" />
           )}
           <Tab label="Historical Bills" icon={<ReceiptIcon />} iconPosition="start" />
-          <Tab label="Quarterly IGIC Declaration" icon={<DescriptionIcon />} iconPosition="start" />
+          <Tab label={`Quarterly ${taxName} Declaration`} icon={<DescriptionIcon />} iconPosition="start" />
         </Tabs>
       </Paper>
 
@@ -1591,7 +1600,7 @@ const Financial = () => {
       {((activeTab === 3 && !isBikeRental) || (activeTab === 2 && isBikeRental)) && (
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-            <Typography variant="h5">Quarterly IGIC Declaration</Typography>
+            <Typography variant="h5">Quarterly {igicDeclaration?.taxName || taxName} Declaration</Typography>
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
@@ -1641,7 +1650,7 @@ const Financial = () => {
           </Paper>
 
           {igicLoading ? (
-            <Typography>Loading IGIC declaration data...</Typography>
+            <Typography>Loading {taxName} declaration data...</Typography>
           ) : igicDeclaration ? (
             <>
               {/* Summary Cards */}
@@ -1665,13 +1674,13 @@ const Financial = () => {
                   <Card>
                     <CardContent>
                       <Typography color="text.secondary" gutterBottom variant="body2">
-                        IGIC Collected (Cuota Devengada)
+                        {igicDeclaration.taxName || 'IGIC'} Collected (Cuota Devengada)
                       </Typography>
                       <Typography variant="h4" color="success.main">
                         {formatCurrency(igicDeclaration.sales.cuotaDevengada)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        IGIC Rate: {(igicDeclaration.igicRate * 100).toFixed(1)}%
+                        {igicDeclaration.taxName || 'IGIC'} Rate: {(igicDeclaration.igicRate * 100).toFixed(1)}%
                       </Typography>
                     </CardContent>
                   </Card>
@@ -1695,7 +1704,7 @@ const Financial = () => {
                   <Card>
                     <CardContent>
                       <Typography color="text.secondary" gutterBottom variant="body2">
-                        IGIC Paid (Cuota Soportada)
+                        {igicDeclaration.taxName || 'IGIC'} Paid (Cuota Soportada)
                       </Typography>
                       <Typography variant="h4" color="warning.main">
                         {formatCurrency(igicDeclaration.purchases.cuotaSoportada)}
@@ -1710,7 +1719,7 @@ const Financial = () => {
                 <Grid container spacing={2} alignItems="center">
                   <Grid item xs={12} sm={6}>
                     <Typography variant="h6" gutterBottom>
-                      Net IGIC to {igicDeclaration.netIgicToPay >= 0 ? 'Pay' : 'Receive'}
+                      Net {igicDeclaration.taxName || 'IGIC'} to {igicDeclaration.netIgicToPay >= 0 ? 'Pay' : 'Receive'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Resultado a {igicDeclaration.netIgicToPay >= 0 ? 'ingresar' : 'compensar'}
@@ -1739,7 +1748,7 @@ const Financial = () => {
                       <TableRow>
                         <TableCell><strong>Concept</strong></TableCell>
                         <TableCell align="right"><strong>Base Imponible</strong></TableCell>
-                        <TableCell align="right"><strong>IGIC ({(igicDeclaration.igicRate * 100).toFixed(1)}%)</strong></TableCell>
+                        <TableCell align="right"><strong>{igicDeclaration.taxName || 'IGIC'} ({(igicDeclaration.igicRate * 100).toFixed(1)}%)</strong></TableCell>
                         <TableCell align="right"><strong>Total</strong></TableCell>
                       </TableRow>
                     </TableHead>
@@ -1793,7 +1802,8 @@ const Financial = () => {
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.setAttribute('download', `igic_declaration_Q${igicDeclaration.quarter}_${igicDeclaration.year}.html`);
+                    const taxName = (igicDeclaration.taxName || 'IGIC').toLowerCase();
+                    link.setAttribute('download', `${taxName}_declaration_Q${igicDeclaration.quarter}_${igicDeclaration.year}.html`);
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -2326,7 +2336,7 @@ const Financial = () => {
                     <Typography variant="body1">{formatCurrency(selectedBill.subtotal)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="body2" color="text.secondary">Tax (IGIC)</Typography>
+                    <Typography variant="body2" color="text.secondary">Tax ({taxName})</Typography>
                   </Grid>
                   <Grid item xs={6} sx={{ textAlign: 'right' }}>
                     <Typography variant="body1">{formatCurrency(selectedBill.tax)}</Typography>

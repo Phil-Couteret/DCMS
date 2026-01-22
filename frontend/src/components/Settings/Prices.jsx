@@ -70,6 +70,7 @@ const Prices = () => {
         price: 0 // Single price for all beverages
       },
       tax: {
+        tax_name: 'IGIC',
         igic_rate: 0.07
       }
     }
@@ -98,6 +99,10 @@ const Prices = () => {
             diveInsurance: {
               ...defaultSettings.prices.diveInsurance,
               ...(existingSettings.prices?.diveInsurance || {})
+            },
+            tax: {
+              ...defaultSettings.prices.tax,
+              ...(existingSettings.prices?.tax || {})
             }
           }
         };
@@ -187,6 +192,14 @@ const Prices = () => {
       if (loc.pricing.addons.dive_trip_gran_tarajal_lajita === undefined) {
         loc.pricing.addons.dive_trip_gran_tarajal_lajita = 45;
       }
+    }
+    
+    // Initialize tax settings if missing
+    if (!loc.pricing.tax) {
+      loc.pricing.tax = {
+        tax_name: 'IGIC',
+        igic_rate: 0.07
+      };
     }
     
     return loc;
@@ -401,31 +414,27 @@ const Prices = () => {
     });
   };
 
-  // Tax settings are global across locations
+  // Tax settings are location-specific
   const handleTaxRateChange = (value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        tax: {
-          ...settings.prices.tax,
-          igic_rate: (parseFloat(value) || 0) / 100
-        }
+    if (!selectedLocationId) return;
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      tax: {
+        ...(pricing.tax || { tax_name: 'IGIC', igic_rate: 0.07 }),
+        igic_rate: (parseFloat(value) || 0) / 100
       }
-    });
+    }));
   };
 
-  const handleTaxLabelChange = (value) => {
-    setSettings({
-      ...settings,
-      prices: {
-        ...settings.prices,
-        tax: {
-          ...settings.prices.tax,
-          igic_label: value
-        }
+  const handleTaxNameChange = (value) => {
+    if (!selectedLocationId) return;
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      tax: {
+        ...(pricing.tax || { tax_name: 'IGIC', igic_rate: 0.07 }),
+        tax_name: value
       }
-    });
+    }));
   };
 
   if (!settings) {
@@ -1028,25 +1037,28 @@ const Prices = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <TextField
-                    label="IGIC Rate"
+                    label="Tax Name"
+                    value={locPricing.tax?.tax_name || 'IGIC'}
+                    onChange={(e) => handleTaxNameChange(e.target.value)}
+                    fullWidth
+                    size="small"
+                    helperText="Tax name (e.g., IGIC, IVA, TVA, VAT)"
+                    disabled={!selectedLocationId}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label={`${locPricing.tax?.tax_name || 'Tax'} Rate`}
                     type="number"
-                    value={((settings.prices.tax?.igic_rate || 0) * 100).toFixed(1)}
+                    value={((locPricing.tax?.igic_rate || 0.07) * 100).toFixed(1)}
                     onChange={(e) => handleTaxRateChange(e.target.value)}
                     fullWidth
                     size="small"
                     InputProps={{
                       endAdornment: '%'
                     }}
-                    helperText="IGIC rate (7% = 0.07)"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    label="Tax Label"
-                    value={settings.prices.tax?.igic_label || ''}
-                    onChange={(e) => handleTaxLabelChange(e.target.value)}
-                    fullWidth
-                    size="small"
+                    helperText={`${locPricing.tax?.tax_name || 'Tax'} rate (e.g., 7% = 0.07 for IGIC, 21% = 0.21 for IVA)`}
+                    disabled={!selectedLocationId}
                   />
                 </Grid>
               </Grid>
