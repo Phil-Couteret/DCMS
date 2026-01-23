@@ -142,6 +142,27 @@ const Settings = () => {
   });
 
 
+  // Locations Management state
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [locationFormData, setLocationFormData] = useState({
+    name: '',
+    type: 'diving',
+    address: {
+      street: '',
+      city: '',
+      postalCode: '',
+      country: ''
+    },
+    contactInfo: {
+      phone: '',
+      mobile: '',
+      email: '',
+      website: ''
+    },
+    isActive: true
+  });
+
   // Partners Management state
   const [partners, setPartners] = useState([]);
   const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
@@ -303,10 +324,112 @@ const Settings = () => {
   const loadLocations = async () => {
     try {
       const allLocations = await dataService.getAll('locations') || [];
-      setLocations(Array.isArray(allLocations) ? allLocations : []);
+      // Normalize location data - handle both isActive and is_active field names
+      const normalizedLocations = Array.isArray(allLocations) 
+        ? allLocations.map(loc => ({
+            ...loc,
+            isActive: loc.isActive !== undefined ? loc.isActive : (loc.is_active !== undefined ? loc.is_active : true),
+            contactInfo: loc.contactInfo || loc.contact_info || {}
+          }))
+        : [];
+      setLocations(normalizedLocations);
     } catch (error) {
       console.error('Error loading locations:', error);
       setLocations([]);
+    }
+  };
+
+  // Location Management functions
+  const handleSaveLocation = async () => {
+    try {
+      if (!locationFormData.name.trim()) {
+        setSnackbar({
+          open: true,
+          message: 'Location name is required',
+          severity: 'error'
+        });
+        return;
+      }
+
+      const locationData = {
+        name: locationFormData.name.trim(),
+        type: locationFormData.type,
+        address: locationFormData.address,
+        contactInfo: locationFormData.contactInfo,
+        isActive: locationFormData.isActive
+      };
+
+      if (editingLocation) {
+        // Update existing location
+        await dataService.update('locations', editingLocation.id, locationData);
+        setSnackbar({
+          open: true,
+          message: 'Location updated successfully!',
+          severity: 'success'
+        });
+      } else {
+        // Create new location
+        await dataService.create('locations', {
+          ...locationData,
+          createdAt: new Date().toISOString()
+        });
+        setSnackbar({
+          open: true,
+          message: 'Location created successfully!',
+          severity: 'success'
+        });
+      }
+
+      setLocationDialogOpen(false);
+      setEditingLocation(null);
+      setLocationFormData({
+        name: '',
+        type: 'diving',
+        address: {
+          street: '',
+          city: '',
+          postalCode: '',
+          country: ''
+        },
+        contactInfo: {
+          phone: '',
+          mobile: '',
+          email: '',
+          website: ''
+        },
+        isActive: true
+      });
+      loadLocations();
+    } catch (error) {
+      console.error('Error saving location:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error saving location',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDeleteLocation = async (locationId) => {
+    if (!window.confirm('Are you sure you want to delete this location? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await dataService.remove('locations', locationId);
+      setSnackbar({
+        open: true,
+        message: 'Location deleted successfully!',
+        severity: 'success'
+      });
+      loadLocations();
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error deleting location',
+        severity: 'error'
+      });
     }
   };
 
@@ -1451,6 +1574,11 @@ const Settings = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
           <Tab 
+            icon={<LocationIcon />} 
+            label="Locations" 
+            iconPosition="start"
+          />
+          <Tab 
             icon={<PricesIcon />} 
             label={t('settings.tabs.prices') || 'Prices'} 
             iconPosition="start"
@@ -1485,12 +1613,331 @@ const Settings = () => {
 
       {activeTab === 0 && (
         <Box>
+          {/* Locations Management */}
+          {isAdmin() && (
+            <>
+              <Paper sx={{ p: 3, mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Box>
+                    <Typography variant="h5" gutterBottom>
+                      Locations Configuration
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Configure location names and activity types. This is the initial setup for your business locations.
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                      setEditingLocation(null);
+                      setLocationFormData({
+                        name: '',
+                        type: 'diving',
+                        address: {
+                          street: '',
+                          city: '',
+                          postalCode: '',
+                          country: ''
+                        },
+                        contactInfo: {
+                          phone: '',
+                          mobile: '',
+                          email: '',
+                          website: ''
+                        },
+                        isActive: true
+                      });
+                      setLocationDialogOpen(true);
+                    }}
+                  >
+                    Add Location
+                  </Button>
+                </Box>
+
+                {locations.length === 0 ? (
+                  <Alert severity="info">
+                    No locations configured. Click "Add Location" to create your first location.
+                  </Alert>
+                ) : (
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell><strong>Location Name</strong></TableCell>
+                          <TableCell><strong>Activity Type</strong></TableCell>
+                          <TableCell><strong>Address</strong></TableCell>
+                          <TableCell><strong>Status</strong></TableCell>
+                          <TableCell align="right"><strong>Actions</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {locations.map((location) => (
+                          <TableRow key={location.id}>
+                            <TableCell><strong>{location.name}</strong></TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={location.type === 'bike_rental' ? 'Bike Rental' : 'Diving'} 
+                                color={location.type === 'bike_rental' ? 'secondary' : 'primary'}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {location.address?.street || location.address?.city 
+                                ? `${location.address?.street || ''}, ${location.address?.city || ''}`.trim()
+                                : 'Not set'}
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={(location.isActive !== undefined ? location.isActive : (location.is_active !== undefined ? location.is_active : true)) ? 'Active' : 'Inactive'} 
+                                color={(location.isActive !== undefined ? location.isActive : (location.is_active !== undefined ? location.is_active : true)) ? 'success' : 'default'}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setEditingLocation(location);
+                                  setLocationFormData({
+                                    name: location.name || '',
+                                    type: location.type || 'diving',
+                                    address: location.address || {
+                                      street: '',
+                                      city: '',
+                                      postalCode: '',
+                                      country: ''
+                                    },
+                                    contactInfo: location.contactInfo || location.contact_info || {
+                                      phone: '',
+                                      mobile: '',
+                                      email: '',
+                                      website: ''
+                                    },
+                                    isActive: location.isActive !== undefined ? location.isActive : (location.is_active !== undefined ? location.is_active : true)
+                                  });
+                                  setLocationDialogOpen(true);
+                                }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDeleteLocation(location.id)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+
+              {/* Location Dialog */}
+              <Dialog 
+                open={locationDialogOpen} 
+                onClose={() => setLocationDialogOpen(false)}
+                maxWidth="md"
+                fullWidth
+              >
+                <DialogTitle>
+                  {editingLocation ? 'Edit Location' : 'Add Location'}
+                </DialogTitle>
+                <DialogContent>
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Location Name"
+                        value={locationFormData.name}
+                        onChange={(e) => setLocationFormData({ ...locationFormData, name: e.target.value })}
+                        required
+                        helperText="Enter the name of this location (e.g., 'Caleta de Fuste', 'Las Playitas')"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Activity Type</InputLabel>
+                        <Select
+                          value={locationFormData.type}
+                          onChange={(e) => setLocationFormData({ ...locationFormData, type: e.target.value })}
+                          label="Activity Type"
+                        >
+                          <MenuItem value="diving">Diving</MenuItem>
+                          <MenuItem value="bike_rental">Bike Rental</MenuItem>
+                        </Select>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                          Select the primary activity type for this location
+                        </Typography>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" gutterBottom>
+                        Address Information
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Street Address"
+                        value={locationFormData.address.street}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          address: { ...locationFormData.address, street: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="City"
+                        value={locationFormData.address.city}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          address: { ...locationFormData.address, city: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Postal Code"
+                        value={locationFormData.address.postalCode}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          address: { ...locationFormData.address, postalCode: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Country"
+                        value={locationFormData.address.country}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          address: { ...locationFormData.address, country: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" gutterBottom>
+                        Contact Information
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Phone"
+                        value={locationFormData.contactInfo.phone}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          contactInfo: { ...locationFormData.contactInfo, phone: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Mobile"
+                        value={locationFormData.contactInfo.mobile}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          contactInfo: { ...locationFormData.contactInfo, mobile: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Email"
+                        type="email"
+                        value={locationFormData.contactInfo.email}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          contactInfo: { ...locationFormData.contactInfo, email: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Website"
+                        value={locationFormData.contactInfo.website}
+                        onChange={(e) => setLocationFormData({
+                          ...locationFormData,
+                          contactInfo: { ...locationFormData.contactInfo, website: e.target.value }
+                        })}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={locationFormData.isActive}
+                            onChange={(e) => setLocationFormData({ ...locationFormData, isActive: e.target.checked })}
+                          />
+                        }
+                        label="Active Location"
+                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        Inactive locations will be hidden from selection lists
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => {
+                    setLocationDialogOpen(false);
+                    setEditingLocation(null);
+                    setLocationFormData({
+                      name: '',
+                      type: 'diving',
+                      address: {
+                        street: '',
+                        city: '',
+                        postalCode: '',
+                        country: ''
+                      },
+                      contactInfo: {
+                        phone: '',
+                        mobile: '',
+                        email: '',
+                        website: ''
+                      },
+                      isActive: true
+                    });
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSaveLocation}
+                  >
+                    {editingLocation ? 'Update' : 'Create'}
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </>
+          )}
+        </Box>
+      )}
+
+      {activeTab === 1 && (
+        <Box>
           {/* Prices Settings */}
           <Prices />
         </Box>
       )}
 
-      {activeTab === 1 && (
+      {activeTab === 2 && (
         <Box>
           {/* Dive Sites Management */}
           {isAdmin() && (
@@ -1994,7 +2441,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 2 && (
+      {activeTab === 3 && (
         <Box>
           {/* Boats Management */}
           {isAdmin() && (
@@ -2283,7 +2730,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 3 && (
+      {activeTab === 4 && (
         <Box>
           {/* User Management - Only visible to admins and superadmins */}
           {isAdmin() && (
@@ -2457,7 +2904,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 4 && (
+      {activeTab === 5 && (
         <Box>
           {/* Partners Management - Only visible to admins */}
           {isAdmin() && (
@@ -2613,7 +3060,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 5 && (
+      {activeTab === 6 && (
         <Box>
           {/* Certification Verification Settings */}
           <Accordion defaultExpanded sx={{ mb: 3 }}>

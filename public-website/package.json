@@ -1,6 +1,6 @@
 {
   "name": "public-website",
-  "version": "1.6.6",
+  "version": "1.0.0",
   "private": true,
   "description": "Customer-facing public website for Deep Blue Diving",
   "dependencies": {
