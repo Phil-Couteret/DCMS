@@ -544,7 +544,6 @@ const BoatPrep = () => {
             updateData.slotAssignment = null;
             return dataService.update('bookings', bookingId, updateData);
           }));
-          console.log(`[BoatPrep] Updated ${updates.length} booking(s) with boat assignments`);
         } catch (error) {
           console.error('[BoatPrep] Error updating bookings with boat assignments:', error);
         }

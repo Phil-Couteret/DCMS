@@ -357,7 +357,7 @@ model government_bonos {
 model locations {
   id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String            @db.VarChar(100)
-  type            location_type
+  type            String            @db.VarChar(50)
   address         Json
   contact_info    Json
   settings        Json?             @default("{}")
@@ -649,12 +649,6 @@ enum incident_type {
   lost_equipment
   customer_complaint
   other
-}
-
-enum location_type {
-  diving
-  bike_rental
-  future
 }
 
 enum payment_method {

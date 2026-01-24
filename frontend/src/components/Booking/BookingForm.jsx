@@ -1123,18 +1123,11 @@ const BookingForm = ({ bookingId = null }) => {
         backendBookingData.stayId = String(bookingData.stayId).trim();
       }
       
-      console.log('=== Sending booking data to backend ===');
-      console.log('Backend booking data:', backendBookingData);
-      console.log('Backend booking data (JSON):', JSON.stringify(backendBookingData, null, 2));
-      
       try {
-        console.log('Calling dataService.create...');
         if (bookingId) {
-          const result = await dataService.update('bookings', bookingId, backendBookingData);
-          console.log('Booking updated successfully:', result);
+          await dataService.update('bookings', bookingId, backendBookingData);
         } else {
-          const result = await dataService.create('bookings', backendBookingData);
-          console.log('Booking created successfully:', result);
+          await dataService.create('bookings', backendBookingData);
         }
         
         setSaved(true);

@@ -61,12 +61,22 @@ import {
   LocationOn as LocationIcon,
   VpnKey as ApiKeyIcon,
   Business as BusinessIcon,
-  ContentCopy as CopyIcon
+  ContentCopy as CopyIcon,
+  Category as CategoryIcon,
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES, AVAILABLE_PERMISSIONS, ALL_PERMISSIONS } from '../utils/authContext';
 import Prices from '../components/Settings/Prices';
 import { useTranslation } from '../utils/languageContext';
+import {
+  getLocationTypes,
+  getDisplayName,
+  getTypeColor,
+  hasDivingFeatures,
+  isValidTypeId,
+  FEATURE_KEYS,
+  DEFAULT_FEATURES,
+} from '../utils/locationTypes';
 
 const Settings = () => {
   const { isAdmin, isSuperAdmin } = useAuth();
@@ -147,7 +157,7 @@ const Settings = () => {
   const [editingLocation, setEditingLocation] = useState(null);
   const [locationFormData, setLocationFormData] = useState({
     name: '',
-    type: 'diving',
+    type: '',
     address: {
       street: '',
       city: '',
@@ -161,6 +171,25 @@ const Settings = () => {
       website: ''
     },
     isActive: true
+  });
+
+  // Location Types (configurable) state
+  const [locationTypeDialogOpen, setLocationTypeDialogOpen] = useState(false);
+  const [editingLocationType, setEditingLocationType] = useState(null);
+  const [locationTypeFormData, setLocationTypeFormData] = useState({
+    id: '',
+    name: '',
+    displayName: '',
+    icon: 'scuba_diving',
+    color: 'primary',
+    order: 0,
+    isActive: true,
+    features: {
+      requiresBoats: false,
+      requiresDiveSites: false,
+      requiresCertifications: false,
+      requiresMedicalClearance: false,
+    },
   });
 
   // Partners Management state
@@ -229,9 +258,13 @@ const Settings = () => {
       const savedSettings = await dataService.getAll('settings') || [];
       if (Array.isArray(savedSettings) && savedSettings.length > 0) {
         const loadedSettings = savedSettings[0];
+        const locationTypes = Array.isArray(loadedSettings.locationTypes)
+          ? loadedSettings.locationTypes
+          : [];
         setSettings(prev => ({
           ...prev,
-          ...loadedSettings
+          ...loadedSettings,
+          locationTypes,
         }));
         setSettingsId(loadedSettings.id);
       }
@@ -324,12 +357,11 @@ const Settings = () => {
   const loadLocations = async () => {
     try {
       const allLocations = await dataService.getAll('locations') || [];
-      // Normalize location data - handle both isActive and is_active field names
-      const normalizedLocations = Array.isArray(allLocations) 
-        ? allLocations.map(loc => ({
+      const normalizedLocations = Array.isArray(allLocations)
+        ? allLocations.map((loc) => ({
             ...loc,
             isActive: loc.isActive !== undefined ? loc.isActive : (loc.is_active !== undefined ? loc.is_active : true),
-            contactInfo: loc.contactInfo || loc.contact_info || {}
+            contactInfo: loc.contactInfo || loc.contact_info || {},
           }))
         : [];
       setLocations(normalizedLocations);
@@ -384,19 +416,9 @@ const Settings = () => {
       setEditingLocation(null);
       setLocationFormData({
         name: '',
-        type: 'diving',
-        address: {
-          street: '',
-          city: '',
-          postalCode: '',
-          country: ''
-        },
-        contactInfo: {
-          phone: '',
-          mobile: '',
-          email: '',
-          website: ''
-        },
+        type: locationTypesList[0]?.id || '',
+        address: { street: '', city: '', postalCode: '', country: '' },
+        contactInfo: { phone: '', mobile: '', email: '', website: '' },
         isActive: true
       });
       loadLocations();
@@ -430,6 +452,98 @@ const Settings = () => {
         message: 'Error deleting location',
         severity: 'error'
       });
+    }
+  };
+
+  const locationTypesList = getLocationTypes(settings);
+
+  const handleSaveLocationType = async () => {
+    try {
+      const displayName = (locationTypeFormData.displayName || locationTypeFormData.name || '').trim();
+      if (!displayName) {
+        setSnackbar({ open: true, message: 'Display name is required', severity: 'error' });
+        return;
+      }
+      const rawId = (locationTypeFormData.id || '').trim().toLowerCase();
+      if (!isValidTypeId(rawId)) {
+        setSnackbar({
+          open: true,
+          message: 'Type ID must be a slug: lowercase, letters/numbers/underscores (e.g. snorkeling, kayak_rental)',
+          severity: 'error',
+        });
+        return;
+      }
+      const typeId = rawId;
+      const existingIds = locationTypesList.map((t) => t.id);
+      if (!editingLocationType && existingIds.includes(typeId)) {
+        setSnackbar({ open: true, message: `Type "${typeId}" already exists`, severity: 'error' });
+        return;
+      }
+
+      const next = {
+        ...locationTypeFormData,
+        id: typeId,
+        displayName: displayName || locationTypeFormData.name,
+        name: displayName || locationTypeFormData.name,
+      };
+
+      let updated;
+      if (editingLocationType) {
+        updated = locationTypesList.map((t) =>
+          t.id === editingLocationType.id ? { ...t, ...next, id: t.id } : t
+        );
+      } else {
+        updated = [...locationTypesList, { ...next, order: locationTypesList.length }];
+      }
+
+      const nextSettings = { ...settings, locationTypes: updated };
+      setSettings(nextSettings);
+      if (settingsId) {
+        await dataService.update('settings', settingsId, nextSettings);
+      } else {
+        const created = await dataService.create('settings', nextSettings);
+        setSettingsId(created.id);
+      }
+      setSnackbar({
+        open: true,
+        message: editingLocationType ? 'Location type updated.' : 'Location type added.',
+        severity: 'success',
+      });
+      setLocationTypeDialogOpen(false);
+      setEditingLocationType(null);
+      setLocationTypeFormData({
+        id: '',
+        name: '',
+        displayName: '',
+        icon: 'scuba_diving',
+        color: 'primary',
+        order: 0,
+        isActive: true,
+        features: { requiresBoats: false, requiresDiveSites: false, requiresCertifications: false, requiresMedicalClearance: false },
+      });
+    } catch (e) {
+      console.error('Error saving location type:', e);
+      setSnackbar({ open: true, message: 'Error saving location type', severity: 'error' });
+    }
+  };
+
+  const handleDeleteLocationType = async (typeId) => {
+    if (!window.confirm('Remove this location type? Locations using it will keep the type id but lose custom display/features until you re-add it.')) return;
+    const updated = locationTypesList.filter((t) => t.id !== typeId);
+    const nextSettings = { ...settings, locationTypes: updated };
+    setSettings(nextSettings);
+    setLocationTypeDialogOpen(false);
+    setEditingLocationType(null);
+    if (!settingsId) {
+      setSnackbar({ open: true, message: 'Location type removed (save settings to persist).', severity: 'info' });
+      return;
+    }
+    try {
+      await dataService.update('settings', settingsId, nextSettings);
+      setSnackbar({ open: true, message: 'Location type removed.', severity: 'success' });
+    } catch (err) {
+      console.error('Error removing location type:', err);
+      setSnackbar({ open: true, message: 'Error removing location type', severity: 'error' });
     }
   };
 
@@ -1579,6 +1693,11 @@ const Settings = () => {
             iconPosition="start"
           />
           <Tab 
+            icon={<CategoryIcon />} 
+            label="Location Types" 
+            iconPosition="start"
+          />
+          <Tab 
             icon={<PricesIcon />} 
             label={t('settings.tabs.prices') || 'Prices'} 
             iconPosition="start"
@@ -1614,7 +1733,14 @@ const Settings = () => {
       {activeTab === 0 && (
         <Box>
           {/* Locations Management */}
-          {isAdmin() && (
+          {isAdmin() && (() => {
+            const configIds = new Set(locationTypesList.map((t) => t.id));
+            const orphanIds = [...new Set(locations.map((l) => l.type).filter(Boolean))].filter((id) => !configIds.has(id));
+            const locationTypeOptions = [
+              ...locationTypesList,
+              ...orphanIds.map((id) => ({ id, displayName: getDisplayName(settings, id), name: id })),
+            ];
+            return (
             <>
               <Paper sx={{ p: 3, mb: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -1629,23 +1755,14 @@ const Settings = () => {
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
+                    disabled={locationTypesList.length === 0}
                     onClick={() => {
                       setEditingLocation(null);
                       setLocationFormData({
                         name: '',
-                        type: 'diving',
-                        address: {
-                          street: '',
-                          city: '',
-                          postalCode: '',
-                          country: ''
-                        },
-                        contactInfo: {
-                          phone: '',
-                          mobile: '',
-                          email: '',
-                          website: ''
-                        },
+                        type: locationTypesList[0]?.id || '',
+                        address: { street: '', city: '', postalCode: '', country: '' },
+                        contactInfo: { phone: '', mobile: '', email: '', website: '' },
                         isActive: true
                       });
                       setLocationDialogOpen(true);
@@ -1654,10 +1771,16 @@ const Settings = () => {
                     Add Location
                   </Button>
                 </Box>
-
+                {locationTypesList.length === 0 && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Add at least one activity type in the <strong>Location Types</strong> tab before creating locations.
+                  </Alert>
+                )}
                 {locations.length === 0 ? (
                   <Alert severity="info">
-                    No locations configured. Click "Add Location" to create your first location.
+                    {locationTypesList.length === 0
+                      ? 'Add activity types first, then create your first location.'
+                      : 'No locations configured. Click "Add Location" to create your first location.'}
                   </Alert>
                 ) : (
                   <TableContainer>
@@ -1677,8 +1800,8 @@ const Settings = () => {
                             <TableCell><strong>{location.name}</strong></TableCell>
                             <TableCell>
                               <Chip 
-                                label={location.type === 'bike_rental' ? 'Bike Rental' : 'Diving'} 
-                                color={location.type === 'bike_rental' ? 'secondary' : 'primary'}
+                                label={getDisplayName(settings, location.type)} 
+                                color={getTypeColor(settings, location.type)}
                                 size="small"
                               />
                             </TableCell>
@@ -1701,7 +1824,7 @@ const Settings = () => {
                                   setEditingLocation(location);
                                   setLocationFormData({
                                     name: location.name || '',
-                                    type: location.type || 'diving',
+                                    type: location.type || (locationTypesList[0]?.id || ''),
                                     address: location.address || {
                                       street: '',
                                       city: '',
@@ -1760,18 +1883,21 @@ const Settings = () => {
                       />
                     </Grid>
                     <Grid item xs={12} md={6}>
-                      <FormControl fullWidth required>
+                      <FormControl fullWidth required disabled={locationTypeOptions.length === 0}>
                         <InputLabel>Activity Type</InputLabel>
                         <Select
                           value={locationFormData.type}
                           onChange={(e) => setLocationFormData({ ...locationFormData, type: e.target.value })}
                           label="Activity Type"
                         >
-                          <MenuItem value="diving">Diving</MenuItem>
-                          <MenuItem value="bike_rental">Bike Rental</MenuItem>
+                          {locationTypeOptions.map((t) => (
+                            <MenuItem key={t.id} value={t.id}>{t.displayName || t.name || t.id}</MenuItem>
+                          ))}
                         </Select>
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                          Select the primary activity type for this location
+                          {locationTypeOptions.length === 0
+                            ? 'Add activity types in the Location Types tab first.'
+                            : 'Select the primary activity type for this location'}
                         </Typography>
                       </FormControl>
                     </Grid>
@@ -1898,19 +2024,9 @@ const Settings = () => {
                     setEditingLocation(null);
                     setLocationFormData({
                       name: '',
-                      type: 'diving',
-                      address: {
-                        street: '',
-                        city: '',
-                        postalCode: '',
-                        country: ''
-                      },
-                      contactInfo: {
-                        phone: '',
-                        mobile: '',
-                        email: '',
-                        website: ''
-                      },
+                      type: locationTypesList[0]?.id || '',
+                      address: { street: '', city: '', postalCode: '', country: '' },
+                      contactInfo: { phone: '', mobile: '', email: '', website: '' },
                       isActive: true
                     });
                   }}>
@@ -1926,18 +2042,225 @@ const Settings = () => {
                 </DialogActions>
               </Dialog>
             </>
-          )}
+          );
+          })()}
         </Box>
       )}
 
       {activeTab === 1 && (
+        <Box>
+          {/* Location Types (configurable) */}
+          {isAdmin() && (
+            <>
+              <Paper sx={{ p: 3, mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Box>
+                    <Typography variant="h5" gutterBottom>
+                      Location Types
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Define activity types (e.g. Diving, Bike Rental). Used when creating locations. Start from scratch—add types as needed.
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                      setEditingLocationType(null);
+                      setLocationTypeFormData({
+                        id: '',
+                        name: '',
+                        displayName: '',
+                        icon: 'scuba_diving',
+                        color: 'primary',
+                        order: locationTypesList.length,
+                        isActive: true,
+                        features: { requiresBoats: false, requiresDiveSites: false, requiresCertifications: false, requiresMedicalClearance: false },
+                      });
+                      setLocationTypeDialogOpen(true);
+                    }}
+                  >
+                    Add type
+                  </Button>
+                </Box>
+                {locationTypesList.length === 0 ? (
+                  <Alert severity="info">
+                    No location types configured. Add types (e.g. Diving, Bike Rental) to use when creating locations.
+                  </Alert>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell><strong>ID</strong></TableCell>
+                          <TableCell><strong>Display name</strong></TableCell>
+                          <TableCell><strong>Features</strong></TableCell>
+                          <TableCell><strong>Status</strong></TableCell>
+                          <TableCell align="right"><strong>Actions</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {locationTypesList.map((t) => (
+                          <TableRow key={t.id}>
+                            <TableCell><code>{t.id}</code></TableCell>
+                            <TableCell>{t.displayName || t.name || t.id}</TableCell>
+                            <TableCell>
+                              {FEATURE_KEYS.filter((k) => t.features?.[k]).map((k) => (
+                                <Chip key={k} label={k.replace(/^requires/, '')} size="small" sx={{ mr: 0.5, mb: 0.5 }} variant="outlined" />
+                              ))}
+                              {(!t.features || FEATURE_KEYS.every((k) => !t.features?.[k])) && (
+                                <Typography variant="caption" color="text.secondary">—</Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={t.isActive !== false ? 'Active' : 'Inactive'}
+                                size="small"
+                                color={t.isActive !== false ? 'success' : 'default'}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setEditingLocationType(t);
+                                  setLocationTypeFormData({
+                                    id: t.id,
+                                    name: t.name || '',
+                                    displayName: t.displayName || t.name || '',
+                                    icon: t.icon || 'scuba_diving',
+                                    color: t.color || 'primary',
+                                    order: t.order ?? 0,
+                                    isActive: t.isActive !== false,
+                                    features: { ...(DEFAULT_FEATURES[t.id] || {}), ...(t.features || {}) },
+                                  });
+                                  setLocationTypeDialogOpen(true);
+                                }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton size="small" color="error" onClick={() => handleDeleteLocationType(t.id)}>
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+              <Dialog open={locationTypeDialogOpen} onClose={() => { setLocationTypeDialogOpen(false); setEditingLocationType(null); }} maxWidth="sm" fullWidth>
+                <DialogTitle>{editingLocationType ? 'Edit location type' : 'Add location type'}</DialogTitle>
+                <DialogContent>
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        required
+                        label="Type ID"
+                        value={locationTypeFormData.id}
+                        onChange={(e) => setLocationTypeFormData({
+                          ...locationTypeFormData,
+                          id: e.target.value.trim().toLowerCase(),
+                        })}
+                        placeholder="e.g. diving, snorkeling, kayak_rental"
+                        disabled={!!editingLocationType}
+                        helperText={editingLocationType ? 'Cannot change after create' : 'Slug: lowercase, letters, numbers, underscores'}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Display name"
+                        value={locationTypeFormData.displayName}
+                        onChange={(e) => setLocationTypeFormData({ ...locationTypeFormData, displayName: e.target.value, name: e.target.value })}
+                        placeholder="e.g. Diving, Bike Rental"
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Color</InputLabel>
+                        <Select
+                          value={locationTypeFormData.color}
+                          onChange={(e) => setLocationTypeFormData({ ...locationTypeFormData, color: e.target.value })}
+                          label="Color"
+                        >
+                          <MenuItem value="primary">Primary</MenuItem>
+                          <MenuItem value="secondary">Secondary</MenuItem>
+                          <MenuItem value="default">Default</MenuItem>
+                          <MenuItem value="success">Success</MenuItem>
+                          <MenuItem value="warning">Warning</MenuItem>
+                          <MenuItem value="error">Error</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="Order"
+                        value={locationTypeFormData.order}
+                        onChange={(e) => setLocationTypeFormData({ ...locationTypeFormData, order: parseInt(e.target.value, 10) || 0 })}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={locationTypeFormData.isActive}
+                            onChange={(e) => setLocationTypeFormData({ ...locationTypeFormData, isActive: e.target.checked })}
+                          />
+                        }
+                        label="Active"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" gutterBottom>Features</Typography>
+                      <FormGroup row>
+                        {FEATURE_KEYS.map((k) => (
+                          <FormControlLabel
+                            key={k}
+                            control={
+                              <Checkbox
+                                checked={!!locationTypeFormData.features?.[k]}
+                                onChange={(e) => setLocationTypeFormData({
+                                  ...locationTypeFormData,
+                                  features: { ...locationTypeFormData.features, [k]: e.target.checked },
+                                })}
+                              />
+                            }
+                            label={k.replace(/^requires/, '').replace(/([A-Z])/g, ' $1').trim()}
+                          />
+                        ))}
+                      </FormGroup>
+                      <Typography variant="caption" color="text.secondary">
+                        e.g. Requires dive sites → diving-only UI (schedule, boat-prep, stays)
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => { setLocationTypeDialogOpen(false); setEditingLocationType(null); }}>Cancel</Button>
+                  <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSaveLocationType}>
+                    {editingLocationType ? 'Update' : 'Add'}
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </>
+          )}
+        </Box>
+      )}
+
+      {activeTab === 2 && (
         <Box>
           {/* Prices Settings */}
           <Prices />
         </Box>
       )}
 
-      {activeTab === 2 && (
+      {activeTab === 3 && (
         <Box>
           {/* Dive Sites Management */}
           {isAdmin() && (
@@ -2001,7 +2324,7 @@ const Settings = () => {
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                         Enable compliance reports for diving locations in natural reserves. When enabled, the Compliance Reports tab will appear in Dive Preparation.
                       </Typography>
-                      {locations.filter(loc => loc.type === 'diving').length > 0 ? (
+                      {locations.filter(loc => hasDivingFeatures(loc, settings)).length > 0 ? (
                         <TableContainer component={Paper} variant="outlined">
                           <Table size="small">
                             <TableHead>
@@ -2011,7 +2334,7 @@ const Settings = () => {
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {locations.filter(loc => loc.type === 'diving').map((location) => {
+                              {locations.filter(loc => hasDivingFeatures(loc, settings)).map((location) => {
                                 const locationSettings = location.settings || {};
                                 const isEnabled = locationSettings.complianceReportsMandatory || false;
                                 return (
@@ -2441,7 +2764,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 3 && (
+      {activeTab === 4 && (
         <Box>
           {/* Boats Management */}
           {isAdmin() && (
@@ -2730,7 +3053,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 4 && (
+      {activeTab === 5 && (
         <Box>
           {/* User Management - Only visible to admins and superadmins */}
           {isAdmin() && (
@@ -2904,7 +3227,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 5 && (
+      {activeTab === 6 && (
         <Box>
           {/* Partners Management - Only visible to admins */}
           {isAdmin() && (
@@ -3060,7 +3383,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 6 && (
+      {activeTab === 7 && (
         <Box>
           {/* Certification Verification Settings */}
           <Accordion defaultExpanded sx={{ mb: 3 }}>

@@ -115,7 +115,6 @@ const Bill = () => {
         boatPreps = [];
       }
     } catch (error) {
-      console.log('[Bill] boatPreps not available (expected in API mode)');
       boatPreps = [];
     }
     
@@ -351,10 +350,6 @@ const Bill = () => {
         // Get all bookings for this stay
         const stayBookings = await getCustomerStayBookings(stay.customer.id, stay.stayStartDate);
         
-        console.log('[Bill] useEffect: Stay bookings:', stayBookings);
-        console.log('[Bill] useEffect: Customer:', stay.customer);
-        console.log('[Bill] useEffect: Customer partnerId:', stay.customer.partnerId || stay.customer.partner_id || stay.customer.created_by_partner_id);
-        
         // Group bookings by partner
         // First check bookings for partnerId, then fall back to customer's partnerId
         const bookingsByPartner = {};
@@ -370,14 +365,10 @@ const Bill = () => {
             bookingsByPartner[partnerId].push(booking);
           }
         });
-        
-        console.log('[Bill] useEffect: Bookings grouped by partner:', bookingsByPartner);
 
         // Create invoice for each partner
         const stayLocationId = (stay?.stayBookings && stay.stayBookings[0]?.locationId) || 
                                localStorage.getItem('dcms_current_location');
-        
-        console.log('[Bill] useEffect: Partner IDs found:', Object.keys(bookingsByPartner));
         
         if (Object.keys(bookingsByPartner).length === 0) {
           console.warn('[Bill] useEffect: No partner bookings found. Customer partnerId:', customerPartnerId);
@@ -386,7 +377,6 @@ const Bill = () => {
         
         let invoicesCreated = 0;
         for (const [partnerId, bookings] of Object.entries(bookingsByPartner)) {
-          console.log(`[Bill] useEffect: Processing partner ${partnerId} with ${bookings.length} bookings`);
           try {
             // Calculate commission using backend service
             const bookingIds = bookings.map(b => b.id);
@@ -454,7 +444,6 @@ const Bill = () => {
             });
             
             invoicesCreated++;
-            console.log(`[Bill] useEffect: Successfully created invoice for partner ${partnerId}`);
           } catch (error) {
             console.error(`[Bill] useEffect: Error creating invoice for partner ${partnerId}:`, error);
             // Continue with other partners even if one fails, but don't set partnerInvoicesCreated to true
@@ -462,12 +451,9 @@ const Bill = () => {
         }
 
         if (invoicesCreated > 0) {
-          console.log(`[Bill] useEffect: Successfully created ${invoicesCreated} partner invoice(s)`);
           setPartnerInvoicesCreated(true);
         } else if (Object.keys(bookingsByPartner).length === 0) {
-          // No partner bookings - this is expected for non-partner customers
-          console.log('[Bill] useEffect: No partner bookings found, this is normal for non-partner customers');
-          setPartnerInvoicesCreated(true); // Set to true to prevent retrying
+          setPartnerInvoicesCreated(true); // No partner bookings – expected for non-partner customers
         } else {
           // Partner bookings exist but invoice creation failed - don't set to true so it can retry
           console.warn('[Bill] useEffect: Partner bookings found but no invoices were created. Will retry on close stay.');
@@ -965,10 +951,6 @@ const Bill = () => {
                       // Get all bookings for this stay
                       const stayBookings = await getCustomerStayBookings(stay.customer.id, stay.stayStartDate);
                       
-                      console.log('[Bill] Stay bookings:', stayBookings);
-                      console.log('[Bill] Customer:', stay.customer);
-                      console.log('[Bill] Customer partnerId:', stay.customer.partnerId || stay.customer.partner_id || stay.customer.created_by_partner_id);
-                      
                       // Group bookings by partner
                       // First check bookings for partnerId, then fall back to customer's partnerId
                       const bookingsByPartner = {};
@@ -984,14 +966,10 @@ const Bill = () => {
                           bookingsByPartner[partnerId].push(booking);
                         }
                       });
-                      
-                      console.log('[Bill] Bookings grouped by partner:', bookingsByPartner);
 
                       // Create invoice for each partner
                       const stayLocationId = (stay?.stayBookings && stay.stayBookings[0]?.locationId) || 
                                            localStorage.getItem('dcms_current_location');
-                      
-                      console.log('[Bill] Partner IDs found:', Object.keys(bookingsByPartner));
                       
                       if (Object.keys(bookingsByPartner).length === 0) {
                         console.warn('[Bill] No partner bookings found. Customer partnerId:', customerPartnerId);
@@ -1000,7 +978,6 @@ const Bill = () => {
                       
                       let invoicesCreated = 0;
                       for (const [partnerId, bookings] of Object.entries(bookingsByPartner)) {
-                        console.log(`[Bill] Processing partner ${partnerId} with ${bookings.length} bookings`);
                         try {
                           // Calculate commission using backend service
                           const bookingIds = bookings.map(b => b.id);
@@ -1063,17 +1040,12 @@ const Bill = () => {
                           });
                           
                           invoicesCreated++;
-                          console.log(`Created invoice for partner ${partnerId}`);
                         } catch (error) {
                           console.error(`Error creating invoice for partner ${partnerId}:`, error);
                           // Continue with other partners even if one fails
                         }
                       }
 
-                      if (invoicesCreated > 0) {
-                        console.log(`Created ${invoicesCreated} partner invoice(s)`);
-                      }
-                      
                       setPartnerInvoicesCreated(true);
                     } catch (error) {
                       console.error('Error creating partner invoices:', error);
@@ -1157,8 +1129,6 @@ const Bill = () => {
                       breakdown: calculatedBill.breakdown || {},
                       notes: `Bill for stay starting ${stay.stayStartDate}`,
                     });
-
-                    console.log('[Bill] Bill saved to database:', calculatedBill.billNumber);
                   } catch (billError) {
                     console.error('[Bill] Error saving bill to database:', billError);
                     // Continue even if bill save fails - still mark as billed in localStorage

@@ -354,8 +354,6 @@ const Schedule = () => {
 
   const handleAssignCustomer = async (bookingId, slotId, slotType, boatId = null, sessionTime = null) => {
     try {
-      console.log('[Schedule] handleAssignCustomer called:', { bookingId, slotId, slotType, boatId, sessionTime });
-      
       // Update booking with slot assignment
       const booking = bookings.find(b => b.id === bookingId);
       if (!booking) {
@@ -394,8 +392,6 @@ const Schedule = () => {
           session: sessionTime || 'morning'
         };
       }
-
-      console.log('[Schedule] Updating booking with:', updateData);
       
       // Note: Multiple customers can always be assigned to the same slot
       // - Discovery dives (Mole slots): Always shore dives, multiple customers allowed
@@ -425,10 +421,7 @@ const Schedule = () => {
       ));
       
       // Reload bookings to get updated data and refresh slotAssignments
-      // This ensures slotAssignments is synced with the database
       await loadData();
-      
-      console.log('[Schedule] Customer assigned successfully');
     } catch (error) {
       console.error('[Schedule] Error assigning customer to slot:', error);
       // Revert optimistic update on error

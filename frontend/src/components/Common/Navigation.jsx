@@ -45,6 +45,7 @@ import { useTranslation } from '../../utils/languageContext';
 import { useAuth, USER_ROLES } from '../../utils/authContext';
 import dataService from '../../services/dataService';
 import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
+import { hasDivingFeatures } from '../../utils/locationTypes';
 
 const drawerWidth = 240;
 
@@ -85,12 +86,12 @@ const Navigation = () => {
   }, [currentLocationId, boats]);
   const hasBoats = boatsForLocation.length > 0;
   
-  // Get current location type to filter diving-specific items for bike rental
+  // Get current location; use feature flags for diving vs non-diving (e.g. bike rental)
   const currentLocation = locations.find(l => l.id === currentLocationId);
-  const isBikeRental = currentLocation?.type === 'bike_rental';
+  const hasDiving = !currentLocation || hasDivingFeatures(currentLocation, null);
   
-  // Get the equipment icon - bike icon for bike rental, diving icon for diving locations
-  const EquipmentIcon = isBikeRental ? BikeIcon : DivingEquipmentIcon;
+  // Equipment icon: diving when no location or has diving features, else bike
+  const EquipmentIcon = hasDiving ? DivingEquipmentIcon : BikeIcon;
   
   // Build location menu items - organized by workflow
   const locationMenu = [
@@ -127,7 +128,7 @@ const Navigation = () => {
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.INTERN] }
   ];
 
-  // Diving-specific paths that should be hidden for bike rental locations
+  // Diving-specific paths hidden when location has no diving features (e.g. bike rental)
   const divingOnlyPaths = ['/schedule', '/boat-prep', '/stays'];
   
   // Filter menu items based on role and permissions
@@ -135,8 +136,7 @@ const Navigation = () => {
   const menuItems = allMenuItems.filter(item => {
     if (!currentUser) return false;
     
-    // Hide diving-specific items for bike rental locations
-    if (isBikeRental && divingOnlyPaths.includes(item.path)) {
+    if (currentLocation && !hasDivingFeatures(currentLocation, null) && divingOnlyPaths.includes(item.path)) {
       return false;
     }
     
@@ -330,12 +330,12 @@ const Navigation = () => {
       >
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
-          {/* Logo/Icon section - Show bike icon for bike rental, diving icon for diving locations */}
+          {/* Logo/Icon section - Diving icon when location has diving features, else bike */}
           <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
-            {isBikeRental ? (
-              <BikeIcon sx={{ fontSize: 48, color: 'primary.main' }} />
-            ) : (
+            {hasDiving ? (
               <DivingEquipmentIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+            ) : (
+              <BikeIcon sx={{ fontSize: 48, color: 'primary.main' }} />
             )}
           </Box>
           <List>

@@ -252,10 +252,7 @@ const TripDetails = () => {
   }, [customers, searchQuery]);
 
   const handleAddDiver = async (customerId) => {
-    // This would typically create a new booking for this customer
-    // For now, we'll just show a message
-    console.log('Add diver:', customerId);
-    // TODO: Implement booking creation
+    // TODO: Implement booking creation for this customer
   };
 
   const handleCreateNewDiver = async () => {

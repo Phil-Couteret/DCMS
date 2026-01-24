@@ -65,7 +65,6 @@ const PartnerInvoices = () => {
   const loadInvoices = async () => {
     try {
       const allInvoices = await dataService.getAll('partnerInvoices') || [];
-      console.log('[PartnerInvoices] Loaded invoices:', allInvoices);
       setInvoices(Array.isArray(allInvoices) ? allInvoices : []);
     } catch (error) {
       console.error('Error loading invoices:', error);

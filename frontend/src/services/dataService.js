@@ -15,10 +15,8 @@ initializeMockData();
 
 export const getAll = (resource) => {
   if (isMockMode()) {
-    // Synchronous call for mock mode (current behavior)
     return mockDataService.getAll(resource);
   } else {
-    // For API mode, return Promise (components will need async/await)
     return apiService.getAll(resource);
   }
 };

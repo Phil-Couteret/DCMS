@@ -51,6 +51,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../utils/languageContext';
 import { useAuth, USER_ROLES } from '../utils/authContext';
 import dataService from '../services/dataService';
+import { hasDivingFeatures } from '../utils/locationTypes';
 import tankService from '../services/tankService';
 import { format, parseISO, isBefore, addMonths, addDays, isAfter } from 'date-fns';
 
@@ -215,7 +216,7 @@ const Equipment = () => {
   };
 
   // Check if current location is bike rental
-  const isBikeRental = currentLocation?.type === 'bike_rental';
+  const isBikeRental = currentLocation ? !hasDivingFeatures(currentLocation, null) : false;
   
   // Get bike rental equipment from location pricing
   const getBikeRentalEquipment = () => {
@@ -571,9 +572,6 @@ const Equipment = () => {
         // Filter out empty lines
         const lines = mergedLines.filter(item => item.line);
         
-        console.log(`Total raw lines: ${rawLines.length}, Merged lines: ${mergedLines.length}, Non-empty: ${lines.length}`);
-        console.log('First few merged lines:', mergedLines.slice(0, 5).map(l => l.line.substring(0, 100)));
-        
         // Find the header row (look for "SIZE" and "NUMBER" as separate columns)
         // The CSV has a two-row header: first row has "VISUAL", "HYDROSTATIC", second row has actual column names
         let headerRowIndex = -1;
@@ -593,27 +591,18 @@ const Equipment = () => {
           const hasSerialNumber = columns.some(c => c.includes('SERIAL') && c.includes('NUMBER')) || 
                                  (serialIdx >= 0 && numberIdx >= 0 && Math.abs(serialIdx - numberIdx) === 1);
           
-          console.log(`Line ${i + 1}: hasSize=${hasSize}, hasNumber=${hasNumber}, hasSerialNumber=${hasSerialNumber}`, { columns, numberIdx, serialIdx });
-          
           if (hasSize && hasNumber && hasSerialNumber) {
             headerRowIndex = i;
-            console.log(`Found header row at index ${i} (original line ${lines[i].originalIndex + 1}):`, lineText);
             break;
           }
         }
         
         if (headerRowIndex === -1) {
-          console.error('All lines:', lines.map(l => l.line));
           throw new Error('Could not find header row. Please ensure the CSV has a header row with "SIZE", "NUMBER", and "SERIAL NUMBER" columns.');
         }
 
         const headerLine = lines[headerRowIndex].line;
         const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
-        
-        console.log('Header line:', headerLine);
-        console.log('Parsed headers:', headers);
-        
-        console.log('Found headers at row', headerRowIndex + 1, ':', headers);
         
         // Map column indices - handle duplicate column names
         const sizeIdx = headers.findIndex(h => h.includes('size') && !h.includes('serial'));
@@ -649,8 +638,6 @@ const Equipment = () => {
         
         const remarksIdx = headers.findIndex(h => h.includes('remark'));
 
-        console.log('Column indices:', { sizeIdx, numberIdx, serialIdx, netColourIdx, lastVisualIdx, nextVisualIdx, lastHydroIdx, nextHydroIdx, remarksIdx });
-
         if (sizeIdx === -1 || numberIdx === -1 || serialIdx === -1) {
           throw new Error(`Missing required columns. Found: SIZE=${sizeIdx}, NUMBER=${numberIdx}, SERIAL NUMBER=${serialIdx}`);
         }
@@ -666,7 +653,6 @@ const Equipment = () => {
           if (!effectiveLocationId && locations.length > 0) {
             // Use first location as default for global admins if none selected
             effectiveLocationId = locations[0].id;
-            console.log(`No location selected, using first location: ${effectiveLocationId}`);
           }
         } else {
           // For non-global admins, use their assigned location
@@ -681,8 +667,6 @@ const Equipment = () => {
             throw new Error('Location ID is required. Please ensure you have a location assigned.');
           }
         }
-        
-        console.log('Using location ID for import:', effectiveLocationId);
         
         // Parse dates - handle various formats
         const parseDate = (dateStr) => {
@@ -725,20 +709,13 @@ const Equipment = () => {
           
           return null;
         };
-
-        console.log(`Processing ${lines.length - headerRowIndex - 1} data rows (header at row ${headerRowIndex + 1})`);
         
         // Process data rows (start after header row)
         for (let i = headerRowIndex + 1; i < lines.length; i++) {
           const line = lines[i].line;
           const originalRowNum = lines[i].originalIndex + 1;
           
-          if (!line) {
-            console.log(`Skipping empty row ${i + 1} (original ${originalRowNum})`);
-            continue;
-          }
-          
-          console.log(`Processing row ${i + 1} (original ${originalRowNum}):`, line.substring(0, 100));
+          if (!line) continue;
           
           try {
             // Simple CSV parsing - split by comma, but handle quoted values
@@ -777,12 +754,9 @@ const Equipment = () => {
             const number = cleanedValues[numberIdx] || '';
             const serialNumber = cleanedValues[serialIdx] || '';
             
-            console.log(`Row ${i + 1} (original ${originalRowNum}) parsed values:`, { size, number, serialNumber, allValues: cleanedValues });
-            
             if (!size || !number || !serialNumber) {
               const reason = `Missing required fields - Size: "${size}", Number: "${number}", Serial: "${serialNumber}"`;
               skippedTanks.push({ row: originalRowNum, reason, data: { size, number, serialNumber, allValues: cleanedValues } });
-              console.warn(`Skipping row ${i + 1} (original ${originalRowNum}):`, reason);
               continue;
             }
 
@@ -806,9 +780,7 @@ const Equipment = () => {
             };
 
             try {
-              console.log(`Creating equipment for row ${i + 1} (original ${originalRowNum}):`, equipmentData);
               const result = await dataService.create('equipment', equipmentData);
-              console.log(`Create result for row ${i + 1} (original ${originalRowNum}):`, result);
               
               if (result && result.id) {
                 // Store tank metadata
@@ -823,7 +795,6 @@ const Equipment = () => {
                 };
                 tankService.saveTankMetadata(result.id, tankMetadata);
                 importedTanks.push({ number, size, serialNumber });
-                console.log(`Imported tank ${number} (${size}L) - Serial: ${serialNumber}`);
               } else {
                 skippedTanks.push({ row: originalRowNum, reason: 'Failed to create equipment record - no ID returned', data: { size, number, serialNumber } });
                 console.error(`Failed to create tank ${number} (row ${originalRowNum}):`, result);
@@ -849,10 +820,6 @@ const Equipment = () => {
           message = `No tanks imported. ${skippedTanks.length} row(s) skipped. Check browser console (F12) for details.`;
         } else {
           message = 'No data rows found to import.';
-        }
-
-        if (skippedTanks.length > 0) {
-          console.log('Skipped tanks details:', skippedTanks);
         }
 
         setSnackbar({ 

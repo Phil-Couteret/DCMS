@@ -27,6 +27,7 @@ import { Save as SaveIcon, Cancel as CancelIcon, CheckCircle as VerifiedIcon, Cl
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dataService from '../../services/dataService';
 import { useAuth } from '../../utils/authContext';
+import { hasDivingFeatures } from '../../utils/locationTypes';
 
 const EQUIPMENT_ITEMS = [
   { key: 'mask', label: 'Mask' },
@@ -211,7 +212,7 @@ const CustomerForm = () => {
     };
   }, []);
   
-  const isBikeRental = currentLocation?.type === 'bike_rental';
+  const isBikeRental = currentLocation ? !hasDivingFeatures(currentLocation, null) : false;
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -565,8 +566,6 @@ const CustomerForm = () => {
           delete prepared.preferences.equipmentOwnership;
           delete prepared.preferences.suitPreferences;
           delete prepared.preferences.ownEquipment;
-          
-          console.log('Prepared bike rental customer data:', prepared);
           return prepared;
         }
         // For diving locations, include all fields
@@ -610,7 +609,6 @@ const CustomerForm = () => {
             };
             
             const updatedCustomer = prepareCustomerData(mergedData);
-            console.log('Updating customer:', updatedCustomer);
             await dataService.update('customers', customerId, updatedCustomer);
           } else {
             // Customer not found, create new
@@ -619,7 +617,6 @@ const CustomerForm = () => {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             });
-            console.log('Creating new customer:', newCustomerData);
             await dataService.create('customers', newCustomerData);
           }
         } else {
@@ -630,9 +627,7 @@ const CustomerForm = () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
-          console.log('Creating new customer:', newCustomerData);
-          const createdCustomer = await dataService.create('customers', newCustomerData);
-          console.log('Customer created successfully:', createdCustomer);
+          await dataService.create('customers', newCustomerData);
         }
       }
       

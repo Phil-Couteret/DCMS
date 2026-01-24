@@ -83,8 +83,6 @@ const Stays = () => {
     try {
       const settingsData = await dataService.getAll('settings');
       const loadedSettings = Array.isArray(settingsData) && settingsData.length > 0 ? settingsData[0] : null;
-      console.log('[Stays] Loaded settings:', loadedSettings);
-      console.log('[Stays] Beverage price in loaded settings:', loadedSettings?.prices?.beverages?.price);
       setSettings(loadedSettings);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -124,8 +122,6 @@ const Stays = () => {
   useEffect(() => {
     if (showCostDialog && costFormData.category === 'beverages') {
       const beveragePrice = settings?.prices?.beverages?.price;
-      console.log('[Stays] useEffect triggered. Dialog open:', showCostDialog, 'Category:', costFormData.category);
-      console.log('[Stays] Settings available:', !!settings, 'Beverage price:', beveragePrice);
       
       if (beveragePrice !== undefined && beveragePrice !== null) {
         let priceValue = typeof beveragePrice === 'number' ? beveragePrice : parseFloat(beveragePrice);
@@ -134,7 +130,6 @@ const Stays = () => {
         if (priceValue > 0) {
           const priceString = priceValue.toFixed(2);
           if (costFormData.unitPrice !== priceString) {
-            console.log('[Stays] Setting unit price to:', priceString);
             setCostFormData(prev => ({ 
               ...prev, 
               unitPrice: priceString
@@ -230,19 +225,12 @@ const Stays = () => {
   // Handle category change - auto-populate beverage price
   const handleCategoryChange = (category) => {
     if (category === 'beverages') {
-      // Try to get beverage price from settings
       const beveragePrice = settings?.prices?.beverages?.price;
-      console.log('[Stays] Category changed to beverages. Settings:', settings);
-      console.log('[Stays] Beverage price from settings:', beveragePrice);
-      
-      // Convert to number and check if it's a valid positive number
       let priceValue = 0;
       if (beveragePrice !== undefined && beveragePrice !== null) {
         priceValue = typeof beveragePrice === 'number' ? beveragePrice : parseFloat(beveragePrice);
         if (isNaN(priceValue)) priceValue = 0;
       }
-      
-      console.log('[Stays] Calculated price value:', priceValue);
       
       if (priceValue > 0) {
         setCostFormData(prev => ({ 

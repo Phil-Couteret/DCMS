@@ -52,6 +52,7 @@ import financialService from '../services/financialService';
 import dataService from '../services/dataService';
 import { useTranslation } from '../utils/languageContext';
 import { useAuth, USER_ROLES } from '../utils/authContext';
+import { hasDivingFeatures } from '../utils/locationTypes';
 
 const Financial = () => {
   const { t } = useTranslation();
@@ -117,10 +118,9 @@ const Financial = () => {
 
   const isAdmin = currentUser?.role === USER_ROLES.ADMIN || currentUser?.role === USER_ROLES.SUPERADMIN;
 
-  // Determine if current location is bike rental
   const [currentLocationId, setCurrentLocationId] = useState(() => localStorage.getItem('dcms_current_location'));
   const currentLocation = locations.find(l => l.id === currentLocationId);
-  const isBikeRental = currentLocation?.type === 'bike_rental';
+  const isBikeRental = currentLocation ? !hasDivingFeatures(currentLocation, settings) : false;
 
   // Update currentLocationId when location changes
   useEffect(() => {

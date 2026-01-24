@@ -42,6 +42,7 @@ import CustomerForm from '../components/Customer/CustomerForm';
 import dataService from '../services/dataService';
 import { useAuth } from '../utils/authContext';
 import { useTranslation } from '../utils/languageContext';
+import { hasDivingFeatures } from '../utils/locationTypes';
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -156,7 +157,7 @@ const Customers = () => {
       const currentLocationId = localStorage.getItem('dcms_current_location');
       const allLocations = await dataService.getAll('locations') || [];
       const currentLocation = allLocations.find(l => l.id === currentLocationId);
-      const bikeRental = currentLocation?.type === 'bike_rental';
+      const bikeRental = currentLocation ? !hasDivingFeatures(currentLocation, null) : false;
       setIsBikeRental(bikeRental);
       
       let filteredCustomers = allCustomers;

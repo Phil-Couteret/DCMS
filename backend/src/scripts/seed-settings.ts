@@ -14,6 +14,7 @@ async function main() {
     const defaultSettings = {
       key: 'default',
       value: {
+        locationTypes: [], // Start from scratch; configure via Settings > Location Types
         certificationUrls: {
           SSI: 'https://www.divessi.com/en/verify-certification',
           PADI: 'https://www.padi.com/verify',

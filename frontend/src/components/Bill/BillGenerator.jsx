@@ -88,7 +88,6 @@ const BillGenerator = ({ open, onClose, stay }) => {
       }
     } catch (error) {
       // boatPreps endpoint doesn't exist in API mode - this is expected
-      console.log('[BillGenerator] boatPreps not available (expected in API mode)');
       boatPreps = [];
     }
     

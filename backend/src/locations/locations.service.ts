@@ -1,10 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { location_type } from '@prisma/client';
-
 export interface CreateLocationDto {
   name: string;
-  type: location_type;
+  type: string;
   address: any;
   contactInfo?: any;
   settings?: any;
@@ -13,7 +11,7 @@ export interface CreateLocationDto {
 
 export interface UpdateLocationDto {
   name?: string;
-  type?: location_type;
+  type?: string;
   address?: any;
   contactInfo?: any;
   settings?: any;

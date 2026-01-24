@@ -7,35 +7,16 @@ import { httpClient } from './httpClient';
 const realApiAdapter = {
   // Generic CRUD operations
   async getAll(resource) {
-    // Map frontend resource names to backend API endpoints
     let endpoint = resource;
-    
-    if (resource === 'users') {
-      // Frontend calls it 'users', backend uses 'users'
-      endpoint = 'users';
-    } else if (resource === 'diveSites') {
-      // Frontend calls it 'diveSites', backend uses 'dive-sites'
-      endpoint = 'dive-sites';
-    } else if (resource === 'governmentBonos') {
-      // Frontend calls it 'governmentBonos', backend uses 'government-bonos'
-      endpoint = 'government-bonos';
-    } else if (resource === 'boatPreps') {
-      // Frontend calls it 'boatPreps', backend uses 'boat-preps'
-      endpoint = 'boat-preps';
-    } else if (resource === 'partners') {
-      // Frontend calls it 'partners', backend uses 'partners'
-      endpoint = 'partners';
-    } else if (resource === 'partnerInvoices') {
-      // Frontend calls it 'partnerInvoices', backend uses 'partner-invoices'
-      endpoint = 'partner-invoices';
-    } else if (resource === 'customerBills') {
-      // Frontend calls it 'customerBills', backend uses 'customer-bills'
-      endpoint = 'customer-bills';
-    } else if (resource === 'staff') {
-      // Frontend calls it 'staff', backend uses 'staff'
-      endpoint = 'staff';
-    }
-    
+    if (resource === 'users') endpoint = 'users';
+    else if (resource === 'diveSites') endpoint = 'dive-sites';
+    else if (resource === 'governmentBonos') endpoint = 'government-bonos';
+    else if (resource === 'boatPreps') endpoint = 'boat-preps';
+    else if (resource === 'partners') endpoint = 'partners';
+    else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
+    else if (resource === 'customerBills') endpoint = 'customer-bills';
+    else if (resource === 'staff') endpoint = 'staff';
+
     const response = await httpClient.get(`/${endpoint}`);
     return this.transformResponse(resource, response.data || response);
   },
@@ -91,9 +72,7 @@ const realApiAdapter = {
       endpoint = 'customer-bills';
     }
     
-    console.log(`realApiAdapter.create - POST to /${endpoint}`, transformedData);
     const response = await httpClient.post(`/${endpoint}`, transformedData);
-    console.log('realApiAdapter.create - Response from backend:', response);
     return this.transformResponse(resource, response.data || response);
   },
 
@@ -223,8 +202,6 @@ const realApiAdapter = {
     if (data.notes !== undefined) transformed.notes = data.notes;
     if (data.isActive !== undefined) transformed.isActive = data.isActive;
 
-    console.log('transformCustomerToBackend - Input:', data);
-    console.log('transformCustomerToBackend - Output:', transformed);
     return transformed;
   },
 

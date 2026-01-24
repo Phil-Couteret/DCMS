@@ -27,6 +27,7 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import dataService from '../../services/dataService';
+import { hasDivingFeatures } from '../../utils/locationTypes';
 
 const Prices = () => {
   const [settings, setSettings] = useState(null);
@@ -282,7 +283,7 @@ const Prices = () => {
   const isPlayitas = selectedLocation && (selectedLocation.name === 'Las Playitas' || selectedLocation.id === 'playitas' || selectedLocation.id === '550e8400-e29b-41d4-a716-446655440002');
   
   // Check if selected location is bike rental
-  const isBikeRental = selectedLocation?.type === 'bike_rental';
+  const isBikeRental = selectedLocation ? !hasDivingFeatures(selectedLocation, settings) : false;
 
   const updateLocationPricing = (updater) => {
     setLocations(prev => prev.map(l => {
