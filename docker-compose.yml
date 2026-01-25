@@ -1,0 +1,48 @@
+# DCMS - VPS-style stack for local testing (Mac/Linux)
+# Run: docker compose up -d
+# Admin UI: http://localhost:3000  |  API: http://localhost:3003  |  Swagger: http://localhost:3003/api
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: dcms
+      POSTGRES_USER: dcms
+      POSTGRES_PASSWORD: dcms
+    volumes:
+      - dcms_pgdata:/var/lib/postgresql/data
+      - ./database:/init:ro
+      - ./docker/postgres-init/init-dcms.sh:/docker-entrypoint-initdb.d/init-dcms.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dcms -d dcms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://dcms:dcms@db:5432/dcms?schema=public
+      PORT: 3003
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:3000
+      JWT_SECRET: change-me-in-production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3003:3003"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  dcms_pgdata:

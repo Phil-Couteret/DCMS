@@ -1,0 +1,9 @@
+# Override for importing host DB into Docker Postgres.
+# Use: docker compose -f docker-compose.yml -f docker-compose.import.yml ...
+# This skips init (no schema/migrations/sample data) so you can restore your dump.
+
+services:
+  db:
+    volumes:
+      - dcms_pgdata:/var/lib/postgresql/data
+      # No /init or init-dcms.sh — we restore from host dump instead.

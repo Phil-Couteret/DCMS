@@ -92,8 +92,8 @@ if [ "$MODE_CHOICE" = "3" ]; then
 # Database
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dcms_test?schema=public"
 
-# Server
-PORT=3001
+# Server (frontend expects API at :3003)
+PORT=3003
 NODE_ENV=development
 
 # CORS
@@ -131,7 +131,7 @@ EOF
     
     # Start backend
     echo ""
-    echo -e "${BLUE}🔧 Starting backend server on port 3001...${NC}"
+    echo -e "${BLUE}🔧 Starting backend server on port 3003...${NC}"
     cd backend
     npm run start:dev > ../backend.log 2>&1 &
     BACKEND_PID=$!
@@ -291,8 +291,8 @@ echo ""
 if [ "$MODE_CHOICE" = "3" ]; then
     echo -e "${BLUE}📍 Services:${NC}"
     echo "   - Admin Portal: http://localhost:3000"
-    echo "   - Backend API:  http://localhost:3001"
-    echo "   - API Docs:     http://localhost:3001/api"
+    echo "   - Backend API:  http://localhost:3003"
+    echo "   - API Docs:     http://localhost:3003/api"
 elif [ "$MODE_CHOICE" = "2" ]; then
     echo -e "${BLUE}📍 Services:${NC}"
     echo "   - Public Website: http://localhost:3000"
