@@ -14,6 +14,13 @@ async function main() {
     const defaultSettings = {
       key: 'default',
       value: {
+        organisation: {
+          name: 'Deep Blue Diving',
+          legalName: 'Deep Blue Diving',
+          address: 'Muelle Deportivo / Calle Teneriffe, E - 35610 Caleta de Fuste - Fuerteventura',
+          phone: '+34 928 163 712 / +34 606 275 468',
+          email: 'info@deep-blue-diving.com',
+        },
         locationTypes: [], // Start from scratch; configure via Settings > Location Types
         certificationUrls: {
           SSI: 'https://www.divessi.com/en/verify-certification',
@@ -66,6 +73,21 @@ async function main() {
     console.log('✅ Default settings created');
   } else {
     console.log('ℹ️  Default settings already exist');
+    const val = existingSettings.value as Record<string, unknown>;
+    if (!val?.organisation) {
+      const organisation = {
+        name: 'Deep Blue Diving',
+        legalName: 'Deep Blue Diving',
+        address: 'Muelle Deportivo / Calle Teneriffe, E - 35610 Caleta de Fuste - Fuerteventura',
+        phone: '+34 928 163 712 / +34 606 275 468',
+        email: 'info@deep-blue-diving.com',
+      };
+      await prisma.settings.update({
+        where: { key: 'default' },
+        data: { value: { ...val, organisation } },
+      });
+      console.log('✅ Organisation backfilled into existing settings');
+    }
   }
 
   console.log('✅ Settings seeding completed');

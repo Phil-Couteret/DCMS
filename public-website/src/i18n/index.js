@@ -7,6 +7,7 @@ import esTranslations from './locales/es.json';
 import deTranslations from './locales/de.json';
 import frTranslations from './locales/fr.json';
 import itTranslations from './locales/it.json';
+import caTranslations from './locales/ca.json';
 
 i18n
   .use(LanguageDetector) // Detects user language
@@ -17,10 +18,11 @@ i18n
       es: { translation: esTranslations },
       de: { translation: deTranslations },
       fr: { translation: frTranslations },
-      it: { translation: itTranslations }
+      it: { translation: itTranslations },
+      ca: { translation: caTranslations }
     },
     fallbackLng: 'en',
-    supportedLngs: ['en', 'es', 'de', 'fr', 'it'],
+    supportedLngs: ['en', 'es', 'de', 'fr', 'it', 'ca'],
     debug: false,
     interpolation: {
       escapeValue: false // React already escapes values

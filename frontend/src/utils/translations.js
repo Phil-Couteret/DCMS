@@ -1,5 +1,5 @@
 // Translation strings for DCMS PWA
-// Supports: Spanish, English, German
+// Supports: Spanish, English, German, Catalan, French
 
 // Translation strings
 export const translations = {
@@ -616,6 +616,412 @@ export const translations = {
       update: 'Aktualisieren',
       add: 'Hinzufügen',
       bulkImport: 'Stapelimport'
+    }
+  },
+  ca: {
+    settings: {
+      title: 'Configuració',
+      subtitle: 'Configurar opcions i preferències del sistema',
+      tabs: { certification: 'Verificació de certificació', prices: 'Preus', users: 'Gestió d\'usuaris' },
+      cert: {
+        title: 'Verificació de certificació',
+        subtitle: 'Configurar URLs de verificació per a les agències',
+        description: 'Configura les URLs del portal de verificació per a cada agència. Aquestes URLs s\'obriran en finestres emergents en verificar certificacions.',
+        verificationUrl: 'URL de verificació',
+        enterUrl: 'Introduir',
+        portalUrl: 'URL del portal de verificació',
+        test: 'Provar URL',
+        save: 'Desar configuració de certificació'
+      },
+      tip: 'Consell',
+      tipText: 'Assegura\'t que les URLs siguin correctes i accessibles. Pots provar cada URL amb el botó "Provar URL". Si es bloqueja un popup, revisa la configuració del bloqueador de finestres emergents del navegador.',
+      users: {
+        addTitle: 'Afegir nou usuari',
+        editTitle: 'Editar usuari',
+        username: 'Usuari',
+        fullName: 'Nom complet',
+        role: 'Rol',
+        locationAccess: 'Accés per ubicació',
+        allLocations: 'Totes les ubicacions (accés global)',
+        locationHint: 'Selecciona ubicacions o tria "Totes les ubicacions" per accés global',
+        globalAccess: 'Accés global a totes les ubicacions actuals i futures',
+        accessTo: 'Accés a',
+        locations: 'ubicacions',
+        active: 'Actiu',
+        create: 'Crear',
+        manageHelp: 'Gestiona usuaris i els seus rols. Els administradors tenen accés total; els guies, accés a reserves, clients i equipament.',
+        addUser: 'Afegir usuari',
+        name: 'Nom',
+        status: 'Estat',
+        actions: 'Accions',
+        inactive: 'Inactiu',
+        noPermission: 'No tens permisos per gestionar usuaris. Només els administradors poden accedir a aquesta secció.'
+      },
+      roles: { admin: 'Admin', boatPilot: 'Patró', guide: 'Guia', trainer: 'Instructor', intern: 'Becari' }
+    },
+    stays: {
+      title: 'Estades de clients',
+      loading: 'Carregant estades...',
+      refresh: 'Actualitzar',
+      empty: 'No s\'han trobat estades actives',
+      emptyHint: 'Els clients amb reserves els últims 30 dies apareixeran aquí',
+      started: 'Estada iniciada',
+      each: 'cada un',
+      breakdownTitle: 'Detall de l\'estada',
+      table: {
+        date: 'Data',
+        sessions: 'Sessions',
+        dives: 'Immersions',
+        pricePerDive: 'Preu per immersió',
+        total: 'Total'
+      },
+      cumulativeTitle: 'Preus acumulatius',
+      cumulativeTextPart1: 'Totes les immersions d\'aquesta estada es cobren a',
+      cumulativeTextPart2: 'per immersió en funció del volum total de',
+      cumulativeTextPart3: 'Això garanteix la millor tarifa per a tota l\'estada.',
+      addBooking: 'Afegir reserva',
+      viewCustomer: 'Veure client',
+      endStay: 'Finalitzar estada i generar factura',
+      noSessions: 'Sense sessions',
+      status: { new: 'Nova estada', low: 'Baix volum', medium: 'Volum mitjà', high: 'Alt volum' }
+    },
+    nav: {
+      dashboard: 'Panell de Control',
+      global: 'Global',
+      bookings: 'Reserves',
+      newBooking: 'Nova Reserva',
+      stays: 'Estades de clients',
+      customers: 'Clients',
+      equipment: 'Equipament',
+      settings: 'Configuració'
+    },
+    dashboard: {
+      title: 'Panell de Control',
+      todayBookings: 'Reserves d\'Avui',
+      todayRevenue: 'Ingressos d\'Avui',
+      totalBookings: 'Reserves Totals',
+      totalRevenue: 'Ingressos Totals',
+      newBooking: 'Nova Reserva'
+    },
+    bookings: {
+      title: 'Reserves',
+      new: 'Nova Reserva',
+      noBookings: 'No hi ha reserves',
+      createFirst: 'Crear Primera Reserva',
+      edit: 'Editar',
+      status: {
+        pending: 'Pendent',
+        confirmed: 'Confirmada',
+        completed: 'Completada',
+        cancelled: 'Cancel·lada'
+      },
+      details: {
+        bookingId: 'ID de Reserva',
+        date: 'Data',
+        activity: 'Activitat',
+        diveSessions: 'Sessions de busseig',
+        morning: 'Matí (9:00)',
+        afternoon: 'Tarda (12:00)',
+        dives: 'immersions',
+        paymentMethod: 'Mètode de pagament',
+        paymentStatus: 'Estat del pagament',
+        ownEquipment: 'Equip propi',
+        rentedEquipment: 'Equip llogat',
+        specialRequirements: 'Requisits especials',
+        notes: 'Notes'
+      }
+    },
+    customers: {
+      title: 'Clients',
+      new: 'Nou Client',
+      noCustomers: 'No hi ha clients',
+      createFirst: 'Crear Primer Client',
+      search: 'Cercar clients per nom, email o telèfon...',
+      edit: 'Editar',
+      nationality: 'Nacionalitat',
+      type: 'Tipus',
+      unknown: 'Client desconegut',
+      medicalCertificate: 'Certificat mèdic',
+      divingInsurance: 'Assegurança de busseig',
+      verified: 'Verificat',
+      notVerified: 'No verificat',
+      pendingVerification: 'Verificació pendent',
+      needsVerification: 'Necessita verificació',
+      verificationRequired: 'Verificació requerida',
+      verifiedOn: 'Verificat el',
+      expires: 'Caduca',
+      certifications: 'Certificacions'
+    },
+    equipment: {
+      title: 'Equipament',
+      total: 'Equipament Total',
+      available: 'Disponible',
+      inUse: 'En Ús',
+      search: 'Cercar equipament...',
+      noEquipment: 'No hi ha equipament registrat',
+      category: 'Categoria',
+      size: 'Mida',
+      serial: 'Número de Sèrie',
+      add: 'Afegir equipament',
+      addTitle: 'Afegir nou equipament',
+      editTitle: 'Editar equipament',
+      type: 'Tipus',
+      brand: 'Marca',
+      thickness: 'Gruix',
+      style: 'Estil',
+      hood: 'Caputxa',
+      condition: {
+        excellent: 'Excel·lent',
+        good: 'Bo',
+        fair: 'Regular',
+        poor: 'Pobre'
+      },
+      form: {
+        name: 'Nom de l\'equipament',
+        category: 'Categoria',
+        type: 'Tipus',
+        size: 'Mida',
+        serial: 'Número de Sèrie',
+        brand: 'Marca',
+        model: 'Model',
+        thickness: 'Gruix (per vestits)',
+        style: 'Estil (per vestits)',
+        hood: 'Caputxa (per vestits)',
+        condition: 'Condició',
+        notes: 'Notes'
+      },
+      categories: {
+        diving: 'Busseig',
+        snorkeling: 'Snorkel',
+        safety: 'Seguretat',
+        maintenance: 'Manteniment',
+        ownEquipment: 'Equip propi'
+      },
+      bulk: {
+        title: 'Importació massiva d\'equipament',
+        description: 'Puja un fitxer CSV amb dades d\'equipament. El fitxer ha de tenir les següents columnes:',
+        example: 'Exemple:'
+      }
+    },
+    common: {
+      save: 'Desar',
+      cancel: 'Cancel·lar',
+      search: 'Cercar',
+      edit: 'Editar',
+      delete: 'Eliminar',
+      loading: 'Carregant...',
+      saved: 'Desat amb èxit',
+      error: 'Error',
+      status: 'Estat',
+      yes: 'Sí',
+      no: 'No',
+      close: 'Tancar',
+      update: 'Actualitzar',
+      add: 'Afegir',
+      bulkImport: 'Importació Massiva'
+    }
+  },
+  fr: {
+    settings: {
+      title: 'Paramètres',
+      subtitle: 'Configurer les paramètres et préférences du système',
+      tabs: { certification: 'Vérification des certifications', prices: 'Tarifs', users: 'Gestion des utilisateurs' },
+      cert: {
+        title: 'Vérification des certifications',
+        subtitle: 'Configurer les URLs des portails de vérification pour les agences',
+        description: 'Configurez les URLs des portails de vérification pour chaque agence. Ces URLs s\'ouvriront dans des fenêtres popup lors de la vérification des certifications clients.',
+        verificationUrl: 'URL de vérification',
+        enterUrl: 'Saisir',
+        portalUrl: 'URL du portail de vérification',
+        test: 'Tester l\'URL',
+        save: 'Enregistrer les paramètres de certification'
+      },
+      tip: 'Conseil',
+      tipText: 'Assurez-vous que les URLs sont correctes et accessibles. Vous pouvez tester chaque URL avec le bouton "Tester l\'URL". Si une popup est bloquée, vérifiez les paramètres du bloqueur de fenêtres popup de votre navigateur.',
+      users: {
+        addTitle: 'Ajouter un utilisateur',
+        editTitle: 'Modifier l\'utilisateur',
+        username: 'Utilisateur',
+        fullName: 'Nom complet',
+        role: 'Rôle',
+        locationAccess: 'Accès par emplacement',
+        allLocations: 'Tous les emplacements (accès global)',
+        locationHint: 'Sélectionnez des emplacements ou choisissez "Tous les emplacements" pour un accès global',
+        globalAccess: 'Accès global à tous les emplacements actuels et futurs',
+        accessTo: 'Accès à',
+        locations: 'emplacements',
+        active: 'Actif',
+        create: 'Créer',
+        manageHelp: 'Gérez les utilisateurs et leurs rôles. Les administrateurs ont un accès total ; les guides ont accès aux réservations, clients et équipement.',
+        addUser: 'Ajouter un utilisateur',
+        name: 'Nom',
+        status: 'Statut',
+        actions: 'Actions',
+        inactive: 'Inactif',
+        noPermission: 'Vous n\'avez pas les droits pour gérer les utilisateurs. Seuls les administrateurs peuvent accéder à cette section.'
+      },
+      roles: { admin: 'Admin', boatPilot: 'Capitaine', guide: 'Guide', trainer: 'Instructeur', intern: 'Stagiaire' }
+    },
+    stays: {
+      title: 'Séjours clients',
+      loading: 'Chargement des séjours...',
+      refresh: 'Actualiser',
+      empty: 'Aucun séjour actif trouvé',
+      emptyHint: 'Les clients avec des réservations dans les 30 derniers jours apparaîtront ici',
+      started: 'Séjour commencé',
+      each: 'chacun',
+      breakdownTitle: 'Détail du séjour',
+      table: {
+        date: 'Date',
+        sessions: 'Sessions',
+        dives: 'Plongées',
+        pricePerDive: 'Prix par plongée',
+        total: 'Total'
+      },
+      cumulativeTitle: 'Tarification cumulative',
+      cumulativeTextPart1: 'Toutes les plongées de ce séjour sont facturées à',
+      cumulativeTextPart2: 'par plongée en fonction du volume total de',
+      cumulativeTextPart3: 'Cela garantit le meilleur tarif pour tout le séjour.',
+      addBooking: 'Ajouter une réservation',
+      viewCustomer: 'Voir le client',
+      endStay: 'Clôturer le séjour et générer la facture',
+      noSessions: 'Aucune session',
+      status: { new: 'Nouveau séjour', low: 'Faible volume', medium: 'Volume moyen', high: 'Volume élevé' }
+    },
+    nav: {
+      dashboard: 'Tableau de bord',
+      global: 'Global',
+      bookings: 'Réservations',
+      newBooking: 'Nouvelle réservation',
+      stays: 'Séjours clients',
+      customers: 'Clients',
+      equipment: 'Équipement',
+      settings: 'Paramètres'
+    },
+    dashboard: {
+      title: 'Tableau de bord',
+      todayBookings: 'Réservations du jour',
+      todayRevenue: 'Revenus du jour',
+      totalBookings: 'Réservations totales',
+      totalRevenue: 'Revenus totaux',
+      newBooking: 'Nouvelle réservation'
+    },
+    bookings: {
+      title: 'Réservations',
+      new: 'Nouvelle réservation',
+      noBookings: 'Aucune réservation',
+      createFirst: 'Créer la première réservation',
+      edit: 'Modifier',
+      status: {
+        pending: 'En attente',
+        confirmed: 'Confirmée',
+        completed: 'Terminée',
+        cancelled: 'Annulée'
+      },
+      details: {
+        bookingId: 'ID de réservation',
+        date: 'Date',
+        activity: 'Activité',
+        diveSessions: 'Sessions de plongée',
+        morning: 'Matin (9h)',
+        afternoon: 'Après-midi (12h)',
+        dives: 'plongées',
+        paymentMethod: 'Mode de paiement',
+        paymentStatus: 'Statut du paiement',
+        ownEquipment: 'Équipement personnel',
+        rentedEquipment: 'Équipement loué',
+        specialRequirements: 'Exigences particulières',
+        notes: 'Notes'
+      }
+    },
+    customers: {
+      title: 'Clients',
+      new: 'Nouveau client',
+      noCustomers: 'Aucun client',
+      createFirst: 'Créer le premier client',
+      search: 'Rechercher des clients par nom, email ou téléphone...',
+      edit: 'Modifier',
+      nationality: 'Nationalité',
+      type: 'Type',
+      unknown: 'Client inconnu',
+      medicalCertificate: 'Certificat médical',
+      divingInsurance: 'Assurance plongée',
+      verified: 'Vérifié',
+      notVerified: 'Non vérifié',
+      pendingVerification: 'Vérification en attente',
+      needsVerification: 'Nécessite une vérification',
+      verificationRequired: 'Vérification requise',
+      verifiedOn: 'Vérifié le',
+      expires: 'Expire le',
+      certifications: 'Certifications'
+    },
+    equipment: {
+      title: 'Équipement',
+      total: 'Équipement total',
+      available: 'Disponible',
+      inUse: 'En utilisation',
+      search: 'Rechercher de l\'équipement...',
+      noEquipment: 'Aucun équipement enregistré',
+      category: 'Catégorie',
+      size: 'Taille',
+      serial: 'Numéro de série',
+      add: 'Ajouter de l\'équipement',
+      addTitle: 'Ajouter un nouvel équipement',
+      editTitle: 'Modifier l\'équipement',
+      type: 'Type',
+      brand: 'Marque',
+      thickness: 'Épaisseur',
+      style: 'Style',
+      hood: 'Cagoule',
+      condition: {
+        excellent: 'Excellent',
+        good: 'Bon',
+        fair: 'Correct',
+        poor: 'Mauvais'
+      },
+      form: {
+        name: 'Nom de l\'équipement',
+        category: 'Catégorie',
+        type: 'Type',
+        size: 'Taille',
+        serial: 'Numéro de série',
+        brand: 'Marque',
+        model: 'Modèle',
+        thickness: 'Épaisseur (pour combinaisons)',
+        style: 'Style (pour combinaisons)',
+        hood: 'Cagoule (pour combinaisons)',
+        condition: 'État',
+        notes: 'Notes'
+      },
+      categories: {
+        diving: 'Plongée',
+        snorkeling: 'Snorkeling',
+        safety: 'Sécurité',
+        maintenance: 'Entretien',
+        ownEquipment: 'Équipement personnel'
+      },
+      bulk: {
+        title: 'Import en masse d\'équipement',
+        description: 'Téléchargez un fichier CSV avec les données d\'équipement. Le fichier doit contenir les colonnes suivantes :',
+        example: 'Exemple :'
+      }
+    },
+    common: {
+      save: 'Enregistrer',
+      cancel: 'Annuler',
+      search: 'Rechercher',
+      edit: 'Modifier',
+      delete: 'Supprimer',
+      loading: 'Chargement...',
+      saved: 'Enregistré avec succès',
+      error: 'Erreur',
+      status: 'Statut',
+      yes: 'Oui',
+      no: 'Non',
+      close: 'Fermer',
+      update: 'Mettre à jour',
+      add: 'Ajouter',
+      bulkImport: 'Import en masse'
     }
   }
 };

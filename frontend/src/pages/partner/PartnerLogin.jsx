@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import dataService from '../../services/dataService';
 import {
   Box,
   Container,
@@ -32,6 +33,20 @@ const PartnerLogin = () => {
   const [showSecret, setShowSecret] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [orgName, setOrgName] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const all = await dataService.getAll('settings') || [];
+        const s = Array.isArray(all) && all.length > 0 ? all[0] : null;
+        setOrgName(s?.organisation?.name || '');
+      } catch (e) {
+        console.warn('[PartnerLogin] Error loading settings:', e);
+      }
+    };
+    load();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -70,7 +85,7 @@ const PartnerLogin = () => {
               Partner Portal
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Deep Blue Diving - Partner Access
+              {orgName || 'Dive Center'} - Partner Access
             </Typography>
           </Box>
 
@@ -181,7 +196,7 @@ const PartnerLogin = () => {
           </form>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-            Use your API credentials provided by Deep Blue Diving
+            Use your API credentials provided by {orgName || 'Dive Center'}
           </Typography>
         </Paper>
       </Box>

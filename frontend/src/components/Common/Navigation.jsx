@@ -59,6 +59,7 @@ const Navigation = () => {
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [boats, setBoats] = useState([]);
+  const [orgName, setOrgName] = useState('');
 
   // Build menu items by scope
   const userHasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
@@ -198,6 +199,19 @@ const Navigation = () => {
     loadBoats();
   }, []);
 
+  React.useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const all = await dataService.getAll('settings') || [];
+        const s = Array.isArray(all) && all.length > 0 ? all[0] : null;
+        setOrgName(s?.organisation?.name || '');
+      } catch (e) {
+        console.warn('[Navigation] Error loading settings:', e);
+      }
+    };
+    loadSettings();
+  }, []);
+
   const selectLocation = (newLocationId) => {
     if (!newLocationId) return;
     setSelectedLocationId(newLocationId);
@@ -244,7 +258,7 @@ const Navigation = () => {
       >
         <Toolbar>
           <Typography variant="h6" noWrap component="div" sx={{ mr: 3 }}>
-            DCMS - Deep Blue Diving
+            DCMS - {orgName || 'Dive Center'}
           </Typography>
           {/* Dashboard shortcut before location tabs */}
           {/* Global + Location Tabs unified */}

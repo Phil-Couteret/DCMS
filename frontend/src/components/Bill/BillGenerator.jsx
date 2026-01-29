@@ -477,14 +477,18 @@ const BillGenerator = ({ open, onClose, stay }) => {
             {/* Bill Header */}
             <Box sx={{ textAlign: 'center', mb: 3 }}>
               <Typography variant="h4" gutterBottom>
-                Deep Blue Diving
+                {settings?.organisation?.name || 'Dive Center'}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Caleta de Fuste, Fuerteventura, Spain
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Tel: +34 123 456 789 • Email: info@deep-blue-diving.com
-              </Typography>
+              {settings?.organisation?.address && (
+                <Typography variant="body2" color="text.secondary">
+                  {settings.organisation.address}
+                </Typography>
+              )}
+              {(settings?.organisation?.phone || settings?.organisation?.email) && (
+                <Typography variant="body2" color="text.secondary">
+                  {[settings.organisation.phone, settings.organisation.email].filter(Boolean).join(' | ')}
+                </Typography>
+              )}
             </Box>
 
             <Divider sx={{ my: 2 }} />

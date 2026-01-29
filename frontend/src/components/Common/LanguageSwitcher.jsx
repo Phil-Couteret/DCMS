@@ -4,7 +4,9 @@ import { useTranslation } from '../../utils/languageContext';
 
 const languages = [
   { code: 'es', name: 'Español' },
+  { code: 'ca', name: 'Català' },
   { code: 'en', name: 'English' },
+  { code: 'fr', name: 'Français' },
   { code: 'de', name: 'Deutsch' }
 ];
 

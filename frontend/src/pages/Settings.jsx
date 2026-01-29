@@ -63,6 +63,7 @@ import {
   Business as BusinessIcon,
   ContentCopy as CopyIcon,
   Category as CategoryIcon,
+  Domain as DomainIcon,
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES, AVAILABLE_PERMISSIONS, ALL_PERMISSIONS } from '../utils/authContext';
@@ -1688,6 +1689,11 @@ const Settings = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
           <Tab 
+            icon={<DomainIcon />} 
+            label="Organisation" 
+            iconPosition="start"
+          />
+          <Tab 
             icon={<LocationIcon />} 
             label="Locations" 
             iconPosition="start"
@@ -1731,6 +1737,85 @@ const Settings = () => {
       </Box>
 
       {activeTab === 0 && (
+        <Box>
+          {/* Organisation */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h5" gutterBottom>Organisation</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Business name and contact details used on bills, reports, and the app header.
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Display name"
+                  value={settings.organisation?.name ?? ''}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    organisation: { ...(prev.organisation || {}), name: e.target.value }
+                  }))}
+                  placeholder="e.g. Deep Blue Diving"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Legal name (optional)"
+                  value={settings.organisation?.legalName ?? ''}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    organisation: { ...(prev.organisation || {}), legalName: e.target.value }
+                  }))}
+                  placeholder="Legal entity name"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Address"
+                  value={settings.organisation?.address ?? ''}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    organisation: { ...(prev.organisation || {}), address: e.target.value }
+                  }))}
+                  placeholder="Street, postal code, city, country"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Phone"
+                  value={settings.organisation?.phone ?? ''}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    organisation: { ...(prev.organisation || {}), phone: e.target.value }
+                  }))}
+                  placeholder="+34 928 163 712"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  value={settings.organisation?.email ?? ''}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    organisation: { ...(prev.organisation || {}), email: e.target.value }
+                  }))}
+                  placeholder="info@example.com"
+                />
+              </Grid>
+            </Grid>
+            <Box sx={{ mt: 3 }}>
+              <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
+                Save organisation
+              </Button>
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {activeTab === 1 && (
         <Box>
           {/* Locations Management */}
           {isAdmin() && (() => {
@@ -2047,7 +2132,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 1 && (
+      {activeTab === 2 && (
         <Box>
           {/* Location Types (configurable) */}
           {isAdmin() && (
@@ -2253,14 +2338,14 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 2 && (
+      {activeTab === 3 && (
         <Box>
           {/* Prices Settings */}
           <Prices />
         </Box>
       )}
 
-      {activeTab === 3 && (
+      {activeTab === 4 && (
         <Box>
           {/* Dive Sites Management */}
           {isAdmin() && (
@@ -2764,7 +2849,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 4 && (
+      {activeTab === 5 && (
         <Box>
           {/* Boats Management */}
           {isAdmin() && (
@@ -3053,7 +3138,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 5 && (
+      {activeTab === 6 && (
         <Box>
           {/* User Management - Only visible to admins and superadmins */}
           {isAdmin() && (
@@ -3227,7 +3312,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 6 && (
+      {activeTab === 7 && (
         <Box>
           {/* Partners Management - Only visible to admins */}
           {isAdmin() && (
@@ -3383,7 +3468,7 @@ const Settings = () => {
         </Box>
       )}
 
-      {activeTab === 7 && (
+      {activeTab === 8 && (
         <Box>
           {/* Certification Verification Settings */}
           <Accordion defaultExpanded sx={{ mb: 3 }}>

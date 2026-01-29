@@ -479,20 +479,22 @@ const Bill = () => {
     printWindow.print();
   };
 
+  const orgName = settings?.organisation?.name || 'Dive Center';
+
   const emailBill = () => {
     if (!calculatedBill || !stay.customer.email) {
       alert('Customer email address not available.');
       return;
     }
 
-    const subject = encodeURIComponent(`Invoice ${calculatedBill.billNumber} - Deep Blue Diving`);
+    const subject = encodeURIComponent(`Invoice ${calculatedBill.billNumber} - ${orgName}`);
     const body = encodeURIComponent(
       `Dear ${stay.customer.firstName} ${stay.customer.lastName},\n\n` +
       `Please find attached your invoice for your stay.\n\n` +
       `Invoice Number: ${calculatedBill.billNumber}\n` +
       `Stay Start Date: ${calculatedBill.stayStartDate}\n` +
       `Total Amount: €${calculatedBill.total.toFixed(2)}\n\n` +
-      `Best regards,\nDeep Blue Diving`
+      `Best regards,\n${orgName}`
     );
     
     // Create mailto link
@@ -501,7 +503,10 @@ const Bill = () => {
 
   const generateBillHTML = () => {
     if (!calculatedBill) return '';
-    
+    const org = settings?.organisation;
+    const name = org?.name || 'Dive Center';
+    const address = org?.address || '';
+
     return `
       <!DOCTYPE html>
       <html>
@@ -519,7 +524,8 @@ const Bill = () => {
       </head>
       <body>
         <div class="header">
-          <h1>Deep Blue Diving</h1>
+          <h1>${name}</h1>
+          ${address ? `<p>${address}</p>` : ''}
           <h2>Invoice ${calculatedBill.billNumber}</h2>
         </div>
         <div class="bill-info">
@@ -641,14 +647,18 @@ const Bill = () => {
         {/* Company Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h4" gutterBottom>
-            Deep Blue Diving
+            {orgName}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Muelle Deportivo / Calle Teneriffe, E - 35610 Caleta de Fuste - Fuerteventura
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            +34.928 163 712 / +34.606 275 468 | info@deep-blue-diving.com
-          </Typography>
+          {(settings?.organisation?.address) && (
+            <Typography variant="body2" color="text.secondary">
+              {settings.organisation.address}
+            </Typography>
+          )}
+          {(settings?.organisation?.phone || settings?.organisation?.email) && (
+            <Typography variant="body2" color="text.secondary">
+              {[settings.organisation.phone, settings.organisation.email].filter(Boolean).join(' | ')}
+            </Typography>
+          )}
         </Box>
 
         <Divider sx={{ my: 3 }} />
@@ -929,7 +939,7 @@ const Bill = () => {
         {/* Footer */}
         <Box sx={{ mt: 4, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Thank you for diving with Deep Blue Diving!
+            Thank you for diving with {orgName}!
           </Typography>
           
           {/* Close Stay Button */}
