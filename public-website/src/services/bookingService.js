@@ -1397,8 +1397,6 @@ export const deleteCustomerAccount = async (email, reason = 'User requested') =>
       customerId: customer.id 
     });
     
-    console.log(`[DCMS] Anonymized customer account: ${email} (${anonymizedBookingsCount} bookings anonymized, data retained for 7 years for legal/accounting)`);
-    
     return { 
       success: true, 
       anonymizedBookings: anonymizedBookingsCount,
@@ -1416,10 +1414,8 @@ export const syncAllCustomersToServer = async () => {
   const customers = getAll('customers');
   
   if (typeof window !== 'undefined' && window.syncService) {
-    console.log(`[DCMS] Manually syncing ${customers.length} customers to server...`);
     window.syncService.markChanged('customers');
     await window.syncService.pushPendingChanges();
-    console.log(`[DCMS] ✅ Synced ${customers.length} customers to server`);
     return { success: true, count: customers.length };
   } else {
     console.warn('[DCMS] Sync service not available');

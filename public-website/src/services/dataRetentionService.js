@@ -150,7 +150,6 @@ export const cleanupInactiveCustomers = async () => {
         consentService.deleteCustomerConsents(customer.id);
         
         deletedEmails.push(customer.email);
-        console.log(`[Data Retention] Deleted inactive customer: ${customer.email} (inactive for 7+ years)`);
       } catch (error) {
         console.error(`[Data Retention] Error deleting inactive customer ${customer.email}:`, error);
       }
@@ -184,7 +183,6 @@ export const cleanupOldBookings = () => {
           const remainingBookings = bookings.filter(b => b.id !== booking.id);
           saveAllBookings(remainingBookings);
           deletedCount++;
-          console.log(`[Data Retention] Deleted old booking: ${booking.id} (older than 7 years)`);
         }
         // If customer exists, we keep the booking (it will be deleted when customer is deleted)
       } catch (error) {
@@ -220,7 +218,6 @@ export const cleanupExpiredMedicalCertificates = () => {
         });
         
         cleanedCount++;
-        console.log(`[Data Retention] Cleaned expired medical certificate for: ${customer.email}`);
       } catch (error) {
         console.error(`[Data Retention] Error cleaning medical certificate for ${customer.email}:`, error);
       }
@@ -246,7 +243,6 @@ export const cleanupInactiveMarketingConsents = () => {
         try {
           consentService.withdrawConsent(customer.id, 'marketing');
           withdrawnCount++;
-          console.log(`[Data Retention] Withdrawn inactive marketing consent for: ${customer.email}`);
         } catch (error) {
           console.error(`[Data Retention] Error withdrawing consent for ${customer.email}:`, error);
         }
@@ -262,8 +258,6 @@ export const cleanupInactiveMarketingConsents = () => {
  * Returns summary of cleanup operations
  */
 export const runDataRetentionCleanup = () => {
-  console.log('[Data Retention] Starting data retention cleanup...');
-  
   const summary = {
     inactiveCustomers: 0,
     oldBookings: 0,
@@ -285,8 +279,6 @@ export const runDataRetentionCleanup = () => {
     
     // Clean up inactive marketing consents (3 years inactive)
     summary.inactiveMarketingConsents = cleanupInactiveMarketingConsents();
-    
-    console.log('[Data Retention] Cleanup completed:', summary);
   } catch (error) {
     console.error('[Data Retention] Error during cleanup:', error);
     summary.error = error.message;

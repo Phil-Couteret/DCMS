@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateStaffDto {
-  locationId: string;
+  locationId?: string;
+  locationIds?: string[];
   firstName: string;
   lastName: string;
   email: string;
@@ -16,6 +17,7 @@ export interface CreateStaffDto {
 
 export interface UpdateStaffDto {
   locationId?: string;
+  locationIds?: string[];
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -44,8 +46,12 @@ export class StaffService {
   async findByLocation(locationId: string) {
     return this.prisma.staff.findMany({
       where: { 
-        location_id: locationId,
-        is_active: true 
+        is_active: true,
+        OR: [
+          { location_id: locationId },
+          { location_ids: { isEmpty: true } },
+          { location_ids: { has: locationId } },
+        ],
       },
       include: {
         locations: true,
@@ -70,9 +76,16 @@ export class StaffService {
   }
 
   async create(createStaffDto: CreateStaffDto) {
+    const locationIds = createStaffDto.locationIds || [];
+    const locationId = createStaffDto.locationId
+      || (locationIds.length > 0 ? locationIds[0] : undefined);
+    const effectiveLocationId = locationId
+      || (await this.prisma.locations.findFirst())?.id;
+    if (!effectiveLocationId) throw new Error('Staff requires at least one location');
     return this.prisma.staff.create({
       data: {
-        location_id: createStaffDto.locationId,
+        location_id: effectiveLocationId,
+        location_ids: locationIds,
         first_name: createStaffDto.firstName,
         last_name: createStaffDto.lastName,
         email: createStaffDto.email,
@@ -93,7 +106,15 @@ export class StaffService {
     await this.findOne(id); // Check if exists
 
     const updateData: any = {};
-    if (updateStaffDto.locationId !== undefined) updateData.location_id = updateStaffDto.locationId;
+    if (updateStaffDto.locationIds !== undefined) {
+      updateData.location_ids = updateStaffDto.locationIds;
+      const newLocId = updateStaffDto.locationIds.length > 0
+        ? updateStaffDto.locationIds[0]
+        : updateStaffDto.locationId;
+      if (newLocId) updateData.location_id = newLocId;
+    } else if (updateStaffDto.locationId !== undefined) {
+      updateData.location_id = updateStaffDto.locationId;
+    }
     if (updateStaffDto.firstName !== undefined) updateData.first_name = updateStaffDto.firstName;
     if (updateStaffDto.lastName !== undefined) updateData.last_name = updateStaffDto.lastName;
     if (updateStaffDto.email !== undefined) updateData.email = updateStaffDto.email;

@@ -936,23 +936,34 @@ const BoatPrep = () => {
     return null;
   };
 
-  // Get available staff for a boat (filter out already assigned)
+  // Staff works at a location if locationIds is empty (all) or includes the location
+  const staffWorksAtLocation = (staff, locationId) => {
+    if (!locationId) return true;
+    const ids = staff.locationIds || staff.location_ids;
+    if (ids && Array.isArray(ids)) {
+      if (ids.length === 0) return true; // Empty = all locations
+      return ids.includes(locationId);
+    }
+    // Backward compat: staff with only locationId works at that location only
+    const singleId = staff.locationId || staff.location_id;
+    return !singleId || singleId === locationId;
+  };
+
+  // Get available staff for a boat (filter out already assigned, filter by location)
   // boatId can be null for shore dives
   const getAvailableStaffForBoat = (boatId, role) => {
     const allRoleStaff = getStaffByRole(role);
+    const locationId = boatId === null ? resolvedLocationId : boats.find(b => b.id === boatId)?.locationId;
     return allRoleStaff.filter(staff => {
-      // For shore dives (boatId === null), check if staff is assigned to any boat
+      if (!staffWorksAtLocation(staff, locationId)) return false;
       if (boatId === null) {
-        // For shore dives, check if staff is assigned to any boat (they can't be in both)
         const assignedBoat = getStaffAssignedBoat(staff.id);
-        // Also check if assigned to shore dive
-        const isInShoreDive = (shoreDiveStaff.guides?.includes(staff.id) || 
+        const isInShoreDive = (shoreDiveStaff.guides?.includes(staff.id) ||
                                shoreDiveStaff.trainees?.includes(staff.id));
         return !assignedBoat && !isInShoreDive;
       }
-      // For boats, check if assigned to this boat or another
       const assignedBoat = getStaffAssignedBoat(staff.id);
-      return !assignedBoat || assignedBoat === boatId; // Include if not assigned or assigned to this boat
+      return !assignedBoat || assignedBoat === boatId;
     });
   };
 

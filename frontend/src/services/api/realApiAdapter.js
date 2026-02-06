@@ -248,13 +248,15 @@ const realApiAdapter = {
   transformStaffToBackend(data) {
     if (!data || typeof data !== 'object') return data;
     
+    const locationIds = data.locationIds || data.location_ids || [];
     return {
       firstName: data.firstName || data.first_name,
       lastName: data.lastName || data.last_name,
       email: data.email,
       phone: data.phone,
       role: data.role,
-      locationId: data.locationId || data.location_id,
+      locationId: data.locationId || data.location_id || (locationIds.length > 0 ? locationIds[0] : null),
+      locationIds: Array.isArray(locationIds) ? locationIds : [],
       certifications: data.certifications || [],
       emergencyContact: data.emergencyContact || data.emergency_contact || {},
       employmentStartDate: data.employmentStartDate || data.employment_start_date,
@@ -265,6 +267,7 @@ const realApiAdapter = {
   transformStaffFromBackend(data) {
     if (!data || typeof data !== 'object') return data;
     
+    const locationIds = data.location_ids || data.locationIds || [];
     return {
       id: data.id,
       firstName: data.first_name || data.firstName,
@@ -273,7 +276,8 @@ const realApiAdapter = {
       email: data.email,
       phone: data.phone,
       role: data.role,
-      locationId: data.location_id || data.locationId,
+      locationId: data.location_id || data.locationId || (locationIds.length > 0 ? locationIds[0] : null),
+      locationIds: Array.isArray(locationIds) ? locationIds : (data.location_id ? [data.location_id] : []),
       certifications: data.certifications || [],
       emergencyContact: data.emergency_contact || data.emergencyContact || {},
       employmentStartDate: data.employment_start_date || data.employmentStartDate,

@@ -19,12 +19,9 @@ root.render(
 // Register service worker for PWA (production only to avoid dev errors)
 if (process.env.NODE_ENV === 'production') {
   serviceWorkerRegistration.register({
-    onSuccess: () => {
-      console.log('[PWA] App is ready for offline use');
-    },
+    onSuccess: () => {},
     onUpdate: (registration) => {
-      console.log('[PWA] New content available, please refresh');
-      // You can show a toast notification here to prompt user to refresh
+      // Could show a toast to prompt user to refresh
     },
     onError: (error) => {
       console.error('[PWA] Service worker registration error:', error);

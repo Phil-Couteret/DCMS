@@ -490,6 +490,7 @@ model settings {
 model staff {
   id                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   location_id           String     @db.Uuid
+  location_ids          String[]   @default([]) @db.Uuid
   first_name            String     @db.VarChar(50)
   last_name             String     @db.VarChar(50)
   email                 String     @unique @db.VarChar(100)

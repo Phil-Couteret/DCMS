@@ -97,7 +97,6 @@ export const cleanupExpiredAccounts = async () => {
         consentService.deleteCustomerConsents(customer.id);
         
         deletedEmails.push(customer.email);
-        console.log(`[Password Migration] Deleted account ${customer.email} - password change deadline exceeded`);
       } catch (error) {
         console.error(`[Password Migration] Error deleting account ${customer.email}:`, error);
       }

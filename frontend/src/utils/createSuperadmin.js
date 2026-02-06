@@ -52,12 +52,6 @@ export const createSuperadminFromAdmin = (sourceAdminId = null, overrides = {}) 
   
   // Create the superadmin user
   const created = dataService.create('users', superadmin);
-  
-  console.log('✅ Superadmin created successfully:', created);
-  console.log('📧 Username:', created.username);
-  console.log('🔑 Default password:', created.password || 'superadmin123');
-  console.log('⚠️  Please change the password after first login!');
-  
   return created;
 };
 

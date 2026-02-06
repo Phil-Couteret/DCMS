@@ -111,13 +111,12 @@ const Settings = () => {
     password: '',
     confirmPassword: '',
     role: USER_ROLES.ADMIN, // Default role (kept for backward compatibility)
-    staffRoles: [], // Staff roles array (boat_captain, instructor, etc.) - optional, only if this user is also staff
+    staffRoles: [], // Staff roles array (boat_captain, instructor, etc.)
     permissions: [], // Array of permission keys
     isActive: true,
     locationAccess: [], // Array of location IDs (for user access)
-    staffLocationId: '', // Location ID for staff assignment (if this user is also staff)
-    employmentStartDate: '', // Employment start date for staff
-    isStaffMember: false // Toggle to indicate if this user is also a staff member
+    staffLocationIds: ['__ALL__'], // Location IDs for staff - ['__ALL__'] or array of IDs; empty = all
+    employmentStartDate: '' // Employment start date for staff
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -782,9 +781,8 @@ const Settings = () => {
       permissions: [],
       isActive: true,
       locationAccess: [],
-      staffLocationId: locations.length > 0 ? locations[0].id : '',
-      employmentStartDate: '',
-      isStaffMember: false
+      staffLocationIds: ['__ALL__'],
+      employmentStartDate: ''
     });
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -815,9 +813,10 @@ const Settings = () => {
       permissions: user.permissions || [],
       isActive: user.isActive,
       locationAccess: locationAccess,
-      staffLocationId: staffMember?.locationId || (locations.length > 0 ? locations[0].id : ''),
-      employmentStartDate: staffMember?.employmentStartDate ? (staffMember.employmentStartDate.split('T')[0] || staffMember.employmentStartDate) : '',
-      isStaffMember: !!staffMember
+      staffLocationIds: (staffMember?.locationIds && staffMember.locationIds.length > 0)
+        ? staffMember.locationIds
+        : (staffMember?.locationId ? [staffMember.locationId] : ['__ALL__']),
+      employmentStartDate: staffMember?.employmentStartDate ? (staffMember.employmentStartDate.split('T')[0] || staffMember.employmentStartDate) : ''
     });
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -860,32 +859,30 @@ const Settings = () => {
         }
       }
 
-      // Validate staff fields if isStaffMember is true
-      if (userFormData.isStaffMember) {
-        if (!userFormData.firstName || !userFormData.lastName) {
-          setSnackbar({
-            open: true,
-            message: 'First name and last name are required for staff members',
-            severity: 'error'
-          });
-          return;
-        }
-        if (!userFormData.staffRoles || userFormData.staffRoles.length === 0) {
-          setSnackbar({
-            open: true,
-            message: 'At least one staff role is required',
-            severity: 'error'
-          });
-          return;
-        }
-        if (!userFormData.staffLocationId) {
-          setSnackbar({
-            open: true,
-            message: 'Location is required for staff members',
-            severity: 'error'
-          });
-          return;
-        }
+      // Validate staff fields (all admin users are staff members)
+      if (!userFormData.firstName || !userFormData.lastName) {
+        setSnackbar({
+          open: true,
+          message: 'First name and last name are required',
+          severity: 'error'
+        });
+        return;
+      }
+      if (!userFormData.staffRoles || userFormData.staffRoles.length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'At least one staff role is required',
+          severity: 'error'
+        });
+        return;
+      }
+      if (!userFormData.staffLocationIds || userFormData.staffLocationIds.length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'Select at least one location or All Locations',
+          severity: 'error'
+        });
+        return;
       }
 
       // Convert "__ALL__" selection to empty array for global access
@@ -893,10 +890,8 @@ const Settings = () => {
         ? [] 
         : userFormData.locationAccess;
       
-      // Build user name from firstName/lastName if provided, otherwise use name field
-      const userName = userFormData.firstName && userFormData.lastName
-        ? `${userFormData.firstName} ${userFormData.lastName}`.trim()
-        : userFormData.name;
+      // Build user name from firstName and lastName (required for all users)
+      const userName = `${(userFormData.firstName || '').trim()} ${(userFormData.lastName || '').trim()}`.trim();
       
       const userData = {
         username: userFormData.username,
@@ -937,34 +932,34 @@ const Settings = () => {
         });
       }
 
-      // If this user is also a staff member, create/update staff record
-      if (userFormData.isStaffMember) {
-        // Store all roles in certifications field as JSON, use first role as primary role
-        const primaryRole = userFormData.staffRoles && userFormData.staffRoles.length > 0 
-          ? userFormData.staffRoles[0] 
-          : 'assistant'; // fallback
-        
-        const staffData = {
-          firstName: userFormData.firstName,
-          lastName: userFormData.lastName,
-          email: userFormData.email,
-          phone: userFormData.phone || '',
-          role: primaryRole, // Store primary role in role field
-          locationId: userFormData.staffLocationId,
-          certifications: userFormData.staffRoles || [], // Store all roles in certifications field
-          emergencyContact: {},
-          employmentStartDate: userFormData.employmentStartDate || null,
-          isActive: userFormData.isActive
-        };
+      // Always create/update staff record (all admin users are staff members)
+      const primaryRole = userFormData.staffRoles && userFormData.staffRoles.length > 0
+        ? userFormData.staffRoles[0]
+        : 'assistant';
 
-        const existingStaff = getStaffForUser(userFormData.email);
-        if (existingStaff) {
-          // Update existing staff record
-          await dataService.update('staff', existingStaff.id, staffData);
-        } else {
-          // Create new staff record
-          await dataService.create('staff', staffData);
-        }
+      const locationIds = userFormData.staffLocationIds.includes('__ALL__')
+        ? []
+        : userFormData.staffLocationIds.filter(id => id !== '__ALL__');
+
+      const staffData = {
+        firstName: userFormData.firstName,
+        lastName: userFormData.lastName,
+        email: userFormData.email,
+        phone: userFormData.phone || '',
+        role: primaryRole,
+        locationId: locationIds.length > 0 ? locationIds[0] : (locations.length > 0 ? locations[0].id : null),
+        locationIds,
+        certifications: userFormData.staffRoles || [],
+        emergencyContact: {},
+        employmentStartDate: userFormData.employmentStartDate || null,
+        isActive: userFormData.isActive
+      };
+
+      const existingStaff = getStaffForUser(userFormData.email);
+      if (existingStaff) {
+        await dataService.update('staff', existingStaff.id, staffData);
+      } else {
+        await dataService.create('staff', staffData);
       }
 
       setUserDialogOpen(false);
@@ -1110,30 +1105,22 @@ const Settings = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label={t('settings.users.fullName') || 'Full Name'}
-                value={userFormData.isStaffMember && userFormData.firstName && userFormData.lastName
-                  ? `${userFormData.firstName} ${userFormData.lastName}`.trim()
-                  : userFormData.name}
-                onChange={(e) => {
-                  // If staff member, update firstName/lastName; otherwise update name
-                  if (userFormData.isStaffMember) {
-                    const parts = e.target.value.split(' ');
-                    setUserFormData({ 
-                      ...userFormData, 
-                      firstName: parts[0] || '',
-                      lastName: parts.slice(1).join(' ') || '',
-                      name: e.target.value
-                    });
-                  } else {
-                    setUserFormData({ ...userFormData, name: e.target.value });
-                  }
-                }}
-                required={!userFormData.isStaffMember}
-                disabled={userFormData.isStaffMember}
-                helperText={userFormData.isStaffMember ? "Name is generated from First Name and Last Name below" : ""}
+                label="First Name"
+                value={userFormData.firstName}
+                onChange={(e) => setUserFormData({ ...userFormData, firstName: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Last Name"
+                value={userFormData.lastName}
+                onChange={(e) => setUserFormData({ ...userFormData, lastName: e.target.value })}
+                required
               />
             </Grid>
             <Grid item xs={12}>
@@ -1296,123 +1283,119 @@ const Settings = () => {
                 }
               </Typography>
             </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Phone"
+                value={userFormData.phone}
+                onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value })}
+              />
+            </Grid>
             <Grid item xs={12}>
-              <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle2" gutterBottom>
-                Staff Member Information (Optional)
+                Staff Roles *
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-                Check this box if this user is also a staff member (boat captain, guide, instructor, etc.) who can be assigned to boats and dives.
+                Select all roles that apply. Staff can have multiple roles (e.g., Boat Captain and Instructor).
+              </Typography>
+              <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                <Grid container spacing={2}>
+                  {STAFF_ROLE_OPTIONS.map((roleOption) => (
+                    <Grid item xs={12} sm={6} md={4} key={roleOption.value}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={userFormData.staffRoles.includes(roleOption.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setUserFormData({
+                                  ...userFormData,
+                                  staffRoles: [...userFormData.staffRoles, roleOption.value]
+                                });
+                              } else {
+                                setUserFormData({
+                                  ...userFormData,
+                                  staffRoles: userFormData.staffRoles.filter(r => r !== roleOption.value)
+                                });
+                              }
+                            }}
+                          />
+                        }
+                        label={roleOption.label}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+                {userFormData.staffRoles.length === 0 && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    Please select at least one staff role.
+                  </Alert>
+                )}
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                Locations (where this staff can work) *
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                Select one, several, or All Locations. Staff can be assigned to boats and dives at their selected locations.
               </Typography>
               <FormControlLabel
                 control={
-                  <Switch
-                    checked={userFormData.isStaffMember}
-                    onChange={(e) => setUserFormData({ ...userFormData, isStaffMember: e.target.checked })}
+                  <Checkbox
+                    checked={userFormData.staffLocationIds.includes('__ALL__')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setUserFormData({ ...userFormData, staffLocationIds: ['__ALL__'] });
+                      } else {
+                        setUserFormData({ ...userFormData, staffLocationIds: [] });
+                      }
+                    }}
                   />
                 }
-                label="This user is also a staff member"
+                label={t('settings.users.allLocations') || 'All Locations'}
+              />
+              {!userFormData.staffLocationIds.includes('__ALL__') && locations.map((location) => (
+                <FormControlLabel
+                  key={location.id}
+                  control={
+                    <Checkbox
+                      checked={userFormData.staffLocationIds.includes(location.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setUserFormData({
+                            ...userFormData,
+                            staffLocationIds: [...userFormData.staffLocationIds.filter(id => id !== '__ALL__'), location.id]
+                          });
+                        } else {
+                          setUserFormData({
+                            ...userFormData,
+                            staffLocationIds: userFormData.staffLocationIds.filter(id => id !== location.id)
+                          });
+                        }
+                      }}
+                    />
+                  }
+                  label={location.name}
+                />
+              ))}
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {userFormData.staffLocationIds.includes('__ALL__')
+                  ? (t('settings.users.globalAccess') || 'Can work at all locations')
+                  : `${userFormData.staffLocationIds.length} ${t('settings.users.locations') || 'location(s)'} selected`
+                }
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Employment Start Date"
+                type="date"
+                value={userFormData.employmentStartDate}
+                onChange={(e) => setUserFormData({ ...userFormData, employmentStartDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
-
-            {userFormData.isStaffMember && (
-              <>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="First Name"
-                    value={userFormData.firstName}
-                    onChange={(e) => setUserFormData({ ...userFormData, firstName: e.target.value })}
-                    required={userFormData.isStaffMember}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Last Name"
-                    value={userFormData.lastName}
-                    onChange={(e) => setUserFormData({ ...userFormData, lastName: e.target.value })}
-                    required={userFormData.isStaffMember}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Phone"
-                    value={userFormData.phone}
-                    onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value })}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Staff Roles *
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-                    Select all roles that apply. Staff members can have multiple roles (e.g., Boat Captain and Instructor).
-                  </Typography>
-                  <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                    <Grid container spacing={2}>
-                      {STAFF_ROLE_OPTIONS.map((roleOption) => (
-                        <Grid item xs={12} sm={6} md={4} key={roleOption.value}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={userFormData.staffRoles.includes(roleOption.value)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setUserFormData({
-                                      ...userFormData,
-                                      staffRoles: [...userFormData.staffRoles, roleOption.value]
-                                    });
-                                  } else {
-                                    setUserFormData({
-                                      ...userFormData,
-                                      staffRoles: userFormData.staffRoles.filter(r => r !== roleOption.value)
-                                    });
-                                  }
-                                }}
-                              />
-                            }
-                            label={roleOption.label}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                    {userFormData.staffRoles.length === 0 && (
-                      <Alert severity="warning" sx={{ mt: 2 }}>
-                        Please select at least one staff role.
-                      </Alert>
-                    )}
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required={userFormData.isStaffMember}>
-                    <InputLabel>Location (for Staff Assignment)</InputLabel>
-                    <Select
-                      value={userFormData.staffLocationId}
-                      onChange={(e) => setUserFormData({ ...userFormData, staffLocationId: e.target.value })}
-                      label="Location (for Staff Assignment)"
-                    >
-                      {locations.map((location) => (
-                        <MenuItem key={location.id} value={location.id}>
-                          {location.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Employment Start Date"
-                    type="date"
-                    value={userFormData.employmentStartDate}
-                    onChange={(e) => setUserFormData({ ...userFormData, employmentStartDate: e.target.value })}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-              </>
-            )}
 
             <Grid item xs={12}>
               <Divider sx={{ my: 2 }} />
@@ -1434,10 +1417,14 @@ const Settings = () => {
             onClick={handleSaveUser} 
             variant="contained" 
             disabled={
-              !userFormData.username || 
-              !userFormData.name || 
+              !userFormData.username ||
+              !userFormData.firstName ||
+              !userFormData.lastName ||
               (!editingUser && !userFormData.password) ||
-              (userFormData.isStaffMember && (!userFormData.firstName || !userFormData.lastName || !userFormData.staffRoles || userFormData.staffRoles.length === 0 || !userFormData.staffLocationId))
+              !userFormData.staffRoles ||
+              userFormData.staffRoles.length === 0 ||
+              !userFormData.staffLocationIds ||
+              userFormData.staffLocationIds.length === 0
             }
           >
             {editingUser ? (t('common.update') || 'Update') : (t('settings.users.create') || 'Create')}
