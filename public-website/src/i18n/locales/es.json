@@ -77,7 +77,8 @@
     "locations": {
       "caleta": "Caleta de Fuste",
       "playitas": "Las Playitas"
-    }
+    },
+    "registeredOnly": "(Solo clientes registrados)"
   },
   "diveSites": {
     "title": "Nuestros Lugares de Buceo",
@@ -288,6 +289,59 @@
       "delete": "Eliminar Cuenta",
       "cancel": "Cancelar"
     }
+  },
+  "login": {
+    "tabLogin": "Iniciar Sesión",
+    "tabRegister": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "forgotPassword": "¿Olvidaste la contraseña?",
+    "loggingIn": "Iniciando sesión...",
+    "errorEnterBoth": "Por favor introduce email y contraseña",
+    "errorNoAccount": "No se encontró cuenta con este email. Regístrate primero.",
+    "errorIncorrectPassword": "Contraseña incorrecta. Inténtalo de nuevo.",
+    "errorGeneric": "Ha ocurrido un error. Inténtalo de nuevo.",
+    "privacyConsent": "Privacidad y Consentimiento",
+    "privacyIntro": "Necesitamos tu consentimiento para procesar tus datos personales. Más información en nuestra",
+    "privacyPolicy": "Política de Privacidad",
+    "consentDataProcessing": "Procesamiento de datos (obligatorio): Doy mi consentimiento para el procesamiento de mis datos personales para servicios de reserva de inmersiones y gestión de mi cuenta.",
+    "consentMedicalData": "Datos médicos (obligatorio): Doy mi consentimiento para el procesamiento de mi información médica y certificados con fines de seguridad en el buceo según la normativa marítima española.",
+    "consentMarketing": "Marketing (opcional): Doy mi consentimiento para recibir emails promocionales y boletines sobre ofertas de buceo. Puedes retirar este consentimiento en cualquier momento.",
+    "alertDataRequired": "El consentimiento de procesamiento de datos es obligatorio para crear una cuenta.",
+    "alertMedicalRequired": "El consentimiento de procesamiento de datos médicos es obligatorio para servicios de buceo.",
+    "creatingAccount": "Creando cuenta...",
+    "createAccount": "Crear Cuenta",
+    "confirmPassword": "Confirmar Contraseña",
+    "firstName": "Nombre",
+    "lastName": "Apellidos",
+    "phone": "Teléfono"
+  },
+  "footer": {
+    "brandName": "Deep Blue Fuerteventura",
+    "tagline": "Años de experiencia en buceo en el Atlántico",
+    "quickLinks": "Enlaces Rápidos",
+    "home": "Inicio",
+    "bookDive": "Reservar Inmersión",
+    "aboutUs": "Sobre Nosotros",
+    "contact": "Contacto",
+    "locations": "Ubicaciones",
+    "followUs": "Síguenos",
+    "legalPrivacy": "Legal y Privacidad",
+    "privacyPolicy": "Política de Privacidad",
+    "cookiePolicy": "Política de Cookies",
+    "dataRetentionPolicy": "Política de Retención de Datos",
+    "copyright": "© 2024 Deep Blue Fuerteventura. Todos los derechos reservados."
+  },
+  "cookieBanner": {
+    "title": "Consentimiento de Cookies",
+    "intro": "Utilizamos cookies esenciales para que nuestro sitio web funcione correctamente. Estas cookies son necesarias y no se pueden desactivar. No usamos cookies de seguimiento o análisis sin tu consentimiento explícito.",
+    "byClicking": "Al hacer clic en \"Aceptar Todo\", aceptas nuestro uso de cookies esenciales. Más información en nuestro",
+    "cookiePolicy": "Política de Cookies",
+    "and": "y",
+    "privacyPolicy": "Política de Privacidad",
+    "acceptAll": "Aceptar Todo",
+    "essentialOnly": "Solo Esenciales",
+    "learnMore": "Más Información"
   }
 }
 

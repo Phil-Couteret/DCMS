@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import breachService from '../services/breachService';
 import { format } from 'date-fns';
+import { useTranslation } from '../utils/languageContext';
 
 const BREACH_TYPES = [
   { value: 'unauthorized_access', label: 'Unauthorized Access' },
@@ -74,6 +75,7 @@ const DATA_TYPES = [
 ];
 
 const Breaches = () => {
+  const { t } = useTranslation();
   const [breaches, setBreaches] = useState([]);
   const [statistics, setStatistics] = useState({
     total: 0,
@@ -274,7 +276,7 @@ const Breaches = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
-          Data Breach Management
+          {t('breaches.management')}
         </Typography>
         <Button
           variant="contained"
@@ -282,7 +284,7 @@ const Breaches = () => {
           onClick={handleOpenDialog}
           color="error"
         >
-          Report New Breach
+          {t('breaches.reportNew')}
         </Button>
       </Box>
 
@@ -292,7 +294,7 @@ const Breaches = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom variant="body2">
-                Total Breaches
+                {t('breaches.totalBreaches')}
               </Typography>
               <Typography variant="h5">{statistics.total}</Typography>
             </CardContent>
@@ -302,7 +304,7 @@ const Breaches = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom variant="body2">
-                Detected
+                {t('breaches.detected')}
               </Typography>
               <Typography variant="h5" color="error">
                 {statistics.detected}
@@ -314,7 +316,7 @@ const Breaches = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom variant="body2">
-                Assessed
+                {t('breaches.assessed')}
               </Typography>
               <Typography variant="h5" color="warning.main">
                 {statistics.assessed}
@@ -326,7 +328,7 @@ const Breaches = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom variant="body2">
-                Reported
+                {t('breaches.reported')}
               </Typography>
               <Typography variant="h5" color="info.main">
                 {statistics.reported}
@@ -338,7 +340,7 @@ const Breaches = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom variant="body2">
-                Resolved
+                {t('breaches.resolved')}
               </Typography>
               <Typography variant="h5" color="success.main">
                 {statistics.resolved}
@@ -350,7 +352,7 @@ const Breaches = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom variant="body2">
-                Overdue
+                {t('breaches.overdue')}
               </Typography>
               <Typography variant="h5" color="error">
                 {statistics.overdue}
@@ -370,11 +372,11 @@ const Breaches = () => {
       {/* Tabs */}
       <Paper sx={{ mb: 2 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="All" />
-          <Tab label="Detected" />
-          <Tab label="Assessed" />
-          <Tab label="Reported" />
-          <Tab label="Resolved" />
+          <Tab label={t('breaches.all')} />
+          <Tab label={t('breaches.detected')} />
+          <Tab label={t('breaches.assessed')} />
+          <Tab label={t('breaches.reported')} />
+          <Tab label={t('breaches.resolved')} />
         </Tabs>
       </Paper>
 

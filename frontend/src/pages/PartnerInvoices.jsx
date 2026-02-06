@@ -39,9 +39,11 @@ import {
 } from '@mui/icons-material';
 import dataService from '../services/dataService';
 import { useAuth } from '../utils/authContext';
+import { useTranslation } from '../utils/languageContext';
 import { format } from 'date-fns';
 
 const PartnerInvoices = () => {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -110,7 +112,7 @@ const PartnerInvoices = () => {
       if (isNaN(amount) || amount < 0) {
         setSnackbar({
           open: true,
-          message: 'Please enter a valid amount',
+          message: t('partnerInvoices.validAmountError'),
           severity: 'error'
         });
         return;
@@ -123,7 +125,7 @@ const PartnerInvoices = () => {
 
       setSnackbar({
         open: true,
-        message: 'Payment updated successfully!',
+        message: t('partnerInvoices.paymentSuccess'),
         severity: 'success'
       });
 
@@ -135,7 +137,7 @@ const PartnerInvoices = () => {
       console.error('Error updating payment:', error);
       setSnackbar({
         open: true,
-        message: error.message || 'Error updating payment',
+        message: error.message || t('partnerInvoices.paymentError'),
         severity: 'error'
       });
     }
@@ -179,7 +181,7 @@ const PartnerInvoices = () => {
       return invoice.partner.name || invoice.partner.companyName || invoice.partner.company_name;
     }
     const partner = partners.find(p => p.id === invoice.partnerId || p.id === invoice.partner_id);
-    return partner ? (partner.name || partner.companyName || partner.company_name) : 'Unknown';
+    return partner ? (partner.name || partner.companyName || partner.company_name) : t('partnerInvoices.unknown');
   };
 
   return (
@@ -189,10 +191,10 @@ const PartnerInvoices = () => {
           <ReceiptIcon sx={{ fontSize: 40, color: 'primary.main' }} />
           <Box>
             <Typography variant="h4" gutterBottom>
-              Partner Invoices
+              {t('partnerInvoices.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Manage partner invoices and commission payments
+              {t('partnerInvoices.subtitle')}
             </Typography>
           </Box>
         </Box>
@@ -202,7 +204,7 @@ const PartnerInvoices = () => {
             startIcon={<RefreshIcon />}
             onClick={loadInvoices}
           >
-            Refresh
+            {t('partnerInvoices.refresh')}
           </Button>
         </Box>
       </Box>
@@ -213,7 +215,7 @@ const PartnerInvoices = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
-                Total Invoices
+                {t('partnerInvoices.totalInvoices')}
               </Typography>
               <Typography variant="h4">{totalInvoices}</Typography>
             </CardContent>
@@ -223,7 +225,7 @@ const PartnerInvoices = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
-                Pending
+                {t('partnerInvoices.pending')}
               </Typography>
               <Typography variant="h4" color="warning.main">{pendingInvoices}</Typography>
             </CardContent>
@@ -233,7 +235,7 @@ const PartnerInvoices = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
-                Total Amount
+                {t('partnerInvoices.totalAmount')}
               </Typography>
               <Typography variant="h4">{formatCurrency(totalAmount)}</Typography>
             </CardContent>
@@ -243,7 +245,7 @@ const PartnerInvoices = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
-                Outstanding
+                {t('partnerInvoices.outstanding')}
               </Typography>
               <Typography variant="h4" color="error.main">{formatCurrency(outstandingAmount)}</Typography>
             </CardContent>
@@ -256,13 +258,13 @@ const PartnerInvoices = () => {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={4}>
             <FormControl fullWidth size="small">
-              <InputLabel>Partner</InputLabel>
+              <InputLabel>{t('partnerInvoices.partner')}</InputLabel>
               <Select
                 value={selectedPartner}
-                label="Partner"
+                label={t('partnerInvoices.partner')}
                 onChange={(e) => setSelectedPartner(e.target.value)}
               >
-                <MenuItem value="all">All Partners</MenuItem>
+                <MenuItem value="all">{t('partnerInvoices.allPartners')}</MenuItem>
                 {partners.map(partner => (
                   <MenuItem key={partner.id} value={partner.id}>
                     {partner.name || partner.companyName || partner.company_name}
@@ -273,17 +275,17 @@ const PartnerInvoices = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
+              <InputLabel>{t('partnerInvoices.status')}</InputLabel>
               <Select
                 value={statusFilter}
-                label="Status"
+                label={t('partnerInvoices.status')}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <MenuItem value="all">All Statuses</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="partial">Partial</MenuItem>
-                <MenuItem value="paid">Paid</MenuItem>
-                <MenuItem value="overdue">Overdue</MenuItem>
+                <MenuItem value="all">{t('partnerInvoices.allStatuses')}</MenuItem>
+                <MenuItem value="pending">{t('partnerInvoices.statusPending')}</MenuItem>
+                <MenuItem value="partial">{t('partnerInvoices.statusPartial')}</MenuItem>
+                <MenuItem value="paid">{t('partnerInvoices.statusPaid')}</MenuItem>
+                <MenuItem value="overdue">{t('partnerInvoices.statusOverdue')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -295,15 +297,15 @@ const PartnerInvoices = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Invoice Number</TableCell>
-              <TableCell>Partner</TableCell>
-              <TableCell>Invoice Date</TableCell>
-              <TableCell>Due Date</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell align="right">Paid</TableCell>
-              <TableCell align="right">Outstanding</TableCell>
-              <TableCell>Status</TableCell>
-              {isAdmin() && <TableCell align="right">Actions</TableCell>}
+              <TableCell>{t('partnerInvoices.invoiceNumber')}</TableCell>
+              <TableCell>{t('partnerInvoices.partner')}</TableCell>
+              <TableCell>{t('partnerInvoices.invoiceDate')}</TableCell>
+              <TableCell>{t('partnerInvoices.dueDate')}</TableCell>
+              <TableCell align="right">{t('partnerInvoices.total')}</TableCell>
+              <TableCell align="right">{t('partnerInvoices.paid')}</TableCell>
+              <TableCell align="right">{t('partnerInvoices.outstanding')}</TableCell>
+              <TableCell>{t('partnerInvoices.status')}</TableCell>
+              {isAdmin() && <TableCell align="right">{t('partnerInvoices.actions')}</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -312,8 +314,8 @@ const PartnerInvoices = () => {
                 <TableCell colSpan={isAdmin() ? 9 : 8} align="center">
                   <Typography color="text.secondary" sx={{ py: 2 }}>
                     {invoices.length === 0
-                      ? 'No invoices found. Partner invoices are created automatically when bills are finalized for partner customers. Check the browser console (F12) for debugging information.'
-                      : 'No invoices match the selected filters.'}
+                      ? t('partnerInvoices.noInvoices')
+                      : t('partnerInvoices.noMatchFilters')}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -350,14 +352,14 @@ const PartnerInvoices = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={isOverdue && invoice.status !== 'paid' ? 'Overdue' : invoice.status || 'pending'}
+                        label={isOverdue && invoice.status !== 'paid' ? t('partnerInvoices.statusOverdue') : (invoice.status === 'paid' ? t('partnerInvoices.statusPaid') : invoice.status === 'partial' ? t('partnerInvoices.statusPartial') : invoice.status === 'overdue' ? t('partnerInvoices.statusOverdue') : t('partnerInvoices.statusPending'))}
                         size="small"
                         color={getStatusColor(isOverdue && invoice.status !== 'paid' ? 'overdue' : invoice.status)}
                       />
                     </TableCell>
                     {isAdmin() && (
                       <TableCell align="right">
-                        <Tooltip title="Mark as Paid">
+                        <Tooltip title={t('partnerInvoices.markAsPaid')}>
                           <IconButton
                             size="small"
                             color="success"
@@ -388,32 +390,32 @@ const PartnerInvoices = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Record Payment</DialogTitle>
+        <DialogTitle>{t('partnerInvoices.recordPayment')}</DialogTitle>
         <DialogContent>
           {selectedInvoice && (
             <Box sx={{ pt: 2 }}>
               <Alert severity="info" sx={{ mb: 3 }}>
                 <Typography variant="body2">
-                  Invoice: <strong>{selectedInvoice.invoiceNumber || selectedInvoice.invoice_number}</strong>
+                  {t('partnerInvoices.invoiceNumber')}: <strong>{selectedInvoice.invoiceNumber || selectedInvoice.invoice_number}</strong>
                 </Typography>
                 <Typography variant="body2">
-                  Partner: <strong>{getPartnerName(selectedInvoice)}</strong>
+                  {t('partnerInvoices.partner')}: <strong>{getPartnerName(selectedInvoice)}</strong>
                 </Typography>
                 <Typography variant="body2">
-                  Total Amount: <strong>{formatCurrency(selectedInvoice.total)}</strong>
+                  {t('partnerInvoices.totalAmountLabel')}: <strong>{formatCurrency(selectedInvoice.total)}</strong>
                 </Typography>
                 <Typography variant="body2">
-                  Already Paid: <strong>{formatCurrency(selectedInvoice.paidAmount || selectedInvoice.paid_amount || 0)}</strong>
+                  {t('partnerInvoices.alreadyPaid')}: <strong>{formatCurrency(selectedInvoice.paidAmount || selectedInvoice.paid_amount || 0)}</strong>
                 </Typography>
               </Alert>
               <TextField
                 fullWidth
-                label="Paid Amount"
+                label={t('partnerInvoices.paidAmount')}
                 type="number"
                 value={paidAmount}
                 onChange={(e) => setPaidAmount(e.target.value)}
                 inputProps={{ min: 0, step: 0.01 }}
-                helperText={`Enter the amount paid (total: ${formatCurrency(selectedInvoice.total)})`}
+                helperText={t('partnerInvoices.enterAmountHelper').replace('{total}', formatCurrency(selectedInvoice.total))}
               />
             </Box>
           )}
@@ -423,9 +425,9 @@ const PartnerInvoices = () => {
             setPayDialogOpen(false);
             setSelectedInvoice(null);
             setPaidAmount('');
-          }}>Cancel</Button>
+          }}>{t('partnerInvoices.cancel')}</Button>
           <Button onClick={handleSavePayment} variant="contained" disabled={!paidAmount}>
-            Save Payment
+            {t('partnerInvoices.savePayment')}
           </Button>
         </DialogActions>
       </Dialog>

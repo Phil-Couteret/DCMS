@@ -91,7 +91,8 @@
     "activity": "Activity:",
     "name": "Name:",
     "confirmBooking": "Confirm Booking",
-    "specialRequirementsLabel": "Special Requirements or Medical Conditions"
+    "specialRequirementsLabel": "Special Requirements or Medical Conditions",
+    "registeredOnly": "(Registered customers only)"
   },
   "diveSites": {
     "title": "Our Dive Sites",
@@ -307,6 +308,59 @@
       "delete": "Delete Account",
       "cancel": "Cancel"
     }
+  },
+  "login": {
+      "tabLogin": "Login",
+      "tabRegister": "Register",
+      "email": "Email",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "loggingIn": "Logging in...",
+      "errorEnterBoth": "Please enter both email and password",
+      "errorNoAccount": "No account found with this email. Please register first.",
+      "errorIncorrectPassword": "Incorrect password. Please try again.",
+      "errorGeneric": "An error occurred. Please try again.",
+      "privacyConsent": "Privacy & Consent",
+      "privacyIntro": "We need your consent to process your personal data. Learn more in our",
+      "privacyPolicy": "Privacy Policy",
+      "consentDataProcessing": "Data Processing (Required): I consent to the processing of my personal data to provide dive booking services and manage my account.",
+      "consentMedicalData": "Medical Data (Required): I consent to the processing of my medical information and certificates for diving safety purposes as required by Spanish maritime regulations.",
+      "consentMarketing": "Marketing (Optional): I consent to receive promotional emails and newsletters about dive offers and updates. You can withdraw this consent at any time.",
+      "alertDataRequired": "Data processing consent is required to create an account.",
+      "alertMedicalRequired": "Medical data processing consent is required for diving services.",
+      "creatingAccount": "Creating Account...",
+      "createAccount": "Create Account",
+      "confirmPassword": "Confirm Password",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "phone": "Phone"
+  },
+  "footer": {
+      "brandName": "Deep Blue Fuerteventura",
+      "tagline": "Years of diving experience in the Atlantic",
+      "quickLinks": "Quick Links",
+      "home": "Home",
+      "bookDive": "Book a Dive",
+      "aboutUs": "About Us",
+      "contact": "Contact",
+      "locations": "Locations",
+      "followUs": "Follow Us",
+      "legalPrivacy": "Legal & Privacy",
+      "privacyPolicy": "Privacy Policy",
+      "cookiePolicy": "Cookie Policy",
+      "dataRetentionPolicy": "Data Retention Policy",
+      "copyright": "© 2024 Deep Blue Fuerteventura. All rights reserved."
+  },
+  "cookieBanner": {
+      "title": "Cookie Consent",
+      "intro": "We use essential cookies to ensure our website functions properly. These cookies are necessary for the website to work and cannot be disabled. We do not use tracking or analytics cookies without your explicit consent.",
+      "byClicking": "By clicking \"Accept All\", you consent to our use of essential cookies. You can learn more about our cookie practices in our",
+      "cookiePolicy": "Cookie Policy",
+      "and": "and",
+      "privacyPolicy": "Privacy Policy",
+      "acceptAll": "Accept All",
+      "essentialOnly": "Essential Only",
+      "learnMore": "Learn More"
   }
 }
 

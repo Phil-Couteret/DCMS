@@ -79,7 +79,13 @@ export const translations = {
       stays: 'Estancias de clientes',
       customers: 'Clientes',
       equipment: 'Equipamiento',
-      settings: 'Configuración'
+      settings: 'Configuración',
+      financial: 'Finanzas',
+      breaches: 'Incumplimientos de Datos',
+      partners: 'Socios',
+      partnerInvoices: 'Facturas de Socios',
+      schedule: 'Horario',
+      dive: 'Inmersión'
     },
     // Dashboard
     dashboard: {
@@ -88,7 +94,23 @@ export const translations = {
       todayRevenue: 'Ingresos de Hoy',
       totalBookings: 'Reservas Totales',
       totalRevenue: 'Ingresos Totales',
-      newBooking: 'Nueva Reserva'
+      newBooking: 'Nueva Reserva',
+      perLocationOverview: 'Resumen por Ubicación',
+      last7Days: 'Últimos 7 días',
+      last14Days: 'Últimos 14 días',
+      last30Days: 'Últimos 30 días',
+      revenueTrend: 'Tendencia de Ingresos',
+      bookingTrends: 'Tendencias de Reservas',
+      upcomingBookings: 'Próximas Reservas',
+      nextDays: 'Próximos {n} días',
+      showingBookingsFrom: 'Mostrando reservas desde hoy hasta',
+      list: 'Lista',
+      calendar: 'Calendario',
+      revenueTrendDays: 'Tendencia de Ingresos (Últimos {n} días)',
+      bookingTrendsDays: 'Tendencias de Reservas (Últimos {n} días)',
+      days: 'días',
+      noUpcomingBookings: 'No hay reservas para los próximos {n} días',
+      editBooking: 'Editar Reserva'
     },
     // Bookings
     bookings: {
@@ -210,7 +232,15 @@ export const translations = {
       update: 'Actualizar',
       add: 'Añadir',
       bulkImport: 'Importación Masiva'
-    }
+    },
+    financial: { title: 'Finanzas', currentFinancial: 'Finanzas del Día', closedDays: 'Días Cerrados', historicalBills: 'Facturas Históricas', igicDeclaration: 'Declaración IGIC', quarterlyTaxDeclaration: 'Declaración Trimestral {tax}', addExpense: 'Añadir Gasto', addIncome: 'Añadir Ingreso', closeDay: 'Cerrar Día', closeTheDay: 'Cerrar el Día', selectDate: 'Seleccionar Fecha', date: 'Fecha', description: 'Descripción', amount: 'Importe', category: 'Categoría', notes: 'Notas', gasoline: 'Gasolina', tankNet: 'Red de Botella', glue: 'Pegamento', equipment: 'Nuevo Equipamiento', maintenance: 'Mantenimiento', other: 'Otro', income: 'Ingreso', expense: 'Gasto', total: 'Total', totalIncome: 'Ingresos Totales', totalExpenses: 'Gastos Totales', printReport: 'Imprimir Informe', customer: 'Cliente', from: 'Desde', to: 'Hasta', filter: 'Filtrar', noBills: 'No hay facturas', loading: 'Cargando datos financieros...', errorLoading: 'Error al cargar datos. Inténtalo de nuevo.', saveExpense: 'Guardar Gasto', saveIncome: 'Guardar Ingreso', addManualIncome: 'Añadir Ingreso Manual', allCustomers: 'Todos los Clientes', refresh: 'Actualizar' },
+    schedule: { title: 'Horario', diveSchedule: 'Horario de Inmersiones', tripSchedules: 'Horarios de Salidas', date: 'Fecha', month: 'Mes', week: 'Semana', morning: 'Mañana', afternoon: 'Tarde', night: 'Noche', noBookings: 'Sin reservas' },
+    boatPrep: { title: 'Preparación de Inmersión', boatPreparation: 'Preparación de Barco', shoreDivePreparation: 'Preparación de Buceo desde Orilla', divePreparation: 'Preparación de Inmersión', postDiveReports: 'Informes Post-Inmersión', saveAll: 'Guardar Todas las Preparaciones', saveShore: 'Guardar Preparación de Buceo desde Orilla', preparedDivesHint: 'Las inmersiones preparadas aparecerán aquí tras guardarlas.', date: 'Fecha', addGroup: 'Añadir Grupo', noGroups: 'No hay grupos', shoreDive: 'Buceo desde Orilla' },
+    bills: { title: 'Facturas', newBill: 'Nueva Factura', view: 'Ver' },
+    partners: { title: 'Socios', totalPartners: 'Total Socios', activePartners: 'Socios Activos', addPartner: 'Añadir Socio', editPartner: 'Editar Socio', partnerName: 'Nombre del Socio', companyName: 'Empresa', contactEmail: 'Email de Contacto', contactPhone: 'Teléfono', webhookUrl: 'URL Webhook', saveCredentials: 'Guarda estas credenciales ahora. El secreto no se mostrará de nuevo.', noPartners: 'No hay socios. Haz clic en "Añadir Socio" para crear uno.' },
+    breaches: { title: 'Incumplimientos de Datos', management: 'Gestión de Incumplimientos', reportNew: 'Reportar Nuevo Incumplimiento', totalBreaches: 'Total Incumplimientos', detected: 'Detectados', assessed: 'Evaluados', reported: 'Reportados', resolved: 'Resueltos', overdue: 'Vencidos', all: 'Todos' },
+    partner: { loginTitle: 'Acceso de Socio', invoices: 'Facturas', dashboard: 'Panel de Socio' },
+    partnerInvoices: { title: 'Facturas de Socios', subtitle: 'Gestionar facturas de socios y pagos de comisiones', refresh: 'Actualizar', totalInvoices: 'Total Facturas', pending: 'Pendientes', totalAmount: 'Importe Total', outstanding: 'Pendiente de Pago', partner: 'Socio', allPartners: 'Todos los Socios', status: 'Estado', allStatuses: 'Todos los Estados', statusPending: 'Pendiente', statusPartial: 'Parcial', statusPaid: 'Pagado', statusOverdue: 'Vencido', invoiceNumber: 'Nº Factura', invoiceDate: 'Fecha Factura', dueDate: 'Fecha Vencimiento', total: 'Total', paid: 'Pagado', actions: 'Acciones', noInvoices: 'No hay facturas. Se crean automáticamente al finalizar facturas de clientes de socios.', noMatchFilters: 'Ninguna factura coincide con los filtros.', markAsPaid: 'Marcar como Pagado', recordPayment: 'Registrar Pago', totalAmountLabel: 'Importe Total', alreadyPaid: 'Ya Pagado', paidAmount: 'Importe Pagado', enterAmountHelper: 'Introduce el importe pagado (total: {total})', cancel: 'Cancelar', savePayment: 'Guardar Pago', validAmountError: 'Introduce un importe válido', paymentSuccess: 'Pago actualizado correctamente', paymentError: 'Error al actualizar el pago', unknown: 'Desconocido' }
   },
   en: {
     settings: {
@@ -287,7 +317,13 @@ export const translations = {
       stays: 'Current Customers',
       customers: 'Customers',
       equipment: 'Equipment',
-      settings: 'Settings'
+      settings: 'Settings',
+      financial: 'Financial',
+      breaches: 'Data Breaches',
+      partners: 'Partners',
+      partnerInvoices: 'Partner Invoices',
+      schedule: 'Schedule',
+      dive: 'Dive'
     },
     dashboard: {
       title: 'Dashboard',
@@ -295,7 +331,23 @@ export const translations = {
       todayRevenue: "Today's Revenue",
       totalBookings: 'Total Bookings',
       totalRevenue: 'Total Revenue',
-      newBooking: 'New Booking'
+      newBooking: 'New Booking',
+      perLocationOverview: 'Per Location Overview',
+      last7Days: 'Last 7 days',
+      last14Days: 'Last 14 days',
+      last30Days: 'Last 30 days',
+      revenueTrend: 'Revenue Trend',
+      bookingTrends: 'Booking Trends',
+      upcomingBookings: 'Upcoming Bookings',
+      nextDays: 'Next {n} Days',
+      showingBookingsFrom: 'Showing bookings from today through',
+      list: 'List',
+      calendar: 'Calendar',
+      revenueTrendDays: 'Revenue Trend (Last {n} Days)',
+      bookingTrendsDays: 'Booking Trends (Last {n} Days)',
+      days: 'days',
+      noUpcomingBookings: 'No upcoming bookings for the next {n} days',
+      editBooking: 'Edit Booking'
     },
     bookings: {
       title: 'Bookings',
@@ -413,7 +465,15 @@ export const translations = {
       update: 'Update',
       add: 'Add',
       bulkImport: 'Bulk Import'
-    }
+    },
+    financial: { title: 'Financial', currentFinancial: "Today's Financial", closedDays: 'Closed Days', historicalBills: 'Historical Bills', igicDeclaration: 'IGIC Declaration', quarterlyTaxDeclaration: 'Quarterly {tax} Declaration', addExpense: 'Add Expense', addIncome: 'Add Income', closeDay: 'Close Day', closeTheDay: 'Close the Day', selectDate: 'Select Date', date: 'Date', description: 'Description', amount: 'Amount', category: 'Category', notes: 'Notes', gasoline: 'Gasoline', tankNet: 'Tank Net', glue: 'Glue', equipment: 'New Equipment', maintenance: 'Maintenance', other: 'Other', income: 'Income', expense: 'Expense', total: 'Total', totalIncome: 'Total Income', totalExpenses: 'Total Expenses', printReport: 'Print Report', customer: 'Customer', from: 'From', to: 'To', filter: 'Filter', noBills: 'No bills found', loading: 'Loading financial data...', errorLoading: 'Error loading financial data. Please try again.', saveExpense: 'Save Expense', saveIncome: 'Save Income', addManualIncome: 'Add Manual Income', allCustomers: 'All Customers', refresh: 'Refresh' },
+    schedule: { title: 'Schedule', diveSchedule: 'Dive Schedule', tripSchedules: 'Trip Schedules', date: 'Date', month: 'Month', week: 'Week', morning: 'Morning', afternoon: 'Afternoon', night: 'Night', noBookings: 'No bookings' },
+    boatPrep: { title: 'Dive Prep', boatPreparation: 'Boat Preparation', shoreDivePreparation: 'Shore Dive Preparation', divePreparation: 'Dive Preparation', postDiveReports: 'Post-Dive Reports', saveAll: 'Save All Boat Preparations', saveShore: 'Save Shore Dive Preparation', preparedDivesHint: 'Prepared dives will appear here after they are saved in the Dive Preparation section.', date: 'Date', addGroup: 'Add Group', noGroups: 'No groups', shoreDive: 'Shore Dive' },
+    bills: { title: 'Bills', newBill: 'New Bill', view: 'View' },
+    partners: { title: 'Partners', totalPartners: 'Total Partners', activePartners: 'Active Partners', addPartner: 'Add Partner', editPartner: 'Edit Partner', partnerName: 'Partner Name', companyName: 'Company', contactEmail: 'Contact Email', contactPhone: 'Phone', webhookUrl: 'Webhook URL', saveCredentials: 'Save these credentials now. The API secret will not be shown again.', noPartners: 'No partners found. Click "Add Partner" to create one.' },
+    breaches: { title: 'Data Breaches', management: 'Data Breach Management', reportNew: 'Report New Breach', totalBreaches: 'Total Breaches', detected: 'Detected', assessed: 'Assessed', reported: 'Reported', resolved: 'Resolved', overdue: 'Overdue', all: 'All' },
+    partner: { loginTitle: 'Partner Access', invoices: 'Invoices', dashboard: 'Partner Dashboard' },
+    partnerInvoices: { title: 'Partner Invoices', subtitle: 'Manage partner invoices and commission payments', refresh: 'Refresh', totalInvoices: 'Total Invoices', pending: 'Pending', totalAmount: 'Total Amount', outstanding: 'Outstanding', partner: 'Partner', allPartners: 'All Partners', status: 'Status', allStatuses: 'All Statuses', statusPending: 'Pending', statusPartial: 'Partial', statusPaid: 'Paid', statusOverdue: 'Overdue', invoiceNumber: 'Invoice Number', invoiceDate: 'Invoice Date', dueDate: 'Due Date', total: 'Total', paid: 'Paid', actions: 'Actions', noInvoices: 'No invoices found. Partner invoices are created automatically when bills are finalized for partner customers.', noMatchFilters: 'No invoices match the selected filters.', markAsPaid: 'Mark as Paid', recordPayment: 'Record Payment', totalAmountLabel: 'Total Amount', alreadyPaid: 'Already Paid', paidAmount: 'Paid Amount', enterAmountHelper: 'Enter the amount paid (total: {total})', cancel: 'Cancel', savePayment: 'Save Payment', validAmountError: 'Please enter a valid amount', paymentSuccess: 'Payment updated successfully!', paymentError: 'Error updating payment', unknown: 'Unknown' }
   },
   de: {
     settings: {
@@ -490,7 +550,13 @@ export const translations = {
       stays: 'Kundenaufenthalte',
       customers: 'Kunden',
       equipment: 'Ausrüstung',
-      settings: 'Einstellungen'
+      settings: 'Einstellungen',
+      financial: 'Finanzen',
+      breaches: 'Datenpannen',
+      partners: 'Partner',
+      partnerInvoices: 'Partner-Rechnungen',
+      schedule: 'Zeitplan',
+      dive: 'Tauchgang'
     },
     dashboard: {
       title: 'Armaturenbrett',
@@ -498,7 +564,23 @@ export const translations = {
       todayRevenue: 'Heutiger Umsatz',
       totalBookings: 'Gesamtbuchungen',
       totalRevenue: 'Gesamtumsatz',
-      newBooking: 'Neue Buchung'
+      newBooking: 'Neue Buchung',
+      perLocationOverview: 'Übersicht pro Standort',
+      last7Days: 'Letzte 7 Tage',
+      last14Days: 'Letzte 14 Tage',
+      last30Days: 'Letzte 30 Tage',
+      revenueTrend: 'Umsatztrend',
+      bookingTrends: 'Buchungstrends',
+      upcomingBookings: 'Kommende Buchungen',
+      nextDays: 'Nächste {n} Tage',
+      showingBookingsFrom: 'Buchungen angezeigt von heute bis',
+      list: 'Liste',
+      calendar: 'Kalender',
+      revenueTrendDays: 'Umsatztrend (Letzte {n} Tage)',
+      bookingTrendsDays: 'Buchungstrends (Letzte {n} Tage)',
+      days: 'Tage',
+      noUpcomingBookings: 'Keine Buchungen für die nächsten {n} Tage',
+      editBooking: 'Buchung bearbeiten'
     },
     bookings: {
       title: 'Buchungen',
@@ -616,7 +698,15 @@ export const translations = {
       update: 'Aktualisieren',
       add: 'Hinzufügen',
       bulkImport: 'Stapelimport'
-    }
+    },
+    financial: { title: 'Finanzen', currentFinancial: 'Heutige Finanzen', closedDays: 'Geschlossene Tage', historicalBills: 'Historische Rechnungen', igicDeclaration: 'IGIC-Erklärung', quarterlyTaxDeclaration: 'Quartalserklärung {tax}', addExpense: 'Ausgabe hinzufügen', addIncome: 'Einnahme hinzufügen', closeDay: 'Tag schließen', closeTheDay: 'Tag abschließen', selectDate: 'Datum wählen', date: 'Datum', description: 'Beschreibung', amount: 'Betrag', category: 'Kategorie', notes: 'Notizen', gasoline: 'Benzin', tankNet: 'Flaschennetz', glue: 'Kleber', equipment: 'Neue Ausrüstung', maintenance: 'Wartung', other: 'Sonstiges', income: 'Einnahme', expense: 'Ausgabe', total: 'Gesamt', totalIncome: 'Gesamteinnahmen', totalExpenses: 'Gesamtausgaben', printReport: 'Bericht drucken', customer: 'Kunde', from: 'Von', to: 'Bis', filter: 'Filtern', noBills: 'Keine Rechnungen', loading: 'Finanzdaten werden geladen...', errorLoading: 'Fehler beim Laden. Bitte erneut versuchen.', saveExpense: 'Ausgabe speichern', saveIncome: 'Einnahme speichern', addManualIncome: 'Manuelle Einnahme', allCustomers: 'Alle Kunden', refresh: 'Aktualisieren' },
+    schedule: { title: 'Zeitplan', diveSchedule: 'Tauchplan', tripSchedules: 'Ausrüstungszeiten', date: 'Datum', month: 'Monat', week: 'Woche', morning: 'Morgen', afternoon: 'Nachmittag', night: 'Abend', noBookings: 'Keine Buchungen' },
+    boatPrep: { title: 'Tauchvorbereitung', boatPreparation: 'Bootsvorbereitung', shoreDivePreparation: 'Strandtauchvorbereitung', divePreparation: 'Tauchvorbereitung', postDiveReports: 'Post-Tauch-Berichte', saveAll: 'Alle Bootsvorbereitungen speichern', saveShore: 'Strandtauchvorbereitung speichern', preparedDivesHint: 'Vorbereitete Tauchgänge erscheinen hier nach dem Speichern.', date: 'Datum', addGroup: 'Gruppe hinzufügen', noGroups: 'Keine Gruppen', shoreDive: 'Strandtauchen' },
+    bills: { title: 'Rechnungen', newBill: 'Neue Rechnung', view: 'Ansehen' },
+    partners: { title: 'Partner', totalPartners: 'Partner gesamt', activePartners: 'Aktive Partner', addPartner: 'Partner hinzufügen', editPartner: 'Partner bearbeiten', partnerName: 'Partnername', companyName: 'Unternehmen', contactEmail: 'Kontakt-E-Mail', contactPhone: 'Telefon', webhookUrl: 'Webhook-URL', saveCredentials: 'Speichern Sie diese Zugangsdaten jetzt. Das API-Geheimnis wird nicht erneut angezeigt.', noPartners: 'Keine Partner. Klicken Sie auf "Partner hinzufügen".' },
+    breaches: { title: 'Datenpannen', management: 'Datenpannenverwaltung', reportNew: 'Neue Panne melden', totalBreaches: 'Pannen gesamt', detected: 'Erkannt', assessed: 'Bewertet', reported: 'Gemeldet', resolved: 'Behoben', overdue: 'Überfällig', all: 'Alle' },
+    partner: { loginTitle: 'Partner-Zugang', invoices: 'Rechnungen', dashboard: 'Partner-Dashboard' },
+    partnerInvoices: { title: 'Partner-Rechnungen', subtitle: 'Partner-Rechnungen und Provisionszahlungen verwalten', refresh: 'Aktualisieren', totalInvoices: 'Rechnungen gesamt', pending: 'Ausstehend', totalAmount: 'Gesamtbetrag', outstanding: 'Offen', partner: 'Partner', allPartners: 'Alle Partner', status: 'Status', allStatuses: 'Alle Status', statusPending: 'Ausstehend', statusPartial: 'Teilweise', statusPaid: 'Bezahlt', statusOverdue: 'Überfällig', invoiceNumber: 'Rechnungsnr.', invoiceDate: 'Rechnungsdatum', dueDate: 'Fälligkeitsdatum', total: 'Gesamt', paid: 'Bezahlt', actions: 'Aktionen', noInvoices: 'Keine Rechnungen. Partner-Rechnungen werden automatisch erstellt.', noMatchFilters: 'Keine Rechnungen entsprechen den Filtern.', markAsPaid: 'Als bezahlt markieren', recordPayment: 'Zahlung erfassen', totalAmountLabel: 'Gesamtbetrag', alreadyPaid: 'Bereits bezahlt', paidAmount: 'Bezahlter Betrag', enterAmountHelper: 'Bezahlten Betrag eingeben (Gesamt: {total})', cancel: 'Abbrechen', savePayment: 'Zahlung speichern', validAmountError: 'Bitte gültigen Betrag eingeben', paymentSuccess: 'Zahlung erfolgreich aktualisiert!', paymentError: 'Fehler beim Aktualisieren der Zahlung', unknown: 'Unbekannt' }
   },
   ca: {
     settings: {
@@ -693,7 +783,13 @@ export const translations = {
       stays: 'Estades de clients',
       customers: 'Clients',
       equipment: 'Equipament',
-      settings: 'Configuració'
+      settings: 'Configuració',
+      financial: 'Finances',
+      breaches: 'Incompliments de Dades',
+      partners: 'Socis',
+      partnerInvoices: 'Factures de Socis',
+      schedule: 'Horari',
+      dive: 'Immersió'
     },
     dashboard: {
       title: 'Panell de Control',
@@ -701,7 +797,23 @@ export const translations = {
       todayRevenue: 'Ingressos d\'Avui',
       totalBookings: 'Reserves Totals',
       totalRevenue: 'Ingressos Totals',
-      newBooking: 'Nova Reserva'
+      newBooking: 'Nova Reserva',
+      perLocationOverview: 'Resum per Ubicació',
+      last7Days: 'Últims 7 dies',
+      last14Days: 'Últims 14 dies',
+      last30Days: 'Últims 30 dies',
+      revenueTrend: 'Tendència d\'Ingressos',
+      bookingTrends: 'Tendències de Reserves',
+      upcomingBookings: 'Pròximes Reserves',
+      nextDays: 'Pròxims {n} dies',
+      showingBookingsFrom: 'Mostrant reserves des d\'avui fins',
+      list: 'Llista',
+      calendar: 'Calendari',
+      revenueTrendDays: 'Tendència d\'Ingressos (Últims {n} dies)',
+      bookingTrendsDays: 'Tendències de Reserves (Últims {n} dies)',
+      days: 'dies',
+      noUpcomingBookings: 'No hi ha reserves pels propers {n} dies',
+      editBooking: 'Editar Reserva'
     },
     bookings: {
       title: 'Reserves',
@@ -819,7 +931,15 @@ export const translations = {
       update: 'Actualitzar',
       add: 'Afegir',
       bulkImport: 'Importació Massiva'
-    }
+    },
+    financial: { title: 'Finances', currentFinancial: 'Finances del Dia', closedDays: 'Dies Tancats', historicalBills: 'Factures Històriques', igicDeclaration: 'Declaració IGIC', quarterlyTaxDeclaration: 'Declaració Trimestral {tax}', addExpense: 'Afegir Despesa', addIncome: 'Afegir Ingrés', closeDay: 'Tancar Dia', closeTheDay: 'Tancar el Dia', selectDate: 'Seleccionar Data', date: 'Data', description: 'Descripció', amount: 'Import', category: 'Categoria', notes: 'Notes', gasoline: 'Gasolina', tankNet: 'Xarxa de Botella', glue: 'Cola', equipment: 'Nou Equipament', maintenance: 'Manteniment', other: 'Altre', income: 'Ingrés', expense: 'Despesa', total: 'Total', totalIncome: 'Ingressos Totals', totalExpenses: 'Despeses Totals', printReport: 'Imprimir Informe', customer: 'Client', from: 'Des de', to: 'Fins a', filter: 'Filtrar', noBills: 'No hi ha factures', loading: 'Carregant dades financeres...', errorLoading: 'Error en carregar. Torna-ho a provar.', saveExpense: 'Desar Despesa', saveIncome: 'Desar Ingrés', addManualIncome: 'Afegir Ingrés Manual', allCustomers: 'Tots els Clients', refresh: 'Actualitzar' },
+    schedule: { title: 'Horari', diveSchedule: 'Horari d\'Immersions', tripSchedules: 'Horaris de Sortides', date: 'Data', month: 'Mes', week: 'Setmana', morning: 'Matí', afternoon: 'Tarda', night: 'Nit', noBookings: 'Sense reserves' },
+    boatPrep: { title: 'Preparació d\'Immersió', boatPreparation: 'Preparació de Vaixell', shoreDivePreparation: 'Preparació de Bussó des de la Platja', divePreparation: 'Preparació d\'Immersió', postDiveReports: 'Informes Post-Immersió', saveAll: 'Desar Totes les Preparacions', saveShore: 'Desar Preparació de Bussó des de la Platja', preparedDivesHint: 'Les immersions preparades apareixeran aquí després de desar-les.', date: 'Data', addGroup: 'Afegir Grup', noGroups: 'No hi ha grups', shoreDive: 'Bussó des de la Platja' },
+    bills: { title: 'Factures', newBill: 'Nova Factura', view: 'Veure' },
+    partners: { title: 'Socis', totalPartners: 'Total Socis', activePartners: 'Socis Actius', addPartner: 'Afegir Soci', editPartner: 'Editar Soci', partnerName: 'Nom del Soci', companyName: 'Empresa', contactEmail: 'Email de Contacte', contactPhone: 'Telèfon', webhookUrl: 'URL Webhook', saveCredentials: 'Desa aquestes credencials ara. El secret no es mostrarà de nou.', noPartners: 'No hi ha socis. Fes clic a "Afegir Soci" per crear-ne un.' },
+    breaches: { title: 'Incompliments de Dades', management: 'Gestió d\'Incompliments', reportNew: 'Reportar Nou Incompliment', totalBreaches: 'Total Incompliments', detected: 'Detectats', assessed: 'Avaluats', reported: 'Reportats', resolved: 'Resolts', overdue: 'Vençuts', all: 'Tots' },
+    partner: { loginTitle: 'Accés de Soci', invoices: 'Factures', dashboard: 'Panell del Soci' },
+    partnerInvoices: { title: 'Factures de Socis', subtitle: 'Gestionar factures de socis i pagaments de comissions', refresh: 'Actualitzar', totalInvoices: 'Total Factures', pending: 'Pendents', totalAmount: 'Import Total', outstanding: 'Pendent de Cobrament', partner: 'Soci', allPartners: 'Tots els Socis', status: 'Estat', allStatuses: 'Tots els Estats', statusPending: 'Pendent', statusPartial: 'Parcial', statusPaid: 'Pagat', statusOverdue: 'Vençut', invoiceNumber: 'Nº Factura', invoiceDate: 'Data Factura', dueDate: 'Data Venciment', total: 'Total', paid: 'Pagat', actions: 'Accions', noInvoices: 'No hi ha factures. Es creen automàticament en finalitzar factures de clients de socis.', noMatchFilters: 'Cap factura coincideix amb els filtres.', markAsPaid: 'Marcar com a Pagat', recordPayment: 'Registrar Pagament', totalAmountLabel: 'Import Total', alreadyPaid: 'Ja Pagat', paidAmount: 'Import Pagat', enterAmountHelper: 'Introduïu l\'import pagat (total: {total})', cancel: 'Cancel·lar', savePayment: 'Desar Pagament', validAmountError: 'Introduïu un import vàlid', paymentSuccess: 'Pagament actualitzat correctament', paymentError: 'Error en actualitzar el pagament', unknown: 'Desconegut' }
   },
   fr: {
     settings: {
@@ -896,7 +1016,13 @@ export const translations = {
       stays: 'Séjours clients',
       customers: 'Clients',
       equipment: 'Équipement',
-      settings: 'Paramètres'
+      settings: 'Paramètres',
+      financial: 'Finances',
+      breaches: 'Violations de données',
+      partners: 'Partenaires',
+      partnerInvoices: 'Factures partenaires',
+      schedule: 'Planning',
+      dive: 'Plongée'
     },
     dashboard: {
       title: 'Tableau de bord',
@@ -904,7 +1030,23 @@ export const translations = {
       todayRevenue: 'Revenus du jour',
       totalBookings: 'Réservations totales',
       totalRevenue: 'Revenus totaux',
-      newBooking: 'Nouvelle réservation'
+      newBooking: 'Nouvelle réservation',
+      perLocationOverview: 'Vue par emplacement',
+      last7Days: '7 derniers jours',
+      last14Days: '14 derniers jours',
+      last30Days: '30 derniers jours',
+      revenueTrend: 'Tendance des revenus',
+      bookingTrends: 'Tendances des réservations',
+      upcomingBookings: 'Réservations à venir',
+      nextDays: 'Prochains {n} jours',
+      showingBookingsFrom: 'Réservations affichées d\'aujourd\'hui au',
+      list: 'Liste',
+      calendar: 'Calendrier',
+      revenueTrendDays: 'Tendance des revenus (Derniers {n} jours)',
+      bookingTrendsDays: 'Tendances des réservations (Derniers {n} jours)',
+      days: 'jours',
+      noUpcomingBookings: 'Aucune réservation pour les {n} prochains jours',
+      editBooking: 'Modifier la réservation'
     },
     bookings: {
       title: 'Réservations',
@@ -1022,7 +1164,15 @@ export const translations = {
       update: 'Mettre à jour',
       add: 'Ajouter',
       bulkImport: 'Import en masse'
-    }
+    },
+    financial: { title: 'Finances', currentFinancial: 'Finances du jour', closedDays: 'Jours clôturés', historicalBills: 'Factures historiques', igicDeclaration: 'Déclaration IGIC', quarterlyTaxDeclaration: 'Déclaration trimestrielle {tax}', addExpense: 'Ajouter une dépense', addIncome: 'Ajouter un revenu', closeDay: 'Clôturer le jour', closeTheDay: 'Clôturer le jour', selectDate: 'Sélectionner la date', date: 'Date', description: 'Description', amount: 'Montant', category: 'Catégorie', notes: 'Notes', gasoline: 'Essence', tankNet: 'Filet de bouteille', glue: 'Colle', equipment: 'Nouvel équipement', maintenance: 'Entretien', other: 'Autre', income: 'Revenu', expense: 'Dépense', total: 'Total', totalIncome: 'Revenus totaux', totalExpenses: 'Dépenses totales', printReport: 'Imprimer le rapport', customer: 'Client', from: 'De', to: 'À', filter: 'Filtrer', noBills: 'Aucune facture', loading: 'Chargement des données financières...', errorLoading: 'Erreur de chargement. Veuillez réessayer.', saveExpense: 'Enregistrer la dépense', saveIncome: 'Enregistrer le revenu', addManualIncome: 'Ajouter un revenu manuel', allCustomers: 'Tous les clients', refresh: 'Actualiser' },
+    schedule: { title: 'Planning', diveSchedule: 'Planning des plongées', tripSchedules: 'Horaires des sorties', date: 'Date', month: 'Mois', week: 'Semaine', morning: 'Matin', afternoon: 'Après-midi', night: 'Soir', noBookings: 'Aucune réservation' },
+    boatPrep: { title: 'Préparation plongée', boatPreparation: 'Préparation du bateau', shoreDivePreparation: 'Préparation plongée depuis le rivage', divePreparation: 'Préparation plongée', postDiveReports: 'Rapports post-plongée', saveAll: 'Enregistrer toutes les préparations', saveShore: 'Enregistrer la préparation plongée rivage', preparedDivesHint: 'Les plongées préparées apparaîtront ici après enregistrement.', date: 'Date', addGroup: 'Ajouter un groupe', noGroups: 'Aucun groupe', shoreDive: 'Plongée depuis le rivage' },
+    bills: { title: 'Factures', newBill: 'Nouvelle facture', view: 'Voir' },
+    partners: { title: 'Partenaires', totalPartners: 'Total partenaires', activePartners: 'Partenaires actifs', addPartner: 'Ajouter un partenaire', editPartner: 'Modifier le partenaire', partnerName: 'Nom du partenaire', companyName: 'Entreprise', contactEmail: 'Email de contact', contactPhone: 'Téléphone', webhookUrl: 'URL Webhook', saveCredentials: 'Enregistrez ces identifiants maintenant. Le secret API ne sera plus affiché.', noPartners: 'Aucun partenaire. Cliquez sur "Ajouter un partenaire".' },
+    breaches: { title: 'Violations de données', management: 'Gestion des violations', reportNew: 'Signaler une violation', totalBreaches: 'Total violations', detected: 'Détectées', assessed: 'Évaluées', reported: 'Signalées', resolved: 'Résolues', overdue: 'En retard', all: 'Tous' },
+    partner: { loginTitle: 'Accès partenaire', invoices: 'Factures', dashboard: 'Tableau de bord partenaire' },
+    partnerInvoices: { title: 'Factures partenaires', subtitle: 'Gérer les factures partenaires et paiements de commissions', refresh: 'Actualiser', totalInvoices: 'Total factures', pending: 'En attente', totalAmount: 'Montant total', outstanding: 'Impayé', partner: 'Partenaire', allPartners: 'Tous les partenaires', status: 'Statut', allStatuses: 'Tous les statuts', statusPending: 'En attente', statusPartial: 'Partiel', statusPaid: 'Payé', statusOverdue: 'En retard', invoiceNumber: 'Nº Facture', invoiceDate: 'Date facture', dueDate: 'Date d\'échéance', total: 'Total', paid: 'Payé', actions: 'Actions', noInvoices: 'Aucune facture. Elles sont créées automatiquement lors de la finalisation des factures clients partenaires.', noMatchFilters: 'Aucune facture ne correspond aux filtres.', markAsPaid: 'Marquer comme payé', recordPayment: 'Enregistrer le paiement', totalAmountLabel: 'Montant total', alreadyPaid: 'Déjà payé', paidAmount: 'Montant payé', enterAmountHelper: 'Entrez le montant payé (total: {total})', cancel: 'Annuler', savePayment: 'Enregistrer le paiement', validAmountError: 'Veuillez entrer un montant valide', paymentSuccess: 'Paiement mis à jour avec succès!', paymentError: 'Erreur lors de la mise à jour du paiement', unknown: 'Inconnu' }
   }
 };
 

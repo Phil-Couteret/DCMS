@@ -8,7 +8,8 @@ const languages = [
   { code: 'ca', name: 'Català', flag: '🇪🇸' },
   { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
-  { code: 'it', name: 'Italiano', flag: '🇮🇹' }
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'nl', name: 'Nederlands', flag: '🇳🇱' }
 ];
 
 const LanguageSwitcher = () => {

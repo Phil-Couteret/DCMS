@@ -77,7 +77,8 @@
     "locations": {
       "caleta": "Caleta de Fuste",
       "playitas": "Las Playitas"
-    }
+    },
+    "registeredOnly": "(Solo clienti registrati)"
   },
   "diveSites": {
     "title": "I Nostri Siti di Immersione",
@@ -170,6 +171,59 @@
     "privacy": {
       "title": "Privacy e Dati"
     }
+  },
+  "login": {
+    "tabLogin": "Accedi",
+    "tabRegister": "Registrati",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Password dimenticata?",
+    "loggingIn": "Accesso in corso...",
+    "errorEnterBoth": "Inserisci email e password",
+    "errorNoAccount": "Nessun account con questa email. Registrati prima.",
+    "errorIncorrectPassword": "Password errata. Riprova.",
+    "errorGeneric": "Si è verificato un errore. Riprova.",
+    "privacyConsent": "Privacy e consenso",
+    "privacyIntro": "Abbiamo bisogno del tuo consenso per elaborare i tuoi dati. Ulteriori informazioni nella nostra",
+    "privacyPolicy": "Informativa sulla privacy",
+    "consentDataProcessing": "Trattamento dati (obbligatorio): Acconsento al trattamento dei miei dati per i servizi di prenotazione immersioni.",
+    "consentMedicalData": "Dati medici (obbligatorio): Acconsento al trattamento delle mie informazioni mediche per la sicurezza subacquea come richiesto dalla normativa marittima spagnola.",
+    "consentMarketing": "Marketing (opzionale): Acconsento a ricevere email promozionali. Puoi revocare il consenso in qualsiasi momento.",
+    "alertDataRequired": "Il consenso al trattamento dati è obbligatorio per creare un account.",
+    "alertMedicalRequired": "Il consenso al trattamento dei dati medici è obbligatorio per i servizi subacquei.",
+    "creatingAccount": "Creazione account...",
+    "createAccount": "Crea account",
+    "confirmPassword": "Conferma password",
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "phone": "Telefono"
+  },
+  "footer": {
+    "brandName": "Deep Blue Fuerteventura",
+    "tagline": "Anni di esperienza subacquea nell'Atlantico",
+    "quickLinks": "Link rapidi",
+    "home": "Home",
+    "bookDive": "Prenota un'immersione",
+    "aboutUs": "Chi siamo",
+    "contact": "Contatto",
+    "locations": "Sedi",
+    "followUs": "Seguici",
+    "legalPrivacy": "Legale e privacy",
+    "privacyPolicy": "Informativa sulla privacy",
+    "cookiePolicy": "Informativa sui cookie",
+    "dataRetentionPolicy": "Politica di conservazione dati",
+    "copyright": "© 2024 Deep Blue Fuerteventura. Tutti i diritti riservati."
+  },
+  "cookieBanner": {
+    "title": "Consenso ai cookie",
+    "intro": "Utilizziamo cookie essenziali per il funzionamento del sito. Questi cookie sono necessari e non possono essere disabilitati. Non utilizziamo cookie di tracciamento senza il tuo consenso esplicito.",
+    "byClicking": "Cliccando \"Accetta tutto\" acconsenti al nostro utilizzo dei cookie essenziali. Ulteriori informazioni nella nostra",
+    "cookiePolicy": "Informativa sui cookie",
+    "and": "e",
+    "privacyPolicy": "Informativa sulla privacy",
+    "acceptAll": "Accetta tutto",
+    "essentialOnly": "Solo essenziali",
+    "learnMore": "Scopri di più"
   }
 }
 

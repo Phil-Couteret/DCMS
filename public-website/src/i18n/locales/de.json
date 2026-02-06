@@ -77,7 +77,8 @@
     "locations": {
       "caleta": "Caleta de Fuste",
       "playitas": "Las Playitas"
-    }
+    },
+    "registeredOnly": "(Nur registrierte Kunden)"
   },
   "diveSites": {
     "title": "Unsere Tauchplätze",
@@ -170,5 +171,58 @@
     "privacy": {
       "title": "Datenschutz & Datenverwaltung"
     }
+  },
+  "login": {
+    "tabLogin": "Anmelden",
+    "tabRegister": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "forgotPassword": "Passwort vergessen?",
+    "loggingIn": "Anmeldung...",
+    "errorEnterBoth": "Bitte E-Mail und Passwort eingeben",
+    "errorNoAccount": "Kein Konto mit dieser E-Mail gefunden. Bitte zuerst registrieren.",
+    "errorIncorrectPassword": "Falsches Passwort. Bitte erneut versuchen.",
+    "errorGeneric": "Ein Fehler ist aufgetreten. Bitte erneut versuchen.",
+    "privacyConsent": "Datenschutz und Einwilligung",
+    "privacyIntro": "Wir benötigen Ihre Einwilligung zur Verarbeitung Ihrer personenbezogenen Daten. Mehr in unserer",
+    "privacyPolicy": "Datenschutzerklärung",
+    "consentDataProcessing": "Datenverarbeitung (erforderlich): Ich willige in die Verarbeitung meiner personenbezogenen Daten für Tauchbuchungsdienste und Kontoverwaltung ein.",
+    "consentMedicalData": "Medizinische Daten (erforderlich): Ich willige in die Verarbeitung meiner medizinischen Daten und Zertifikate für Tauchsicherheit gemäß spanischer Seefahrtsvorschriften ein.",
+    "consentMarketing": "Marketing (optional): Ich willige in den Erhalt von Werbe-E-Mails und Newsletter ein. Sie können diese Einwilligung jederzeit widerrufen.",
+    "alertDataRequired": "Einwilligung zur Datenverarbeitung ist für die Kontoerstellung erforderlich.",
+    "alertMedicalRequired": "Einwilligung zur Verarbeitung medizinischer Daten ist für Tauchdienste erforderlich.",
+    "creatingAccount": "Konto wird erstellt...",
+    "createAccount": "Konto erstellen",
+    "confirmPassword": "Passwort bestätigen",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "phone": "Telefon"
+  },
+  "footer": {
+    "brandName": "Deep Blue Fuerteventura",
+    "tagline": "Jahrelange Taucherfahrung im Atlantik",
+    "quickLinks": "Schnelllinks",
+    "home": "Startseite",
+    "bookDive": "Tauchgang buchen",
+    "aboutUs": "Über uns",
+    "contact": "Kontakt",
+    "locations": "Standorte",
+    "followUs": "Folgen Sie uns",
+    "legalPrivacy": "Rechtliches & Datenschutz",
+    "privacyPolicy": "Datenschutzerklärung",
+    "cookiePolicy": "Cookie-Richtlinie",
+    "dataRetentionPolicy": "Datenaufbewahrungsrichtlinie",
+    "copyright": "© 2024 Deep Blue Fuerteventura. Alle Rechte vorbehalten."
+  },
+  "cookieBanner": {
+    "title": "Cookie-Einwilligung",
+    "intro": "Wir verwenden essentielle Cookies, damit unsere Website funktioniert. Diese Cookies sind notwendig und können nicht deaktiviert werden. Wir verwenden keine Tracking- oder Analyse-Cookies ohne Ihre ausdrückliche Einwilligung.",
+    "byClicking": "Mit Klick auf \"Alle akzeptieren\" stimmen Sie der Verwendung essentieller Cookies zu. Mehr in unserem",
+    "cookiePolicy": "Cookie-Richtlinie",
+    "and": "und",
+    "privacyPolicy": "Datenschutzerklärung",
+    "acceptAll": "Alle akzeptieren",
+    "essentialOnly": "Nur essentielle",
+    "learnMore": "Mehr erfahren"
   }
 }

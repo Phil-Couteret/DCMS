@@ -2396,7 +2396,6 @@ export const initializeMockData = () => {
         };
         existingUsers.unshift(superadmin); // Add at the beginning
         localStorage.setItem('dcms_users', JSON.stringify(existingUsers));
-        console.log('[MockData] ✅ Superadmin user added');
       }
     } catch (error) {
       console.error('[MockData] Error ensuring superadmin:', error);

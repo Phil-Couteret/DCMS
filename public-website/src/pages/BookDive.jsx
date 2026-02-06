@@ -506,7 +506,7 @@ const BookDive = () => {
                   onChange={(e) => handleChange('activityType', e.target.value)}
                 >
                   <MenuItem value="diving">
-                    {t('booking.activities.diving')} {!isRegistered && '(Registered customers only)'}
+                    {t('booking.activities.diving')} {!isRegistered && t('booking.registeredOnly')}
                   </MenuItem>
                   <MenuItem value="snorkeling">{t('booking.activities.snorkeling')}</MenuItem>
                   <MenuItem value="discover">{t('booking.activities.discover')}</MenuItem>
@@ -1032,7 +1032,7 @@ const BookDive = () => {
                         <strong>Time:</strong> {getAvailableTimes().find(t => t.value === formData.time)?.label || formData.time}
                       </Typography>
                       <Typography variant="body2" gutterBottom>
-                        <strong>Location:</strong> {formData.location === 'caleta' ? t('booking.locations.caleta') : t('booking.locations.playitas')}
+                        <strong>{t('booking.location')}:</strong> {formData.location === 'caleta' ? t('booking.locations.caleta') : t('booking.locations.playitas')}
                       </Typography>
                       <Typography variant="body2" gutterBottom>
                         <strong>Total:</strong> €{calculatePrice().toFixed(2)}

@@ -26,6 +26,7 @@ import {
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, addMinutes, startOfDay, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, startOfDay as startOfDayFn } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import dataService from '../services/dataService';
+import { useTranslation } from '../utils/languageContext';
 
 // Slot configuration for Mole (discovery)
 const MOLE_START_TIME = '09:30';
@@ -40,6 +41,7 @@ const BOAT_SESSIONS = [
 ];
 
 const Schedule = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month', 'week', or 'daily'
@@ -565,7 +567,7 @@ const Schedule = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5">Dive Schedule</Typography>
+        <Typography variant="h5">{t('schedule.diveSchedule')}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           {/* Action Buttons */}
           <Button
@@ -585,7 +587,7 @@ const Schedule = () => {
               size="small"
               onClick={() => setViewMode('month')}
             >
-              Trip Schedules
+              {t('schedule.tripSchedules')}
             </Button>
             <Button
               variant={viewMode === 'daily' ? 'contained' : 'outlined'}
@@ -600,7 +602,7 @@ const Schedule = () => {
               size="small"
               onClick={() => setViewMode('week')}
             >
-              Week
+              {t('schedule.week')}
             </Button>
           </Box>
           

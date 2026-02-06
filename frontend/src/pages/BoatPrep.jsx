@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { format, subDays } from 'date-fns';
 import dataService from '../services/dataService';
+import { useTranslation } from '../utils/languageContext';
 
 const getDiverSkillLevel = (customer) => {
   const level = (customer.centerSkillLevel || 'beginner').toLowerCase();
@@ -99,6 +100,7 @@ const requiresGuide = (session) => {
 };
 
 const BoatPrep = () => {
+  const { t } = useTranslation();
   const storedLocationId = localStorage.getItem('dcms_current_location');
   // State for locations - load asynchronously
   const [locations, setLocations] = useState([]);
@@ -1543,8 +1545,8 @@ const BoatPrep = () => {
   return (
     <Box>
       <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
-        <Tab label="Dive Preparation" />
-        <Tab label="Post-Dive Reports" />
+        <Tab label={t('boatPrep.divePreparation')} />
+        <Tab label={t('boatPrep.postDiveReports')} />
         {isComplianceReportsEnabled && <Tab label="Compliance Reports" />}
       </Tabs>
 
@@ -1552,7 +1554,7 @@ const BoatPrep = () => {
         <>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h5">
-              {shouldUseBoatPrep ? 'Boat Preparation' : 'Shore Dive Preparation'}
+              {shouldUseBoatPrep ? t('boatPrep.boatPreparation') : t('boatPrep.shoreDivePreparation')}
         </Typography>
             {shouldUseBoatPrep && (
           <Box display="flex" gap={1}>
@@ -2282,7 +2284,7 @@ const BoatPrep = () => {
                   Allocate Equipment Now
                 </Button>
                 <Button variant="contained" color="primary" onClick={savePreparation}>
-                  {shouldUseBoatPrep ? 'Save All Boat Preparations' : 'Save Shore Dive Preparation'}
+                  {shouldUseBoatPrep ? t('boatPrep.saveAll') : t('boatPrep.saveShore')}
                 </Button>
               </Box>
             </Box>
@@ -2320,7 +2322,7 @@ const BoatPrep = () => {
                 No prepared dives found for {reportDate}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Prepared dives will appear here after they are saved in the Dive Preparation section.
+                {t('boatPrep.preparedDivesHint')}
               </Typography>
             </Paper>
           ) : (

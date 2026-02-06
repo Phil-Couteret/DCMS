@@ -80,7 +80,8 @@
     "locations": {
       "caleta": "Caleta de Fuste",
       "playitas": "Las Playitas"
-    }
+    },
+    "registeredOnly": "(Només clients registrats)"
   },
   "diveSites": {
     "title": "Els nostres llocs de busseig",
@@ -291,5 +292,58 @@
       "delete": "Eliminar compte",
       "cancel": "Cancel·lar"
     }
+  },
+  "login": {
+    "tabLogin": "Iniciar sessió",
+    "tabRegister": "Registrar-se",
+    "email": "Correu electrònic",
+    "password": "Contrasenya",
+    "forgotPassword": "Contrasenya oblidada?",
+    "loggingIn": "Iniciant sessió...",
+    "errorEnterBoth": "Introduïu correu electrònic i contrasenya",
+    "errorNoAccount": "No s'ha trobat cap compte amb aquest correu. Registreu-vos primer.",
+    "errorIncorrectPassword": "Contrasenya incorrecta. Torneu-ho a provar.",
+    "errorGeneric": "S'ha produït un error. Torneu-ho a provar.",
+    "privacyConsent": "Privacitat i consentiment",
+    "privacyIntro": "Necessitem el vostre consentiment per processar les vostres dades personals. Més informació a la nostra",
+    "privacyPolicy": "Política de privacitat",
+    "consentDataProcessing": "Processament de dades (obligatori): Dono el meu consentiment per al processament de les meves dades per als serveis de reserva de busseig.",
+    "consentMedicalData": "Dades mèdiques (obligatòries): Dono el meu consentiment per al processament de la meva informació mèdica per a la seguretat del busseig segons la normativa marítima espanyola.",
+    "consentMarketing": "Màrqueting (opcional): Dono el meu consentiment per rebre correus promocionals. Podeu retirar aquest consentiment en qualsevol moment.",
+    "alertDataRequired": "El consentiment per al processament de dades és obligatori per crear un compte.",
+    "alertMedicalRequired": "El consentiment per al processament de dades mèdiques és obligatori per als serveis de busseig.",
+    "creatingAccount": "Creant compte...",
+    "createAccount": "Crear compte",
+    "confirmPassword": "Confirmar contrasenya",
+    "firstName": "Nom",
+    "lastName": "Cognoms",
+    "phone": "Telèfon"
+  },
+  "footer": {
+    "brandName": "Deep Blue Fuerteventura",
+    "tagline": "Anys d'experiència en busseig a l'Atlàntic",
+    "quickLinks": "Enllaços ràpids",
+    "home": "Inici",
+    "bookDive": "Reservar immersió",
+    "aboutUs": "Sobre nosaltres",
+    "contact": "Contacte",
+    "locations": "Ubicacions",
+    "followUs": "Segueix-nos",
+    "legalPrivacy": "Legal i privacitat",
+    "privacyPolicy": "Política de privacitat",
+    "cookiePolicy": "Política de galetes",
+    "dataRetentionPolicy": "Política de retenció de dades",
+    "copyright": "© 2024 Deep Blue Fuerteventura. Tots els drets reservats."
+  },
+  "cookieBanner": {
+    "title": "Consentiment de galetes",
+    "intro": "Utilitzem galetes essencials per al funcionament del lloc web. Aquestes galetes són necessàries i no es poden desactivar. No utilitzem galetes de seguiment sense el vostre consentiment explícit.",
+    "byClicking": "En fer clic a \"Acceptar tot\" accepteu el nostre ús de galetes essencials. Més informació al nostre",
+    "cookiePolicy": "Política de galetes",
+    "and": "i",
+    "privacyPolicy": "Política de privacitat",
+    "acceptAll": "Acceptar tot",
+    "essentialOnly": "Només essencials",
+    "learnMore": "Més informació"
   }
 }

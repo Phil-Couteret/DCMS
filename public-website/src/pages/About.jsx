@@ -55,7 +55,7 @@ const About = () => {
               <Typography variant="h6" gutterBottom>
                 {t('about.equipmentTitle')}
               </Typography>
-              руками<Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary">
                 {t('about.equipmentDesc')}
               </Typography>
             </CardContent>

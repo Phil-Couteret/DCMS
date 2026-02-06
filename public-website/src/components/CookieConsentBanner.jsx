@@ -8,8 +8,10 @@ import {
   Stack
 } from '@mui/material';
 import { Cookie as CookieIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 const CookieConsentBanner = () => {
+  const { t } = useTranslation();
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
@@ -75,22 +77,19 @@ const CookieConsentBanner = () => {
           <CookieIcon sx={{ fontSize: 40, color: 'primary.main', mt: 0.5 }} />
           <Box sx={{ flex: 1 }}>
             <Typography variant="h6" gutterBottom>
-              Cookie Consent
+              {t('cookieBanner.title')}
             </Typography>
             <Typography variant="body2" paragraph>
-              We use essential cookies to ensure our website functions properly. These cookies are necessary 
-              for the website to work and cannot be disabled. We do not use tracking or analytics cookies 
-              without your explicit consent.
+              {t('cookieBanner.intro')}
             </Typography>
             <Typography variant="body2" paragraph>
-              By clicking "Accept All", you consent to our use of essential cookies. You can learn more about 
-              our cookie practices in our{' '}
+              {t('cookieBanner.byClicking')}{' '}
               <Link href="/cookie-policy" target="_blank" underline="always">
-                Cookie Policy
+                {t('cookieBanner.cookiePolicy')}
               </Link>
-              {' '}and{' '}
+              {' '}{t('cookieBanner.and')}{' '}
               <Link href="/privacy-policy" target="_blank" underline="always">
-                Privacy Policy
+                {t('cookieBanner.privacyPolicy')}
               </Link>.
             </Typography>
             <Stack direction="row" spacing={2} sx={{ mt: 2, flexWrap: 'wrap' }}>
@@ -100,7 +99,7 @@ const CookieConsentBanner = () => {
                 onClick={handleAccept}
                 size="small"
               >
-                Accept All
+                {t('cookieBanner.acceptAll')}
               </Button>
               <Button
                 variant="outlined"
@@ -108,7 +107,7 @@ const CookieConsentBanner = () => {
                 onClick={handleReject}
                 size="small"
               >
-                Essential Only
+                {t('cookieBanner.essentialOnly')}
               </Button>
               <Button
                 variant="text"
@@ -116,7 +115,7 @@ const CookieConsentBanner = () => {
                 onClick={handleCustomize}
                 size="small"
               >
-                Learn More
+                {t('cookieBanner.learnMore')}
               </Button>
             </Stack>
           </Box>

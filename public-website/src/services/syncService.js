@@ -224,7 +224,6 @@ class SyncService {
     
     // Skip bulk push - data should already be in database from migration
     // Only sync individual changes via pushPendingChanges
-    console.log('[Sync] Skipping bulk push - using database as source of truth');
     return;
   }
 

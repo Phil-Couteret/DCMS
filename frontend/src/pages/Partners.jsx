@@ -40,8 +40,10 @@ import {
 import { httpClient } from '../services/api/httpClient';
 import dataService from '../services/dataService';
 import { useAuth } from '../utils/authContext';
+import { useTranslation } from '../utils/languageContext';
 
 const Partners = () => {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [partners, setPartners] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -206,7 +208,7 @@ const Partners = () => {
           <BusinessIcon sx={{ fontSize: 40, color: 'primary.main' }} />
           <Box>
             <Typography variant="h4" gutterBottom>
-              Partners
+              {t('partners.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Manage partner accounts and API access
@@ -227,7 +229,7 @@ const Partners = () => {
               startIcon={<AddIcon />}
               onClick={handleAddPartner}
             >
-              Add Partner
+              {t('partners.addPartner')}
             </Button>
           )}
         </Box>
@@ -239,7 +241,7 @@ const Partners = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
-                Total Partners
+                {t('partners.totalPartners')}
               </Typography>
               <Typography variant="h4">{totalPartners}</Typography>
             </CardContent>
@@ -249,7 +251,7 @@ const Partners = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
-                Active Partners
+                {t('partners.activePartners')}
               </Typography>
               <Typography variant="h4">{activePartners}</Typography>
             </CardContent>
@@ -287,7 +289,7 @@ const Partners = () => {
               <TableRow>
                 <TableCell colSpan={isAdmin() ? 8 : 7} align="center">
                   <Typography color="text.secondary" sx={{ py: 2 }}>
-                    No partners found. Click "Add Partner" to create one.
+                    {t('partners.noPartners')}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -434,7 +436,7 @@ const Partners = () => {
         fullWidth
       >
         <DialogTitle>
-          {editingPartner ? 'Edit Partner' : 'Add New Partner'}
+          {editingPartner ? t('partners.editPartner') : t('partners.addPartner')}
         </DialogTitle>
         <DialogContent>
           {newPartnerCredentials ? (

@@ -15,6 +15,7 @@ import {
   Box
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import bookingService from '../services/bookingService';
 import consentService from '../services/consentService';
 import passwordMigrationService from '../services/passwordMigrationService';
@@ -22,6 +23,7 @@ import passwordHash from '../utils/passwordHash';
 import PasswordChangeDialog from '../components/PasswordChangeDialog';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [tabValue, setTabValue] = useState(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,7 +57,7 @@ const Login = () => {
       if (tabValue === 0) {
         // Login logic
         if (!formData.email || !formData.password) {
-          setError('Please enter both email and password');
+          setError(t('login.errorEnterBoth'));
           setLoading(false);
           return;
         }
@@ -64,7 +66,7 @@ const Login = () => {
         let customer = await bookingService.getCustomerByEmail(formData.email);
         
         if (!customer) {
-          setError('No account found with this email. Please register first.');
+          setError(t('login.errorNoAccount'));
           setLoading(false);
           return;
         }
@@ -88,7 +90,7 @@ const Login = () => {
           );
 
           if (!isValid) {
-            setError('Incorrect password. Please try again.');
+            setError(t('login.errorIncorrectPassword'));
             setLoading(false);
             return;
           }
@@ -251,7 +253,7 @@ const Login = () => {
         navigate('/my-account');
       }
     } catch (err) {
-      setError(err.message || 'An error occurred. Please try again.');
+      setError(err.message || t('login.errorGeneric'));
     } finally {
       setLoading(false);
     }
@@ -262,8 +264,8 @@ const Login = () => {
       <Card sx={{ maxWidth: 500, width: '100%' }}>
         <CardContent>
           <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
-            <Tab label="Login" />
-            <Tab label="Register" />
+            <Tab label={t('login.tabLogin')} />
+            <Tab label={t('login.tabRegister')} />
           </Tabs>
 
           {error && (
@@ -276,7 +278,7 @@ const Login = () => {
             {tabValue === 0 ? (
               <>
                 <TextField
-                  label="Email"
+                  label={t('login.email')}
                   type="email"
                   fullWidth
                   required
@@ -289,7 +291,7 @@ const Login = () => {
                   disabled={loading}
                 />
                 <TextField
-                  label="Password"
+                  label={t('login.password')}
                   type="password"
                   fullWidth
                   required
@@ -309,16 +311,16 @@ const Login = () => {
                   sx={{ mb: 2 }}
                   disabled={loading}
                 >
-                  {loading ? 'Logging in...' : 'Login'}
+                  {loading ? t('login.loggingIn') : t('login.tabLogin')}
                 </Button>
                 <Typography variant="body2" align="center">
-                  <Link href="#" underline="hover">Forgot password?</Link>
+                  <Link href="#" underline="hover">{t('login.forgotPassword')}</Link>
                 </Typography>
               </>
             ) : (
               <>
                 <TextField
-                  label="First Name"
+                  label={t('login.firstName')}
                   fullWidth
                   required
                   sx={{ mb: 2 }}
@@ -326,7 +328,7 @@ const Login = () => {
                   onChange={(e) => handleChange('firstName', e.target.value)}
                 />
                 <TextField
-                  label="Last Name"
+                  label={t('login.lastName')}
                   fullWidth
                   required
                   sx={{ mb: 2 }}
@@ -334,7 +336,7 @@ const Login = () => {
                   onChange={(e) => handleChange('lastName', e.target.value)}
                 />
                 <TextField
-                  label="Email"
+                  label={t('login.email')}
                   type="email"
                   fullWidth
                   required
@@ -343,14 +345,14 @@ const Login = () => {
                   onChange={(e) => handleChange('email', e.target.value)}
                 />
                 <TextField
-                  label="Phone"
+                  label={t('login.phone')}
                   fullWidth
                   sx={{ mb: 2 }}
                   value={formData.phone}
                   onChange={(e) => handleChange('phone', e.target.value)}
                 />
                 <TextField
-                  label="Password"
+                  label={t('login.password')}
                   type="password"
                   fullWidth
                   required
@@ -359,7 +361,7 @@ const Login = () => {
                   onChange={(e) => handleChange('password', e.target.value)}
                 />
                 <TextField
-                  label="Confirm Password"
+                  label={t('login.confirmPassword')}
                   type="password"
                   fullWidth
                   required
@@ -371,12 +373,12 @@ const Login = () => {
                 {/* GDPR Consent Section */}
                 <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Privacy & Consent
+                    {t('login.privacyConsent')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    We need your consent to process your personal data. Learn more in our{' '}
+                    {t('login.privacyIntro')}{' '}
                     <Link href="/privacy-policy" target="_blank" underline="always">
-                      Privacy Policy
+                      {t('login.privacyPolicy')}
                     </Link>.
                   </Typography>
                   
@@ -391,8 +393,7 @@ const Login = () => {
                     }
                     label={
                       <Typography variant="body2">
-                        <strong>Data Processing (Required):</strong> I consent to the processing of my personal data 
-                        to provide dive booking services and manage my account.
+                        {t('login.consentDataProcessing')}
                       </Typography>
                     }
                     sx={{ mb: 1, display: 'block' }}
@@ -409,8 +410,7 @@ const Login = () => {
                     }
                     label={
                       <Typography variant="body2">
-                        <strong>Medical Data (Required):</strong> I consent to the processing of my medical information 
-                        and certificates for diving safety purposes as required by Spanish maritime regulations.
+                        {t('login.consentMedicalData')}
                       </Typography>
                     }
                     sx={{ mb: 1, display: 'block' }}
@@ -426,8 +426,7 @@ const Login = () => {
                     }
                     label={
                       <Typography variant="body2">
-                        <strong>Marketing (Optional):</strong> I consent to receive promotional emails and newsletters 
-                        about dive offers and updates. You can withdraw this consent at any time.
+                        {t('login.consentMarketing')}
                       </Typography>
                     }
                     sx={{ display: 'block' }}
@@ -436,13 +435,13 @@ const Login = () => {
                 
                 {!consents.dataProcessing && (
                   <Alert severity="error" sx={{ mb: 2 }}>
-                    Data processing consent is required to create an account.
+                    {t('login.alertDataRequired')}
                   </Alert>
                 )}
                 
                 {!consents.medicalData && (
                   <Alert severity="error" sx={{ mb: 2 }}>
-                    Medical data processing consent is required for diving services.
+                    {t('login.alertMedicalRequired')}
                   </Alert>
                 )}
                 
@@ -453,7 +452,7 @@ const Login = () => {
                   size="large"
                   disabled={loading || !consents.dataProcessing || !consents.medicalData}
                 >
-                  {loading ? 'Creating Account...' : 'Create Account'}
+                  {loading ? t('login.creatingAccount') : t('login.createAccount')}
                 </Button>
               </>
             )}

@@ -239,7 +239,7 @@ const Dashboard = () => {
       {/* Scope is controlled by top AppBar: Dashboard (global) vs selected location */}
       {tabScope === 'all' && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Per Location Overview</Typography>
+          <Typography variant="h6" sx={{ mb: 1 }}>{t('dashboard.perLocationOverview')}</Typography>
           <Grid container spacing={2}>
             {locations.map((loc) => {
               const locBookings = allBookingsGlobal.filter(b => b.locationId === loc.id);
@@ -318,13 +318,13 @@ const Dashboard = () => {
                     value={revenuePeriod}
                     onChange={(e) => setRevenuePeriod(e.target.value)}
                   >
-                    <MenuItem value={7}>Last 7 days</MenuItem>
-                    <MenuItem value={14}>Last 14 days</MenuItem>
-                    <MenuItem value={30}>Last 30 days</MenuItem>
+                    <MenuItem value={7}>{t('dashboard.last7Days')}</MenuItem>
+                    <MenuItem value={14}>{t('dashboard.last14Days')}</MenuItem>
+                    <MenuItem value={30}>{t('dashboard.last30Days')}</MenuItem>
                   </Select>
                 </FormControl>
               </Box>
-              <RevenueChart data={revenueData} title={`Revenue Trend (Last ${revenuePeriod} Days)`} />
+              <RevenueChart data={revenueData} title={t('dashboard.revenueTrendDays').replace('{n}', revenuePeriod)} />
             </Box>
           </Grid>
         )}
@@ -345,13 +345,13 @@ const Dashboard = () => {
                   value={trendsPeriod}
                   onChange={(e) => setTrendsPeriod(e.target.value)}
                 >
-                  <MenuItem value={7}>Last 7 days</MenuItem>
-                  <MenuItem value={14}>Last 14 days</MenuItem>
-                  <MenuItem value={30}>Last 30 days</MenuItem>
+                  <MenuItem value={7}>{t('dashboard.last7Days')}</MenuItem>
+                  <MenuItem value={14}>{t('dashboard.last14Days')}</MenuItem>
+                  <MenuItem value={30}>{t('dashboard.last30Days')}</MenuItem>
                 </Select>
               </FormControl>
             </Box>
-            <BookingTrendsChart data={bookingTrendsData} title={`Booking Trends (Last ${trendsPeriod} Days)`} />
+            <BookingTrendsChart data={bookingTrendsData} title={t('dashboard.bookingTrendsDays').replace('{n}', trendsPeriod)} />
           </Box>
         </Grid>
 
@@ -368,10 +368,10 @@ const Dashboard = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Box>
                 <Typography variant="h6">
-                  Upcoming Bookings (Next {daysToShow} Days)
+                  {t('dashboard.upcomingBookings')} ({t('dashboard.nextDays').replace('{n}', daysToShow)})
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Showing bookings from today through {new Date(Date.now() + daysToShow * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {t('dashboard.showingBookingsFrom')} {new Date(Date.now() + daysToShow * 24 * 60 * 60 * 1000).toLocaleDateString()}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -381,7 +381,7 @@ const Dashboard = () => {
                   onClick={() => setViewMode('list')}
                   size="small"
                 >
-                  List
+                  {t('dashboard.list')}
                 </Button>
                 <Button
                   variant={viewMode === 'calendar' ? 'contained' : 'outlined'}
@@ -389,7 +389,7 @@ const Dashboard = () => {
                   onClick={() => setViewMode('calendar')}
                   size="small"
                 >
-                  Calendar
+                  {t('dashboard.calendar')}
                 </Button>
                 <Button
                   variant="outlined"
@@ -399,7 +399,7 @@ const Dashboard = () => {
                 >
                   -
                 </Button>
-                <Typography variant="body2">{daysToShow} days</Typography>
+                <Typography variant="body2">{daysToShow} {t('dashboard.days')}</Typography>
                 <Button
                   variant="outlined"
                   size="small"
@@ -413,7 +413,7 @@ const Dashboard = () => {
                   onClick={() => navigate('/bookings/new')}
                   startIcon={<EventIcon />}
                 >
-                  New Booking
+                  {t('dashboard.newBooking')}
                 </Button>
               </Box>
             </Box>
@@ -428,7 +428,7 @@ const Dashboard = () => {
               <>
                 {upcomingBookings.length === 0 ? (
                   <Typography color="text.secondary">
-                    No upcoming bookings for the next {daysToShow} days
+                    {t('dashboard.noUpcomingBookings').replace('{n}', daysToShow)}
                   </Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -479,31 +479,31 @@ const Dashboard = () => {
                                   <Grid container spacing={2}>
                                     <Grid item xs={12} md={6}>
                                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Booking ID:</strong> {booking.id.substring(0, 8)}...
+                                        <strong>{t('bookings.details.bookingId')}:</strong> {booking.id.substring(0, 8)}...
                                       </Typography>
                                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Date:</strong> {booking.bookingDate}
+                                        <strong>{t('bookings.details.date')}:</strong> {booking.bookingDate}
                                       </Typography>
                                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Activity:</strong> {booking.activityType}
+                                        <strong>{t('bookings.details.activity')}:</strong> {booking.activityType}
                                       </Typography>
                                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Dive Sessions:</strong> {
+                                        <strong>{t('bookings.details.diveSessions')}:</strong> {
                                           booking.diveSessions ? 
-                                            (booking.diveSessions.morning ? 'Morning (9AM)' : '') + 
+                                            (booking.diveSessions.morning ? t('bookings.details.morning') : '') + 
                                             (booking.diveSessions.morning && booking.diveSessions.afternoon ? ', ' : '') +
-                                            (booking.diveSessions.afternoon ? 'Afternoon (12PM)' : '') :
+                                            (booking.diveSessions.afternoon ? t('bookings.details.afternoon') : '') :
                                             (booking.numberOfDives || 1) + ' dives'
                                         }
                                       </Typography>
                                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Status:</strong> {booking.status}
+                                        <strong>{t('common.status')}:</strong> {booking.status}
                                       </Typography>
                                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Payment Method:</strong> {booking.paymentMethod || 'N/A'}
+                                        <strong>{t('bookings.details.paymentMethod')}:</strong> {booking.paymentMethod || 'N/A'}
                                       </Typography>
                                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        <strong>Payment Status:</strong> {booking.paymentStatus || 'pending'}
+                                        <strong>{t('bookings.details.paymentStatus')}:</strong> {booking.paymentStatus || 'pending'}
                                       </Typography>
                                     </Grid>
                                     <Grid item xs={12} md={6}>
@@ -512,13 +512,13 @@ const Dashboard = () => {
                                       </Typography>
                                       {booking.ownEquipment && (
                                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                                          <strong>Own Equipment:</strong> Yes
+                                          <strong>{t('bookings.details.ownEquipment')}:</strong> {t('common.yes')}
                                         </Typography>
                                       )}
                                       {booking.rentedEquipment && Object.values(booking.rentedEquipment).some(v => v) && (
                                         <Box>
                                           <Typography variant="body2" color="text.secondary" gutterBottom>
-                                            <strong>Rented Equipment:</strong>
+                                            <strong>{t('bookings.details.rentedEquipment')}:</strong>
                                           </Typography>
                                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
                                             {Object.entries(booking.rentedEquipment).map(([eq, rented]) => 
@@ -536,12 +536,12 @@ const Dashboard = () => {
                                       )}
                                       {booking.specialRequirements && (
                                         <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
-                                          <strong>Special Requirements:</strong> {booking.specialRequirements}
+                                          <strong>{t('bookings.details.specialRequirements')}:</strong> {booking.specialRequirements}
                                         </Typography>
                                       )}
                                       {booking.notes && (
                                         <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
-                                          <strong>Notes:</strong> {booking.notes}
+                                          <strong>{t('bookings.details.notes')}:</strong> {booking.notes}
                                         </Typography>
                                       )}
                                     </Grid>
@@ -552,7 +552,7 @@ const Dashboard = () => {
                                         startIcon={<EditIcon />}
                                         onClick={() => navigate(`/bookings/${booking.id}`)}
                                       >
-                                        Edit Booking
+                                        {t('dashboard.editBooking')}
                                       </Button>
                                     </Grid>
                                   </Grid>

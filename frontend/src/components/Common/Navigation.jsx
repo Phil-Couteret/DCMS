@@ -70,10 +70,10 @@ const Navigation = () => {
   const globalMenu = [
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
     { text: t('nav.settings'), icon: <SettingsIcon />, path: '/settings', permission: 'settings' },
-    { text: 'Data Breaches', icon: <SecurityIcon />, path: '/breaches', permission: 'settings' },
-    { text: 'Partners', icon: <BusinessIcon />, path: '/partners', permission: 'settings' },
-    { text: 'Partner Invoices', icon: <ReceiptIcon />, path: '/partner-invoices', permission: 'settings' },
-    { text: 'Financial', icon: <FinancialIcon />, path: '/financial', permission: 'settings' }
+    { text: t('nav.breaches'), icon: <SecurityIcon />, path: '/breaches', permission: 'settings' },
+    { text: t('nav.partners'), icon: <BusinessIcon />, path: '/partners', permission: 'settings' },
+    { text: t('nav.partnerInvoices'), icon: <ReceiptIcon />, path: '/partner-invoices', permission: 'settings' },
+    { text: t('nav.financial'), icon: <FinancialIcon />, path: '/financial', permission: 'settings' }
   ];
   // Get current location's boats to determine menu text
   const currentLocationId = selectedLocationId || localStorage.getItem('dcms_current_location');
@@ -101,29 +101,29 @@ const Navigation = () => {
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
     { text: t('nav.newBooking'), icon: <AddIcon />, path: '/bookings/new', permission: 'bookings', roles: [USER_ROLES.ADMIN] },
         { text: t('nav.stays') || 'Current Customers', icon: <StaysIcon />, path: '/stays', permission: 'stays', roles: [USER_ROLES.ADMIN] },
-        { text: 'Financial', icon: <FinancialIcon />, path: '/financial', permission: 'settings', roles: [USER_ROLES.ADMIN] },
+        { text: t('nav.financial'), icon: <FinancialIcon />, path: '/financial', permission: 'settings', roles: [USER_ROLES.ADMIN] },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.ADMIN] },
     
     // Equipment & Operations (Owners, Trainers)
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
     { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
-    { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule', permission: 'boatPrep', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
-    { text: 'Dive', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
+    { text: t('nav.schedule'), icon: <ScheduleIcon />, path: '/schedule', permission: 'boatPrep', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
+    { text: t('nav.dive'), icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.BOAT_PILOT, USER_ROLES.TRAINER] },
     
     // Dive Operations (Guides)
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.GUIDE] },
-    { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule', permission: 'boatPrep', roles: [USER_ROLES.GUIDE] },
-    { text: 'Dive', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.GUIDE] },
+    { text: t('nav.schedule'), icon: <ScheduleIcon />, path: '/schedule', permission: 'boatPrep', roles: [USER_ROLES.GUIDE] },
+    { text: t('nav.dive'), icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.GUIDE] },
     { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment', roles: [USER_ROLES.GUIDE] },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.GUIDE] },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.GUIDE] },
     
     // Assist Mode (Trainees/Interns)
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard', roles: [USER_ROLES.INTERN] },
-    { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule', permission: 'boatPrep', roles: [USER_ROLES.INTERN] },
-    { text: 'Dive', icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.INTERN] },
+    { text: t('nav.schedule'), icon: <ScheduleIcon />, path: '/schedule', permission: 'boatPrep', roles: [USER_ROLES.INTERN] },
+    { text: t('nav.dive'), icon: <BoatPrepIcon />, path: '/boat-prep', permission: 'boatPrep', roles: [USER_ROLES.INTERN] },
     { text: t('nav.equipment'), icon: <EquipmentIcon />, path: '/equipment', permission: 'equipment', roles: [USER_ROLES.INTERN] },
     { text: t('nav.customers'), icon: <CustomersIcon />, path: '/customers', permission: 'customers', roles: [USER_ROLES.INTERN] },
     { text: t('nav.bookings'), icon: <BookingsIcon />, path: '/bookings', permission: 'bookings', roles: [USER_ROLES.INTERN] }

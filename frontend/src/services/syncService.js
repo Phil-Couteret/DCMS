@@ -24,7 +24,6 @@ class SyncService {
       this.init();
     } else {
       // In API mode, sync service is disabled
-      console.log('[Sync] Sync service disabled - using API mode');
     }
   }
 

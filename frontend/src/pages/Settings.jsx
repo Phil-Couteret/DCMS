@@ -1459,14 +1459,14 @@ const Settings = () => {
         PaperProps={{ sx: { zIndex: 1300 } }}
       >
         <DialogTitle>
-          {editingPartner ? 'Edit Partner' : 'Add New Partner'}
+          {editingPartner ? t('partners.editPartner') : t('partners.addPartner')}
         </DialogTitle>
         <DialogContent>
           {newPartnerCredentials ? (
             <Box sx={{ pt: 2 }}>
               <Alert severity="warning" sx={{ mb: 3 }}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>
-                  ⚠️ Save these credentials now! The API secret will not be shown again.
+                  ⚠️ {t('partners.saveCredentials')}
                 </Typography>
                 <Typography variant="body2">
                   Copy both the API Key and API Secret. The secret is only displayed once.
@@ -1528,7 +1528,7 @@ const Settings = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Partner Name"
+                  label={t('partners.partnerName')}
                   value={partnerFormData.name}
                   onChange={(e) => setPartnerFormData({ ...partnerFormData, name: e.target.value })}
                   required
@@ -1537,7 +1537,7 @@ const Settings = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Company Name"
+                  label={t('partners.companyName')}
                   value={partnerFormData.companyName}
                   onChange={(e) => setPartnerFormData({ ...partnerFormData, companyName: e.target.value })}
                   required
@@ -1546,7 +1546,7 @@ const Settings = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Contact Email"
+                  label={t('partners.contactEmail')}
                   type="email"
                   value={partnerFormData.contactEmail}
                   onChange={(e) => setPartnerFormData({ ...partnerFormData, contactEmail: e.target.value })}
@@ -1556,7 +1556,7 @@ const Settings = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Contact Phone"
+                  label={t('partners.contactPhone')}
                   value={partnerFormData.contactPhone}
                   onChange={(e) => setPartnerFormData({ ...partnerFormData, contactPhone: e.target.value })}
                 />
@@ -1564,7 +1564,7 @@ const Settings = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Webhook URL (optional)"
+                  label={t('partners.webhookUrl')}
                   value={partnerFormData.webhookUrl}
                   onChange={(e) => setPartnerFormData({ ...partnerFormData, webhookUrl: e.target.value })}
                   helperText="URL for receiving booking notifications"

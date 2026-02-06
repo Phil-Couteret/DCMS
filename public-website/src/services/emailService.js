@@ -61,8 +61,7 @@ export const sendBookingConfirmationEmail = async (booking, customer) => {
   const emailData = prepareBookingConfirmationEmail(booking, customer);
   
   // In a real implementation, this would call the backend API
-  // For now, we just prepare the data and log it
-  console.log('Would send email:', emailData);
+  // For now, we just prepare the data (backend integration pending)
   
   // Return success (in real implementation, this would be the API response)
   return {

@@ -107,13 +107,13 @@ const Financial = () => {
     notes: ''
   });
 
-  const expenseCategories = [
-    { value: 'gasoline', label: 'Gasoline' },
-    { value: 'tank_net', label: 'Tank Net' },
-    { value: 'glue', label: 'Glue' },
-    { value: 'equipment', label: 'New Equipment' },
-    { value: 'maintenance', label: 'Maintenance' },
-    { value: 'other', label: 'Other' }
+  const getExpenseCategories = () => [
+    { value: 'gasoline', labelKey: 'financial.gasoline' },
+    { value: 'tank_net', labelKey: 'financial.tankNet' },
+    { value: 'glue', labelKey: 'financial.glue' },
+    { value: 'equipment', labelKey: 'financial.equipment' },
+    { value: 'maintenance', labelKey: 'financial.maintenance' },
+    { value: 'other', labelKey: 'financial.other' }
   ];
 
   const isAdmin = currentUser?.role === USER_ROLES.ADMIN || currentUser?.role === USER_ROLES.SUPERADMIN;
@@ -1154,18 +1154,18 @@ const Financial = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>
-          Financial
+          {t('financial.title')}
         </Typography>
       </Box>
       
       <Paper sx={{ mb: 3 }}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
-          <Tab label="Current Financial" icon={<MoneyIcon />} iconPosition="start" />
+          <Tab label={t('financial.currentFinancial')} icon={<MoneyIcon />} iconPosition="start" />
           {!isBikeRental && (
-            <Tab label="Previous Closed Days" icon={<HistoryIcon />} iconPosition="start" />
+            <Tab label={t('financial.closedDays')} icon={<HistoryIcon />} iconPosition="start" />
           )}
-          <Tab label="Historical Bills" icon={<ReceiptIcon />} iconPosition="start" />
-          <Tab label={`Quarterly ${taxName} Declaration`} icon={<DescriptionIcon />} iconPosition="start" />
+          <Tab label={t('financial.historicalBills')} icon={<ReceiptIcon />} iconPosition="start" />
+          <Tab label={t('financial.quarterlyTaxDeclaration').replace('{tax}', taxName)} icon={<DescriptionIcon />} iconPosition="start" />
         </Tabs>
       </Paper>
 
@@ -1174,7 +1174,7 @@ const Financial = () => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
               <TextField
-                label="Select Date"
+                label={t('financial.selectDate')}
                 type="date"
                 value={selectedDate instanceof Date 
                   ? selectedDate.toISOString().split('T')[0] 
@@ -1191,7 +1191,7 @@ const Financial = () => {
                     startIcon={<TrendingDownIcon />}
                     onClick={handleAddExpense}
                   >
-                    Add Expense
+                    {t('financial.addExpense')}
                   </Button>
                   <Button
                     variant="outlined"
@@ -1199,7 +1199,7 @@ const Financial = () => {
                     startIcon={<TrendingUpIcon />}
                     onClick={handleAddIncome}
                   >
-                    Add Income
+                    {t('financial.addIncome')}
                   </Button>
                   {!isBikeRental && (
                     <Button
@@ -1208,7 +1208,7 @@ const Financial = () => {
                       startIcon={<CloseIcon />}
                       onClick={handleCloseDay}
                     >
-                      Close the Day
+                      {t('financial.closeTheDay')}
                     </Button>
                   )}
                 </>
@@ -1217,9 +1217,9 @@ const Financial = () => {
           </Box>
 
           {loading ? (
-            <Typography>Loading financial data...</Typography>
+            <Typography>{t('financial.loading')}</Typography>
           ) : !financialSummary ? (
-            <Alert severity="error">Error loading financial data. Please try again.</Alert>
+            <Alert severity="error">{t('financial.errorLoading')}</Alert>
           ) : (
             <>
               {/* Daily Summary Cards */}
@@ -1228,7 +1228,7 @@ const Financial = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Total Income
+                {t('financial.totalIncome')}
               </Typography>
               <Typography variant="h4" color="primary">
                 {formatCurrency(financialSummary.totalIncome)}
@@ -1240,7 +1240,7 @@ const Financial = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Total Expenses
+                {t('financial.totalExpenses')}
               </Typography>
               <Typography variant="h4" color="error">
                 {formatCurrency(financialSummary.expenses.total)}
@@ -1880,7 +1880,7 @@ const Financial = () => {
                     label="Customer"
                     onChange={(e) => setCustomerFilter(e.target.value)}
                   >
-                    <MenuItem value="">All Customers</MenuItem>
+                    <MenuItem value="">{t('financial.allCustomers')}</MenuItem>
                     {customers.map(customer => (
                       <MenuItem key={customer.id} value={customer.id}>
                         {customer.firstName || customer.first_name} {customer.lastName || customer.last_name}
@@ -1991,20 +1991,20 @@ const Financial = () => {
 
       {/* Expense Dialog */}
       <Dialog open={showExpenseDialog} onClose={() => setShowExpenseDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Expense</DialogTitle>
+        <DialogTitle>{t('financial.addExpense')}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel>Category</InputLabel>
+                <InputLabel>{t('financial.category')}</InputLabel>
                 <Select
                   value={expenseFormData.category}
-                  label="Category"
+                  label={t('financial.category')}
                   onChange={(e) => setExpenseFormData({ ...expenseFormData, category: e.target.value })}
                 >
-                  {expenseCategories.map((cat) => (
+                  {getExpenseCategories().map((cat) => (
                     <MenuItem key={cat.value} value={cat.value}>
-                      {cat.label}
+                      {t(cat.labelKey)}
                     </MenuItem>
                   ))}
                 </Select>
@@ -2013,7 +2013,7 @@ const Financial = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Description"
+                label={t('financial.description')}
                 value={expenseFormData.description}
                 onChange={(e) => setExpenseFormData({ ...expenseFormData, description: e.target.value })}
                 required
@@ -2022,7 +2022,7 @@ const Financial = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Amount (€)"
+                label={`${t('financial.amount')} (€)`}
                 type="number"
                 value={expenseFormData.amount}
                 onChange={(e) => setExpenseFormData({ ...expenseFormData, amount: e.target.value })}
@@ -2033,7 +2033,7 @@ const Financial = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Date"
+                label={t('financial.date')}
                 type="date"
                 value={expenseFormData.date}
                 onChange={(e) => setExpenseFormData({ ...expenseFormData, date: e.target.value })}
@@ -2043,7 +2043,7 @@ const Financial = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Notes"
+                label={t('financial.notes')}
                 multiline
                 rows={3}
                 value={expenseFormData.notes}
@@ -2053,22 +2053,22 @@ const Financial = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowExpenseDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowExpenseDialog(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleSaveExpense} variant="contained" color="error">
-            Save Expense
+            {t('financial.saveExpense')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Income Dialog */}
       <Dialog open={showIncomeDialog} onClose={() => setShowIncomeDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Manual Income</DialogTitle>
+        <DialogTitle>{t('financial.addManualIncome')}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Description"
+                label={t('financial.description')}
                 value={incomeFormData.description}
                 onChange={(e) => setIncomeFormData({ ...incomeFormData, description: e.target.value })}
                 required
@@ -2078,7 +2078,7 @@ const Financial = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Amount (€)"
+                label={`${t('financial.amount')} (€)`}
                 type="number"
                 value={incomeFormData.amount}
                 onChange={(e) => setIncomeFormData({ ...incomeFormData, amount: e.target.value })}
@@ -2089,7 +2089,7 @@ const Financial = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Date"
+                label={t('financial.date')}
                 type="date"
                 value={incomeFormData.date}
                 onChange={(e) => setIncomeFormData({ ...incomeFormData, date: e.target.value })}
@@ -2099,7 +2099,7 @@ const Financial = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Notes"
+                label={t('financial.notes')}
                 multiline
                 rows={3}
                 value={incomeFormData.notes}
@@ -2109,9 +2109,9 @@ const Financial = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowIncomeDialog(false)}>Cancel</Button>
+          <Button onClick={() => setShowIncomeDialog(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleSaveIncome} variant="contained" color="success">
-            Save Income
+            {t('financial.saveIncome')}
           </Button>
         </DialogActions>
       </Dialog>
