@@ -100,6 +100,25 @@
       "current": "Corrent",
       "waves": "Onades",
       "travel": "Viatge"
+    },
+    "sites": "llocs",
+    "siteDescriptions": {
+      "anfiteatro": "Entre les roques penjants al llarg de tot l'escull hi ha peixos escorpí, nero, peix trompeta i anxoves. A uns 12 metres de profunditat, les barracudes esperen les seves preses, mentre els curiosos servioles observen els bussejadors de prop.",
+      "barranco": "Un bell escull amb sortints i columnes. Aquí també es troben bancs de bremes ratllades, bremes zebra i verats. A les columnes i forats diferents espècies de morenes han fet casa; morenes tigre i morenes emmascarades no són una raresa aquí.",
+      "fortaleza": "Una paret rocosa que s'aixeca verticalment des del fons marí inclinat entre 18 i 12 metres de profunditat, fins a 3 metres sota la superfície. Al voltant d'aquest lloc de busseig trobareu molts restes de naufragis, testimoniatge que aquests esculls han estat un desastre per a molts vaixells.",
+      "mole": "Aquí sou a la guarderia de l'Atlàntic. A més de bancs de barracudes joves, bremes i sardines, sempre hi ha pops i calamars al lloc, de vegades també podeu trobar el cavall de mar ocasional. Als mesos d'hivern els angelets s'apoderen del lloc.",
+      "la_emboscada": "Aquest lloc de busseig sobre l'escull està molt a prop de la costa. El bell paisatge submarí amb impressives formacions rocoses, les possibilitats de nedar-hi a través i les grans diferències de profunditat fan que cada immersió aquí sigui molt variable.",
+      "camino_de_altura": "Aquí trobareu molt bons passatges nedables fora de l'escull. A prop de la gran paret hi ha diversos sortints on els nero es senten còmodes. Peixos més grans com el tonyina, bonítol i verat són comuns també en aquesta zona.",
+      "el_muellito": "L'escull comença aquí a 7 metres de profunditat i ofereix així protecció a les sardines que fuigen dels servioles i serrans caçadors. A 23 metres hi ha una gorja abrupta que es pot bussejar al llarg d'uns 12 metres.",
+      "el_tazar": "Enormes bancs de rap són sovint aquí a la vora de l'escull. Una mica més endins a les profunditats blaves, bancs de grans barracudes cerclen. Una mica més profund entre les formacions rocoses podeu trobar, per exemple, nero, peix lloro, llobarro i morenes de jardí.",
+      "tesoro_negro": "Fosc i misteriós. El nom del lloc encaixa: estranys coralls negres creixen a les parets de l'escull. La paret acull esponges, anèmones i nudibranquis molt bonics. Al peu de la paret sota els sortints podeu veure camps de plomes de paó i roses cilíndriques.",
+      "el_portal": "La paret rocosa amb un passatge cap a les profunditats blaves està una mica davant del propi escull. Aquí es tenen les millors vistes per veure peixos grans: des de tonyines de 2 metres fins a bancs de servioles d'1,80 metres i fins als taurons balena amb les seves taques.",
+      "el_mirador": "Primer hem de creuar un barranc aquí per arribar a una formació rocosa una mica avançada. Aquí, amb la vista cap al blau profund, passen bancs de bonítols i servioles. Entre les roques la mantella descansa i flota a la recerca d'aliment.",
+      "el_laberinto": "El nom ho diu tot: el laberint és un paisatge submarí salvatge que encara sorprèn després de moltes immersions. Barracudes, bonítols i angelets es poden veure aquí. A la vora de l'escull solen haver-hi enormes bancs de sardines, caçades pels tonyines.",
+      "la_piramide": "Una baralla entre adolescents no és rara aquí: darrere la vora de l'escull a uns 26 metres, tota una banda de nero semi-adults espera entre les roques per barallar-se amb morenes nedadores. A prop de la piràmide de vegades trobareu tortugues marines a la recerca d'aliment.",
+      "el_monasterio": "Tot un laberint de gorjes rocosos us espera darrere la vora de l'escull. Ens recorden els estrets murs d'un monestir. Entre les roques podeu trobar pops majestuosos i sipies grans. Davant dels passatges rocosos al fons sorrenc brillant, diverses mantelles busquen aliment.",
+      "nuevo_horizonte": "Nuevo Horizonte, davant Costa Caleta (Caleta de la Camella). Grans peixos com tonyina, bonítol, servioles i barracudes s'observen regularment aquí. Dorades, badis, barracudes i tonyines s'acosten curiosos a l'escull. A febrer i març molts angelets hi vénen a aparellar-se.",
+      "playitas_reef": "Escull impressionant perfecte per a principiants"
     }
   },
   "about": {
@@ -165,7 +184,9 @@
     "bookings": {
       "title": "Les meves reserves",
       "noBookings": "Encara no hi ha reserves.",
+      "noBookingsFound": "No s'han trobat reserves.",
       "refresh": "Actualitzar",
+      "divesSessions": "Immersions/Sessions",
       "date": "Data",
       "location": "Ubicació",
       "activity": "Activitat",
@@ -184,6 +205,49 @@
       "statusPending": "Pendent",
       "statusCancelled": "Cancel·lada",
       "statusCompleted": "Completada"
+    },
+    "bookDive": "Reservar immersió",
+    "purchasePack": "Comprar un pack",
+    "pendingApproval": "El vostre compte està pendent d'aprovació. El centre de busseig ha d'avaluar el vostre nivell abans de poder reservar. Un cop aprovat, podreu reservar aquí.",
+    "dataRefreshed": "Dades actualitzades des del servidor",
+    "refreshFailed": "Error en actualitzar. Torneu-ho a provar.",
+    "packCredits": {
+      "title": "Els meus crèdits de pack",
+      "location": "Ubicació",
+      "count": "Quantitat",
+      "type": "Tipus",
+      "withEquipment": "Amb equip",
+      "ownEquipment": "Equip propi",
+      "divesRemaining": "{{remaining}} de {{total}} immersions restants"
+    },
+    "packPurchase": {
+      "title": "Comprar un pack d'immersions",
+      "location": "Ubicació",
+      "noPacks": "No hi ha packs disponibles per a aquesta ubicació. Els packs es configuren al centre de busseig.",
+      "purchaseButton": "Comprar (pagar al centre)",
+      "success": "Pack comprat! Ara podeu utilitzar els vostres crèdits en reservar.",
+      "divesWithEquipment": "{{dives}} immersions + equip",
+      "divesOwnEquipment": "{{dives}} immersions (equip propi)"
+    },
+    "bookDialog": {
+      "title": "Reservar immersió",
+      "bookingFor": "Reserva per a:",
+      "numberOfDives": "Nombre d'immersions per sessió",
+      "includeEquipment": "Incloure lloguer d'equip",
+      "usePackCredits": "Utilitzar crèdits de pack ({{remaining}} immersions restants, {{equipment}})",
+      "withEquipment": "amb equip",
+      "withoutEquipment": "sense equip",
+      "selectTimeSlots": "Seleccioneu franja(es) horària(es) - Podeu bussejar diverses vegades al dia",
+      "estimatedTotal": "Total estimat",
+      "sessionsDives": "{{sessions}} sessió(ons) × {{dives}} immersió(ons) = {{total}} immersions totals",
+      "payAtCenter": "El pagament es processarà al centre. No cal pagar ara.",
+      "paidWithPack": "Els vostres crèdits de pack s'han utilitzat per a aquesta reserva.",
+      "paidWithPackLabel": "Pagat amb crèdits de pack",
+      "slotFull": "Complet",
+      "slotSelected": "Seleccionat",
+      "confirmBooking": "Confirmar reserva",
+      "creatingBooking": "Creant reserva...",
+      "bookingConfirmed": "Reserva confirmada!"
     },
     "profile": {
       "title": "Informació personal",

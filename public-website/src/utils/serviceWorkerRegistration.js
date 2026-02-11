@@ -20,9 +20,7 @@ export function register(config) {
       if (isLocalhost) {
         // Running on localhost - check if service worker exists
         checkValidServiceWorker(swUrl, config);
-        navigator.serviceWorker.ready.then(() => {
-          console.log('[PWA] Service worker ready on localhost');
-        });
+        navigator.serviceWorker.ready.then(() => {});
       } else {
         // Production - register service worker
         registerValidSW(swUrl, config);
@@ -35,8 +33,6 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
-      console.log('[PWA] Service Worker registered successfully:', registration.scope);
-
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {
@@ -46,14 +42,10 @@ function registerValidSW(swUrl, config) {
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              // New content available - show update notification
-              console.log('[PWA] New content available, please refresh!');
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
             } else {
-              // Content cached for offline use
-              console.log('[PWA] Content cached for offline use');
               if (config && config.onSuccess) {
                 config.onSuccess(registration);
               }
@@ -90,8 +82,6 @@ function checkValidServiceWorker(swUrl, config) {
             // Don't auto-reload in development - let user control it
             if (!isLocalhost) {
               window.location.reload();
-            } else {
-              console.log('[PWA] Service worker unregistered. Please refresh manually if needed.');
             }
           });
         });
@@ -99,9 +89,7 @@ function checkValidServiceWorker(swUrl, config) {
         registerValidSW(swUrl, config);
       }
     })
-    .catch(() => {
-      console.log('[PWA] No internet connection found. App is running in offline mode.');
-    });
+    .catch(() => {});
 }
 
 export function unregister() {

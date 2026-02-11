@@ -17,18 +17,10 @@ const STATIC_ASSETS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing...', CACHE_VERSION);
-  
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => {
-        console.log('[Service Worker] Caching static assets');
-        return cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' })));
-      })
-      .then(() => {
-        console.log('[Service Worker] Installation complete');
-        return self.skipWaiting(); // Activate immediately
-      })
+      .then((cache) => cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
       .catch((error) => {
         console.error('[Service Worker] Installation failed:', error);
       })
@@ -37,29 +29,18 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...');
-  
   event.waitUntil(
     caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((cacheName) => {
-              // Delete old caches that don't match current version
-              return cacheName.startsWith('deep-blue-diver-') && 
-                     cacheName !== STATIC_CACHE && 
-                     cacheName !== DYNAMIC_CACHE;
-            })
-            .map((cacheName) => {
-              console.log('[Service Worker] Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            })
-        );
-      })
-      .then(() => {
-        console.log('[Service Worker] Activation complete');
-        return self.clients.claim(); // Take control of all pages immediately
-      })
+      .then((cacheNames) => Promise.all(
+        cacheNames
+          .filter((cacheName) =>
+            cacheName.startsWith('deep-blue-diver-') &&
+            cacheName !== STATIC_CACHE &&
+            cacheName !== DYNAMIC_CACHE
+          )
+          .map((cacheName) => caches.delete(cacheName))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -118,22 +99,16 @@ self.addEventListener('fetch', (event) => {
 // Handle background sync (for offline booking submissions)
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-bookings') {
-    console.log('[Service Worker] Background sync triggered');
     event.waitUntil(syncBookings());
   }
 });
 
-// Placeholder for offline booking sync
 async function syncBookings() {
-  // This would sync any pending bookings when connection is restored
-  // Implementation depends on your backend API
-  console.log('[Service Worker] Syncing pending bookings...');
+  // Placeholder: sync pending bookings when connection is restored
 }
 
 // Handle push notifications (for booking confirmations, reminders)
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push notification received');
-  
   const options = {
     body: event.data ? event.data.text() : 'New update from Deep Blue Diving',
     icon: '/pwa-icons/icon-192x192.png',
@@ -150,7 +125,6 @@ self.addEventListener('push', (event) => {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
-  console.log('[Service Worker] Notification clicked');
   event.notification.close();
 
   event.waitUntil(

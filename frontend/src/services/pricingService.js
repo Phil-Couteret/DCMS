@@ -28,6 +28,43 @@ export const getLocationPricing = (locationId) => {
   return location.pricing;
 };
 
+/**
+ * Get pack price if a matching pack exists
+ * @param {string} locationId
+ * @param {number} numberOfDives
+ * @param {boolean} withEquipment
+ * @returns {number|null} Pack price or null if no matching pack
+ */
+export const getPackPrice = (locationId, numberOfDives, withEquipment) => {
+  const pricing = getLocationPricing(locationId);
+  const packs = pricing.divePacks || [];
+  const pack = packs.find(
+    (p) => p.dives === numberOfDives && !!p.withEquipment === !!withEquipment
+  );
+  return pack != null ? pack.price : null;
+};
+
+/**
+ * Calculate dive price, using pack if available, otherwise tier + equipment
+ * @param {string} locationId
+ * @param {string} customerType - 'tourist', 'local', 'recurrent'
+ * @param {number} numberOfDives
+ * @param {boolean} [withEquipment=false] - whether equipment is included
+ * @returns {number}
+ */
+export const calculateDivePriceWithPacks = (locationId, customerType, numberOfDives, withEquipment = false) => {
+  const packPrice = getPackPrice(locationId, numberOfDives, withEquipment);
+  if (packPrice != null) return packPrice;
+
+  let base = calculateDivePrice(locationId, customerType, numberOfDives);
+  if (withEquipment) {
+    const settings = JSON.parse(localStorage.getItem('dcms_settings') || '{}');
+    const equipmentPrice = settings.prices?.equipment?.complete_equipment ?? 13;
+    base += equipmentPrice * numberOfDives;
+  }
+  return base;
+};
+
 export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
   if (!numberOfDives || numberOfDives <= 0) return 0;
 

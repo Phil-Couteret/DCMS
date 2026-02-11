@@ -97,6 +97,25 @@
       "current": "Corrente",
       "waves": "Onde",
       "travel": "Viaggio"
+    },
+    "sites": "siti",
+    "siteDescriptions": {
+      "anfiteatro": "Tra le rocce a strapiombo lungo tutto il reef si trovano scorfani, cernie, pesci tromba e spratto maggiore. A circa 12 metri di profondità le barracuda aspettano le prede, mentre le curiose lecce ambrate osservano i subacquei da vicino.",
+      "barranco": "Un bellissimo reef con sporgenze e colonne. Anche qui si trovano banchi di saraghi, tanute e sugarelli. Nelle colonne e nelle cavità diverse specie di murene hanno fatto casa; murene tigre e murene mascherate non sono una rarità qui.",
+      "fortaleza": "Una parete rocciosa che si innalza verticalmente dal fondale marino inclinato tra 18 e 12 metri di profondità, fino a 3 metri sotto la superficie. Intorno a questo sito troverete molti resti di naufragi, testimonianza che queste scogliere sono state un disastro per molte navi.",
+      "mole": "Siete nella nursery dell'Atlantico. Oltre ai banchi di giovani barracuda, saraghi e sardine ci sono sempre polpi e calamari sul posto, a volte potete anche trovare il cavalluccio marino occasionale. Nei mesi invernali gli squali angelo si appropriano del luogo.",
+      "la_emboscada": "Questo sito sopra il reef è molto vicino alla costa. Il bel paesaggio sottomarino con impressionanti formazioni rocciose, le possibilità di nuotare attraverso di esse e le grandi differenze di profondità rendono ogni immersione qui molto variabile.",
+      "camino_de_altura": "Qui troverete dei bei passaggi nuotabili fuori dal reef. Vicino alla grande parete ci sono alcune sporgenze dove le cernie si sentono a loro agio. Pesci più grandi come tonno, bonito e leccia sono comuni anche in quest'area.",
+      "el_muellito": "Il reef inizia qui a 7 metri di profondità e offre così protezione alle sardine in fuga dalle lecce e cernie cacciatrici. A 23 metri c'è una gola selvaggia e accidentata che può essere esplorata per circa 12 metri.",
+      "el_tazar": "Enormi banchi di rane pescatrici si trovano spesso qui sul bordo del reef. Un po' più avanti nelle profondità blu banchi di grandi barracuda girano in cerchio. Più in profondità tra le formazioni rocciose troverete ad esempio cernie, pesci pappagallo, spigole e murene di giardino.",
+      "tesoro_negro": "Scuro e misterioso. Il nome del sito è appropriato: bizzarri coralli neri crescono sulle pareti del reef. La parete ospita bellissime spugne, anemoni e nudibranchi. Ai piedi della parete sotto le sporgenze si vedono campi di piume di pavone e rose cilindriche.",
+      "el_portal": "La parete rocciosa con un passaggio verso le profondità blu si trova un po' davanti al reef stesso. Qui si ha la migliore vista sui pesci grandi: dal tonno di 2 metri ai banchi di grandi lecce ambrate di 1,80 metri fino agli squali balena con le loro macchie.",
+      "el_mirador": "Dobbiamo prima attraversare un burrone qui per arrivare a una formazione rocciosa un po' avanzata. Qui, con la vista sul blu profondo, passano banchi di bonito e lecce ambrate. Tra le rocce la manta riposa e fluttua in cerca di cibo.",
+      "el_laberinto": "Il nome dice tutto: il labirinto è un paesaggio sottomarino selvaggio che sorprende ancora dopo molte immersioni. Barracuda, bonito e squali angelo si possono vedere qui. Sul bordo del reef di solito ci sono enormi banchi di sardine, cacciate dai tonni.",
+      "la_piramide": "Una rissa tra adolescenti non è rara qui: dietro il bordo del reef a circa 26 metri un'intera banda di cernie adolescenti aspetta tra le rocce per azzuffarsi con murene che nuotano libere. Vicino alla piramide a volte incontri tartarughe marine in cerca di cibo.",
+      "el_monasterio": "Un intero labirinto di gole rocciose vi aspetta dietro il bordo del reef. Ricordano le strette mura di un monastero. Tra le rocce troverete polpi maestosi e seppie grandi. Davanti ai passaggi rocciosi sul fondale sabbioso luminoso varie razze cercano cibo.",
+      "nuevo_horizonte": "Nuevo Horizonte, davanti a Costa Caleta (Caleta de la Camella). Grandi pesci come tonno, bonito, lecce ambrate e barracuda vengono avvistati regolarmente qui. Dorate, badi, barracuda e tonni si avvicinano curiosi al reef. A febbraio e marzo molti squali angelo vengono ad accoppiarsi.",
+      "playitas_reef": "Reef stupendo perfetto per principianti"
     }
   },
   "about": {
@@ -160,7 +179,54 @@
       "privacy": "Privacy e Dati"
     },
     "bookings": {
-      "title": "Le Mie Prenotazioni"
+      "title": "Le Mie Prenotazioni",
+      "noBookings": "Nessuna prenotazione ancora.",
+      "noBookingsFound": "Nessuna prenotazione trovata.",
+      "refresh": "Aggiorna",
+      "divesSessions": "Immersioni/Sessioni"
+    },
+    "bookDive": "Prenota immersione",
+    "purchasePack": "Acquista un pack",
+    "pendingApproval": "Il tuo account è in attesa di approvazione. Il centro sub deve valutare il tuo livello prima di poter prenotare. Una volta approvato, potrai prenotare qui.",
+    "dataRefreshed": "Dati aggiornati dal server",
+    "refreshFailed": "Aggiornamento fallito. Riprova.",
+    "packCredits": {
+      "title": "I miei crediti pack",
+      "location": "Sede",
+      "count": "Quantità",
+      "type": "Tipo",
+      "withEquipment": "Con attrezzatura",
+      "ownEquipment": "Attrezzatura propria",
+      "divesRemaining": "{{remaining}} di {{total}} immersioni rimanenti"
+    },
+    "packPurchase": {
+      "title": "Acquista un pack immersioni",
+      "location": "Sede",
+      "noPacks": "Nessun pack disponibile per questa sede. I pack sono configurati dal centro sub.",
+      "purchaseButton": "Acquista (paga al centro)",
+      "success": "Pack acquistato! Ora puoi usare i tuoi crediti quando prenoti.",
+      "divesWithEquipment": "{{dives}} immersioni + attrezzatura",
+      "divesOwnEquipment": "{{dives}} immersioni (attrezzatura propria)"
+    },
+    "bookDialog": {
+      "title": "Prenota immersione",
+      "bookingFor": "Prenotazione per:",
+      "numberOfDives": "Numero di immersioni per sessione",
+      "includeEquipment": "Includi noleggio attrezzatura",
+      "usePackCredits": "Usa crediti pack ({{remaining}} immersioni rimanenti, {{equipment}})",
+      "withEquipment": "con attrezzatura",
+      "withoutEquipment": "senza attrezzatura",
+      "selectTimeSlots": "Seleziona fascia/e oraria/e - Puoi immergerti più volte al giorno",
+      "estimatedTotal": "Totale stimato",
+      "sessionsDives": "{{sessions}} sessione/i × {{dives}} immersione/i = {{total}} immersioni totali",
+      "payAtCenter": "Il pagamento verrà effettuato al centro. Nessun pagamento richiesto ora.",
+      "paidWithPack": "I tuoi crediti pack sono stati utilizzati per questa prenotazione.",
+      "paidWithPackLabel": "Pagato con crediti pack",
+      "slotFull": "Completo",
+      "slotSelected": "Selezionato",
+      "confirmBooking": "Conferma prenotazione",
+      "creatingBooking": "Prenotazione in corso...",
+      "bookingConfirmed": "Prenotazione confermata!"
     },
     "profile": {
       "title": "Informazioni Personali"

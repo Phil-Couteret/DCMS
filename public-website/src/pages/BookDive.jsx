@@ -29,7 +29,7 @@ import { Save as SaveIcon, CreditCard as CreditCardIcon, CheckCircle as CheckCir
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import bookingService, { requiresMedicalCertificate, hasValidMedicalCertificate } from '../services/bookingService';
-import { calculateDivePrice, calculateActivityPrice, getCustomerType } from '../services/pricingService';
+import { calculateDivePriceWithPacks, calculateActivityPrice, getCustomerType } from '../services/pricingService';
 
 const EQUIPMENT_ITEMS = [
   { key: 'mask', label: 'Mask' },
@@ -101,6 +101,7 @@ const BookDive = () => {
     time: '09:00',
     activityType: 'diving',
     numberOfDives: 1, // For Scuba, always start with 1
+    withEquipment: false,
     firstName: '',
     lastName: '',
     email: '',
@@ -456,7 +457,7 @@ const BookDive = () => {
     const customerType = getCustomerType(customer);
     
     if (formData.activityType === 'diving') {
-      return calculateDivePrice(locationId, customerType, formData.numberOfDives);
+      return calculateDivePriceWithPacks(locationId, customerType, formData.numberOfDives, formData.withEquipment);
     } else {
       return calculateActivityPrice(formData.activityType, formData.numberOfDives);
     }
@@ -560,6 +561,7 @@ const BookDive = () => {
               </FormControl>
             </Grid>
             {isScuba && (
+            <>
             <Grid item xs={12} md={6}>
               <TextField
                   label={t('booking.numberOfDives')}
@@ -572,6 +574,18 @@ const BookDive = () => {
                   helperText="For your first booking, we recommend starting with 1 dive"
               />
             </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!formData.withEquipment}
+                    onChange={(e) => handleChange('withEquipment', e.target.checked)}
+                  />
+                }
+                label="Include equipment rental"
+              />
+            </Grid>
+            </>
             )}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
@@ -1059,6 +1073,7 @@ const BookDive = () => {
                           time: '09:00',
                           activityType: 'diving',
                           numberOfDives: 1,
+                          withEquipment: false,
                           firstName: '',
                           lastName: '',
                           email: '',

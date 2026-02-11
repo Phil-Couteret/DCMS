@@ -2376,6 +2376,7 @@ export const initializeMockData = () => {
   ensureKey('dcms_governmentBonos', initialMockData.governmentBonos);
   ensureKey('dcms_settings', initialMockData.settings);
   ensureKey('dcms_boatPreps', []);
+  ensureKey('dcms_packPurchases', []);
   
   // Ensure superadmin user exists (add if missing, even if other users exist)
   const ensureSuperadmin = () => {

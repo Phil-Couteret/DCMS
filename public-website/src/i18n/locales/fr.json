@@ -97,6 +97,25 @@
       "current": "Courant",
       "waves": "Vagues",
       "travel": "Trajet"
+    },
+    "sites": "sites",
+    "siteDescriptions": {
+      "anfiteatro": "Parmi les rochers en surplomb le long de tout le récif se trouvent des rascasses, des mérous, des poissons-trompettes et des sprats. À environ 12 mètres de profondeur, les barracudas attendent leurs proies, tandis que des sérioles curieuses observent les plongeurs de près.",
+      "barranco": "Un magnifique récif avec des surplombs et des colonnes. Des bancs de daurades royales, de sargues et de maquereaux à queue jaune s'y trouvent également. Dans les colonnes et les trous, différentes espèces de murènes ont élu domicile ; murènes tigres et murènes masquées ne sont pas rares ici.",
+      "fortaleza": "Une paroi rocheuse qui s'élève verticalement depuis le fond marin en pente entre 18 et 12 mètres de profondeur, jusqu'à 3 mètres sous la surface. Autour de ce site de plongée vous trouverez beaucoup de débris d'épaves, témoignage du fait que ces récifs ont été un désastre pour de nombreux navires.",
+      "mole": "Vous êtes ici dans la pouponnière de l'Atlantique. En plus des bancs de jeunes barracudas, daurades et sardines, il y a toujours des poulpes et des calmars sur place, parfois vous pouvez aussi trouver un hippocampe. En hiver, les anges de mer font de l'endroit leur territoire.",
+      "la_emboscada": "Ce site de plongée au-dessus du récif est très proche de la côte. Le magnifique paysage sous-marin avec des formations rocheuses impressionnantes, les possibilités de nager à travers et les grandes différences de profondeur rendent chaque plongée ici très variable.",
+      "camino_de_altura": "Ici vous trouverez de très beaux passages de nage à l'extérieur du récif. Près de la grande paroi il y a quelques surplombs frais où les mérous se sentent à l'aise. Les grands poissons comme le thon, la bonite et la sériole sont également communs dans cette zone.",
+      "el_muellito": "Le récif commence ici à 7 mètres de profondeur et offre ainsi une protection aux sardines qui fuient les sérioles et serrans chasseurs. À 23 mètres se trouve une gorge sauvage et accidentée qui peut être plongée sur environ 12 mètres de long.",
+      "el_tazar": "D'énormes bancs de baudroies se trouvent souvent ici au bord du récif. Un peu plus loin dans les profondeurs bleues, des bancs de grandes barracudas tournent en cercle. Un peu plus profond entre les formations rocheuses vous trouverez par exemple mérous, poissons-perroquets, bars et murènes de jardin.",
+      "tesoro_negro": "Sombre et mystérieux. Le nom du site convient : d'étranges coraux noirs poussent sur les parois du récif. La paroi abrite de très beaux éponges, anémones et nudibranches. Au pied de la paroi sous les surplombs vous pouvez voir des champs de plumes de paon et de roses cylindriques.",
+      "el_portal": "La paroi rocheuse avec un passage menant aux profondeurs bleues se trouve un peu devant le récif lui-même. Ici on a les meilleures vues pour voir les gros poissons : du thon de 2 mètres aux bancs de grandes sérioles de 1,80 mètre et jusqu'aux requins-baleines avec leurs taches.",
+      "el_mirador": "Nous devons d'abord traverser un ravin ici pour arriver à une formation rocheuse un peu avancée. Ici, avec la vue sur le bleu profond, des bancs de bonites et de sérioles passent. Entre les rochers la raie aigle se repose et flotte en quête de nourriture.",
+      "el_laberinto": "Le nom dit tout : le labyrinthe est un paysage sous-marin sauvage qui surprend encore après de nombreuses plongées. Barracudas, bonites et anges de mer peuvent être vus ici. Au bord du récif il y a généralement d'énormes bancs de sardines, chassées par les thons.",
+      "la_piramide": "Un combat entre ados n'est pas rare ici : derrière le bord du récif à environ 26 mètres, toute une bande de mérous à moitié adultes attend entre les rochers pour se bagarrer avec des murènes en nage libre. Près de la pyramide vous rencontrez parfois des tortues de mer en quête de nourriture.",
+      "el_monasterio": "Tout un labyrinthe de gorges rocheuses vous attend derrière le bord du récif. Elles rappellent les murs étroits d'un monastère. Entre les rochers vous pouvez trouver des poulpes majestueux et de grandes seiches. Devant les passages rocheux sur le fond sableux lumineux, diverses raies cherchent de la nourriture.",
+      "nuevo_horizonte": "Nuevo Horizonte, devant Costa Caleta (Caleta de la Camella). Les grands poissons comme thon, bonite, sérioles et barracudas sont régulièrement observés ici. Dorades, badis, barracudas et thons viennent curieusement vers le récif. En février et mars, beaucoup d'anges de mer viennent s'accoupler.",
+      "playitas_reef": "Récif magnifique parfait pour les débutants"
     }
   },
   "about": {
@@ -160,7 +179,54 @@
       "privacy": "Confidentialité et Données"
     },
     "bookings": {
-      "title": "Mes Réservations"
+      "title": "Mes Réservations",
+      "noBookings": "Aucune réservation pour le moment.",
+      "noBookingsFound": "Aucune réservation trouvée.",
+      "refresh": "Actualiser",
+      "divesSessions": "Plongées/Sessions"
+    },
+    "bookDive": "Réserver une plongée",
+    "purchasePack": "Acheter un pack",
+    "pendingApproval": "Votre compte est en attente d'approbation. Le centre de plongée doit évaluer votre niveau avant de réserver. Une fois approuvé, vous pourrez réserver ici.",
+    "dataRefreshed": "Données actualisées depuis le serveur",
+    "refreshFailed": "Échec de l'actualisation. Veuillez réessayer.",
+    "packCredits": {
+      "title": "Mes crédits de pack",
+      "location": "Lieu",
+      "count": "Quantité",
+      "type": "Type",
+      "withEquipment": "Avec équipement",
+      "ownEquipment": "Équipement personnel",
+      "divesRemaining": "{{remaining}} sur {{total}} plongées restantes"
+    },
+    "packPurchase": {
+      "title": "Acheter un pack de plongées",
+      "location": "Lieu",
+      "noPacks": "Aucun pack disponible pour ce lieu. Les packs sont configurés par le centre de plongée.",
+      "purchaseButton": "Acheter (payer au centre)",
+      "success": "Pack acheté ! Vous pouvez maintenant utiliser vos crédits lors de la réservation.",
+      "divesWithEquipment": "{{dives}} plongées + équipement",
+      "divesOwnEquipment": "{{dives}} plongées (équipement personnel)"
+    },
+    "bookDialog": {
+      "title": "Réserver une plongée",
+      "bookingFor": "Réservation pour :",
+      "numberOfDives": "Nombre de plongées par session",
+      "includeEquipment": "Inclure location d'équipement",
+      "usePackCredits": "Utiliser les crédits pack ({{remaining}} plongées restantes, {{equipment}})",
+      "withEquipment": "avec équipement",
+      "withoutEquipment": "sans équipement",
+      "selectTimeSlots": "Sélectionnez le(s) créneau(x) - Vous pouvez plonger plusieurs fois par jour",
+      "estimatedTotal": "Total estimé",
+      "sessionsDives": "{{sessions}} session(s) × {{dives}} plongée(s) = {{total}} plongées au total",
+      "payAtCenter": "Le paiement sera traité au centre. Aucun paiement requis maintenant.",
+      "paidWithPack": "Vos crédits pack ont été utilisés pour cette réservation.",
+      "paidWithPackLabel": "Payé avec crédits pack",
+      "slotFull": "Complet",
+      "slotSelected": "Sélectionné",
+      "confirmBooking": "Confirmer la réservation",
+      "creatingBooking": "Réservation en cours...",
+      "bookingConfirmed": "Réservation confirmée !"
     },
     "profile": {
       "title": "Informations Personnelles"

@@ -202,6 +202,20 @@ const Prices = () => {
         igic_rate: 0.07
       };
     }
+
+    // Initialize dive packs if missing (2, 5, 10 dives, with/without equipment)
+    if (!loc.pricing.divePacks || !Array.isArray(loc.pricing.divePacks)) {
+      const tiers = getDefaultDiveTiers(isPlayitas);
+      const completeEquipment = 13; // from settings.prices.equipment.complete_equipment
+      loc.pricing.divePacks = [
+        { dives: 2, withEquipment: false, price: (tiers[0]?.price || 46) * 2 },
+        { dives: 2, withEquipment: true, price: (tiers[0]?.price || 46) * 2 + completeEquipment * 2 },
+        { dives: 5, withEquipment: false, price: (tiers[1]?.price || 44) * 5 },
+        { dives: 5, withEquipment: true, price: (tiers[1]?.price || 44) * 5 + completeEquipment * 5 },
+        { dives: 10, withEquipment: false, price: (tiers[3]?.price || 40) * 10 },
+        { dives: 10, withEquipment: true, price: (tiers[3]?.price || 40) * 10 + completeEquipment * 8 }
+      ];
+    }
     
     return loc;
   };
@@ -436,6 +450,23 @@ const Prices = () => {
         tax_name: value
       }
     }));
+  };
+
+  const handlePackChange = (index, field, value) => {
+    const packs = [...(locPricing.divePacks || [])];
+    packs[index] = { ...packs[index], [field]: field === 'dives' ? (parseInt(value) || 0) : (field === 'withEquipment' ? !!value : (parseFloat(value) || 0)) };
+    updateLocationPricing((pricing) => ({ ...pricing, divePacks: packs }));
+  };
+
+  const addPack = () => {
+    const packs = locPricing.divePacks || [];
+    const newPack = { dives: 2, withEquipment: false, price: 92 };
+    updateLocationPricing((pricing) => ({ ...pricing, divePacks: [...packs, newPack] }));
+  };
+
+  const removePack = (index) => {
+    const packs = (locPricing.divePacks || []).filter((_, i) => i !== index);
+    updateLocationPricing((pricing) => ({ ...pricing, divePacks: packs }));
   };
 
   if (!settings) {
@@ -692,7 +723,83 @@ const Prices = () => {
         {/* Diving-related pricing - Only show for diving locations */}
         {!isBikeRental && (
         <>
-            {/* Customer Type Pricing */}
+            {/* Dive Packs */}
+            <Grid item xs={12}>
+              <Card>
+                <CardHeader
+                  title="Dive Packs"
+                  subheader="Pre-defined pack prices (2, 5, 10 or custom dives, with or without equipment). Customers can choose a pack for a fixed total price."
+                  action={
+                    <Button startIcon={<AddIcon />} onClick={addPack} variant="outlined" size="small">
+                      Add Pack
+                    </Button>
+                  }
+                />
+                <CardContent>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Dives</TableCell>
+                          <TableCell>With Equipment</TableCell>
+                          <TableCell>Pack Price (€)</TableCell>
+                          <TableCell align="center">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(locPricing.divePacks || []).map((pack, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <TextField
+                                type="number"
+                                value={pack.dives || ''}
+                                onChange={(e) => handlePackChange(index, 'dives', e.target.value)}
+                                size="small"
+                                sx={{ width: 80 }}
+                                placeholder="2, 5, 10..."
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                select
+                                size="small"
+                                value={pack.withEquipment ? 'yes' : 'no'}
+                                onChange={(e) => handlePackChange(index, 'withEquipment', e.target.value === 'yes')}
+                                sx={{ width: 120 }}
+                              >
+                                <MenuItem value="no">No</MenuItem>
+                                <MenuItem value="yes">Yes</MenuItem>
+                              </TextField>
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                type="number"
+                                value={pack.price || ''}
+                                onChange={(e) => handlePackChange(index, 'price', e.target.value)}
+                                size="small"
+                                sx={{ width: 100 }}
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <IconButton onClick={() => removePack(index)} color="error" size="small">
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  {(locPricing.divePacks || []).length === 0 && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                      No packs defined. Add packs for 2, 5, 10 dives (or custom) with or without equipment. Packs offer a fixed total price.
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+
+        {/* Customer Type Pricing */}
             <Grid item xs={12}>
               <Card>
             <CardHeader

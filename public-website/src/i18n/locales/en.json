@@ -112,7 +112,25 @@
       "waves": "Waves",
       "travel": "Travel"
     },
-    "sites": "sites"
+    "sites": "sites",
+    "siteDescriptions": {
+      "anfiteatro": "Among the overhanging rocks along the whole reef are scorpion fish, grouperfish, trumpet fish and greater silver smelt. At a depth of about 12 meters, barracudas are waiting for their prey, while curious amber jacks eye the divers closely from nearby.",
+      "barranco": "A beautiful reef with overhangs and columns. Swarms of striped breams, zebra breams and yellow-finned mackerel are also found here. In the columns and holes different moray species have made their homes; Tiger morays, Duke Augustus morays and large masked morays are not a rarity here.",
+      "fortaleza": "A rocky wall, which rises vertically up from the sloping sea floor between 18 and 12 meters deep, to 3 meters below the surface. Around this dive site you will find a lot of wreck debris, which is testimony to the fact that these reefs have proved to be a disaster for many ships.",
+      "mole": "Here you are in the kindergarten of the Atlantic. In addition to swarms of young barracudas, striped bream and sardines there are always octopus and squid on site, sometimes you can also find the odd seahorse. In the winter months angel sharks make the spot their own.",
+      "la_emboscada": "This dive site above the reef is very close to the coast. The beautiful underwater landscape with impressive rock formations, the possibilities to swim through them and the great depth differences make every dive here very variable.",
+      "camino_de_altura": "Here you will find some very nice swim throughs outside the reef. Close to the big wall there are a few cool overhangs, in which groupers feel comfortable. Larger fish such as tuna, bonito, yellowtail mackerel are also common in this area.",
+      "el_muellito": "The reef begins here at a depth of 7 meters and thus offers the escaping sardines protection from hunting amber jacks and blue perch. At a depth of 23 meters there is a wildly rugged gorge that can be dived to a length of about 12 meters.",
+      "el_tazar": "Huge swarms of monkfish are often found here on the reef's edge. A little further into the deep blue depths swarms of large barracudas can be found circling. A bit deeper between the rock formations you can find, for example, grouper, parrotfish, sea bass and yard eels.",
+      "tesoro_negro": "Dark and mysterious. The name of the dive site is fitting: bizarre black corals grow on the reef walls. The wall is home to very beautiful sponges, anemones and nudibranches. At the foot of the wall under the overhangs you can see fields of peacock feathers and cylinder roses.",
+      "el_portal": "The rocky wall with a swim through leading out into the deep blue depths is a little bit in front of the reef itself. Here one has the best views to see big fish: from tuna fish with a length of 2 meters to swarms of big amber jacks which are up to 1.80 meters long and up to the whale sharks with their cute spots.",
+      "el_mirador": "We must first cross a ravine here in order to arrive at a somewhat advanced rock formation. Here, with the view into the deep blue, swarms of bonitos and amber jacks pass by. Between the rocks the eagle ray rests and floats in search of food.",
+      "el_laberinto": "The name says it all: the labyrinth is a wild underwater landscape, which is still surprising after many dives. Barracuda, bonito, angel sharks can be seen here. At the edge of the reef there are usually huge swarms of sardines, which are hunted and chased by tuna.",
+      "la_piramide": "A fight between teenagers is not a rarity here: Behind the reef's edge at a depth of about 26 meters, a whole band of half-grown groupers is waiting between the rocks to tussle with free swimming morays. Close to the pyramid you sometimes meet sea turtles who are in search of food.",
+      "el_monasterio": "A whole labyrinth of rocky gorges awaits you behind the reef's edge. They remind us of the narrow walls of a monastery. Between the rocks you can find stately octopuses and large sepias. In front of the rocky passages on the bright sandy bottom, various rays search for food.",
+      "nuevo_horizonte": "Nuevo Horizonte, vor Costa Caleta (Caleta de la Camella). Large fish such as tuna, bonito, amber jacks and barracudas are regularly sighted here. Doradas, Badis, Barracudas and Tuna come curiously towards the reef. In February and March, a lot of angel sharks come here to mate.",
+      "playitas_reef": "Stunning reef perfect for beginners"
+    }
   },
   "about": {
     "title": "About Us",
@@ -181,7 +199,9 @@
     "bookings": {
       "title": "My Bookings",
       "noBookings": "No bookings yet.",
+      "noBookingsFound": "No bookings found.",
       "refresh": "Refresh",
+      "divesSessions": "Dives/Sessions",
       "date": "Date",
       "location": "Location",
       "activity": "Activity",
@@ -200,6 +220,49 @@
       "statusPending": "Pending",
       "statusCancelled": "Cancelled",
       "statusCompleted": "Completed"
+    },
+    "bookDive": "Book a Dive",
+    "purchasePack": "Purchase a Pack",
+    "pendingApproval": "Your account is pending approval. The diving center needs to assess your diving level before you can book dives. Once approved, you'll be able to book dives here.",
+    "dataRefreshed": "Data refreshed from server",
+    "refreshFailed": "Failed to refresh data. Please try again.",
+    "packCredits": {
+      "title": "My Pack Credits",
+      "location": "Location",
+      "count": "Count",
+      "type": "Type",
+      "withEquipment": "With equipment",
+      "ownEquipment": "Own equipment",
+      "divesRemaining": "{{remaining}} of {{total}} dives remaining"
+    },
+    "packPurchase": {
+      "title": "Purchase a Dive Pack",
+      "location": "Location",
+      "noPacks": "No packs available for this location. Packs are configured in the dive center settings.",
+      "purchaseButton": "Purchase (pay at center)",
+      "success": "Pack purchased successfully! You can now use your pack credits when booking dives.",
+      "divesWithEquipment": "{{dives}} dives + equipment",
+      "divesOwnEquipment": "{{dives}} dives (own equipment)"
+    },
+    "bookDialog": {
+      "title": "Book a Dive",
+      "bookingFor": "Booking for:",
+      "numberOfDives": "Number of Dives per Session",
+      "includeEquipment": "Include equipment rental",
+      "usePackCredits": "Use pack credits ({{remaining}} dives remaining, {{equipment}})",
+      "withEquipment": "with equipment",
+      "withoutEquipment": "without equipment",
+      "selectTimeSlots": "Select Time Slot(s) - You can dive multiple times per day",
+      "estimatedTotal": "Estimated Total",
+      "sessionsDives": "{{sessions}} session(s) × {{dives}} dive(s) = {{total}} total dive(s)",
+      "payAtCenter": "Payment will be processed at the dive center. No payment required now.",
+      "paidWithPack": "Your pack credits have been used for this booking.",
+      "paidWithPackLabel": "Paid with pack credits",
+      "slotFull": "Full",
+      "slotSelected": "Selected",
+      "confirmBooking": "Confirm Booking",
+      "creatingBooking": "Creating Booking...",
+      "bookingConfirmed": "Booking Confirmed!"
     },
     "profile": {
       "title": "Personal Information",

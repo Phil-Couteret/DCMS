@@ -112,7 +112,25 @@
       "waves": "Golven",
       "travel": "Reistijd"
     },
-    "sites": "locaties"
+    "sites": "locaties",
+    "siteDescriptions": {
+      "anfiteatro": "Tussen de overhangende rotsen langs het hele rif bevinden zich schorpioenvissen, tandbaarzen, trompetvissen en grote zilversprot. Op ongeveer 12 meter diepte wachten barracuda's op hun prooi, terwijl nieuwsgierige geelstaartmakrelen de duikers van dichtbij bekijken.",
+      "barranco": "Een prachtig rif met overhangen en kolommen. Zwermen gestreepte zeebrasem, zebrazeebrasem en geelvinnige makreel zijn hier ook te vinden. In de kolommen en gaten hebben verschillende murenesoorten hun thuis gemaakt; tigermurenes en maskermurenes zijn hier geen zeldzaamheid.",
+      "fortaleza": "Een rotswand die verticaal oprijst vanuit de hellende zeebodem tussen 18 en 12 meter diep, tot 3 meter onder het oppervlak. Rond deze duikplek vindt u veel wrakpuin, getuige van het feit dat deze riffen voor veel schepen een ramp zijn gebleken.",
+      "mole": "Hier bent u in de kinderkamer van de Atlantische Oceaan. Naast zwermen jonge barracuda's, zeebrasem en sardines zijn er altijd octopussen en inktvissen ter plaatse, soms vindt u ook het af en toe zeepaardje. In de wintermaanden maken engelhaaien de plek tot hun territorium.",
+      "la_emboscada": "Deze duikplek boven het rif ligt zeer dicht bij de kust. Het prachtige onderwaterlandschap met indrukwekkende rotsformaties, de mogelijkheden om er doorheen te zwemmen en de grote diepteverschillen maken elke duik hier zeer gevarieerd.",
+      "camino_de_altura": "Hier vindt u zeer mooie zwemdoorgangen buiten het rif. Dicht bij de grote wand zijn er enkele koele overhangen waarin tandbaarzen zich thuis voelen. Grotere vissen zoals tonijn, bonito en geelstaartmakreel zijn ook gebruikelijk in dit gebied.",
+      "el_muellito": "Het rif begint hier op 7 meter diepte en biedt zo bescherming aan de ontsnappende sardines tegen jachtende geelstaartmakrelen en blauwe zeebaars. Op 23 meter is er een woest ruige kloof die over ongeveer 12 meter lengte gedoken kan worden.",
+      "el_tazar": "Enorme zwermen zeeduivels worden hier vaak gevonden aan de rand van het rif. Iets verder de diepblauwe diepten in cirkelen zwermen grote barracuda's. Iets dieper tussen de rotsformaties vindt u bijvoorbeeld tandbaars, papegaaivissen, zeebaars en tuinmurenes.",
+      "tesoro_negro": "Donker en mysterieus. De naam van de duikplek past: bizarre zwarte koralen groeien op de rifwanden. De wand herbergt zeer mooie sponzen, anemonen en zeenaaktslakken. Aan de voet van de wand onder de overhangen ziet u velden van pauwenveren en cilinderrozen.",
+      "el_portal": "De rotswand met een zwemdoorgang naar de diepblauwe diepten staat iets voor het rif zelf. Hier heeft men het beste uitzicht op grote vissen: van 2 meter lange tonijnen tot zwermen grote geelstaartmakrelen van 1,80 meter en tot de walvishaai met hun stippen.",
+      "el_mirador": "We moeten hier eerst een ravijn oversteken om bij een wat gevorderde rotsformatie te komen. Hier trekken met uitzicht op het diepe blauw zwermen bonito's en geelstaartmakrelen voorbij. Tussen de rotsen rust en zweeft de adelaarsrog op zoek naar voedsel.",
+      "el_laberinto": "De naam zegt het al: het labyrint is een wild onderwaterlandschap dat nog steeds verrast na vele duiken. Barracuda's, bonito's en engelhaaien zijn hier te zien. Aan de rand van het rif zijn er meestal enorme sardinezwermen, die door tonijnen worden gejaagd.",
+      "la_piramide": "Een gevecht tussen tieners is hier geen zeldzaamheid: achter de rand van het rif op ongeveer 26 meter wacht een hele bende halfvolwassen tandbaarzen tussen de rotsen om te vechten met vrij zwemmende murenes. Dicht bij de piramide ontmoet u soms zeeschildpadden op zoek naar voedsel.",
+      "el_monasterio": "Een heel labyrint van rotsachtige kloven wacht u achter de rand van het rif. Ze doen denken aan de smalle muren van een klooster. Tussen de rotsen vindt u statige octopussen en grote sepia's. Voor de rotsachtige doorgangen op de lichte zandbodem zoeken verschillende roggen naar voedsel.",
+      "nuevo_horizonte": "Nuevo Horizonte, voor Costa Caleta (Caleta de la Camella). Grote vissen zoals tonijn, bonito, geelstaartmakrelen en barracuda's worden hier regelmatig gezien. Dorades, badis, barracuda's en tonijnen komen nieuwsgierig naar het rif. In februari en maart komen veel engelhaaien hier om te paren.",
+      "playitas_reef": "Prachtig rif perfect voor beginners"
+    }
   },
   "about": {
     "title": "Over ons",
@@ -181,7 +199,9 @@
     "bookings": {
       "title": "Mijn boekingen",
       "noBookings": "Nog geen boekingen.",
+      "noBookingsFound": "Geen boekingen gevonden.",
       "refresh": "Vernieuwen",
+      "divesSessions": "Duiken/Sessies",
       "date": "Datum",
       "location": "Locatie",
       "activity": "Activiteit",
@@ -200,6 +220,49 @@
       "statusPending": "In behandeling",
       "statusCancelled": "Geannuleerd",
       "statusCompleted": "Voltooid"
+    },
+    "bookDive": "Boek een duik",
+    "purchasePack": "Koop een pack",
+    "pendingApproval": "Uw account wacht op goedkeuring. Het duikcentrum moet uw niveau beoordelen voordat u kunt boeken. Na goedkeuring kunt u hier boeken.",
+    "dataRefreshed": "Gegevens vernieuwd van server",
+    "refreshFailed": "Vernieuwen mislukt. Probeer het opnieuw.",
+    "packCredits": {
+      "title": "Mijn pack-tegoeden",
+      "location": "Locatie",
+      "count": "Aantal",
+      "type": "Type",
+      "withEquipment": "Met uitrusting",
+      "ownEquipment": "Eigen uitrusting",
+      "divesRemaining": "{{remaining}} van {{total}} duiken over"
+    },
+    "packPurchase": {
+      "title": "Koop een duikpack",
+      "location": "Locatie",
+      "noPacks": "Geen packs beschikbaar voor deze locatie. Packs worden geconfigureerd in het duikcentrum.",
+      "purchaseButton": "Kopen (betalen in het centrum)",
+      "success": "Pack gekocht! U kunt nu uw tegoeden gebruiken bij het boeken.",
+      "divesWithEquipment": "{{dives}} duiken + uitrusting",
+      "divesOwnEquipment": "{{dives}} duiken (eigen uitrusting)"
+    },
+    "bookDialog": {
+      "title": "Boek een duik",
+      "bookingFor": "Boeking voor:",
+      "numberOfDives": "Aantal duiken per sessie",
+      "includeEquipment": "Uitrustingshuur opnemen",
+      "usePackCredits": "Pack-tegoeden gebruiken ({{remaining}} duiken over, {{equipment}})",
+      "withEquipment": "met uitrusting",
+      "withoutEquipment": "zonder uitrusting",
+      "selectTimeSlots": "Selecteer tijdslot(s) - U kunt meerdere keren per dag duiken",
+      "estimatedTotal": "Geschat totaal",
+      "sessionsDives": "{{sessions}} sessie(s) × {{dives}} duik/duiken = {{total}} duiken totaal",
+      "payAtCenter": "Betaling wordt verwerkt in het centrum. Geen betaling nu vereist.",
+      "paidWithPack": "Uw pack-tegoeden zijn gebruikt voor deze boeking.",
+      "paidWithPackLabel": "Betaald met pack-tegoeden",
+      "slotFull": "Vol",
+      "slotSelected": "Geselecteerd",
+      "confirmBooking": "Boeking bevestigen",
+      "creatingBooking": "Boeking wordt gemaakt...",
+      "bookingConfirmed": "Boeking bevestigd!"
     },
     "profile": {
       "title": "Persoonlijke gegevens",

@@ -97,6 +97,25 @@
       "current": "Strömung",
       "waves": "Wellen",
       "travel": "Anfahrt"
+    },
+    "sites": "Stellen",
+    "siteDescriptions": {
+      "anfiteatro": "An den überhängenden Felsen entlang des gesamten Riffs finden sich Drachenkopf, Zackenbarsch, Trompetenfisch und Große Silberlinge. In etwa 12 Metern Tiefe warten Barrakudas auf ihre Beute, während neugierige Bernsteinmakrelen die Taucher aus der Nähe beäugen.",
+      "barranco": "Ein wunderschönes Riff mit Überhängen und Säulen. Schwärme von Streifenbrassen, Zebrabarsche und Gelbflossenbarsche sind hier ebenfalls zu finden. In den Säulen und Löchern haben verschiedene Muränenarten ihr Zuhause; Tiger- und Maskenmuränen sind hier keine Seltenheit.",
+      "fortaleza": "Eine Felswand, die senkrecht vom abschüssigen Meeresboden zwischen 18 und 12 Metern Tiefe bis 3 Meter unter die Oberfläche aufsteigt. Rund um diese Tauchstelle finden sich viele Wrackteile, Zeugnis dafür, dass diese Riffe vielen Schiffen zum Verhängnis wurden.",
+      "mole": "Hier befinden Sie sich in der Kinderstube des Atlantiks. Neben Schwärmen junger Barrakudas, Streifenbrassen und Sardinen sind immer Octopus und Tintenfische vor Ort, manchmal findet man auch das eine oder andere Seepferdchen. In den Wintermonaten machen Engelhaie den Platz zu ihrem Revier.",
+      "la_emboscada": "Diese Tauchstelle über dem Riff liegt sehr nah an der Küste. Die schöne Unterwasserlandschaft mit beeindruckenden Felsformationen, die Möglichkeiten durch sie hindurchzuschwimmen und die großen Tiefenunterschiede machen jeden Tauchgang hier sehr abwechslungsreich.",
+      "camino_de_altura": "Hier finden Sie schöne Schwimmdurchgänge außerhalb des Riffs. An der großen Wand gibt es einige kühle Überhänge, in denen sich Zackenbarsche wohlfühlen. Größere Fische wie Thunfisch, Bonito und Bernsteinmakrele sind in diesem Gebiet ebenfalls häufig anzutreffen.",
+      "el_muellito": "Das Riff beginnt hier bei 7 Metern Tiefe und bietet damit den fliehenden Sardinen Schutz vor jagenden Bernsteinmakrelen und Blauen Barschen. Bei 23 Metern liegt eine wild zerklüftete Schlucht, die auf etwa 12 Metern Länge betaucht werden kann.",
+      "el_tazar": "Riesige Schwärme von Seeteufeln sind hier oft am Riffrand zu finden. Etwas weiter in die tiefblaue Tiefe ziehen Schwärme großer Barrakudas ihre Kreise. Etwas tiefer zwischen den Felsformationen findet man z.B. Zackenbarsch, Papageienfisch, Seebarsch und Gartenaale.",
+      "tesoro_negro": "Dunkel und geheimnisvoll. Der Name der Tauchstelle passt: bizarre schwarze Korallen wachsen an den Riffwänden. Die Wand beherbergt sehr schöne Schwämme, Anemonen und Nacktschnecken. Am Fuß der Wand unter den Überhängen sieht man Felder von Pfauenfedern und Zylinderrosen.",
+      "el_portal": "Die Felswand mit einem Schwimmdurchgang in die tiefblauen Tiefen liegt etwas vor dem Riff selbst. Hier hat man die beste Aussicht auf große Fische: von 2 Meter langen Thunfischen bis zu Schwärmen 1,80 Meter langer Bernsteinmakrelen und bis zu den Walhaien mit ihren süßen Flecken.",
+      "el_mirador": "Wir müssen hier zunächst eine Schlucht überqueren, um zu einer fortgeschritteneren Felsformation zu gelangen. Hier ziehen mit Blick ins tiefe Blau Schwärme von Bonitos und Bernsteinmakrelen vorbei. Zwischen den Felsen ruht und schwebt der Adlerrochen auf der Suche nach Nahrung.",
+      "el_laberinto": "Der Name sagt alles: das Labyrinth ist eine wilde Unterwasserlandschaft, die auch nach vielen Tauchgängen noch überrascht. Barrakudas, Bonitos und Engelhaie sind hier zu sehen. Am Riffrand gibt es meist riesige Sardinenschwärme, die von Thunfischen gejagt werden.",
+      "la_piramide": "Ein Kampf zwischen Halbwüchsigen ist hier keine Seltenheit: Hinter dem Riffrand in etwa 26 Metern Tiefe wartet eine ganze Bande halbwüchsiger Zackenbarsche zwischen den Felsen auf Raufereien mit frei schwimmenden Muränen. Nahe der Pyramide trifft man manchmal auf Schildkröten auf Nahrungssuche.",
+      "el_monasterio": "Ein ganzes Labyrinth aus felsigen Schluchten erwartet Sie hinter dem Riffrand. Sie erinnern an die engen Mauern eines Klosters. Zwischen den Felsen findet man stattliche Kraken und große Sepien. Vor den felsigen Durchgängen auf dem hellen Sandboden suchen verschiedene Rochen nach Nahrung.",
+      "nuevo_horizonte": "Nuevo Horizonte, vor Costa Caleta (Caleta de la Camella). Große Fische wie Thunfisch, Bonito, Bernsteinmakrelen und Barrakudas werden hier regelmäßig gesichtet. Doradas, Badis, Barrakudas und Thunfische kommen neugierig auf das Riff zu. Im Februar und März kommen viele Engelhaie zur Paarung.",
+      "playitas_reef": "Atemberaubendes Riff, perfekt für Anfänger"
     }
   },
   "about": {
@@ -160,7 +179,54 @@
       "privacy": "Datenschutz & Daten"
     },
     "bookings": {
-      "title": "Meine Buchungen"
+      "title": "Meine Buchungen",
+      "noBookings": "Noch keine Buchungen.",
+      "noBookingsFound": "Keine Buchungen gefunden.",
+      "refresh": "Aktualisieren",
+      "divesSessions": "Tauchgänge/Sitzungen"
+    },
+    "bookDive": "Tauchgang buchen",
+    "purchasePack": "Pack kaufen",
+    "pendingApproval": "Ihr Konto wartet auf Genehmigung. Das Tauchcenter muss Ihr Niveau prüfen, bevor Sie buchen können. Nach der Genehmigung können Sie hier buchen.",
+    "dataRefreshed": "Daten vom Server aktualisiert",
+    "refreshFailed": "Aktualisierung fehlgeschlagen. Bitte erneut versuchen.",
+    "packCredits": {
+      "title": "Meine Pack-Guthaben",
+      "location": "Standort",
+      "count": "Anzahl",
+      "type": "Typ",
+      "withEquipment": "Mit Ausrüstung",
+      "ownEquipment": "Eigene Ausrüstung",
+      "divesRemaining": "{{remaining}} von {{total}} Tauchgängen übrig"
+    },
+    "packPurchase": {
+      "title": "Tauchpack kaufen",
+      "location": "Standort",
+      "noPacks": "Keine Packs für diesen Standort verfügbar. Packs werden im Tauchcenter konfiguriert.",
+      "purchaseButton": "Kaufen (im Center bezahlen)",
+      "success": "Pack gekauft! Sie können jetzt Ihre Guthaben bei der Buchung nutzen.",
+      "divesWithEquipment": "{{dives}} Tauchgänge + Ausrüstung",
+      "divesOwnEquipment": "{{dives}} Tauchgänge (eigene Ausrüstung)"
+    },
+    "bookDialog": {
+      "title": "Tauchgang buchen",
+      "bookingFor": "Buchung für:",
+      "numberOfDives": "Anzahl Tauchgänge pro Sitzung",
+      "includeEquipment": "Ausrüstungsmiete einschließen",
+      "usePackCredits": "Pack-Guthaben nutzen ({{remaining}} Tauchgänge übrig, {{equipment}})",
+      "withEquipment": "mit Ausrüstung",
+      "withoutEquipment": "ohne Ausrüstung",
+      "selectTimeSlots": "Zeitfenster wählen - Sie können mehrmals täglich tauchen",
+      "estimatedTotal": "Geschätzter Gesamtpreis",
+      "sessionsDives": "{{sessions}} Sitzung(en) × {{dives}} Tauchgang/Tauchgänge = {{total}} Tauchgänge insgesamt",
+      "payAtCenter": "Zahlung erfolgt im Center. Keine Vorauszahlung nötig.",
+      "paidWithPack": "Ihre Pack-Guthaben wurden für diese Buchung verwendet.",
+      "paidWithPackLabel": "Mit Pack-Guthaben bezahlt",
+      "slotFull": "Voll",
+      "slotSelected": "Ausgewählt",
+      "confirmBooking": "Buchung bestätigen",
+      "creatingBooking": "Buchung wird erstellt...",
+      "bookingConfirmed": "Buchung bestätigt!"
     },
     "profile": {
       "title": "Persönliche Informationen"

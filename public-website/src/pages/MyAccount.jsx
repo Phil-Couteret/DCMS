@@ -51,6 +51,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import bookingService from '../services/bookingService';
 import RegisteredDiverBooking from '../components/RegisteredDiverBooking';
+import PackPurchase from '../components/PackPurchase';
+import packPurchaseService from '../services/packPurchaseService';
 import consentService from '../services/consentService';
 import dataExportService from '../services/dataExportService';
 import passwordMigrationService from '../services/passwordMigrationService';
@@ -1177,10 +1179,9 @@ const MyAccount = () => {
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                 <Typography variant="h5">{t('myAccount.bookings.title')}</Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
                   <Button
                     variant="outlined"
-                    size="small"
                     onClick={async () => {
                       // Refresh data from server (async functions)
                       try {
@@ -1188,54 +1189,108 @@ const MyAccount = () => {
                         await loadCustomerProfile();
                         setSnackbar({
                           open: true,
-                          message: 'Data refreshed from server',
+                          message: t('myAccount.dataRefreshed'),
                           severity: 'success'
                         });
                       } catch (err) {
                         console.warn('[MyAccount] Refresh failed:', err);
                         setSnackbar({
                           open: true,
-                          message: 'Failed to refresh data. Please try again.',
+                          message: t('myAccount.refreshFailed'),
                           severity: 'error'
                         });
                       }
                     }}
                   >
-                    Refresh
+                    {t('myAccount.bookings.refresh')}
                   </Button>
                   {customer && customer.isApproved && (
+                    <>
                     <RegisteredDiverBooking 
                       customer={customer} 
                       onBookingCreated={async () => {
                         await loadBookings();
                       }}
                     />
+                    <PackPurchase 
+                      customer={customer} 
+                      onPackPurchased={async () => {
+                        await loadBookings();
+                      }}
+                    />
+                    </>
                   )}
                   {customer && customer.isApproved === false && (
                     <Alert severity="info" sx={{ mb: 2 }}>
-                      Your account is pending approval. The diving center needs to assess your diving level before you can book dives. 
-                      Once approved, you'll be able to book dives here.
+                      {t('myAccount.pendingApproval')}
                     </Alert>
                   )}
                 </Box>
               </Box>
 
+              {/* My Pack Credits */}
+              {customer && customer.isApproved && (() => {
+                const packs = packPurchaseService.getCustomerPackPurchases(customer.id);
+                if (packs.length === 0) return null;
+                return (
+                  <Card variant="outlined" sx={{ mb: 3 }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                        {t('myAccount.packCredits.title')}
+                      </Typography>
+                      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '1rem' }}>{t('myAccount.packCredits.location')}</TableCell>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '1rem' }}>{t('myAccount.packCredits.count')}</TableCell>
+                              <TableCell sx={{ fontWeight: 600, fontSize: '1rem' }}>{t('myAccount.packCredits.type')}</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {packs.map((p) => (
+                              <TableRow key={p.id}>
+                                <TableCell sx={{ fontSize: '1.35rem', fontWeight: 600 }}>
+                                  {LOCATION_LABELS[p.locationId] || p.locationId}
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '1.35rem', fontWeight: 600 }}>
+                                  {t('myAccount.packCredits.divesRemaining', { remaining: p.divesRemaining, total: p.divesTotal })}
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '1.15rem', fontWeight: 400 }}>
+                                  {p.withEquipment ? t('myAccount.packCredits.withEquipment') : t('myAccount.packCredits.ownEquipment')}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {bookings.length === 0 ? (
                 <Card>
                   <CardContent sx={{ textAlign: 'center', py: 4 }}>
                     <Typography variant="body1" color="text.secondary" gutterBottom>
-                      No bookings found.
+                      {t('myAccount.bookings.noBookingsFound')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                       {`Bookings for ${userEmail}`}
                     </Typography>
                     {customer && customer.isApproved && (
+                      <>
                       <RegisteredDiverBooking 
                         customer={customer} 
                         onBookingCreated={async () => {
                           await loadBookings();
                         }}
                       />
+                      <PackPurchase 
+                        customer={customer} 
+                        onPackPurchased={async () => {}}
+                      />
+                      </>
                     )}
                     {customer && customer.isApproved === false && (
                       <Alert severity="info" sx={{ mb: 2 }}>
@@ -1250,14 +1305,14 @@ const MyAccount = () => {
                   <Table>
                     <TableHead>
                       <TableRow>
-                        <TableCell><strong>Date</strong></TableCell>
-                        <TableCell><strong>Location</strong></TableCell>
-                        <TableCell><strong>Activity</strong></TableCell>
-                        <TableCell align="right"><strong>Dives/Sessions</strong></TableCell>
-                        <TableCell align="right"><strong>Price per Dive</strong></TableCell>
-                        <TableCell><strong>Status</strong></TableCell>
-                        <TableCell align="right"><strong>Total</strong></TableCell>
-                        <TableCell align="right"><strong>Actions</strong></TableCell>
+                        <TableCell><strong>{t('myAccount.bookings.date')}</strong></TableCell>
+                        <TableCell><strong>{t('myAccount.bookings.location')}</strong></TableCell>
+                        <TableCell><strong>{t('myAccount.bookings.activity')}</strong></TableCell>
+                        <TableCell align="right"><strong>{t('myAccount.bookings.divesSessions')}</strong></TableCell>
+                        <TableCell align="right"><strong>{t('myAccount.bookings.pricePerDive')}</strong></TableCell>
+                        <TableCell><strong>{t('myAccount.bookings.status')}</strong></TableCell>
+                        <TableCell align="right"><strong>{t('myAccount.bookings.total')}</strong></TableCell>
+                        <TableCell align="right"><strong>{t('myAccount.bookings.actions')}</strong></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1696,7 +1751,7 @@ const MyAccount = () => {
                     onClick={loadCustomerProfile}
                     disabled={!userEmail}
                   >
-                    Refresh
+                    {t('myAccount.bookings.refresh')}
                   </Button>
                   <Button
                     variant="outlined"

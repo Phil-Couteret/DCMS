@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -24,7 +25,8 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import bookingService, { requiresMedicalCertificate, hasValidMedicalCertificate } from '../services/bookingService';
-import { calculateDivePrice, getCustomerType } from '../services/pricingService';
+import { calculateDivePriceWithPacks, getCustomerType } from '../services/pricingService';
+import packPurchaseService from '../services/packPurchaseService';
 
 const EQUIPMENT_ITEMS = [
   { key: 'mask', label: 'Mask' },
@@ -38,6 +40,7 @@ const EQUIPMENT_ITEMS = [
 ];
 
 const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -50,9 +53,24 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
     date: '',
     activityType: 'diving',
     selectedTimes: [], // Array of selected time slots
-    numberOfDives: 1
+    numberOfDives: 1,
+    withEquipment: false,
+    usePackCredits: false
   });
   const [timeAvailability, setTimeAvailability] = useState({}); // Map of time -> availability
+
+  const locationId = formData.location === 'caleta'
+    ? '550e8400-e29b-41d4-a716-446655440001'
+    : '550e8400-e29b-41d4-a716-446655440002';
+  const totalDives = formData.selectedTimes.length * formData.numberOfDives;
+  const matchingPack = formData.activityType === 'diving' && totalDives > 0
+    ? packPurchaseService.findMatchingPack(
+        (customerSnapshot || customer)?.id,
+        locationId,
+        totalDives,
+        formData.withEquipment
+      )
+    : null;
 
   // Available time slots for diving (can select multiple)
   const availableTimes = [
@@ -117,7 +135,9 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
       date: '',
       activityType: 'diving',
       selectedTimes: [],
-      numberOfDives: 1
+      numberOfDives: 1,
+      withEquipment: false,
+      usePackCredits: false
     });
     await refreshCustomerSnapshot();
     if (typeof window !== 'undefined' && window.syncService?.syncNow) {
@@ -155,18 +175,12 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
   };
 
   const calculatePrice = () => {
-    const totalDives = formData.selectedTimes.length * formData.numberOfDives;
     if (totalDives === 0) return 0;
-    
-    // Map location name to locationId (UUID)
-    const locationId = formData.location === 'caleta' 
-      ? '550e8400-e29b-41d4-a716-446655440001' // Caleta de Fuste
-      : '550e8400-e29b-41d4-a716-446655440002'; // Las Playitas
-    
+    if (formData.usePackCredits && matchingPack) return 0;
     const latestCustomer = customerSnapshot || customer;
     const customerType = getCustomerType(latestCustomer);
-    
-    return calculateDivePrice(locationId, customerType, totalDives);
+    const withEquipment = matchingPack ? matchingPack.withEquipment : formData.withEquipment;
+    return calculateDivePriceWithPacks(locationId, customerType, totalDives, withEquipment);
   };
 
   const handleSubmit = async () => {
@@ -219,7 +233,19 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
       // Create bookings for each selected time slot
       const bookings = [];
       const totalPrice = calculatePrice();
-      const pricePerDive = totalPrice / (formData.selectedTimes.length * formData.numberOfDives);
+      const totalDivesToBook = formData.selectedTimes.length * formData.numberOfDives;
+      const pricePerDive = totalDivesToBook > 0 ? totalPrice / totalDivesToBook : 0;
+
+      // If using pack credits, deduct from pack first
+      let packUsed = null;
+      if (formData.usePackCredits && matchingPack && totalDivesToBook > 0) {
+        packUsed = packPurchaseService.deductFromPack(matchingPack.id, totalDivesToBook);
+        if (!packUsed) {
+          setError('Could not use pack credits. The pack may have been updated. Please try again.');
+          setLoading(false);
+          return;
+        }
+      }
       
       // Refresh customer data to get latest firstName/lastName from profile
       const latestCustomer = await refreshCustomerSnapshot();
@@ -229,7 +255,9 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
         throw new Error('Customer profile information is incomplete. Please update your profile with first name, last name, and email.');
       }
 
+      const isPackBooking = !!packUsed;
       for (const time of formData.selectedTimes) {
+        const sessionTotal = pricePerDive * formData.numberOfDives;
         const bookingData = {
           location: formData.location,
           date: formData.date,
@@ -241,13 +269,14 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
           email: latestCustomer.email,
           phone: latestCustomer.phone || '',
           specialRequirements: '',
-          price: pricePerDive * formData.numberOfDives,
-          totalPrice: pricePerDive * formData.numberOfDives,
+          price: isPackBooking ? 0 : sessionTotal,
+          totalPrice: isPackBooking ? 0 : sessionTotal,
           discount: 0,
-          paymentMethod: 'account', // Registered divers don't pay upfront
+          paymentMethod: 'account',
           paymentTransactionId: `ACCOUNT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          hasMedicalCertificate: true, // Registered divers can update profile if needed
-          isRegisteredDiver: true // Flag to skip strict validation
+          hasMedicalCertificate: true,
+          isRegisteredDiver: true,
+          ...(packUsed && { packPurchaseId: packUsed.id })
         };
 
         const result = await bookingService.createBooking(bookingData);
@@ -281,16 +310,15 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
         variant="contained"
         startIcon={<AddIcon />}
         onClick={handleOpen}
-        sx={{ mb: 2 }}
       >
-        Book a Dive
+        {t('myAccount.bookDive')}
       </Button>
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>
-          <Typography variant="h6" component="div">Book a Dive</Typography>
+          <Typography variant="h6" component="div">{t('myAccount.bookDialog.title')}</Typography>
           <Typography variant="body2" color="text.secondary" component="p">
-            Booking for: {customer.firstName} {customer.lastName} ({customer.email})
+            {t('myAccount.bookDialog.bookingFor')} {customer.firstName} {customer.lastName} ({customer.email})
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -298,7 +326,7 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <CheckCircleIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
               <Typography variant="h5" gutterBottom color="success.main">
-                Booking Confirmed!
+                {t('myAccount.bookDialog.bookingConfirmed')}
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                 {bookingResult.bookings.length} booking(s) created successfully.
@@ -324,10 +352,12 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
                     <strong>Total Dives:</strong> {formData.selectedTimes.length * formData.numberOfDives}
                   </Typography>
                   <Typography variant="h6" sx={{ mt: 2, color: 'primary.main' }}>
-                    Total: €{bookingResult.totalPrice.toFixed(2)}
+                    Total: {bookingResult.totalPrice === 0 ? t('myAccount.bookDialog.paidWithPackLabel') : `€${bookingResult.totalPrice.toFixed(2)}`}
                   </Typography>
                   <Alert severity="info" sx={{ mt: 2 }}>
-                    Payment will be processed at the dive center. No payment required now.
+                    {bookingResult.totalPrice === 0
+                      ? t('myAccount.bookDialog.paidWithPack')
+                      : t('myAccount.bookDialog.payAtCenter')}
                   </Alert>
                 </CardContent>
               </Card>
@@ -373,9 +403,10 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
                 />
               </Grid>
               {formData.activityType === 'diving' && (
+                <>
                 <Grid item xs={12} md={6}>
                   <TextField
-                    label="Number of Dives per Session"
+                    label={t('myAccount.bookDialog.numberOfDives')}
                     type="number"
                     fullWidth
                     value={formData.numberOfDives}
@@ -384,24 +415,47 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
                     required
                   />
                 </Grid>
+                {!matchingPack && (
+                  <Grid item xs={12} md={6}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={!!formData.withEquipment}
+                          onChange={(e) => handleChange('withEquipment', e.target.checked)}
+                        />
+                      }
+                      label={t('myAccount.bookDialog.includeEquipment')}
+                    />
+                  </Grid>
+                )}
+                {matchingPack && (
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={!!formData.usePackCredits}
+                          onChange={(e) => handleChange('usePackCredits', e.target.checked)}
+                        />
+                      }
+                      label={t('myAccount.bookDialog.usePackCredits', {
+                      remaining: matchingPack.divesRemaining,
+                      equipment: matchingPack.withEquipment ? t('myAccount.bookDialog.withEquipment') : t('myAccount.bookDialog.withoutEquipment')
+                    })}
+                    />
+                  </Grid>
+                )}
+                </>
               )}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                  Select Time Slot(s) - You can dive multiple times per day
+                  {t('myAccount.bookDialog.selectTimeSlots')}
                 </Typography>
                 <FormGroup>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {availableTimes.map((time) => {
                       const isSelected = formData.selectedTimes.includes(time.value);
-                      const availability = formData.date
-                        ? bookingService.checkAvailability(
-                            formData.date,
-                            time.value,
-                            formData.location,
-                            formData.activityType
-                          )
-                        : null;
-                      const isAvailable = !availability || availability.available;
+                      const availability = formData.date ? timeAvailability[time.value] : null;
+                      const isAvailable = availability === undefined || availability?.available !== false;
 
                       return (
                         <FormControlLabel
@@ -417,10 +471,10 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Typography>{time.label}</Typography>
                               {!isAvailable && (
-                                <Chip label="Full" size="small" color="error" />
+                                <Chip label={t('myAccount.bookDialog.slotFull')} size="small" color="error" />
                               )}
                               {isSelected && (
-                                <Chip label="Selected" size="small" color="primary" />
+                                <Chip label={t('myAccount.bookDialog.slotSelected')} size="small" color="primary" />
                               )}
                             </Box>
                           }
@@ -435,16 +489,20 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
                   <Card variant="outlined" sx={{ bgcolor: 'grey.50' }}>
                     <CardContent>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Estimated Total
+                        {t('myAccount.bookDialog.estimatedTotal')}
                       </Typography>
                       <Typography variant="h5" color="primary.main">
                         €{calculatePrice().toFixed(2)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {formData.selectedTimes.length} session(s) × {formData.numberOfDives} dive(s) = {formData.selectedTimes.length * formData.numberOfDives} total dive(s)
+                        {t('myAccount.bookDialog.sessionsDives', {
+                          sessions: formData.selectedTimes.length,
+                          dives: formData.numberOfDives,
+                          total: formData.selectedTimes.length * formData.numberOfDives
+                        })}
                       </Typography>
                       <Alert severity="info" sx={{ mt: 2 }}>
-                        Payment will be processed at the dive center. No payment required now.
+                        {t('myAccount.bookDialog.payAtCenter')}
                       </Alert>
                     </CardContent>
                   </Card>
@@ -462,12 +520,12 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
         <DialogActions>
           {success ? (
             <Button onClick={handleClose} variant="contained">
-              Close
+              {t('common.close')}
             </Button>
           ) : (
             <>
               <Button onClick={handleClose} disabled={loading}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleSubmit}
@@ -475,7 +533,7 @@ const RegisteredDiverBooking = ({ customer, onBookingCreated }) => {
                 disabled={loading || formData.selectedTimes.length === 0}
                 startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
               >
-                {loading ? 'Creating Booking...' : 'Confirm Booking'}
+                {loading ? t('myAccount.bookDialog.creatingBooking') : t('myAccount.bookDialog.confirmBooking')}
               </Button>
             </>
           )}

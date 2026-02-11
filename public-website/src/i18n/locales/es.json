@@ -97,6 +97,25 @@
       "current": "Corriente",
       "waves": "Olas",
       "travel": "Viaje"
+    },
+    "sites": "sitios",
+    "siteDescriptions": {
+      "anfiteatro": "Entre las rocas colgantes a lo largo de todo el arrecife hay peces escorpión, meros, peces trompeta y espadines. A unos 12 metros de profundidad, las barracudas esperan a sus presas, mientras los curiosos serviolas observan de cerca a los buceadores.",
+      "barranco": "Un hermoso arrecife con salientes y columnas. Aquí también se encuentran bancos de bremas rayadas, bremas cebras y caballas de aleta amarilla. En las columnas y agujeros diferentes especies de morenas han hecho su hogar; morenas tigre, morenas Duke Augustus y grandes morenas enmascaradas no son una rareza aquí.",
+      "fortaleza": "Una pared rocosa que se eleva verticalmente desde el fondo marino inclinado entre 18 y 12 metros de profundidad, hasta 3 metros bajo la superficie. Alrededor de este sitio de buceo encontrarás muchos restos de naufragios, testimonio de que estos arrecifes han sido un desastre para muchos barcos.",
+      "mole": "Aquí estás en la guardería del Atlántico. Además de bancos de barracudas jóvenes, bremas y sardinas, siempre hay pulpos y calamares en el lugar, a veces también puedes encontrar el caballito de mar ocasional. En los meses de invierno los angelotes se adueñan del lugar.",
+      "la_emboscada": "Este sitio de buceo sobre el arrecife está muy cerca de la costa. El hermoso paisaje submarino con impresionantes formaciones rocosas, las posibilidades de nadar entre ellas y las grandes diferencias de profundidad hacen que cada inmersión aquí sea muy variable.",
+      "camino_de_altura": "Aquí encontrarás muy buenos pasadizos nadables fuera del arrecife. Cerca de la gran pared hay varios salientes frescos donde los meros se sienten cómodos. Peces más grandes como atún, bonito y caballa también son comunes en esta zona.",
+      "el_muellito": "El arrecife comienza aquí a 7 metros de profundidad y ofrece así protección a las sardinas que escapan de los serviolas y serranos cazadores. A 23 metros hay una garganta escarpada que se puede bucear a lo largo de unos 12 metros.",
+      "el_tazar": "Enormes bancos de rape se encuentran a menudo aquí en el borde del arrecife. Un poco más adentro en las profundidades azules, bancos de grandes barracudas circulan. Un poco más profundo entre las formaciones rocosas puedes encontrar, por ejemplo, meros, peces loro, lubinas y morenas de jardín.",
+      "tesoro_negro": "Oscuro y misterioso. El nombre del sitio encaja: extraños corales negros crecen en las paredes del arrecife. La pared alberga esponjas, anémonas y nudibranquios muy hermosos. Al pie de la pared bajo los salientes puedes ver campos de plumas de pavo real y rosas cilíndricas.",
+      "el_portal": "La pared rocosa con un pasadizo que lleva a las profundidades azules está un poco delante del propio arrecife. Aquí se tienen las mejores vistas para ver peces grandes: desde atunes de 2 metros hasta bancos de serviolas de 1,80 metros y hasta los tiburones ballena con sus simpáticas manchas.",
+      "el_mirador": "Primero debemos cruzar un barranco aquí para llegar a una formación rocosa algo avanzada. Aquí, con la vista hacia el azul profundo, pasan bancos de bonitos y serviolas. Entre las rocas la raya águila descansa y flota en busca de alimento.",
+      "el_laberinto": "El nombre lo dice todo: el laberinto es un paisaje submarino salvaje que sigue sorprendiendo después de muchas inmersiones. Barracudas, bonitos y angelotes se pueden ver aquí. En el borde del arrecife suele haber enormes bancos de sardinas, cazadas y perseguidas por atunes.",
+      "la_piramide": "Una pelea entre adolescentes no es rara aquí: detrás del borde del arrecife a unos 26 metros, toda una banda de meros medio crecidos espera entre las rocas para pelearse con morenas nadadoras. Cerca de la pirámide a veces te encuentras con tortugas marinas en busca de alimento.",
+      "el_monasterio": "Todo un laberinto de gargantas rocosas te espera detrás del borde del arrecife. Nos recuerdan los estrechos muros de un monasterio. Entre las rocas puedes encontrar pulpos majestuosos y sepias grandes. Frente a los pasajes rocosos en el fondo arenoso brillante, diversas rayas buscan alimento.",
+      "nuevo_horizonte": "Nuevo Horizonte, frente a Costa Caleta (Caleta de la Camella). Grandes peces como atún, bonito, serviolas y barracudas se avistan regularmente aquí. Doradas, badis, barracudas y atunes se acercan curiosos al arrecife. En febrero y marzo muchos angelotes vienen aquí a aparearse.",
+      "playitas_reef": "Arrecife impresionante perfecto para principiantes"
     }
   },
   "about": {
@@ -162,7 +181,9 @@
     "bookings": {
       "title": "Mis Reservas",
       "noBookings": "Aún no hay reservas.",
+      "noBookingsFound": "No se encontraron reservas.",
       "refresh": "Actualizar",
+      "divesSessions": "Inmersiones/Sesiones",
       "date": "Fecha",
       "location": "Ubicación",
       "activity": "Actividad",
@@ -181,6 +202,49 @@
       "statusPending": "Pendiente",
       "statusCancelled": "Cancelada",
       "statusCompleted": "Completada"
+    },
+    "bookDive": "Reservar inmersión",
+    "purchasePack": "Comprar un pack",
+    "pendingApproval": "Su cuenta está pendiente de aprobación. El centro de buceo debe evaluar su nivel antes de poder reservar. Una vez aprobado, podrá reservar aquí.",
+    "dataRefreshed": "Datos actualizados desde el servidor",
+    "refreshFailed": "Error al actualizar. Inténtelo de nuevo.",
+    "packCredits": {
+      "title": "Mis créditos de pack",
+      "location": "Ubicación",
+      "count": "Cantidad",
+      "type": "Tipo",
+      "withEquipment": "Con equipo",
+      "ownEquipment": "Equipo propio",
+      "divesRemaining": "{{remaining}} de {{total}} inmersiones restantes"
+    },
+    "packPurchase": {
+      "title": "Comprar un pack de inmersiones",
+      "location": "Ubicación",
+      "noPacks": "No hay packs disponibles para esta ubicación. Los packs se configuran en el centro de buceo.",
+      "purchaseButton": "Comprar (pagar en el centro)",
+      "success": "¡Pack comprado! Ahora puede usar sus créditos al reservar.",
+      "divesWithEquipment": "{{dives}} inmersiones + equipo",
+      "divesOwnEquipment": "{{dives}} inmersiones (equipo propio)"
+    },
+    "bookDialog": {
+      "title": "Reservar inmersión",
+      "bookingFor": "Reserva para:",
+      "numberOfDives": "Número de inmersiones por sesión",
+      "includeEquipment": "Incluir alquiler de equipo",
+      "usePackCredits": "Usar créditos de pack ({{remaining}} inmersiones restantes, {{equipment}})",
+      "withEquipment": "con equipo",
+      "withoutEquipment": "sin equipo",
+      "selectTimeSlots": "Seleccione franja(s) horaria(s) - Puede bucear varias veces al día",
+      "estimatedTotal": "Total estimado",
+      "sessionsDives": "{{sessions}} sesión(es) × {{dives}} inmersión(es) = {{total}} inmersiones totales",
+      "payAtCenter": "El pago se procesará en el centro. No es necesario pagar ahora.",
+      "paidWithPack": "Sus créditos de pack se han utilizado para esta reserva.",
+      "paidWithPackLabel": "Pagado con créditos de pack",
+      "slotFull": "Completo",
+      "slotSelected": "Seleccionado",
+      "confirmBooking": "Confirmar reserva",
+      "creatingBooking": "Creando reserva...",
+      "bookingConfirmed": "¡Reserva confirmada!"
     },
     "profile": {
       "title": "Información Personal",

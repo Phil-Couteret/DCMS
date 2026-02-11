@@ -92,6 +92,43 @@ export const calculateDivePrice = (locationId, customerType, numberOfDives) => {
 };
 
 /**
+ * Get pack price if a matching pack exists
+ * @param {string} locationId
+ * @param {number} numberOfDives
+ * @param {boolean} withEquipment
+ * @returns {number|null}
+ */
+export const getPackPrice = (locationId, numberOfDives, withEquipment) => {
+  const pricing = getLocationPricing(locationId);
+  const packs = pricing.divePacks || [];
+  const pack = packs.find(
+    (p) => p.dives === numberOfDives && !!p.withEquipment === !!withEquipment
+  );
+  return pack != null ? pack.price : null;
+};
+
+/**
+ * Calculate dive price using pack if available, otherwise tier + equipment
+ * @param {string} locationId
+ * @param {string} customerType
+ * @param {number} numberOfDives
+ * @param {boolean} [withEquipment=false]
+ * @returns {number}
+ */
+export const calculateDivePriceWithPacks = (locationId, customerType, numberOfDives, withEquipment = false) => {
+  const packPrice = getPackPrice(locationId, numberOfDives, withEquipment);
+  if (packPrice != null) return packPrice;
+
+  let base = calculateDivePrice(locationId, customerType, numberOfDives);
+  if (withEquipment) {
+    const settings = JSON.parse(localStorage.getItem('dcms_settings') || '{}');
+    const equipmentPrice = settings.prices?.equipment?.complete_equipment ?? 13;
+    base += equipmentPrice * numberOfDives;
+  }
+  return base;
+};
+
+/**
  * Calculate price for other activity types
  * @param {string} activityType - Type of activity ('snorkeling', 'discover', 'orientation')
  * @param {number} numberOfDives - Number of dives/activities (default: 1)
