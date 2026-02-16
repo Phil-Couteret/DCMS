@@ -1,5 +1,6 @@
 # DCMS Backend - VPS-style Docker image
-FROM node:20-alpine AS builder
+# Use Debian (slim) not Alpine - Prisma needs compatible OpenSSL
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -11,7 +12,10 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production image
-FROM node:20-alpine
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
