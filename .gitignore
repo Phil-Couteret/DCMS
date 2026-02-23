@@ -60,3 +60,4 @@ coverage/
 # NPM cache
 .npm-cache/
 .npmrc
+dcms-backend.tar

@@ -1,15 +1,17 @@
 # DCMS Frontend (Admin PWA) - VPS-style Docker image
-FROM node:20-alpine AS builder
+# Node 18 - react-scripts 5.0.1 has resolution issues with Node 20
+FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 COPY . .
-# Build for API mode; runtime uses window.location.hostname + :3003
-ENV REACT_APP_API_URL=http://localhost:3003/api
-ENV CI=true
-RUN npm run build
+ARG REACT_APP_API_URL=http://localhost:3003/api
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+ENV CI=false
+# Bypass broken .bin/react-scripts wrapper - run build script directly
+RUN node node_modules/react-scripts/scripts/build.js
 
 FROM nginx:alpine
 COPY --from=builder /app/build /usr/share/nginx/html

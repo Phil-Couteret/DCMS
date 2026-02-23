@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { customer_type } from '@prisma/client';
 
 export interface CreateCustomerDto {
@@ -35,21 +36,30 @@ export interface UpdateCustomerDto {
 
 @Injectable()
 export class CustomersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll() {
     return this.prisma.customers.findMany({
       where: { 
         deleted_at: null,
-        is_active: true 
+        is_active: true,
+        ...this.tenantFilter(),
       },
       orderBy: { created_at: 'desc' },
     });
   }
 
   async findOne(id: string) {
-    const customer = await this.prisma.customers.findUnique({
-      where: { id },
+    const customer = await this.prisma.customers.findFirst({
+      where: { id, ...this.tenantFilter() },
       include: {
         customer_certifications: true,
         customer_consents: true,
@@ -71,7 +81,8 @@ export class CustomersService {
     return this.prisma.customers.findFirst({
       where: { 
         email: email.toLowerCase(),
-        deleted_at: null 
+        deleted_at: null,
+        ...this.tenantFilter(),
       },
       include: {
         customer_certifications: true,
@@ -88,6 +99,7 @@ export class CustomersService {
       where: {
         deleted_at: null,
         is_active: true,
+        ...this.tenantFilter(),
         OR: [
           { first_name: { contains: searchTerm, mode: 'insensitive' } },
           { last_name: { contains: searchTerm, mode: 'insensitive' } },
@@ -101,9 +113,11 @@ export class CustomersService {
   }
 
   async create(dto: CreateCustomerDto) {
+    const tenantId = this.tenantContext.getTenantId();
     return this.prisma.customers.create({
       data: {
         first_name: dto.firstName,
+        ...(tenantId && { tenant_id: tenantId }),
         last_name: dto.lastName,
         email: dto.email?.toLowerCase() || null,
         phone: dto.phone || null,

@@ -1,0 +1,47 @@
+# Admin frontend - built with REACT_APP_API_URL for production
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin
+  namespace: dcms
+  labels:
+    app: dcms-admin
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+  selector:
+    app: dcms-admin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin
+  namespace: dcms
+  labels:
+    app: dcms-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dcms-admin
+  template:
+    metadata:
+      labels:
+        app: dcms-admin
+    spec:
+      containers:
+        - name: admin
+          image: dcms-admin:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+      restartPolicy: Always

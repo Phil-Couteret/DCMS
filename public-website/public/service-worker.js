@@ -1,19 +1,12 @@
-// Deep Blue Diving - Diver Portal PWA Service Worker
-// Version 1.0.0
+// DCMS / Deep Blue - PWA Service Worker
+// Bump CACHE_VERSION on each deploy to invalidate old caches and show updates
 
-const CACHE_VERSION = 'deep-blue-diver-v1.0.0';
+const CACHE_VERSION = 'dcms-v2-20260218';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
-// Assets to cache on install
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/static/css/main.css',
-  '/static/js/main.js',
-  '/manifest.json',
-  '/favicon.ico'
-];
+// Skip caching HTML and main bundle so deploys reach users immediately
+const STATIC_ASSETS = ['/manifest.json'];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -34,7 +27,7 @@ self.addEventListener('activate', (event) => {
       .then((cacheNames) => Promise.all(
         cacheNames
           .filter((cacheName) =>
-            cacheName.startsWith('deep-blue-diver-') &&
+            (cacheName.startsWith('deep-blue-diver-') || cacheName.startsWith('dcms-')) &&
             cacheName !== STATIC_CACHE &&
             cacheName !== DYNAMIC_CACHE
           )
@@ -44,55 +37,45 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - network first for HTML/JS/CSS so deploys take effect; cache for offline fallback
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip cross-origin requests
-  if (url.origin !== location.origin) {
+  if (url.origin !== location.origin || request.method !== 'GET' || url.pathname.startsWith('/api/')) {
     return;
   }
 
-  // Skip API calls and non-GET requests
-  if (request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+  const isHtml = request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/';
+  const isJsCss = /\.(js|css)(\?|$)/.test(url.pathname);
+
+  // Network first for HTML and app bundle so updates deploy immediately
+  if (isHtml || isJsCss) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(DYNAMIC_CACHE).then((c) => c.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((r) => r || (isHtml ? caches.match('/index.html') : null)))
+    );
     return;
   }
 
+  // Cache first for static assets (icons, manifest)
   event.respondWith(
-    caches.match(request)
-      .then((cachedResponse) => {
-        // Return cached version if available
-        if (cachedResponse) {
-          return cachedResponse;
+    caches.match(request).then((cached) =>
+      cached || fetch(request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(DYNAMIC_CACHE).then((c) => c.put(request, clone));
         }
-
-        // Otherwise, fetch from network
-        return fetch(request)
-          .then((response) => {
-            // Don't cache non-successful responses
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response for caching
-            const responseToCache = response.clone();
-
-            // Cache dynamic content
-            caches.open(DYNAMIC_CACHE)
-              .then((cache) => {
-                cache.put(request, responseToCache);
-              });
-
-            return response;
-          })
-          .catch(() => {
-            // If network fails and it's a navigation request, return offline page
-            if (request.mode === 'navigate') {
-              return caches.match('/index.html');
-            }
-          });
+        return response;
       })
+    )
   );
 });
 
@@ -110,7 +93,7 @@ async function syncBookings() {
 // Handle push notifications (for booking confirmations, reminders)
 self.addEventListener('push', (event) => {
   const options = {
-    body: event.data ? event.data.text() : 'New update from Deep Blue Diving',
+    body: event.data ? event.data.text() : 'New update from DCMS',
     icon: '/pwa-icons/icon-192x192.png',
     badge: '/pwa-icons/icon-72x72.png',
     vibrate: [200, 100, 200],
@@ -119,7 +102,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('Deep Blue Diving', options)
+    self.registration.showNotification('DCMS', options)
   );
 });
 

@@ -54,6 +54,23 @@ const BookingForm = ({ bookingId = null }) => {
       gps_computer: false
     },
     bikeInsurance: '', // 'one_day' | 'one_week' | 'one_month'
+    // Surf rental fields
+    surfType: '', // 'softboard' | 'performance_softboard' | 'shortboard' | 'midlength' | 'longboard'
+    surfEquipment: {
+      wetsuit: false,
+      shoes: false,
+      surf_leash: false,
+      auto_rack: false
+    },
+    // Kite surf rental fields
+    kiteType: '', // 'complete_equipment' | 'kite_bar_leash' | 'kiteboard'
+    kiteEquipment: {
+      harness: false,
+      kite_leash: false,
+      helmet: false,
+      impact_vest: false,
+      wetsuit: false
+    },
     price: 46.00,
     discount: 0,
     totalPrice: 46.00,
@@ -154,11 +171,17 @@ const BookingForm = ({ bookingId = null }) => {
     formData.locationId,
     formData.customerId,
     settings,
-    // Bike rental fields (only relevant for bike rentals)
+    // Bike rental fields
     formData.bikeType,
     formData.rentalDays,
     formData.bikeEquipment,
     formData.bikeInsurance,
+    // Surf rental fields
+    formData.surfType,
+    formData.surfEquipment,
+    // Kite surf rental fields
+    formData.kiteType,
+    formData.kiteEquipment,
     // Diving fields (only relevant for diving)
     formData.diveSessions,
     formData.addons,
@@ -271,6 +294,24 @@ const BookingForm = ({ bookingId = null }) => {
             addons = equipmentData.addons;
           }
         }
+        // Extract bike/surf/kite rental data from equipmentNeeded when loading
+        let bikeType = booking.bikeType || '';
+        let surfType = booking.surfType || '';
+        let surfEquipment = booking.surfEquipment || { wetsuit: false, shoes: false, surf_leash: false, auto_rack: false };
+        let kiteType = booking.kiteType || '';
+        let kiteEquipment = booking.kiteEquipment || { harness: false, kite_leash: false, helmet: false, impact_vest: false, wetsuit: false };
+        if (booking.equipmentNeeded && typeof booking.equipmentNeeded === 'object' && !Array.isArray(booking.equipmentNeeded)) {
+          const eq = booking.equipmentNeeded;
+          if (eq.activityType === 'bike_rental') {
+            bikeType = eq.bikeType || '';
+          } else if (eq.activityType === 'surf') {
+            surfType = eq.surfType || '';
+            surfEquipment = eq.surfEquipment || surfEquipment;
+          } else if (eq.activityType === 'kite_surf') {
+            kiteType = eq.kiteType || '';
+            kiteEquipment = eq.kiteEquipment || kiteEquipment;
+          }
+        }
         
         // Convert numeric fields to numbers (backend may return strings or Decimal types)
         const normalizedBooking = {
@@ -296,7 +337,12 @@ const BookingForm = ({ bookingId = null }) => {
           diveSessions,
           ownEquipment,
           rentedEquipment,
-          addons
+          addons,
+          bikeType,
+          surfType,
+          surfEquipment,
+          kiteType,
+          kiteEquipment
         };
         setFormData(normalizedBooking);
       }
@@ -452,6 +498,85 @@ const BookingForm = ({ bookingId = null }) => {
         equipmentRental: equipmentCost,
         bikeInsuranceCost: insuranceCost, // Store insurance cost separately for display
         rentalDays: rentalDays // Ensure minimum 2 days is applied
+      }));
+      return;
+    }
+    
+    // Handle surf rental pricing (Point Break style - tiered by days)
+    const isSurfRental = location?.type === 'surf';
+    if (isSurfRental) {
+      const rentalDays = Math.max(1, data.rentalDays || 1);
+      if (!data.surfType) {
+        setFormData(prev => ({ ...prev, price: 0, totalPrice: 0, equipmentRental: 0 }));
+        return;
+      }
+      const st = locPricing.surfTypes?.[data.surfType];
+      const tiers = (st?.rentalTiers || []).sort((a, b) => a.days - b.days);
+      let basePrice = 0;
+      if (tiers.length > 0) {
+        const exactTier = tiers.find(t => t.days === rentalDays);
+        if (exactTier) {
+          basePrice = exactTier.price;
+        } else {
+          // Find highest tier where tier.days <= rentalDays, then add extra days
+          const applicableTiers = tiers.filter(t => t.days <= rentalDays);
+          const baseTier = applicableTiers.length > 0 ? applicableTiers[applicableTiers.length - 1] : tiers[0];
+          const extraDays = Math.max(0, rentalDays - baseTier.days);
+          basePrice = baseTier.price + (st.extraDayPrice || 0) * extraDays;
+        }
+      }
+      let equipmentCost = 0;
+      const surfEq = data.surfEquipment || {};
+      const surfEqPrices = locPricing.surfEquipment || {};
+      ['wetsuit', 'shoes', 'surf_leash', 'auto_rack'].forEach(k => {
+        if (surfEq[k]) equipmentCost += ((surfEqPrices[k] || 0) * rentalDays);
+      });
+      const totalPrice = basePrice + equipmentCost;
+      setFormData(prev => ({
+        ...prev,
+        price: basePrice,
+        totalPrice,
+        equipmentRental: equipmentCost,
+        rentalDays
+      }));
+      return;
+    }
+
+    // Handle kite surf rental pricing (Point Break style)
+    const isKiteSurfRental = location?.type === 'kite_surf';
+    if (isKiteSurfRental) {
+      const rentalDays = Math.max(1, data.rentalDays || 1);
+      if (!data.kiteType) {
+        setFormData(prev => ({ ...prev, price: 0, totalPrice: 0, equipmentRental: 0 }));
+        return;
+      }
+      const kt = locPricing.kiteTypes?.[data.kiteType];
+      const tiers = (kt?.rentalTiers || []).sort((a, b) => a.days - b.days);
+      let basePrice = 0;
+      if (tiers.length > 0) {
+        const exactTier = tiers.find(t => t.days === rentalDays);
+        if (exactTier) {
+          basePrice = exactTier.price;
+        } else {
+          const applicableTiers = tiers.filter(t => t.days <= rentalDays);
+          const baseTier = applicableTiers.length > 0 ? applicableTiers[applicableTiers.length - 1] : tiers[0];
+          const extraDays = Math.max(0, rentalDays - baseTier.days);
+          basePrice = baseTier.price + (kt.extraDayPrice || 0) * extraDays;
+        }
+      }
+      let equipmentCost = 0;
+      const kiteEq = data.kiteEquipment || {};
+      const kiteEqPrices = locPricing.kiteEquipment || {};
+      ['harness', 'kite_leash', 'helmet', 'impact_vest', 'wetsuit'].forEach(k => {
+        if (kiteEq[k]) equipmentCost += ((kiteEqPrices[k] || 0) * rentalDays);
+      });
+      const totalPrice = basePrice + equipmentCost;
+      setFormData(prev => ({
+        ...prev,
+        price: basePrice,
+        totalPrice,
+        equipmentRental: equipmentCost,
+        rentalDays
       }));
       return;
     }
@@ -823,21 +948,35 @@ const BookingForm = ({ bookingId = null }) => {
     const currentLocation = locations.find(l => l.id === formData.locationId);
     const isBikeRental = currentLocation?.type === 'bike_rental';
     
-    // Validate bike rental bookings
-    if (isBikeRental) {
-      if (!formData.bikeType) {
-        alert('Please select a bike type.');
+// Validate rental bookings
+      const isSurfRental = currentLocation?.type === 'surf';
+      const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+      if (isBikeRental) {
+        if (!formData.bikeType) {
+          alert('Please select a bike type.');
+          return;
+        }
+      } else if (isSurfRental) {
+        if (!formData.surfType) {
+          alert('Please select a surfboard type.');
+          return;
+        }
+      } else if (isKiteSurfRental) {
+        if (!formData.kiteType) {
+          alert('Please select a kite surf equipment type.');
+          return;
+        }
+      }
+      if ((isBikeRental || isSurfRental || isKiteSurfRental) && (!formData.rentalDays || formData.rentalDays < (isBikeRental ? 2 : 1))) {
+        alert(isBikeRental ? 'Please enter a valid rental duration (minimum 2 days).' : 'Please enter a valid rental duration (at least 1 day).');
         return;
       }
-      if (!formData.rentalDays || formData.rentalDays < 1) {
-        alert('Please enter a valid rental duration (at least 1 day).');
-        return;
-      }
-      if (!formData.startDate) {
+      if ((isBikeRental || isSurfRental || isKiteSurfRental) && !formData.startDate) {
         alert('Please select a start date.');
         return;
       }
-    } else {
+
+    if (!isBikeRental && !isSurfRental && !isKiteSurfRental) {
       // Validate diving bookings
       // Validate: For diving, at least one dive session must be selected
       if (formData.activityType === 'diving') {
@@ -917,15 +1056,15 @@ const BookingForm = ({ bookingId = null }) => {
       // Prepare booking data with current formData (which should have latest calculated prices)
       const bookingData = { ...formData };
       
-      // Set activityType based on location type if bike rental
-      // Note: backend enum doesn't include 'bike_rental', so we use 'specialty' as a workaround
-      // The actual activity type is stored in equipmentNeeded for bike rentals
-      if (isBikeRental) {
+      // Set activityType based on location type
+      const isSurfRental = currentLocation?.type === 'surf';
+      const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+      if (isBikeRental || isSurfRental || isKiteSurfRental) {
         bookingData.activityType = 'specialty'; // Use existing enum value, actual type stored in equipmentNeeded
       }
       
       // For non-diving activities, ensure numberOfDives is set
-      if (bookingData.activityType !== 'diving' && !isBikeRental) {
+      if (bookingData.activityType !== 'diving' && !isBikeRental && !isSurfRental && !isKiteSurfRental) {
         bookingData.numberOfDives = bookingData.numberOfDives || 1;
         // Clear dive sessions for non-diving activities
         bookingData.diveSessions = {
@@ -998,16 +1137,52 @@ const BookingForm = ({ bookingId = null }) => {
         delete bookingData.endDate;
         delete bookingData.bikeInsuranceCost;
         
-        // Ensure equipmentNeeded is set (should already be set above, but double-check)
         if (!bookingData.equipmentNeeded) {
-          bookingData.equipmentNeeded = {
-            activityType: 'bike_rental',
-            bikeType: '',
-            rentalDays: 2,
-            bikeEquipment: {},
-            bikeInsurance: ''
-          };
+          bookingData.equipmentNeeded = { activityType: 'bike_rental', bikeType: '', rentalDays: 2, bikeEquipment: {}, bikeInsurance: '' };
         }
+      } else if (isSurfRental) {
+        // Surf rental: store in equipmentNeeded
+        bookingData.equipmentNeeded = {
+          activityType: 'surf',
+          surfType: bookingData.surfType,
+          rentalDays: bookingData.rentalDays || 1,
+          surfEquipment: bookingData.surfEquipment || {},
+          startDate: bookingData.startDate || bookingData.bookingDate
+        };
+        bookingData.numberOfDives = bookingData.rentalDays || 1;
+        if (!bookingData.price || bookingData.price === 0) {
+          alert('Error: Surf rental price is invalid.');
+          return;
+        }
+        bookingData.totalPrice = bookingData.totalPrice || bookingData.price;
+        bookingData.diveSessions = { morning: false, afternoon: false, night: false };
+        bookingData.addons = {};
+        bookingData.ownEquipment = false;
+        bookingData.rentedEquipment = {};
+        delete bookingData.surfType;
+        delete bookingData.surfEquipment;
+        delete bookingData.startDate;
+      } else if (isKiteSurfRental) {
+        bookingData.equipmentNeeded = {
+          activityType: 'kite_surf',
+          kiteType: bookingData.kiteType,
+          rentalDays: bookingData.rentalDays || 1,
+          kiteEquipment: bookingData.kiteEquipment || {},
+          startDate: bookingData.startDate || bookingData.bookingDate
+        };
+        bookingData.numberOfDives = bookingData.rentalDays || 1;
+        if (!bookingData.price || bookingData.price === 0) {
+          alert('Error: Kite surf rental price is invalid.');
+          return;
+        }
+        bookingData.totalPrice = bookingData.totalPrice || bookingData.price;
+        bookingData.diveSessions = { morning: false, afternoon: false, night: false };
+        bookingData.addons = {};
+        bookingData.ownEquipment = false;
+        bookingData.rentedEquipment = {};
+        delete bookingData.kiteType;
+        delete bookingData.kiteEquipment;
+        delete bookingData.startDate;
       } else {
         // For diving activities, store diveSessions, ownEquipment, and rentedEquipment in equipmentNeeded
         const equipmentNeededData = {};
@@ -1037,7 +1212,7 @@ const BookingForm = ({ bookingId = null }) => {
       }
       
       // Ensure equipmentRental is 0 if ownEquipment is true (only for diving)
-      if (bookingData.ownEquipment && !isBikeRental) {
+      if (bookingData.ownEquipment && !isBikeRental && !isKiteSurfRental) {
         bookingData.equipmentRental = 0;
         // Recalculate totalPrice without equipment rental
         const basePrice = bookingData.price || 0;
@@ -1097,7 +1272,7 @@ const BookingForm = ({ bookingId = null }) => {
         totalPrice: Number(bookingData.totalPrice),
         paymentStatus: bookingData.paymentStatus || 'pending',
         status: bookingData.status || 'confirmed',
-        equipmentNeeded: bookingData.equipmentNeeded || (isBikeRental ? {} : (bookingData.activityType === 'diving' ? {} : [])) // Object for bike rental and diving, array for other activities
+        equipmentNeeded: bookingData.equipmentNeeded || (isBikeRental || isSurfRental || isKiteSurfRental ? {} : (bookingData.activityType === 'diving' ? {} : [])) // Object for rentals and diving, array for other activities
       };
       
       // Add optional fields only if they have values
@@ -1202,11 +1377,13 @@ const BookingForm = ({ bookingId = null }) => {
               </FormControl>
             </Grid>
 
-            {/* Check if location is bike rental - render appropriate form fields */}
+            {/* Check location type - render appropriate form fields */}
             {(() => {
-              const currentLocation = locations.find(l => l.id === formData.locationId);
+const currentLocation = locations.find(l => l.id === formData.locationId);
               const isBikeRental = currentLocation?.type === 'bike_rental';
-              
+              const isSurfRental = currentLocation?.type === 'surf';
+              const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+
               if (isBikeRental) {
                 // BIKE RENTAL FORM FIELDS
                 return (
@@ -1361,6 +1538,144 @@ const BookingForm = ({ bookingId = null }) => {
                     </Grid>
                   </>
                 );
+              } else if (isKiteSurfRental) {
+                const kiteTypes = currentLocation?.pricing?.kiteTypes || {};
+                const kiteTypeKeys = Object.keys(kiteTypes);
+                return (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <TextField label="Start Date" type="date" fullWidth value={formData.startDate} onChange={(e) => {
+                        const v = e.target.value;
+                        setFormData(prev => ({ ...prev, startDate: v, bookingDate: v }));
+                      }} required InputLabelProps={{ shrink: true }} />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField label="Rental Duration (Days)" type="number" fullWidth value={formData.rentalDays} onChange={(e) => {
+                        const days = Math.max(1, parseInt(e.target.value) || 1);
+                        setFormData(prev => ({ ...prev, rentalDays: days }));
+                        calculatePrice();
+                      }} inputProps={{ min: 1 }} required />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Equipment Type</InputLabel>
+                        <Select value={formData.kiteType} label="Equipment Type" onChange={(e) => {
+                          setFormData(prev => ({ ...prev, kiteType: e.target.value }));
+                          calculatePrice();
+                        }}>
+                          {kiteTypeKeys.map(key => (
+                            <MenuItem key={key} value={key}>{kiteTypes[key]?.name || key.replace(/_/g, ' ')}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom>Accessories</Typography>
+                      <Grid container spacing={2}>
+                        {[
+                          { key: 'harness', label: 'Harness' },
+                          { key: 'kite_leash', label: 'Kite Leash' },
+                          { key: 'helmet', label: 'Helmet' },
+                          { key: 'impact_vest', label: 'Impact Vest' },
+                          { key: 'wetsuit', label: 'Wetsuit' }
+                        ].map(({ key, label }) => {
+                          const price = currentLocation?.pricing?.kiteEquipment?.[key] || 0;
+                          return (
+                            <Grid item xs={12} sm={4} key={key}>
+                              <FormControlLabel
+                                control={<Switch checked={formData.kiteEquipment?.[key] || false} onChange={(e) => {
+                                  setFormData(prev => ({ ...prev, kiteEquipment: { ...prev.kiteEquipment, [key]: e.target.checked } }));
+                                  calculatePrice();
+                                }} />}
+                                label={`${label} (€${price.toFixed(2)}/day)`}
+                              />
+                            </Grid>
+                          );
+                        })}
+                      </Grid>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>Rental Price</Typography>
+                          <Typography>Base: €{(Number(formData.price) || 0).toFixed(2)}</Typography>
+                          {formData.equipmentRental > 0 && <Typography>Accessories: €{(Number(formData.equipmentRental) || 0).toFixed(2)}</Typography>}
+                          <Divider sx={{ my: 1 }} />
+                          <Typography variant="h6">Total: €{(Number(formData.totalPrice) || 0).toFixed(2)}</Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </>
+                );
+              } else if (isSurfRental) {
+                // SURF RENTAL FORM FIELDS (Point Break style)
+                const surfTypes = currentLocation?.pricing?.surfTypes || {};
+                const surfTypeKeys = Object.keys(surfTypes);
+                return (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <TextField label="Start Date" type="date" fullWidth value={formData.startDate} onChange={(e) => {
+                        const v = e.target.value;
+                        setFormData(prev => ({ ...prev, startDate: v, bookingDate: v }));
+                      }} required InputLabelProps={{ shrink: true }} />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField label="Rental Duration (Days)" type="number" fullWidth value={formData.rentalDays} onChange={(e) => {
+                        const days = Math.max(1, parseInt(e.target.value) || 1);
+                        setFormData(prev => ({ ...prev, rentalDays: days }));
+                        calculatePrice();
+                      }} inputProps={{ min: 1 }} required />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Surfboard Type</InputLabel>
+                        <Select value={formData.surfType} label="Surfboard Type" onChange={(e) => {
+                          setFormData(prev => ({ ...prev, surfType: e.target.value }));
+                          calculatePrice();
+                        }}>
+                          {surfTypeKeys.map(key => (
+                            <MenuItem key={key} value={key}>{surfTypes[key]?.name || key.replace(/_/g, ' ')}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom>Accessories</Typography>
+                      <Grid container spacing={2}>
+                        {[
+                          { key: 'wetsuit', label: 'Wetsuit' },
+                          { key: 'shoes', label: 'Shoes' },
+                          { key: 'surf_leash', label: 'Surf Leash' },
+                          { key: 'auto_rack', label: 'Auto Rack' }
+                        ].map(({ key, label }) => {
+                          const price = currentLocation?.pricing?.surfEquipment?.[key] || 0;
+                          return (
+                            <Grid item xs={12} sm={4} key={key}>
+                              <FormControlLabel
+                                control={<Switch checked={formData.surfEquipment?.[key] || false} onChange={(e) => {
+                                  setFormData(prev => ({ ...prev, surfEquipment: { ...prev.surfEquipment, [key]: e.target.checked } }));
+                                  calculatePrice();
+                                }} />}
+                                label={`${label} (€${price.toFixed(2)}/day)`}
+                              />
+                            </Grid>
+                          );
+                        })}
+                      </Grid>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>Rental Price</Typography>
+                          <Typography>Base: €{(Number(formData.price) || 0).toFixed(2)}</Typography>
+                          {formData.equipmentRental > 0 && <Typography>Accessories: €{(Number(formData.equipmentRental) || 0).toFixed(2)}</Typography>}
+                          <Divider sx={{ my: 1 }} />
+                          <Typography variant="h6">Total: €{(Number(formData.totalPrice) || 0).toFixed(2)}</Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </>
+                );
               } else {
                 // DIVING FORM FIELDS
                 return (
@@ -1488,7 +1803,9 @@ const BookingForm = ({ bookingId = null }) => {
             {(() => {
               const currentLocation = locations.find(l => l.id === formData.locationId);
               const isBikeRental = currentLocation?.type === 'bike_rental';
-              if (isBikeRental) return null; // Price already shown in bike rental section
+              const isSurfRental = currentLocation?.type === 'surf';
+              const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+              if (isBikeRental || isSurfRental || isKiteSurfRental) return null; // Price already shown in rental section
               
               return formData.customerId ? (() => {
                 const customer = customers.find(c => c.id === formData.customerId) || null;
@@ -1577,7 +1894,9 @@ const BookingForm = ({ bookingId = null }) => {
             {(() => {
               const currentLocation = locations.find(l => l.id === formData.locationId);
               const isBikeRental = currentLocation?.type === 'bike_rental';
-              if (isBikeRental) return null; // Hide activity type for bike rental
+              const isSurfRental = currentLocation?.type === 'surf';
+              const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+              if (isBikeRental || isSurfRental || isKiteSurfRental) return null; // Hide activity type for rental locations
               
               return (
                 <Grid item xs={12} md={6}>
@@ -1601,7 +1920,9 @@ const BookingForm = ({ bookingId = null }) => {
             {(() => {
               const currentLocation = locations.find(l => l.id === formData.locationId);
               const isBikeRental = currentLocation?.type === 'bike_rental';
-              if (isBikeRental) return null;
+              const isSurfRental = currentLocation?.type === 'surf';
+              const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+              if (isBikeRental || isSurfRental || isKiteSurfRental) return null;
               
               return (
                 <>
@@ -1669,8 +1990,9 @@ const BookingForm = ({ bookingId = null }) => {
             {(() => {
               const currentLocation = locations.find(l => l.id === formData.locationId);
               const isBikeRental = currentLocation?.type === 'bike_rental';
-              // Only show diving equipment rental for diving locations
-              if (isBikeRental || formData.activityType !== 'diving') return null;
+              const isSurfRental = currentLocation?.type === 'surf';
+              const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+              if (isBikeRental || isSurfRental || isKiteSurfRental || formData.activityType !== 'diving') return null;
               
               return (
                 <>
@@ -1845,8 +2167,9 @@ const BookingForm = ({ bookingId = null }) => {
             {(() => {
               const currentLocation = locations.find(l => l.id === formData.locationId);
               const isBikeRental = currentLocation?.type === 'bike_rental';
-              // Only show for diving activities, not bike rental
-              if (isBikeRental || formData.activityType !== 'diving' || !formData.customerId) return null;
+              const isSurfRental = currentLocation?.type === 'surf';
+              const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+              if (isBikeRental || isSurfRental || isKiteSurfRental || formData.activityType !== 'diving' || !formData.customerId) return null;
               
               const customer = customers.find(c => c.id === formData.customerId) || null;
               const customerType = getCustomerType(customer);

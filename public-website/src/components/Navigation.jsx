@@ -28,22 +28,20 @@ const Navigation = () => {
 
   const menuItems = [
     { label: t('nav.home'), path: '/' },
-    { label: t('nav.bookDive'), path: '/book-dive' }, // Available for discovery/orientation/snorkeling, diving restricted to approved customers
-    { label: t('nav.diveSites'), path: '/dive-sites' },
-    { label: t('nav.about'), path: '/about' },
     { label: t('nav.pricing'), path: '/pricing' },
     { label: t('nav.contact'), path: '/contact' }
   ];
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+  const handleNav = (path) => {
+    setMobileOpen(false);
+    navigate(path);
   };
 
   const drawer = (
-    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
+    <Box onClick={() => setMobileOpen(false)} sx={{ textAlign: 'center' }}>
       <List>
         {menuItems.map((item) => (
-          <ListItem key={item.label} onClick={() => navigate(item.path)}>
+          <ListItem key={item.label} onClick={() => handleNav(item.path)}>
             <ListItemText primary={item.label} />
           </ListItem>
         ))}
@@ -58,10 +56,10 @@ const Navigation = () => {
           <Typography
             variant="h6"
             component="div"
-            sx={{ flexGrow: 0, mr: 4, cursor: 'pointer' }}
+            sx={{ flexGrow: 0, mr: 4, cursor: 'pointer', fontWeight: 700 }}
             onClick={() => navigate('/')}
           >
-            Deep Blue Fuerteventura
+            DCMS
           </Typography>
 
           {!isMobile && (
@@ -70,10 +68,10 @@ const Navigation = () => {
                 <Button
                   key={item.label}
                   color="inherit"
-                  onClick={() => navigate(item.path)}
-                  sx={{ 
+                  onClick={() => handleNav(item.path)}
+                  sx={{
                     textTransform: 'none',
-                    borderBottom: location.pathname === item.path ? '2px solid white' : 'none'
+                    borderBottom: location.pathname === item.path.split('#')[0] ? '2px solid white' : 'none'
                   }}
                 >
                   {item.label}
@@ -84,19 +82,8 @@ const Navigation = () => {
 
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <LanguageSwitcher />
-            <Button
-              color="inherit"
-              onClick={() => navigate('/my-account')}
-              sx={{ 
-                textTransform: 'none',
-                border: '1px solid rgba(255, 255, 255, 0.5)',
-                borderBottom: location.pathname === '/my-account' ? '2px solid white' : '1px solid rgba(255, 255, 255, 0.5)'
-              }}
-            >
-              {t('nav.myAccount') || 'My Account'}
-            </Button>
             {isMobile && (
-              <IconButton color="inherit" onClick={handleDrawerToggle}>
+              <IconButton color="inherit" onClick={() => setMobileOpen(!mobileOpen)}>
                 <MenuIcon />
               </IconButton>
             )}
@@ -104,19 +91,11 @@ const Navigation = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Mobile Drawer */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{ keepMounted: true }}
-      >
+      <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }}>
         {drawer}
       </Drawer>
-
     </>
   );
 };
 
 export default Navigation;
-

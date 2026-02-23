@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthService } from '../auth/auth.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { user_role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -32,7 +34,11 @@ export interface LoginDto {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private authService: AuthService,
+    private tenantContext: TenantContextService,
+  ) {}
 
   async findAll() {
     return this.prisma.users.findMany({
@@ -82,9 +88,35 @@ export class UsersService {
       throw new UnauthorizedException('Invalid username or password');
     }
 
-    // Don't return password hash
+    // Tenant check: superadmin can log in without tenant; others must match context
+    const contextTenantId = this.tenantContext.getTenantId();
+    if (user.role !== 'superadmin') {
+      if (contextTenantId && user.tenant_id !== contextTenantId) {
+        throw new UnauthorizedException('User does not belong to this tenant');
+      }
+    }
+
+    const tenantId = user.role === 'superadmin' ? null : (user.tenant_id ?? contextTenantId);
+    const accessToken = this.authService.signAdminToken({
+      sub: user.id,
+      username: user.username,
+      tenantId,
+      role: user.role,
+      permissions: user.permissions,
+    });
+
     const { password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    let tenantSlug: string | null = null;
+    if (user.tenant_id) {
+      const tenant = await this.prisma.tenants.findUnique({
+        where: { id: user.tenant_id },
+      });
+      tenantSlug = tenant?.slug ?? null;
+    }
+    return {
+      user: { ...userWithoutPassword, tenantSlug },
+      access_token: accessToken,
+    };
   }
 
   async create(dto: CreateUserDto) {

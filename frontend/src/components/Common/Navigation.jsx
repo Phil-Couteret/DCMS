@@ -38,7 +38,8 @@ import {
   Business as BusinessIcon,
   Receipt as ReceiptIcon,
   AccountBalance as FinancialIcon,
-  DirectionsBike as BikeIcon
+  DirectionsBike as BikeIcon,
+  Domain as DomainIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from '../../utils/languageContext';
@@ -46,6 +47,7 @@ import { useAuth, USER_ROLES } from '../../utils/authContext';
 import dataService from '../../services/dataService';
 import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
 import { hasDivingFeatures } from '../../utils/locationTypes';
+import { getTenantSlug } from '../../utils/tenantContext';
 
 const drawerWidth = 240;
 
@@ -64,8 +66,9 @@ const Navigation = () => {
   // Build menu items by scope
   const userHasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
   // Dashboard is location-specific when a location is selected, global only when explicitly set to global
+  // Superadmin defaults to global scope; when no locations, always use global
   const scope = userHasGlobalAccess
-    ? (localStorage.getItem('dcms_dashboard_scope') === 'global' ? 'global' : 'location')
+    ? (locations.length > 0 && localStorage.getItem('dcms_dashboard_scope') === 'location' ? 'location' : 'global')
     : 'location';
   const globalMenu = [
     { text: t('nav.dashboard'), icon: <DashboardIcon />, path: '/', permission: 'dashboard' },
@@ -146,9 +149,21 @@ const Navigation = () => {
   });
   
   // Remove duplicates (same path) - keep first occurrence, prioritizing by role order
-  const uniqueMenuItems = menuItems.filter((item, index, self) => 
+  let uniqueMenuItems = menuItems.filter((item, index, self) => 
     index === self.findIndex(t => t.path === item.path)
   );
+
+  // Superadmin: Tenant Management (create/configure tenants). Operational settings are per-tenant.
+  if (currentUser?.role === USER_ROLES.SUPERADMIN) {
+    const superadminItems = [
+      { text: 'Tenant Management', icon: <DomainIcon />, path: '/settings', permission: 'settings' },
+    ];
+    superadminItems.forEach(item => {
+      if (!uniqueMenuItems.some(m => m.path === item.path)) {
+        uniqueMenuItems = [...uniqueMenuItems, item];
+      }
+    });
+  }
 
   // Load locations and initialize selected location
   React.useEffect(() => {
@@ -258,13 +273,12 @@ const Navigation = () => {
       >
         <Toolbar>
           <Typography variant="h6" noWrap component="div" sx={{ mr: 3 }}>
-            DCMS - {orgName || 'Dive Center'}
+            DCMS - {currentUser?.role === USER_ROLES.SUPERADMIN && !getTenantSlug() ? 'Platform Admin' : (orgName || 'Dive Center')}
           </Typography>
-          {/* Dashboard shortcut before location tabs */}
-          {/* Global + Location Tabs unified */}
-          {currentUser && locations.length > 0 && (
+          {/* Dashboard shortcut before location tabs - show Global tab for superadmin even when no locations */}
+          {currentUser && (locations.length > 0 || (currentUser.role === USER_ROLES.SUPERADMIN && userHasGlobalAccess)) && (
             <Tabs
-              value={localStorage.getItem('dcms_dashboard_scope') === 'global' ? '__global__' : selectedLocationId}
+              value={localStorage.getItem('dcms_dashboard_scope') === 'location' && selectedLocationId ? selectedLocationId : '__global__'}
               onChange={(_e, val) => {
                 if (val === '__global__') {
                   localStorage.setItem('dcms_dashboard_scope', 'global');
@@ -277,8 +291,8 @@ const Navigation = () => {
               indicatorColor="secondary"
               sx={{ flexGrow: 1, minHeight: 48 }}
             >
-              {(!currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0)) && (
-                <Tab key="__global__" value="__global__" label={t('nav.global') || t('nav.dashboard')} sx={{ minHeight: 48 }} />
+              {userHasGlobalAccess && (
+                <Tab key="__global__" value="__global__" label={t('nav.global') || 'Global'} sx={{ minHeight: 48 }} />
               )}
               {locations.map(loc => (
                 <Tab key={loc.id} value={loc.id} label={loc.name} sx={{ minHeight: 48 }} />
@@ -313,6 +327,14 @@ const Navigation = () => {
                     {currentUser.name} ({currentUser.role})
                   </Typography>
                 </MenuItem>
+                {currentUser.role === USER_ROLES.SUPERADMIN && (
+                  <MenuItem onClick={() => { navigate('/settings'); handleUserMenuClose(); }}>
+                    <ListItemIcon>
+                      <DomainIcon fontSize="small" />
+                    </ListItemIcon>
+                    Tenant Management
+                  </MenuItem>
+                )}
                 <MenuItem onClick={handleChangePassword}>
                   <ListItemIcon>
                     <LockResetIcon fontSize="small" />
@@ -356,9 +378,12 @@ const Navigation = () => {
             {uniqueMenuItems.map((item) => (
               <ListItem 
                 button 
-                key={item.text}
-                selected={location.pathname === item.path || (item.path === '/bookings' && (location.pathname.startsWith('/bookings/new') || (location.pathname.startsWith('/bookings/') && location.pathname !== '/bookings')))}
-                onClick={() => navigate(item.path)}
+                key={`${item.text}-${item.state?.tab || ''}`}
+                selected={
+                  (location.pathname === item.path && (!item.state?.tab || location.state?.tab === item.state.tab))
+                  || (item.path === '/bookings' && (location.pathname.startsWith('/bookings/new') || (location.pathname.startsWith('/bookings/') && location.pathname !== '/bookings')))
+                }
+                onClick={() => navigate(item.path, item.state ? { state: item.state } : {})}
               >
                 <ListItemIcon>
                   {item.icon}

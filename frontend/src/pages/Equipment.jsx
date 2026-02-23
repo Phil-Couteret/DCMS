@@ -36,6 +36,7 @@ import {
 import {
   ScubaDiving as DivingEquipmentIcon,
   DirectionsBike as BikeEquipmentIcon,
+  Surfing as SurfEquipmentIcon,
   Search as SearchIcon,
   CheckCircle as AvailableIcon,
   Cancel as UnavailableIcon,
@@ -215,8 +216,81 @@ const Equipment = () => {
     }
   };
 
-  // Check if current location is bike rental
-  const isBikeRental = currentLocation ? !hasDivingFeatures(currentLocation, null) : false;
+  // Check location type for equipment display
+  const isBikeRental = currentLocation?.type === 'bike_rental';
+  const isSurfRental = currentLocation?.type === 'surf';
+  const isKiteSurfRental = currentLocation?.type === 'kite_surf';
+  
+  // Get surf rental equipment from location pricing (Point Break style)
+  const getSurfRentalEquipment = () => {
+    if (!isSurfRental || !currentLocation) return [];
+    const pricing = currentLocation.pricing || currentLocation.settings?.pricing || {};
+    const surfTypes = pricing.surfTypes || {};
+    const surfEquipment = pricing.surfEquipment || {};
+    const items = [];
+    Object.entries(surfTypes).forEach(([key, st]) => {
+      items.push({
+        id: `surf-type-${key}`,
+        name: st.name || key.replace(/_/g, ' '),
+        category: 'surf_type',
+        type: 'surf_type',
+        description: st.description || '',
+        locationId: currentLocationId,
+        isAvailable: true,
+        surfTypeKey: key
+      });
+    });
+    Object.entries(surfEquipment).forEach(([key, price]) => {
+      const labels = { wetsuit: 'Wetsuit', shoes: 'Shoes', surf_leash: 'Surf Leash', auto_rack: 'Auto Rack' };
+      items.push({
+        id: `surf-equipment-${key}`,
+        name: labels[key] || key,
+        category: 'surf_accessory',
+        type: 'surf_accessory',
+        description: `€${Number(price).toFixed(2)}/day`,
+        price,
+        locationId: currentLocationId,
+        isAvailable: true,
+        equipmentKey: key
+      });
+    });
+    return items;
+  };
+
+  const getKiteSurfRentalEquipment = () => {
+    if (!isKiteSurfRental || !currentLocation) return [];
+    const pricing = currentLocation.pricing || currentLocation.settings?.pricing || {};
+    const kiteTypes = pricing.kiteTypes || {};
+    const kiteEquipment = pricing.kiteEquipment || {};
+    const items = [];
+    Object.entries(kiteTypes).forEach(([key, kt]) => {
+      items.push({
+        id: `kite-type-${key}`,
+        name: kt.name || key.replace(/_/g, ' '),
+        category: 'kite_type',
+        type: 'kite_type',
+        description: kt.description || '',
+        locationId: currentLocationId,
+        isAvailable: true,
+        kiteTypeKey: key
+      });
+    });
+    const labels = { harness: 'Harness', kite_leash: 'Kite Leash', helmet: 'Helmet', impact_vest: 'Impact Vest', wetsuit: 'Wetsuit' };
+    Object.entries(kiteEquipment).forEach(([key, price]) => {
+      items.push({
+        id: `kite-equipment-${key}`,
+        name: labels[key] || key,
+        category: 'kite_accessory',
+        type: 'kite_accessory',
+        description: `€${Number(price).toFixed(2)}/day`,
+        price,
+        locationId: currentLocationId,
+        isAvailable: true,
+        equipmentKey: key
+      });
+    });
+    return items;
+  };
   
   // Get bike rental equipment from location pricing
   const getBikeRentalEquipment = () => {
@@ -1025,11 +1099,10 @@ const Equipment = () => {
     reader.readAsText(file);
   };
 
-  // Get equipment list - for bike rental, only show bike rental equipment from pricing
-  // For diving locations, only show diving equipment (separate, no mixing)
-  const allEquipmentList = isBikeRental 
-    ? getBikeRentalEquipment() // Only bike equipment for bike rental locations
-    : equipment; // Only diving equipment for diving locations
+  // Get equipment list - for rental locations show pricing-based equipment; for diving show inventory
+  const allEquipmentList = (isBikeRental || isSurfRental || isKiteSurfRental)
+    ? (isSurfRental ? getSurfRentalEquipment() : isKiteSurfRental ? getKiteSurfRentalEquipment() : getBikeRentalEquipment())
+    : equipment;
 
   const filteredEquipment = allEquipmentList.filter(eq => {
     const matchesSearch = searchQuery.trim() === '' ||
@@ -1064,7 +1137,7 @@ const Equipment = () => {
     <Box>
       <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
         <Tab label="Equipment" icon={<DivingEquipmentIcon />} iconPosition="start" />
-        <Tab label="Tanks / Cylinders" icon={<TankIcon />} iconPosition="start" disabled={isBikeRental} />
+        <Tab label="Tanks / Cylinders" icon={<TankIcon />} iconPosition="start" disabled={isBikeRental || isSurfRental || isKiteSurfRental} />
       </Tabs>
 
       {activeTab === 0 && (
@@ -1182,7 +1255,17 @@ const Equipment = () => {
             onChange={(e) => setFilterType(e.target.value)}
           >
             <MenuItem value="all">All Types</MenuItem>
-            {isBikeRental ? (
+            {isSurfRental ? (
+              <>
+                <MenuItem value="surf_type">Board Types</MenuItem>
+                <MenuItem value="surf_accessory">Accessories</MenuItem>
+              </>
+            ) : isKiteSurfRental ? (
+              <>
+                <MenuItem value="kite_type">Equipment Types</MenuItem>
+                <MenuItem value="kite_accessory">Accessories</MenuItem>
+              </>
+            ) : isBikeRental ? (
               <>
                 <MenuItem value="bike_type">Bike Types</MenuItem>
                 <MenuItem value="rental_equipment">Rental Equipment</MenuItem>
@@ -1208,7 +1291,11 @@ const Equipment = () => {
 
       {filteredEquipment.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          {isBikeRental ? (
+          {isSurfRental ? (
+            <SurfEquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          ) : isKiteSurfRental ? (
+            <SurfEquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          ) : isBikeRental ? (
             <BikeEquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           ) : (
             <DivingEquipmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
@@ -1225,8 +1312,8 @@ const Equipment = () => {
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Typography variant="h6">
-                      {isBikeRental && (item.isBikeType || item.isRentalEquipment) 
-                        ? item.name 
+                      {(isSurfRental && (item.category === 'surf_type' || item.category === 'surf_accessory')) || (isBikeRental && (item.isBikeType || item.isRentalEquipment))
+                        ? item.name
                         : `${item.brand || ''} ${item.model || ''}`.trim() || item.name}
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
@@ -1256,7 +1343,18 @@ const Equipment = () => {
                     </Box>
                   </Box>
 
-                  {isBikeRental && (item.isBikeType || item.isRentalEquipment) ? (
+                  {(isSurfRental && (item.category === 'surf_type' || item.category === 'surf_accessory')) || (isKiteSurfRental && (item.category === 'kite_type' || item.category === 'kite_accessory')) ? (
+                    <>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        {item.description || (item.surfTypeKey ? 'Board type' : item.kiteTypeKey ? 'Equipment type' : 'Accessory')}
+                      </Typography>
+                      {item.price != null && (
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          {typeof item.price === 'number' ? `€${item.price.toFixed(2)}/day` : item.description}
+                        </Typography>
+                      )}
+                    </>
+                  ) : isBikeRental && (item.isBikeType || item.isRentalEquipment) ? (
                     <>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         {item.description || `Type: ${item.type}`}
@@ -1303,7 +1401,7 @@ const Equipment = () => {
                       )}
                     </>
                   )}
-                  {!isBikeRental || (!item.isBikeType && !item.isRentalEquipment) ? (
+                  {!((isBikeRental && (item.isBikeType || item.isRentalEquipment)) || (isSurfRental && (item.category === 'surf_type' || item.category === 'surf_accessory')) || (isKiteSurfRental && (item.category === 'kite_type' || item.category === 'kite_accessory'))) ? (
                     <Box sx={{ mt: 2 }}>
                       <Chip
                         label={item.condition || 'excellent'}
@@ -1313,10 +1411,10 @@ const Equipment = () => {
                     </Box>
                   ) : null}
                   <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                    {/* Bike rental equipment from pricing is read-only, show info only */}
-                    {isBikeRental && (item.isBikeType || item.isRentalEquipment) ? (
+                    {/* Rental equipment from pricing is read-only */}
+                    {(isSurfRental && (item.category === 'surf_type' || item.category === 'surf_accessory')) || (isKiteSurfRental && (item.category === 'kite_type' || item.category === 'kite_accessory')) || (isBikeRental && (item.isBikeType || item.isRentalEquipment)) ? (
                       <Alert severity="info" sx={{ width: '100%', py: 0.5 }}>
-                        {item.isBikeType ? 'Bike type configured in Settings > Prices' : 'Pricing configured in Settings > Prices'}
+                        {isSurfRental ? 'Pricing configured in Settings > Prices' : (item.isBikeType ? 'Bike type configured in Settings > Prices' : 'Pricing configured in Settings > Prices')}
                       </Alert>
                     ) : canManageEquipment ? (
                       <>

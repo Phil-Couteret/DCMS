@@ -203,6 +203,41 @@ const Prices = () => {
       };
     }
 
+    // Initialize bike rental pricing if missing (for bike_rental locations)
+    const isBikeLoc = loc.type === 'bike_rental';
+    if (isBikeLoc && (!loc.pricing.bikeTypes || Object.keys(loc.pricing.bikeTypes).length === 0)) {
+      loc.pricing.bikeTypes = {
+        street_bike: { name: 'Street Bike', description: 'Street bike rental', rentalTiers: [{ days: 2, price: 80, description: '2 days' }, { days: 7, price: 200, description: '7 days' }] },
+        gravel_bike: { name: 'Gravel Bike', description: 'Gravel bike rental', rentalTiers: [{ days: 2, price: 80, description: '2 days' }, { days: 7, price: 200, description: '7 days' }] }
+      };
+      loc.pricing.equipment = loc.pricing.equipment || { click_pedals: 10, helmet: 10, gps_computer: 15 };
+      loc.pricing.insurance = loc.pricing.insurance || { one_day: 5, one_week: 15, one_month: 25 };
+    }
+
+    // Initialize kite surf rental pricing if missing (Point Break - https://www.pointbreakschool.com/en/rental/kite-surf-rental/)
+    const isKiteSurfLoc = loc.type === 'kite_surf';
+    if (isKiteSurfLoc && (!loc.pricing.kiteTypes || Object.keys(loc.pricing.kiteTypes).length === 0)) {
+      loc.pricing.kiteTypes = {
+        complete_equipment: { name: 'Complete Equipment', description: 'Kite + Bar + Leash + Board + Pump', rentalTiers: [{ days: 1, price: 50, description: '1 day' }, { days: 2, price: 95, description: '2 days' }, { days: 3, price: 140, description: '3 days' }, { days: 4, price: 180, description: '4 days' }, { days: 5, price: 210, description: '5 days' }], extraDayPrice: 35 },
+        kite_bar_leash: { name: 'Kite + Bar + Leash', description: 'Kite, bar and leash only', rentalTiers: [{ days: 1, price: 25, description: '1 day' }, { days: 2, price: 50, description: '2 days' }, { days: 3, price: 75, description: '3 days' }, { days: 4, price: 95, description: '4 days' }, { days: 5, price: 105, description: '5 days' }], extraDayPrice: 20 },
+        kiteboard: { name: 'Kiteboard', description: 'Board only', rentalTiers: [{ days: 1, price: 25, description: '1 day' }, { days: 2, price: 50, description: '2 days' }, { days: 3, price: 75, description: '3 days' }, { days: 4, price: 95, description: '4 days' }, { days: 5, price: 105, description: '5 days' }], extraDayPrice: 20 }
+      };
+      loc.pricing.kiteEquipment = loc.pricing.kiteEquipment || { harness: 6, kite_leash: 1, helmet: 1, impact_vest: 1, wetsuit: 3 };
+    }
+
+    // Initialize surf rental pricing if missing (Point Break School style - https://www.pointbreakschool.com/en/rental/surf-rental/)
+    const isSurfLoc = loc.type === 'surf';
+    if (isSurfLoc && (!loc.pricing.surfTypes || Object.keys(loc.pricing.surfTypes).length === 0)) {
+      loc.pricing.surfTypes = {
+        softboard: { name: 'Softboard', description: 'Beginner – soft, stable, high buoyancy', rentalTiers: [{ days: 1, price: 11, description: '1 day' }, { days: 2, price: 22, description: '2 days' }, { days: 3, price: 33, description: '3 days' }, { days: 4, price: 40, description: '4 days' }, { days: 5, price: 47, description: '5 days' }], extraDayPrice: 7 },
+        performance_softboard: { name: 'Performance Softboard', description: 'Beginner/intermediate – responsive, maneuverable', rentalTiers: [{ days: 1, price: 15, description: '1 day' }, { days: 2, price: 30, description: '2 days' }, { days: 3, price: 45, description: '3 days' }, { days: 4, price: 55, description: '4 days' }, { days: 5, price: 65, description: '5 days' }], extraDayPrice: 10 },
+        shortboard: { name: 'Shortboard', description: 'Intermediate/advanced – speed, control', rentalTiers: [{ days: 1, price: 15, description: '1 day' }, { days: 2, price: 30, description: '2 days' }, { days: 3, price: 45, description: '3 days' }, { days: 4, price: 55, description: '4 days' }, { days: 5, price: 65, description: '5 days' }], extraDayPrice: 10 },
+        midlength: { name: 'Mid-length', description: 'Intermediate/advanced – volume + maneuverability', rentalTiers: [{ days: 1, price: 15, description: '1 day' }, { days: 2, price: 30, description: '2 days' }, { days: 3, price: 45, description: '3 days' }, { days: 4, price: 55, description: '4 days' }, { days: 5, price: 65, description: '5 days' }], extraDayPrice: 10 },
+        longboard: { name: 'Longboard', description: 'Intermediate/advanced – stability, nose riding', rentalTiers: [{ days: 1, price: 25, description: '1 day' }, { days: 2, price: 50, description: '2 days' }, { days: 3, price: 75, description: '3 days' }, { days: 4, price: 95, description: '4 days' }, { days: 5, price: 115, description: '5 days' }], extraDayPrice: 20 }
+      };
+      loc.pricing.surfEquipment = loc.pricing.surfEquipment || { wetsuit: 5, shoes: 3, surf_leash: 3, auto_rack: 3 };
+    }
+
     // Initialize dive packs if missing (2, 5, 10 dives, with/without equipment)
     if (!loc.pricing.divePacks || !Array.isArray(loc.pricing.divePacks)) {
       const tiers = getDefaultDiveTiers(isPlayitas);
@@ -296,8 +331,10 @@ const Prices = () => {
   // Check if selected location is Las Playitas
   const isPlayitas = selectedLocation && (selectedLocation.name === 'Las Playitas' || selectedLocation.id === 'playitas' || selectedLocation.id === '550e8400-e29b-41d4-a716-446655440002');
   
-  // Check if selected location is bike rental
-  const isBikeRental = selectedLocation ? !hasDivingFeatures(selectedLocation, settings) : false;
+  // Check if selected location is bike rental or surf rental (type-specific)
+  const isBikeRental = selectedLocation?.type === 'bike_rental';
+  const isSurfRental = selectedLocation?.type === 'surf';
+  const isKiteSurfRental = selectedLocation?.type === 'kite_surf';
 
   const updateLocationPricing = (updater) => {
     setLocations(prev => prev.map(l => {
@@ -467,6 +504,90 @@ const Prices = () => {
   const removePack = (index) => {
     const packs = (locPricing.divePacks || []).filter((_, i) => i !== index);
     updateLocationPricing((pricing) => ({ ...pricing, divePacks: packs }));
+  };
+
+  // Bike rental handlers
+  const handleBikeTierChange = (bikeTypeKey, index, field, value) => {
+    const tiers = [...(locPricing.bikeTypes?.[bikeTypeKey]?.rentalTiers || [])];
+    if (!tiers[index]) return;
+    tiers[index] = { ...tiers[index], [field]: value };
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      bikeTypes: {
+        ...(pricing.bikeTypes || {}),
+        [bikeTypeKey]: { ...(pricing.bikeTypes?.[bikeTypeKey] || {}), rentalTiers: tiers }
+      }
+    }));
+  };
+  const handleBikeEquipmentPriceChange = (key, value) => {
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      equipment: { ...(pricing.equipment || {}), [key]: parseFloat(value) || 0 }
+    }));
+  };
+  const handleBikeInsurancePriceChange = (key, value) => {
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      insurance: { ...(pricing.insurance || {}), [key]: parseFloat(value) || 0 }
+    }));
+  };
+
+  // Surf rental handlers (Point Break School style: softboard, performance_softboard, shortboard, midlength, longboard + accessories)
+  const handleSurfTierChange = (surfTypeKey, index, field, value) => {
+    const tiers = [...(locPricing.surfTypes?.[surfTypeKey]?.rentalTiers || [])];
+    if (!tiers[index]) return;
+    tiers[index] = { ...tiers[index], [field]: value };
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      surfTypes: {
+        ...(pricing.surfTypes || {}),
+        [surfTypeKey]: { ...(pricing.surfTypes?.[surfTypeKey] || {}), rentalTiers: tiers }
+      }
+    }));
+  };
+  const handleSurfExtraDayChange = (surfTypeKey, value) => {
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      surfTypes: {
+        ...(pricing.surfTypes || {}),
+        [surfTypeKey]: { ...(pricing.surfTypes?.[surfTypeKey] || {}), extraDayPrice: parseFloat(value) || 0 }
+      }
+    }));
+  };
+  const handleSurfEquipmentPriceChange = (key, value) => {
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      surfEquipment: { ...(pricing.surfEquipment || {}), [key]: parseFloat(value) || 0 }
+    }));
+  };
+
+  // Kite surf rental handlers (Point Break style)
+  const handleKiteSurfTierChange = (kiteTypeKey, index, field, value) => {
+    const tiers = [...(locPricing.kiteTypes?.[kiteTypeKey]?.rentalTiers || [])];
+    if (!tiers[index]) return;
+    tiers[index] = { ...tiers[index], [field]: value };
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      kiteTypes: {
+        ...(pricing.kiteTypes || {}),
+        [kiteTypeKey]: { ...(pricing.kiteTypes?.[kiteTypeKey] || {}), rentalTiers: tiers }
+      }
+    }));
+  };
+  const handleKiteSurfExtraDayChange = (kiteTypeKey, value) => {
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      kiteTypes: {
+        ...(pricing.kiteTypes || {}),
+        [kiteTypeKey]: { ...(pricing.kiteTypes?.[kiteTypeKey] || {}), extraDayPrice: parseFloat(value) || 0 }
+      }
+    }));
+  };
+  const handleKiteSurfEquipmentPriceChange = (key, value) => {
+    updateLocationPricing((pricing) => ({
+      ...pricing,
+      kiteEquipment: { ...(pricing.kiteEquipment || {}), [key]: parseFloat(value) || 0 }
+    }));
   };
 
   if (!settings) {
@@ -720,8 +841,157 @@ const Prices = () => {
           </>
         )}
 
+        {/* Surf Rental Pricing */}
+        {isSurfRental && (
+          <>
+            <Grid item xs={12}>
+              <Card>
+                <CardHeader title="Surf Rental Pricing" subheader="Surfboard types and tiered pricing (Point Break style)" />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    {['softboard', 'performance_softboard', 'shortboard', 'midlength', 'longboard'].map((key) => {
+                      const st = locPricing.surfTypes?.[key] || {};
+                      const tiers = st.rentalTiers || [];
+                      return (
+                        <Grid item xs={12} md={6} key={key}>
+                          <Card variant="outlined">
+                            <CardHeader title={st.name || key.replace(/_/g, ' ')} subheader={st.description} />
+                            <CardContent>
+                              <TableContainer>
+                                <Table size="small">
+                                  <TableHead>
+                                    <TableRow>
+                                      <TableCell>Days</TableCell>
+                                      <TableCell>Price (€)</TableCell>
+                                      <TableCell>Description</TableCell>
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {tiers.map((tier, i) => (
+                                      <TableRow key={i}>
+                                        <TableCell>
+                                          <TextField type="number" value={tier.days} onChange={(e) => handleSurfTierChange(key, i, 'days', parseInt(e.target.value) || 0)} size="small" sx={{ width: 70 }} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <TextField type="number" value={tier.price} onChange={(e) => handleSurfTierChange(key, i, 'price', parseFloat(e.target.value) || 0)} size="small" sx={{ width: 80 }} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <TextField value={tier.description} onChange={(e) => handleSurfTierChange(key, i, 'description', e.target.value)} size="small" fullWidth />
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </TableContainer>
+                              <TextField label="Extra day (€)" type="number" value={st.extraDayPrice || 0} onChange={(e) => handleSurfExtraDayChange(key, e.target.value)} size="small" sx={{ mt: 1, width: 120 }} InputProps={{ startAdornment: '€' }} />
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardHeader title="Surf Accessories" subheader="Wetsuit, shoes, leash, rack" />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    {[
+                      { key: 'wetsuit', label: 'Wetsuit (€/day)' },
+                      { key: 'shoes', label: 'Shoes (€/day)' },
+                      { key: 'surf_leash', label: 'Surf Leash (€/day)' },
+                      { key: 'auto_rack', label: 'Auto Rack (€/day)' }
+                    ].map(({ key, label }) => (
+                      <Grid item xs={12} key={key}>
+                        <TextField label={label} type="number" value={locPricing.surfEquipment?.[key] || 0} onChange={(e) => handleSurfEquipmentPriceChange(key, e.target.value)} fullWidth size="small" InputProps={{ startAdornment: '€' }} />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          </>
+        )}
+
+        {/* Kite Surf Rental Pricing */}
+        {isKiteSurfRental && (
+          <>
+            <Grid item xs={12}>
+              <Card>
+                <CardHeader title="Kite Surf Rental Pricing" subheader="Equipment types and tiered pricing (Point Break style)" />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    {['complete_equipment', 'kite_bar_leash', 'kiteboard'].map((key) => {
+                      const kt = locPricing.kiteTypes?.[key] || {};
+                      const tiers = kt.rentalTiers || [];
+                      return (
+                        <Grid item xs={12} md={6} key={key}>
+                          <Card variant="outlined">
+                            <CardHeader title={kt.name || key.replace(/_/g, ' ')} subheader={kt.description} />
+                            <CardContent>
+                              <TableContainer>
+                                <Table size="small">
+                                  <TableHead>
+                                    <TableRow>
+                                      <TableCell>Days</TableCell>
+                                      <TableCell>Price (€)</TableCell>
+                                      <TableCell>Description</TableCell>
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {tiers.map((tier, i) => (
+                                      <TableRow key={i}>
+                                        <TableCell>
+                                          <TextField type="number" value={tier.days} onChange={(e) => handleKiteSurfTierChange(key, i, 'days', parseInt(e.target.value) || 0)} size="small" sx={{ width: 70 }} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <TextField type="number" value={tier.price} onChange={(e) => handleKiteSurfTierChange(key, i, 'price', parseFloat(e.target.value) || 0)} size="small" sx={{ width: 80 }} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <TextField value={tier.description} onChange={(e) => handleKiteSurfTierChange(key, i, 'description', e.target.value)} size="small" fullWidth />
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </TableContainer>
+                              <TextField label="Extra day (€)" type="number" value={kt.extraDayPrice || 0} onChange={(e) => handleKiteSurfExtraDayChange(key, e.target.value)} size="small" sx={{ mt: 1, width: 120 }} InputProps={{ startAdornment: '€' }} />
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardHeader title="Kite Surf Accessories" subheader="Harness, leash, helmet, vest, wetsuit (€/day)" />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    {[
+                      { key: 'harness', label: 'Harness (€/day)' },
+                      { key: 'kite_leash', label: 'Kite Leash (€/day)' },
+                      { key: 'helmet', label: 'Helmet (€/day)' },
+                      { key: 'impact_vest', label: 'Impact Vest (€/day)' },
+                      { key: 'wetsuit', label: 'Wetsuit (€/day)' }
+                    ].map(({ key, label }) => (
+                      <Grid item xs={12} key={key}>
+                        <TextField label={label} type="number" value={locPricing.kiteEquipment?.[key] || 0} onChange={(e) => handleKiteSurfEquipmentPriceChange(key, e.target.value)} fullWidth size="small" InputProps={{ startAdornment: '€' }} />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          </>
+        )}
+
         {/* Diving-related pricing - Only show for diving locations */}
-        {!isBikeRental && (
+        {selectedLocation && hasDivingFeatures(selectedLocation, settings) && (
         <>
             {/* Dive Packs */}
             <Grid item xs={12}>

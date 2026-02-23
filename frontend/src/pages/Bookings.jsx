@@ -137,35 +137,20 @@ const Bookings = () => {
       const currentLocationId = localStorage.getItem('dcms_current_location');
       const currentLocation = allLocations.find(l => l.id === currentLocationId);
       const isCurrentLocationBikeRental = currentLocation?.type === 'bike_rental';
+      const isCurrentLocationSurfRental = currentLocation?.type === 'surf';
+      const isCurrentLocationKiteSurfRental = currentLocation?.type === 'kite_surf';
       
-      // Helper function to determine if a booking is a bike rental
-      const isBookingBikeRental = (booking) => {
-        // Check equipmentNeeded for bike_rental activity type
-        if (booking.equipmentNeeded?.activityType === 'bike_rental') {
-          return true;
-        }
-        // Check if booking's location is a bike rental location
-        const bookingLocationId = booking.locationId || booking.location_id;
-        const bookingLocation = allLocations.find(l => l.id === bookingLocationId);
-        return bookingLocation?.type === 'bike_rental';
-      };
-      
-      // Filter bookings based on current location type AND location ID
       let filteredBookings = allBookings;
       if (currentLocation) {
-        const currentLocationId = currentLocation.id;
+        const cid = currentLocation.id;
         if (isCurrentLocationBikeRental) {
-          // For bike rental locations: only show bike rental bookings for this location
-          filteredBookings = allBookings.filter(booking => {
-            const bookingLocationId = booking.locationId || booking.location_id;
-            return isBookingBikeRental(booking) && bookingLocationId === currentLocationId;
-          });
+          filteredBookings = allBookings.filter(b => (b.locationId || b.location_id) === cid && (b.equipmentNeeded?.activityType === 'bike_rental'));
+        } else if (isCurrentLocationSurfRental) {
+          filteredBookings = allBookings.filter(b => (b.locationId || b.location_id) === cid && (b.equipmentNeeded?.activityType === 'surf'));
+        } else if (isCurrentLocationKiteSurfRental) {
+          filteredBookings = allBookings.filter(b => (b.locationId || b.location_id) === cid && (b.equipmentNeeded?.activityType === 'kite_surf'));
         } else {
-          // For diving locations: only show non-bike-rental bookings for this location
-          filteredBookings = allBookings.filter(booking => {
-            const bookingLocationId = booking.locationId || booking.location_id;
-            return !isBookingBikeRental(booking) && bookingLocationId === currentLocationId;
-          });
+          filteredBookings = allBookings.filter(b => (b.locationId || b.location_id) === cid && b.equipmentNeeded?.activityType !== 'bike_rental' && b.equipmentNeeded?.activityType !== 'surf' && b.equipmentNeeded?.activityType !== 'kite_surf');
         }
       }
       // If no current location selected (global view), show all bookings
@@ -223,14 +208,22 @@ const Bookings = () => {
   };
 
   const isBikeRental = (booking) => {
-    return booking.equipmentNeeded?.activityType === 'bike_rental' || 
-           booking.activityType === 'specialty' && booking.equipmentNeeded?.activityType === 'bike_rental';
+    return booking.equipmentNeeded?.activityType === 'bike_rental' ||
+           (booking.activityType === 'specialty' && booking.equipmentNeeded?.activityType === 'bike_rental');
+  };
+  const isSurfRental = (booking) => {
+    return booking.equipmentNeeded?.activityType === 'surf' ||
+           (booking.activityType === 'specialty' && booking.equipmentNeeded?.activityType === 'surf');
+  };
+  const isKiteSurfRental = (booking) => {
+    return booking.equipmentNeeded?.activityType === 'kite_surf' ||
+           (booking.activityType === 'specialty' && booking.equipmentNeeded?.activityType === 'kite_surf');
   };
 
   const getActivityDisplayName = (booking) => {
-    if (isBikeRental(booking)) {
-      return 'Bike Rental';
-    }
+    if (isBikeRental(booking)) return 'Bike Rental';
+    if (isSurfRental(booking)) return 'Surf Rental';
+    if (isKiteSurfRental(booking)) return 'Kite Surf Rental';
     const activityMap = {
       diving: 'Diving',
       snorkeling: 'Snorkeling',
@@ -393,12 +386,12 @@ const Bookings = () => {
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         <strong>{t('bookings.details.activity') || 'Activity'}:</strong> {getActivityDisplayName(booking)}
                       </Typography>
-                      {isBikeRental(booking) ? (
+                      {(isBikeRental(booking) || isSurfRental(booking) || isKiteSurfRental(booking)) ? (
                         <>
                           <Typography variant="body2" color="text.secondary" gutterBottom>
-                            <strong>Rental Duration:</strong> {booking.equipmentNeeded?.rentalDays || booking.numberOfDives || 2} day{(booking.equipmentNeeded?.rentalDays || booking.numberOfDives || 2) > 1 ? 's' : ''}
+                            <strong>Rental Duration:</strong> {booking.equipmentNeeded?.rentalDays || booking.numberOfDives || 1} day{(booking.equipmentNeeded?.rentalDays || booking.numberOfDives || 1) > 1 ? 's' : ''}
                           </Typography>
-                          {booking.equipmentNeeded?.bikeType && (
+                          {isBikeRental(booking) && booking.equipmentNeeded?.bikeType && (
                             <Typography variant="body2" color="text.secondary" gutterBottom>
                               <strong>Bike Type:</strong> {
                                 booking.equipmentNeeded.bikeType === 'street_bike' ? 'Street Bike' :
@@ -406,6 +399,16 @@ const Bookings = () => {
                                 booking.equipmentNeeded.bikeType === 'mountain_bike' ? 'Mountain Bike' :
                                 booking.equipmentNeeded.bikeType
                               }
+                            </Typography>
+                          )}
+                          {isSurfRental(booking) && booking.equipmentNeeded?.surfType && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <strong>Board:</strong> {(booking.equipmentNeeded.surfType || '').replace(/_/g, ' ')}
+                            </Typography>
+                          )}
+                          {isKiteSurfRental(booking) && booking.equipmentNeeded?.kiteType && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <strong>Equipment:</strong> {(booking.equipmentNeeded.kiteType || '').replace(/_/g, ' ')}
                             </Typography>
                           )}
                           {booking.equipmentNeeded?.startDate && (
@@ -485,6 +488,35 @@ const Bookings = () => {
                                 booking.equipmentNeeded.bikeInsurance
                               }
                             </Typography>
+                          )}
+                        </>
+                      ) : isSurfRental(booking) ? (
+                        <>
+                          {booking.equipmentNeeded?.surfEquipment && Object.values(booking.equipmentNeeded.surfEquipment).some(v => v) && (
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="body2" color="text.secondary" gutterBottom><strong>Accessories:</strong></Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
+                                {booking.equipmentNeeded.surfEquipment.wetsuit && <Chip label="Wetsuit" size="small" variant="outlined" />}
+                                {booking.equipmentNeeded.surfEquipment.shoes && <Chip label="Shoes" size="small" variant="outlined" />}
+                                {booking.equipmentNeeded.surfEquipment.surf_leash && <Chip label="Leash" size="small" variant="outlined" />}
+                                {booking.equipmentNeeded.surfEquipment.auto_rack && <Chip label="Auto Rack" size="small" variant="outlined" />}
+                              </Box>
+                            </Box>
+                          )}
+                        </>
+                      ) : isKiteSurfRental(booking) ? (
+                        <>
+                          {booking.equipmentNeeded?.kiteEquipment && Object.values(booking.equipmentNeeded.kiteEquipment).some(v => v) && (
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="body2" color="text.secondary" gutterBottom><strong>Accessories:</strong></Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
+                                {booking.equipmentNeeded.kiteEquipment.harness && <Chip label="Harness" size="small" variant="outlined" />}
+                                {booking.equipmentNeeded.kiteEquipment.kite_leash && <Chip label="Kite Leash" size="small" variant="outlined" />}
+                                {booking.equipmentNeeded.kiteEquipment.helmet && <Chip label="Helmet" size="small" variant="outlined" />}
+                                {booking.equipmentNeeded.kiteEquipment.impact_vest && <Chip label="Impact Vest" size="small" variant="outlined" />}
+                                {booking.equipmentNeeded.kiteEquipment.wetsuit && <Chip label="Wetsuit" size="small" variant="outlined" />}
+                              </Box>
+                            </Box>
                           )}
                         </>
                       ) : (

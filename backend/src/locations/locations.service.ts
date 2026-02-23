@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 export interface CreateLocationDto {
   name: string;
   type: string;
@@ -20,18 +21,28 @@ export interface UpdateLocationDto {
 
 @Injectable()
 export class LocationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll(includeInactive: boolean = false) {
+    const baseWhere = includeInactive ? {} : { is_active: true };
+    const where = { ...baseWhere, ...this.tenantFilter() };
     return this.prisma.locations.findMany({
-      where: includeInactive ? {} : { is_active: true },
+      where,
       orderBy: { name: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const location = await this.prisma.locations.findUnique({
-      where: { id },
+    const location = await this.prisma.locations.findFirst({
+      where: { id, ...this.tenantFilter() },
     });
 
     if (!location) {
@@ -42,14 +53,15 @@ export class LocationsService {
   }
 
   async create(dto: CreateLocationDto) {
-    // If ID is provided, use it (for migrations)
+    const tenantId = this.tenantContext.getTenantId();
     const data: any = {
       name: dto.name,
       type: dto.type,
-        address: dto.address || {},
-        contact_info: dto.contactInfo || {},
-        settings: dto.settings || {},
-        is_active: dto.isActive !== undefined ? dto.isActive : true,
+      address: dto.address || {},
+      contact_info: dto.contactInfo || {},
+      settings: dto.settings || {},
+      is_active: dto.isActive !== undefined ? dto.isActive : true,
+      ...(tenantId && { tenant_id: tenantId }),
     };
     
     if ((dto as any).id) {

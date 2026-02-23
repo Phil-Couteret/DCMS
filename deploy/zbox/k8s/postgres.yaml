@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: dcms
+  labels:
+    app: dcms-postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: dcms-postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: dcms
+  labels:
+    app: dcms-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dcms-postgres
+  template:
+    metadata:
+      labels:
+        app: dcms-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: dcms
+            - name: POSTGRES_USER
+              value: dcms
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dcms-secrets
+                  key: db-password
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: dcms-postgres-pvc

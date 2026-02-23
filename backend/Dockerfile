@@ -1,6 +1,9 @@
 # DCMS Backend - VPS-style Docker image
-# Use Debian (slim) not Alpine - Prisma needs compatible OpenSSL
-FROM node:20-slim AS builder
+# Use Bullseye (Debian 11) - has libssl1.1 which matches Prisma's default binary
+FROM node:20-bullseye-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -12,9 +15,9 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production image
-FROM node:20-slim
+FROM node:20-bullseye-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd \
+RUN apt-get update && apt-get install -y --no-install-recommends openssl netcat-openbsd postgresql-client \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -23,6 +26,7 @@ COPY package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY prisma ./prisma
+COPY scripts ./scripts
 COPY src ./src
 COPY tsconfig*.json ./
 

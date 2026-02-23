@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -7,8 +8,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model tenants {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                String    @unique @db.VarChar(50)
+  name                String    @db.VarChar(200)
+  domain              String?   @db.VarChar(255)
+  is_active           Boolean?  @default(true)
+  settings            Json?     @default("{}")
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+  audit_logs          audit_logs[]
+  certification_agencies certification_agencies[]
+  customers           customers[]
+  data_breaches       data_breaches[]
+  government_bonos    government_bonos[]
+  locations           locations[]
+  partners            partners[]
+  tenant_settings     settings[]
+  users               users[]
+
+  @@index([slug], map: "idx_tenants_slug")
+  @@index([is_active], map: "idx_tenants_active")
+}
+
 model audit_logs {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String?   @db.Uuid
   user_id       String?   @db.Uuid
   user_type     String    @db.VarChar(20)
   action        String    @db.VarChar(50)
@@ -18,7 +43,9 @@ model audit_logs {
   ip_address    String?   @db.Inet
   user_agent    String?
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  tenants       tenants?  @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
+  @@index([tenant_id], map: "idx_audit_logs_tenant")
   @@index([action], map: "idx_audit_logs_action")
   @@index([created_at], map: "idx_audit_logs_created_at")
   @@index([resource_type, resource_id], map: "idx_audit_logs_resource")
@@ -128,6 +155,7 @@ model bookings {
 
 model certification_agencies {
   id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String?                   @db.Uuid
   name                    String                    @db.VarChar(100)
   code                    String                    @unique @db.VarChar(10)
   priority                Int
@@ -137,7 +165,10 @@ model certification_agencies {
   is_active               Boolean?                  @default(true)
   created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
   updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  tenants                  tenants?                 @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   customer_certifications customer_certifications[]
+
+  @@index([tenant_id], map: "idx_certification_agencies_tenant")
 }
 
 model customer_certifications {
@@ -200,6 +231,7 @@ model customer_stays {
 
 model customers {
   id                                                 String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                                          String?                        @db.Uuid
   first_name                                         String                         @db.VarChar(50)
   last_name                                          String                         @db.VarChar(50)
   email                                              String?                        @db.VarChar(100)
@@ -229,8 +261,10 @@ model customers {
   customer_stays                                     customer_stays[]
   partners_customers_created_by_partner_idTopartners partners?                      @relation("customers_created_by_partner_idTopartners", fields: [created_by_partner_id], references: [id], onUpdate: NoAction)
   partners_customers_partner_idTopartners            partners?                      @relation("customers_partner_idTopartners", fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenants                                            tenants?                       @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   data_subject_access_requests                       data_subject_access_requests[]
 
+  @@index([tenant_id], map: "idx_customers_tenant")
   @@index([anonymized], map: "idx_customers_anonymized")
   @@index([created_by_partner_id], map: "idx_customers_created_by_partner")
   @@index([deleted_at], map: "idx_customers_deleted_at")
@@ -241,6 +275,7 @@ model customers {
 
 model data_breaches {
   id                             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                      String?     @db.Uuid
   breach_type                    breach_type
   severity                       severity    @default(medium)
   description                    String
@@ -266,7 +301,9 @@ model data_breaches {
   notes                          String?
   created_at                     DateTime?   @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime?   @default(now()) @db.Timestamptz(6)
+  tenants                        tenants?    @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
+  @@index([tenant_id], map: "idx_data_breaches_tenant")
   @@index([detected_at], map: "idx_data_breaches_detected_at")
   @@index([notification_deadline], map: "idx_data_breaches_notification_deadline")
   @@index([reported_to_authority], map: "idx_data_breaches_reported_to_authority")
@@ -340,6 +377,7 @@ model equipment {
 
 model government_bonos {
   id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String?      @db.Uuid
   code                String       @unique @db.VarChar(50)
   type                String       @db.VarChar(50)
   discount_percentage Decimal?     @db.Decimal(5, 2)
@@ -351,11 +389,15 @@ model government_bonos {
   is_active           Boolean?     @default(true)
   created_at          DateTime?    @default(now()) @db.Timestamptz(6)
   updated_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  tenants             tenants?     @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   bono_usage          bono_usage[]
+
+  @@index([tenant_id], map: "idx_government_bonos_tenant")
 }
 
 model locations {
   id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String?           @db.Uuid
   name            String            @db.VarChar(100)
   type            String            @db.VarChar(50)
   address         Json
@@ -364,6 +406,7 @@ model locations {
   is_active       Boolean?          @default(true)
   created_at      DateTime?         @default(now()) @db.Timestamptz(6)
   updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  tenants         tenants?          @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   boat_preps      boat_preps[]
   boats           boats[]
   bookings        bookings[]
@@ -373,6 +416,7 @@ model locations {
   pricing_configs pricing_configs[]
   staff           staff[]
 
+  @@index([tenant_id], map: "idx_locations_tenant")
   @@index([is_active], map: "idx_locations_active")
   @@index([type], map: "idx_locations_type")
 }
@@ -436,6 +480,7 @@ model partner_invoices {
 
 model partners {
   id                                                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                                           String?            @db.Uuid
   name                                                String             @db.VarChar(100)
   company_name                                        String             @db.VarChar(200)
   contact_email                                       String             @unique @db.VarChar(100)
@@ -449,12 +494,14 @@ model partners {
   settings                                            Json?              @default("{}")
   created_at                                          DateTime?          @default(now()) @db.Timestamptz(6)
   updated_at                                          DateTime?          @default(now()) @db.Timestamptz(6)
+  tenants                                             tenants?           @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   bookings_bookings_created_by_partner_idTopartners   bookings[]         @relation("bookings_created_by_partner_idTopartners")
   bookings_bookings_partner_idTopartners              bookings[]         @relation("bookings_partner_idTopartners")
   customers_customers_created_by_partner_idTopartners customers[]        @relation("customers_created_by_partner_idTopartners")
   customers_customers_partner_idTopartners            customers[]        @relation("customers_partner_idTopartners")
   partner_invoices                                    partner_invoices[]
 
+  @@index([tenant_id], map: "idx_partners_tenant")
   @@index([is_active], map: "idx_partners_active")
   @@index([api_key], map: "idx_partners_api_key")
 }
@@ -480,11 +527,15 @@ model pricing_configs {
 
 model settings {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String?   @db.Uuid
   key         String    @unique @db.VarChar(100)
   value       Json      @default("{}")
   description String?
   created_at  DateTime? @default(now()) @db.Timestamptz(6)
   updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  tenants     tenants?  @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([tenant_id], map: "idx_settings_tenant")
 }
 
 model staff {
@@ -511,6 +562,7 @@ model staff {
 
 model users {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String?   @db.Uuid
   username        String    @unique @db.VarChar(100)
   name            String    @db.VarChar(200)
   email           String?   @unique @db.VarChar(100)
@@ -521,7 +573,9 @@ model users {
   is_active       Boolean?  @default(true)
   created_at      DateTime? @default(now()) @db.Timestamptz(6)
   updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+  tenants         tenants?  @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
+  @@index([tenant_id], map: "idx_users_tenant")
   @@index([is_active], map: "idx_users_active")
   @@index([email], map: "idx_users_email")
   @@index([role], map: "idx_users_role")

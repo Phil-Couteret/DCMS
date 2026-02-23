@@ -24,9 +24,11 @@ import { PartnerAuthModule } from './partner-auth/partner-auth.module';
 import { CustomerBillsModule } from './customer-bills/customer-bills.module';
 import { UsersModule } from './users/users.module';
 import { DataRetentionModule } from './data-retention/data-retention.module';
+import { TenantModule } from './tenant/tenant.module';
 
 @Module({
   imports: [
+    TenantModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',

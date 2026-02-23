@@ -1,7 +1,7 @@
 {
-  "short_name": "Deep Blue Diver",
-  "name": "Deep Blue Fuerteventura - Diver Portal",
-  "description": "Book dives, manage your profile, and track your certifications with Deep Blue Diving",
+  "short_name": "DCMS",
+  "name": "DCMS - Diver Portal",
+  "description": "Book dives, manage your profile, and track your certifications ",
   "icons": [
     {
       "src": "/pwa-icons/icon-72x72.png",

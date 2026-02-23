@@ -7,16 +7,21 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS - allow connections from localhost and local network
-  // Get local network IP for CORS (optional, for network testing)
+  // Enable CORS - allow connections from localhost, local network, and production
   const localNetworkIP = process.env.LOCAL_NETWORK_IP || '192.168.18.254';
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    : [];
   app.enableCors({
     origin: [
-      process.env.CORS_ORIGIN || 'http://localhost:3000',
-      'http://localhost:3000', // Public website
-      'http://localhost:3001', // Admin portal
-      `http://${localNetworkIP}:3000`, // Public website from network
+      ...corsOrigins,
+      'http://localhost:3000',
+      'http://localhost:3001',
+      `http://${localNetworkIP}:3000`,
       `http://${localNetworkIP}:3001`, // Admin portal from network
+      // Production: admin, dcms, api and multi-tenant subdomains (*.admin, *.dcms, *.api)
+      /^https?:\/\/([a-z0-9-]+\.)*(admin|dcms|api)\.couteret\.fr(:\d+)?$/,
+      /^https?:\/\/couteret\.fr(:\d+)?$/,
       // Allow any origin on local network (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
       /^http:\/\/192\.168\.\d+\.\d+:\d+$/,
       /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,

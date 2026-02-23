@@ -66,11 +66,17 @@ export const AuthProvider = ({ children }) => {
   const login = (user) => {
     setCurrentUser(user);
     localStorage.setItem('dcms_current_user', JSON.stringify(user));
+    // Set tenant slug for API calls when user has one
+    if (user?.tenantSlug) {
+      localStorage.setItem('dcms_tenant_slug', user.tenantSlug);
+    }
   };
 
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('dcms_current_user');
+    localStorage.removeItem('dcms_tenant_slug');
+    localStorage.removeItem('auth_token');
   };
 
   const isAuthenticated = () => !!currentUser;

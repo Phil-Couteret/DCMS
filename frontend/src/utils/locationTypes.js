@@ -4,6 +4,14 @@
  * Database: locations.type is VARCHAR(50) — any slug allowed.
  */
 
+/** Rental-only features (no boats, dive sites, certifications, medical clearance). */
+const RENTAL_FEATURES = {
+  requiresBoats: false,
+  requiresDiveSites: false,
+  requiresCertifications: false,
+  requiresMedicalClearance: false,
+};
+
 /** Default features per known type when not in config (fallback for existing data). */
 export const DEFAULT_FEATURES = {
   diving: {
@@ -12,19 +20,24 @@ export const DEFAULT_FEATURES = {
     requiresCertifications: true,
     requiresMedicalClearance: true,
   },
-  bike_rental: {
-    requiresBoats: false,
-    requiresDiveSites: false,
-    requiresCertifications: false,
-    requiresMedicalClearance: false,
-  },
-  future: {
-    requiresBoats: false,
-    requiresDiveSites: false,
-    requiresCertifications: false,
-    requiresMedicalClearance: false,
-  },
+  bike_rental: RENTAL_FEATURES,
+  surf: RENTAL_FEATURES,
+  kite_surf: RENTAL_FEATURES,
+  wing_foil: RENTAL_FEATURES,
+  windsurf: RENTAL_FEATURES,
+  stand_up_paddle: RENTAL_FEATURES,
+  future: RENTAL_FEATURES,
 };
+
+/** Rental type IDs (equipment/activity rentals, not diving). */
+export const RENTAL_TYPE_IDS = [
+  'bike_rental',
+  'surf',
+  'kite_surf',
+  'wing_foil',
+  'windsurf',
+  'stand_up_paddle',
+];
 
 /** Feature keys used across the app. */
 export const FEATURE_KEYS = [
@@ -82,6 +95,13 @@ export function hasFeature(location, featureKey, settings) {
  */
 export function hasDivingFeatures(location, settings) {
   return hasFeature(location, 'requiresDiveSites', settings);
+}
+
+/**
+ * True when location type is an equipment/activity rental (bike, surf, kite, etc.) — not diving.
+ */
+export function isRentalLocation(location) {
+  return location?.type && RENTAL_TYPE_IDS.includes(location.type);
 }
 
 /**

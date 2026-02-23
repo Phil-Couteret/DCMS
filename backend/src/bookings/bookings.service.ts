@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { activity_type, booking_status, payment_method, payment_status } from '@prisma/client';
 
 export interface CreateBookingDto {
@@ -46,7 +47,15 @@ export interface UpdateBookingDto {
 
 @Injectable()
 export class BookingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantLocationFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { locations: { tenant_id: tenantId } } : {};
+  }
 
   /**
    * Maps frontend activity type values to valid Prisma enum values
@@ -75,6 +84,7 @@ export class BookingsService {
 
   async findAll() {
     return this.prisma.bookings.findMany({
+      where: this.tenantLocationFilter(),
       orderBy: { booking_date: 'desc' },
       include: {
         customers: true,
@@ -88,7 +98,7 @@ export class BookingsService {
   async findByDate(date: Date | string) {
     const bookingDate = typeof date === 'string' ? new Date(date) : date;
     return this.prisma.bookings.findMany({
-      where: { booking_date: bookingDate },
+      where: { booking_date: bookingDate, ...this.tenantLocationFilter() },
       include: {
         customers: true,
         locations: true,
@@ -101,7 +111,7 @@ export class BookingsService {
 
   async findByCustomer(customerId: string) {
     return this.prisma.bookings.findMany({
-      where: { customer_id: customerId },
+      where: { customer_id: customerId, ...this.tenantLocationFilter() },
       include: {
         locations: true,
         boats: true,
@@ -112,8 +122,8 @@ export class BookingsService {
   }
 
   async findOne(id: string) {
-    const booking = await this.prisma.bookings.findUnique({
-      where: { id },
+    const booking = await this.prisma.bookings.findFirst({
+      where: { id, ...this.tenantLocationFilter() },
       include: {
         customers: true,
         locations: true,

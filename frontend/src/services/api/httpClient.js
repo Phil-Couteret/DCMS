@@ -2,6 +2,7 @@
 // Uses fetch API with error handling and timeout
 
 import { API_CONFIG } from '../../config/apiConfig';
+import { getTenantSlug } from '../../utils/tenantContext';
 
 class HttpClient {
   constructor(baseURL, timeout = 30000) {
@@ -10,7 +11,8 @@ class HttpClient {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
+    const base = typeof this.baseURL === 'function' ? this.baseURL() : this.baseURL;
+    const url = `${base}${endpoint}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
@@ -27,6 +29,12 @@ class HttpClient {
     const token = this.getAuthToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Multi-tenant: add tenant context for backend
+    const tenantSlug = getTenantSlug();
+    if (tenantSlug) {
+      config.headers['X-Tenant-Slug'] = tenantSlug;
     }
 
     try {
@@ -133,6 +141,6 @@ class HttpClient {
   }
 }
 
-// Create singleton instance
-export const httpClient = new HttpClient(API_CONFIG.baseURL, API_CONFIG.timeout);
+// Create singleton - baseURL resolved per-request (uses current page protocol)
+export const httpClient = new HttpClient(() => API_CONFIG.baseURL, API_CONFIG.timeout);
 

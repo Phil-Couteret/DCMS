@@ -3,7 +3,7 @@ import { Container, Typography, Box, Paper, Divider, Link, Table, TableBody, Tab
 import { useTranslation } from 'react-i18next';
 
 const DataRetentionPolicy = () => {
-  const { t } = useTranslation();
+  useTranslation(); // i18n ready for future translation
 
   const retentionData = [
     {
@@ -260,10 +260,9 @@ const DataRetentionPolicy = () => {
             If you have questions about our data retention practices, please contact us:
           </Typography>
           <Typography variant="body2">
-            <strong>Email:</strong> info@deep-blue-diving.com<br />
-            <strong>Address:</strong> Muelle Deportivo / Calle Teneriffe<br />
-            E - 35610 Caleta de Fuste, Fuerteventura, Spain<br />
-            <strong>Phone:</strong> +34.928 163 712
+            <strong>Email:</strong> contact@couteret.fr<br />
+            <strong>Address:</strong> TBD, Barcelona, Spain<br />
+            <strong>Phone:</strong> +34 678 336 889
           </Typography>
         </Box>
       </Paper>

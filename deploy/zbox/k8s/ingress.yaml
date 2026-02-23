@@ -1,0 +1,96 @@
+# Ingress - requires Traefik (K3s default) or nginx-ingress
+# Split: admin/public without CORS (avoids 403 on manifest.json); API with CORS for cross-origin
+# Multi-tenant: wildcard hosts (e.g. deepblue.dcms.couteret.fr) route to same services.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dcms-ingress
+  namespace: dcms
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: dcms.couteret.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: public
+                port:
+                  number: 80
+    - host: admin.couteret.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin
+                port:
+                  number: 80
+    # Multi-tenant: wildcard subdomains - {slug}.dcms, {slug}.admin
+    - host: "*.dcms.couteret.fr"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: public
+                port:
+                  number: 80
+    - host: "*.admin.couteret.fr"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - dcms.couteret.fr
+        - admin.couteret.fr
+      secretName: dcms-tls
+---
+# API Ingress - CORS middleware for cross-origin requests from admin/dcms
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dcms-api-ingress
+  namespace: dcms
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: dcms-cors-headers@kubernetescrd
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: api.couteret.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3003
+    - host: "*.api.couteret.fr"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3003
+  tls:
+    - hosts:
+        - api.couteret.fr
+      secretName: dcms-api-tls

@@ -38,7 +38,10 @@ async function main() {
 
   if (!existingAdmin) {
     const passwordHash = await bcrypt.hash('admin123', 10);
-    
+    const defaultTenant = await prisma.tenants.findUnique({
+      where: { slug: 'default' },
+    });
+
     await prisma.users.create({
       data: {
         username: 'admin',
@@ -49,6 +52,7 @@ async function main() {
         permissions: ['dashboard', 'bookings', 'customers', 'settings', 'users'],
         location_access: [],
         is_active: true,
+        tenant_id: defaultTenant?.id ?? null,
       },
     });
     console.log('✅ Admin user created');

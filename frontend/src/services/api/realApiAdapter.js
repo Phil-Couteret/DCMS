@@ -16,6 +16,7 @@ const realApiAdapter = {
     else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
     else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'staff') endpoint = 'staff';
+    else if (resource === 'tenants') endpoint = 'tenants';
 
     const response = await httpClient.get(`/${endpoint}`);
     return this.transformResponse(resource, response.data || response);
@@ -32,6 +33,7 @@ const realApiAdapter = {
     else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
     else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'staff') endpoint = 'staff';
+    else if (resource === 'tenants') endpoint = 'tenants';
     
     const response = await httpClient.get(`/${endpoint}/${id}`);
     return this.transformResponse(resource, response.data || response);
@@ -64,6 +66,9 @@ const realApiAdapter = {
       transformedData = this.transformDiveSiteToBackend(data);
     } else if (resource === 'boatPreps') {
       transformedData = this.transformBoatPrepToBackend(data);
+    } else if (resource === 'tenants') {
+      transformedData = data; // Pass through
+      endpoint = 'tenants';
     } else if (resource === 'partnerInvoices') {
       transformedData = this.transformPartnerInvoiceToBackend(data);
       endpoint = 'partner-invoices';
@@ -85,8 +90,10 @@ const realApiAdapter = {
     else if (resource === 'boatPreps') endpoint = 'boat-preps';
     else if (resource === 'partners') endpoint = 'partners';
     else if (resource === 'staff') endpoint = 'staff';
+    else if (resource === 'tenants') endpoint = 'tenants';
     else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
     else if (resource === 'customerBills') endpoint = 'customer-bills';
+    else if (resource === 'tenants') endpoint = 'tenants';
     
     // Transform data from frontend to backend format
     let transformedData = data;
@@ -639,6 +646,8 @@ const realApiAdapter = {
       role: data.role,
       permissions: data.permissions || [],
       locationAccess: data.location_access || data.locationAccess || [],
+      tenantSlug: data.tenantSlug || data.tenant_slug || null,
+      tenant_id: data.tenant_id,
       isActive: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : true),
       createdAt: data.created_at || data.createdAt,
       updatedAt: data.updated_at || data.updatedAt,
@@ -838,6 +847,7 @@ const realApiAdapter = {
     else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
     else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'staff') endpoint = 'staff';
+    else if (resource === 'tenants') endpoint = 'tenants';
     
     const response = await httpClient.delete(`/${endpoint}/${id}`);
     return response.data || response;

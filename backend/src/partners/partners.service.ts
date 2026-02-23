@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -28,17 +29,26 @@ export interface UpdatePartnerDto {
 
 @Injectable()
 export class PartnersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll() {
     return this.prisma.partners.findMany({
+      where: this.tenantFilter(),
       orderBy: { created_at: 'desc' },
     });
   }
 
   async findOne(id: string) {
-    const partner = await this.prisma.partners.findUnique({
-      where: { id },
+    const partner = await this.prisma.partners.findFirst({
+      where: { id, ...this.tenantFilter() },
     });
 
     if (!partner) {
@@ -55,9 +65,9 @@ export class PartnersService {
   }
 
   async create(createPartnerDto: CreatePartnerDto) {
-    // Check if email already exists
-    const existing = await this.prisma.partners.findUnique({
-      where: { contact_email: createPartnerDto.contactEmail },
+    const tenantId = this.tenantContext.getTenantId();
+    const existing = await this.prisma.partners.findFirst({
+      where: { contact_email: createPartnerDto.contactEmail, ...this.tenantFilter() },
     });
 
     if (existing) {
@@ -73,6 +83,7 @@ export class PartnersService {
 
     const partner = await this.prisma.partners.create({
       data: {
+        ...(tenantId && { tenant_id: tenantId }),
         name: createPartnerDto.name,
         company_name: createPartnerDto.companyName,
         contact_email: createPartnerDto.contactEmail,

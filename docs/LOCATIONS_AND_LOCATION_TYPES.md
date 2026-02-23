@@ -39,7 +39,7 @@ Each feature is a flag that affects what the app shows for **locations** of this
 
 **Example:**  
 - **Diving:** Boats ✓, Dive Sites ✓, Certifications ✓, Medical Clearance ✓.  
-- **Bike Rental:** all unchecked.  
+- **Bike Rental, Surf, Kite Surf, Wing Foil, Windsurf, Stand Up Paddle:** all unchecked (equipment/activity rentals).  
 - **Snorkeling:** Dive Sites ✓, others as needed.
 
 ---

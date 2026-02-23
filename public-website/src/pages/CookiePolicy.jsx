@@ -3,7 +3,7 @@ import { Container, Typography, Box, Paper, Divider, Link } from '@mui/material'
 import { useTranslation } from 'react-i18next';
 
 const CookiePolicy = () => {
-  const { t } = useTranslation();
+  useTranslation(); // i18n ready for future translation
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -156,10 +156,9 @@ const CookiePolicy = () => {
             If you have questions about our use of cookies, please contact us:
           </Typography>
           <Typography variant="body2">
-            <strong>Email:</strong> info@deep-blue-diving.com<br />
-            <strong>Address:</strong> Muelle Deportivo / Calle Teneriffe<br />
-            E - 35610 Caleta de Fuste, Fuerteventura, Spain<br />
-            <strong>Phone:</strong> +34.928 163 712
+            <strong>Email:</strong> contact@couteret.fr<br />
+            <strong>Address:</strong> TBD, Barcelona, Spain<br />
+            <strong>Phone:</strong> +34 678 336 889
           </Typography>
         </Box>
       </Paper>

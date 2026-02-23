@@ -68,6 +68,7 @@ import {
 import dataService from '../services/dataService';
 import { useAuth, USER_ROLES, AVAILABLE_PERMISSIONS, ALL_PERMISSIONS } from '../utils/authContext';
 import Prices from '../components/Settings/Prices';
+import TenantManagement from '../components/Settings/TenantManagement';
 import { useTranslation } from '../utils/languageContext';
 import {
   getLocationTypes,
@@ -1661,67 +1662,51 @@ const Settings = () => {
       </Dialog>
 
       <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-        <SettingsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            {t('settings.title') || 'Settings'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t('settings.subtitle') || 'Configure system settings and preferences'}
-          </Typography>
-        </Box>
-      </Box>
+        {isSuperAdmin() ? (
+          /* Superadmin: Tenant Management only - define tenants (name, locations, type, structure). */
+          /* Prices, boats, partners, users, financials are managed by each tenant's admin. */
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+              <DomainIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+              <Box>
+                <Typography variant="h4" gutterBottom>
+                  Tenant Management
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Create and configure tenants. Define company name, number of locations, location type (diving/bike rental). Operational settings (prices, boats, partners, users) are managed by each tenant&apos;s admin.
+                </Typography>
+              </Box>
+            </Box>
+            <TenantManagement />
+          </>
+        ) : (
+          /* Tenant admin: Organisation, locations, prices, boats, partners, users, financials */
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+              <SettingsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+              <Box>
+                <Typography variant="h4" gutterBottom>
+                  {t('settings.title') || 'Settings'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('settings.subtitle') || 'Configure system settings and preferences'}
+                </Typography>
+              </Box>
+            </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
-          <Tab 
-            icon={<DomainIcon />} 
-            label="Organisation" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<LocationIcon />} 
-            label="Locations" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<CategoryIcon />} 
-            label="Location Types" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<PricesIcon />} 
-            label={t('settings.tabs.prices') || 'Prices'} 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<LocationIcon />} 
-            label="Dive Sites" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<BoatIcon />} 
-            label="Boats" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<PeopleIcon />} 
-            label={t('settings.tabs.users') || 'User Management'} 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<BusinessIcon />} 
-            label="Partners" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<VerifiedUserIcon />} 
-            label={t('settings.tabs.certification') || 'Certification Verification'} 
-            iconPosition="start"
-          />
-        </Tabs>
-      </Box>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+              <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
+                <Tab icon={<DomainIcon />} label="Organisation" iconPosition="start" />
+                <Tab icon={<LocationIcon />} label="Locations" iconPosition="start" />
+                <Tab icon={<CategoryIcon />} label="Location Types" iconPosition="start" />
+                <Tab icon={<PricesIcon />} label={t('settings.tabs.prices') || 'Prices'} iconPosition="start" />
+                <Tab icon={<LocationIcon />} label="Dive Sites" iconPosition="start" />
+                <Tab icon={<BoatIcon />} label="Boats" iconPosition="start" />
+                <Tab icon={<PeopleIcon />} label={t('settings.tabs.users') || 'User Management'} iconPosition="start" />
+                <Tab icon={<BusinessIcon />} label="Partners" iconPosition="start" />
+                <Tab icon={<VerifiedUserIcon />} label={t('settings.tabs.certification') || 'Certification Verification'} iconPosition="start" />
+              </Tabs>
+            </Box>
 
       {activeTab === 0 && (
         <Box>
@@ -2236,7 +2221,7 @@ const Settings = () => {
                           ...locationTypeFormData,
                           id: e.target.value.trim().toLowerCase(),
                         })}
-                        placeholder="e.g. diving, snorkeling, kayak_rental"
+                        placeholder="e.g. diving, bike_rental, surf, kite_surf, wing_foil"
                         disabled={!!editingLocationType}
                         helperText={editingLocationType ? 'Cannot change after create' : 'Slug: lowercase, letters, numbers, underscores'}
                       />
@@ -3533,6 +3518,9 @@ const Settings = () => {
           </Alert>
         </Box>
       )}
+
+          </>
+        )}
 
       {/* Version Information */}
       <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>

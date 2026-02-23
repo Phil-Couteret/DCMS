@@ -1,9 +1,10 @@
 // Protected Route Component - Checks user permissions before rendering
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { Box, Typography, Button } from '@mui/material';
 import { useAuth } from '../../utils/authContext';
 import UserSelector from './UserSelector';
+import AdminLogin from './AdminLogin';
+import { isMockMode } from '../../config/apiConfig';
 
 const ProtectedRoute = ({ children, requiredPermission }) => {
   const { isAuthenticated, canAccess, loading } = useAuth();
@@ -17,8 +18,13 @@ const ProtectedRoute = ({ children, requiredPermission }) => {
     );
   }
 
-  // If not authenticated, show user selector
-  if (!isAuthenticated()) {
+  // If not authenticated: API mode = login form, mock mode = user selector
+  // In API mode, also require auth_token (JWT) - if user selected via old flow, force re-login
+  const hasValidAuth = isAuthenticated() && (isMockMode() || !!localStorage.getItem('auth_token'));
+  if (!hasValidAuth) {
+    if (!isMockMode()) {
+      return <AdminLogin />;
+    }
     return (
       <>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', flexDirection: 'column', gap: 2 }}>

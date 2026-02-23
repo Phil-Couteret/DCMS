@@ -1,0 +1,17 @@
+# Let's Encrypt ClusterIssuer for DCMS
+# Requires: cert-manager installed, LETSENCRYPT_EMAIL set (or edit below)
+# HTTP-01 challenge - port 80 must be reachable from internet
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@couteret.fr  # Override with LETSENCRYPT_EMAIL env
+    privateKeySecretRef:
+      name: letsencrypt-prod-account
+    solvers:
+      - http01:
+          ingress:
+            class: traefik

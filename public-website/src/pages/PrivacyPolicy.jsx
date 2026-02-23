@@ -3,7 +3,7 @@ import { Container, Typography, Box, Paper, Divider, Link } from '@mui/material'
 import { useTranslation } from 'react-i18next';
 
 const PrivacyPolicy = () => {
-  const { t } = useTranslation();
+  useTranslation(); // i18n ready for future translation
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -20,7 +20,7 @@ const PrivacyPolicy = () => {
             1. Introduction
           </Typography>
           <Typography variant="body1" paragraph>
-            Deep Blue Diving ("we", "our", "us") is committed to protecting your privacy and personal data. 
+            We ("we", "our", "us") are committed to protecting your privacy and personal data. 
             This Privacy Policy explains how we collect, use, store, and protect your personal information 
             in accordance with the General Data Protection Regulation (GDPR) and other applicable data 
             protection laws.
@@ -34,11 +34,11 @@ const PrivacyPolicy = () => {
             2. Data Controller
           </Typography>
           <Typography variant="body1" paragraph>
-            <strong>Data Controller:</strong> Deep Blue Diving<br />
-            <strong>Location:</strong> Canary Islands, Spain (EU)<br />
-            <strong>Address:</strong> Muelle Deportivo / Calle Teneriffe, E - 35610 Caleta de Fuste, Fuerteventura, Spain<br />
-            <strong>Email:</strong> info@deep-blue-diving.com<br />
-            <strong>Phone:</strong> +34.928 163 712
+            <strong>Data Controller:</strong> DCMS<br />
+            <strong>Location:</strong> Spain (EU)<br />
+            <strong>Address:</strong> TBD, Barcelona, Spain<br />
+            <strong>Email:</strong> contact@couteret.fr<br />
+            <strong>Phone:</strong> +34 678 336 889
           </Typography>
         </Box>
 
@@ -278,10 +278,9 @@ const PrivacyPolicy = () => {
             If you have questions about this Privacy Policy or wish to exercise your rights, please contact us:
           </Typography>
           <Typography variant="body2">
-            <strong>Email:</strong> info@deep-blue-diving.com<br />
-            <strong>Address:</strong> Muelle Deportivo / Calle Teneriffe<br />
-            E - 35610 Caleta de Fuste, Fuerteventura, Spain<br />
-            <strong>Phone:</strong> +34.928 163 712
+            <strong>Email:</strong> contact@couteret.fr<br />
+            <strong>Address:</strong> TBD, Barcelona, Spain<br />
+            <strong>Phone:</strong> +34 678 336 889
           </Typography>
         </Box>
 

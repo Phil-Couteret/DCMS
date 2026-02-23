@@ -1,8 +1,8 @@
 {
   "name": "public-website",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
-  "description": "Customer-facing public website for Deep Blue Diving",
+  "description": "Customer-facing public website for DCMS",
   "dependencies": {
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.5",
