@@ -19,6 +19,9 @@ build/
 *.js.map
 *.css.map
 
+# Cursor
+cursor_git_sync_completion_status.md
+
 # IDE
 .vscode/
 .idea/
