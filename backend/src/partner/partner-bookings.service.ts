@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { activity_type, booking_status, payment_method, payment_status, booking_source } from '@prisma/client';
 
@@ -43,6 +43,8 @@ export interface UpdatePartnerBookingDto {
 
 @Injectable()
 export class PartnerBookingsService {
+  private readonly logger = new Logger(PartnerBookingsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -63,7 +65,7 @@ export class PartnerBookingsService {
     const mapped = mapping[frontendType];
     if (!mapped) {
       // Default to diving if unknown type
-      console.warn(`[PartnerBookingsService] Unknown activity type "${frontendType}", defaulting to "diving"`);
+      this.logger.warn(`Unknown activity type "${frontendType}", defaulting to "diving"`);
       return 'diving';
     }
     return mapped;
@@ -217,7 +219,7 @@ export class PartnerBookingsService {
         },
       });
     } catch (error) {
-      console.error('[PartnerBookingsService] Error creating booking:', error);
+      this.logger.error('Error creating booking', error instanceof Error ? error.stack : error);
       throw error;
     }
   }

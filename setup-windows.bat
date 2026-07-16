@@ -152,23 +152,6 @@ if not exist "public-website\node_modules" (
     echo [OK] Public website dependencies already installed
 )
 
-REM Install sync server dependencies
-if not exist "sync-server\node_modules" (
-    echo [INFO] Installing sync server dependencies...
-    cd sync-server
-    call npm install
-    if !ERRORLEVEL! NEQ 0 (
-        echo [ERROR] Failed to install sync server dependencies
-        cd ..
-        pause
-        exit /b 1
-    )
-    cd ..
-    echo [OK] Sync server dependencies installed
-) else (
-    echo [OK] Sync server dependencies already installed
-)
-
 echo.
 echo ====================================
 echo  Step 3: Configure Environment
@@ -177,7 +160,8 @@ echo.
 
 REM Check for backend .env file
 if not exist "backend\.env" (
-    echo [INFO] Creating backend\.env file...
+    echo [INFO] Creating backend\.env file with a freshly generated JWT secret...
+    for /f "delims=" %%s in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set GENERATED_JWT_SECRET=%%s
     (
         echo # Database Connection
         echo # IMPORTANT: Replace YOUR_PASSWORD with your PostgreSQL password
@@ -190,10 +174,11 @@ if not exist "backend\.env" (
         echo # CORS Configuration
         echo CORS_ORIGIN=http://localhost:3000,http://localhost:3001
         echo.
-        echo # JWT Secret ^(change in production^)
-        echo JWT_SECRET=your-super-secret-jwt-key-change-in-production
+        echo # Required - app refuses to start without this
+        echo JWT_SECRET=%GENERATED_JWT_SECRET%
     ) > backend\.env
     echo [OK] Created backend\.env
+    echo [OK] Generated a unique JWT_SECRET - the app will not start without one.
     echo [WARNING] Please update DATABASE_URL in backend\.env with your PostgreSQL password
 ) else (
     echo [OK] backend\.env already exists
@@ -233,7 +218,6 @@ echo Services will run on:
 echo   - Public Website: http://localhost:3000
 echo   - Admin Portal:   http://localhost:3001
 echo   - Backend API:    http://localhost:3003
-echo   - Sync Server:    http://localhost:3002
 echo.
 pause
 

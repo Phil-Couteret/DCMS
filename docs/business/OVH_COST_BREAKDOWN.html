@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OVH Cost Breakdown - DCMS</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 1.75rem; border-bottom: 2px solid #333; padding-bottom: 8px; }
+    h2 { font-size: 1.35rem; margin-top: 32px; color: #222; }
+    h3 { font-size: 1.15rem; margin-top: 24px; color: #444; }
+    h4 { font-size: 1.05rem; margin-top: 20px; color: #555; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    tr:nth-child(even) { background: #fafafa; }
+    .total-row { font-weight: 700; background: #eee !important; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 24px 0; }
+    ul { margin: 12px 0; padding-left: 24px; }
+    li { margin: 6px 0; }
+    .note { font-size: 0.9rem; color: #666; margin: 12px 0; font-style: italic; }
+    pre { background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto; font-family: 'Monaco', 'Menlo', monospace; font-size: 0.85rem; }
+    strong { font-weight: 600; }
+    .recommendation { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 16px; margin: 20px 0; }
+    @media print { body { max-width: none; } }
+  </style>
+</head>
+<body>
+
+<h1>OVH Cost Breakdown - Detailed Pricing for DCMS</h1>
+
+<p><strong>Complete monthly and yearly cost breakdown with VPS-2 or VPS-3</strong></p>
+
+<p class="note"><strong>Note:</strong> VPS pricing is current for 2026. Database, storage, and email pricing may vary - always verify current pricing on OVH website before ordering.</p>
+
+<hr>
+
+<h2>📊 Complete Cost Breakdown: VPS-2 Setup</h2>
+
+<h3>Monthly Costs:</h3>
+
+<table>
+  <thead>
+    <tr><th>Service</th><th>Item</th><th>Specification</th><th>Monthly Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>VPS</strong></td><td>VPS-2</td><td>12GB RAM, 6 vCPU, 100GB NVMe SSD</td><td>€6.75</td></tr>
+    <tr><td><strong>Database</strong></td><td>Managed PostgreSQL</td><td>2GB RAM, 1 vCPU, 100GB storage</td><td>€20.00</td></tr>
+    <tr><td><strong>Storage</strong></td><td>Object Storage</td><td>250GB for files/uploads/backups</td><td>€5.00</td></tr>
+    <tr><td><strong>Email</strong></td><td>Business Email</td><td>5 mailboxes (info@, booking@, etc.)</td><td>€10.00</td></tr>
+    <tr><td><strong>Domain</strong></td><td>Domain Registration</td><td>.com or .es domain</td><td>€1.50</td></tr>
+    <tr><td><strong>SSL</strong></td><td>SSL Certificate</td><td>Let's Encrypt (free)</td><td>€0.00</td></tr>
+    <tr><td><strong>Backups</strong></td><td>Automated Backups</td><td>Included with VPS</td><td>€0.00</td></tr>
+    <tr><td><strong>DNS</strong></td><td>DNS Management</td><td>Included with domain</td><td>€0.00</td></tr>
+    <tr class="total-row"><td colspan="3"><strong>TOTAL MONTHLY</strong></td><td><strong>€43.25/month</strong></td></tr>
+  </tbody>
+</table>
+
+<h3>Yearly Costs:</h3>
+
+<table>
+  <thead>
+    <tr><th>Service</th><th>Monthly</th><th>× 12 months</th><th>Yearly Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VPS-2</td><td>€6.75</td><td>× 12</td><td>€81.00</td></tr>
+    <tr><td>Managed PostgreSQL</td><td>€20.00</td><td>× 12</td><td>€240.00</td></tr>
+    <tr><td>Object Storage</td><td>€5.00</td><td>× 12</td><td>€60.00</td></tr>
+    <tr><td>Business Email</td><td>€10.00</td><td>× 12</td><td>€120.00</td></tr>
+    <tr><td>Domain</td><td>€1.50</td><td>× 12</td><td>€18.00</td></tr>
+    <tr><td>SSL</td><td>€0.00</td><td>× 12</td><td>€0.00</td></tr>
+    <tr><td>Backups</td><td>€0.00</td><td>× 12</td><td>€0.00</td></tr>
+    <tr><td>DNS</td><td>€0.00</td><td>× 12</td><td>€0.00</td></tr>
+    <tr class="total-row"><td colspan="3"><strong>TOTAL YEARLY</strong></td><td><strong>€519.00/year</strong></td></tr>
+  </tbody>
+</table>
+
+<p class="note"><strong>Note:</strong> Domain is typically paid yearly upfront (€12-20/year), not monthly.</p>
+
+<hr>
+
+<h2>📊 Complete Cost Breakdown: VPS-3 Setup</h2>
+
+<h3>Monthly Costs:</h3>
+
+<table>
+  <thead>
+    <tr><th>Service</th><th>Item</th><th>Specification</th><th>Monthly Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>VPS</strong></td><td>VPS-3</td><td>16-24GB RAM, 8 vCPU, 150-200GB NVMe SSD</td><td>€11.25-12.75</td></tr>
+    <tr><td><strong>Database</strong></td><td>Managed PostgreSQL</td><td>4GB RAM, 2 vCPU, 100GB storage</td><td>€40.00</td></tr>
+    <tr><td><strong>Storage</strong></td><td>Object Storage</td><td>250GB for files/uploads/backups</td><td>€5.00</td></tr>
+    <tr><td><strong>Email</strong></td><td>Business Email</td><td>5 mailboxes (info@, booking@, etc.)</td><td>€10.00</td></tr>
+    <tr><td><strong>Domain</strong></td><td>Domain Registration</td><td>.com or .es domain</td><td>€1.50</td></tr>
+    <tr><td><strong>SSL</strong></td><td>SSL Certificate</td><td>Let's Encrypt (free)</td><td>€0.00</td></tr>
+    <tr><td><strong>Backups</strong></td><td>Automated Backups</td><td>Included with VPS</td><td>€0.00</td></tr>
+    <tr><td><strong>DNS</strong></td><td>DNS Management</td><td>Included with domain</td><td>€0.00</td></tr>
+    <tr class="total-row"><td colspan="3"><strong>TOTAL MONTHLY</strong></td><td><strong>€68-69/month</strong></td></tr>
+  </tbody>
+</table>
+
+<h3>Yearly Costs:</h3>
+
+<table>
+  <thead>
+    <tr><th>Service</th><th>Monthly</th><th>× 12 months</th><th>Yearly Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VPS-3</td><td>€11.25-12.75</td><td>× 12</td><td>€135-153</td></tr>
+    <tr><td>Managed PostgreSQL</td><td>€40.00</td><td>× 12</td><td>€480.00</td></tr>
+    <tr><td>Object Storage</td><td>€5.00</td><td>× 12</td><td>€60.00</td></tr>
+    <tr><td>Business Email</td><td>€10.00</td><td>× 12</td><td>€120.00</td></tr>
+    <tr><td>Domain</td><td>€1.50</td><td>× 12</td><td>€18.00</td></tr>
+    <tr><td>SSL</td><td>€0.00</td><td>× 12</td><td>€0.00</td></tr>
+    <tr><td>Backups</td><td>€0.00</td><td>× 12</td><td>€0.00</td></tr>
+    <tr><td>DNS</td><td>€0.00</td><td>× 12</td><td>€0.00</td></tr>
+    <tr class="total-row"><td colspan="3"><strong>TOTAL YEARLY</strong></td><td><strong>€816-831/year</strong></td></tr>
+  </tbody>
+</table>
+
+<p class="note"><strong>Note:</strong> Domain is typically paid yearly upfront (€12-20/year), not monthly.</p>
+
+<hr>
+
+<h2>💰 Cost Comparison: VPS-2 vs VPS-3</h2>
+
+<table>
+  <thead>
+    <tr><th>Item</th><th>VPS-2 Setup</th><th>VPS-3 Setup</th><th>Difference</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>VPS</strong></td><td>€6.75/month</td><td>€11.25-12.75/month</td><td>+€4.50-6/month</td></tr>
+    <tr><td><strong>Database</strong></td><td>€20/month</td><td>€40/month</td><td>+€20/month</td></tr>
+    <tr><td><strong>Storage</strong></td><td>€5/month</td><td>€5/month</td><td>Same</td></tr>
+    <tr><td><strong>Email</strong></td><td>€10/month</td><td>€10/month</td><td>Same</td></tr>
+    <tr><td><strong>Domain</strong></td><td>€1.50/month</td><td>€1.50/month</td><td>Same</td></tr>
+    <tr class="total-row"><td><strong>TOTAL</strong></td><td><strong>€43.25/month</strong></td><td><strong>€68-69/month</strong></td><td><strong>+€25-26/month</strong></td></tr>
+    <tr class="total-row"><td><strong>TOTAL YEARLY</strong></td><td><strong>€519/year</strong></td><td><strong>€816-831/year</strong></td><td><strong>+€297-312/year</strong></td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>📋 Detailed Service Breakdown</h2>
+
+<h3>1. VPS (Virtual Private Server)</h3>
+
+<h4>VPS-2 (Recommended for Starting):</h4>
+<ul>
+  <li><strong>RAM:</strong> 12GB</li>
+  <li><strong>CPU:</strong> 6 vCores</li>
+  <li><strong>Storage:</strong> 100GB NVMe SSD</li>
+  <li><strong>Bandwidth:</strong> 250 Mbps guaranteed, unlimited traffic</li>
+  <li><strong>Backups:</strong> Automatic daily backups included</li>
+  <li><strong>Anti-DDoS:</strong> Included</li>
+  <li><strong>Monthly:</strong> €6.75</li>
+  <li><strong>Yearly:</strong> €81.00</li>
+</ul>
+<p><strong>Capacity:</strong> Handles 5,000-15,000 bookings/month comfortably</p>
+
+<h4>VPS-3 (For Higher Traffic):</h4>
+<ul>
+  <li><strong>RAM:</strong> 16-24GB (verify current spec on OVH)</li>
+  <li><strong>CPU:</strong> 8 vCores</li>
+  <li><strong>Storage:</strong> 150-200GB NVMe SSD (verify current spec)</li>
+  <li><strong>Bandwidth:</strong> 1.5-2 Gbps guaranteed, unlimited traffic</li>
+  <li><strong>Backups:</strong> Automatic daily backups included</li>
+  <li><strong>Anti-DDoS:</strong> Included</li>
+  <li><strong>Monthly:</strong> €11.25-12.75 (verify current pricing)</li>
+  <li><strong>Yearly:</strong> €135-153</li>
+</ul>
+<p><strong>Capacity:</strong> Handles 15,000-30,000 bookings/month comfortably</p>
+<p class="note"><strong>Note:</strong> VPS-3 specifications may vary - check OVH website for exact current configuration</p>
+
+<h3>2. Managed PostgreSQL Database</h3>
+
+<h4>Starter Configuration (VPS-2 setup):</h4>
+<ul>
+  <li><strong>RAM:</strong> 2GB dedicated</li>
+  <li><strong>CPU:</strong> 1 vCPU dedicated</li>
+  <li><strong>Storage:</strong> 100GB SSD</li>
+  <li><strong>Backups:</strong> Automated daily backups (30 days retention)</li>
+  <li><strong>High Availability:</strong> Option available (extra cost)</li>
+  <li><strong>Monitoring:</strong> Included</li>
+  <li><strong>Monthly:</strong> €20.00</li>
+  <li><strong>Yearly:</strong> €240.00</li>
+</ul>
+
+<h4>Enhanced Configuration (VPS-3 setup):</h4>
+<ul>
+  <li><strong>RAM:</strong> 4GB dedicated</li>
+  <li><strong>CPU:</strong> 2 vCPU dedicated</li>
+  <li><strong>Storage:</strong> 100GB SSD</li>
+  <li><strong>Backups:</strong> Automated daily backups (30 days retention)</li>
+  <li><strong>High Availability:</strong> Option available (extra cost)</li>
+  <li><strong>Monitoring:</strong> Included</li>
+  <li><strong>Monthly:</strong> €40.00</li>
+  <li><strong>Yearly:</strong> €480.00</li>
+</ul>
+<p class="note"><strong>Note:</strong> Database storage can be expanded if needed (extra cost)</p>
+
+<h3>3. Object Storage (Files &amp; Backups)</h3>
+<ul>
+  <li><strong>Service:</strong> OVH Object Storage</li>
+  <li><strong>Storage:</strong> 250GB</li>
+  <li><strong>Purpose:</strong> User uploads, documents, photos, application files</li>
+  <li><strong>Bandwidth:</strong> Unlimited (within OVH network)</li>
+  <li><strong>Monthly:</strong> €5.00</li>
+  <li><strong>Yearly:</strong> €60.00</li>
+</ul>
+<p class="note"><strong>Note:</strong> Can be expanded if needed (€0.02/GB/month additional)</p>
+
+<h3>4. Business Email</h3>
+<ul>
+  <li><strong>Service:</strong> OVH Business Email (Exchange or Mail)</li>
+  <li><strong>Mailboxes:</strong> 5 mailboxes (info@, booking@, admin@, support@, contact@)</li>
+  <li><strong>Storage per mailbox:</strong> 10GB (50GB total)</li>
+  <li><strong>Features:</strong> Webmail, IMAP/POP3, calendar, contacts</li>
+  <li><strong>Monthly:</strong> €2/month per mailbox = €10.00 total</li>
+  <li><strong>Yearly:</strong> €120.00</li>
+</ul>
+<p class="note"><strong>Alternative:</strong> Can reduce to 3 mailboxes = €6/month if budget is tight</p>
+
+<h3>5. Domain Registration</h3>
+<ul>
+  <li><strong>Service:</strong> OVH Domain Registration</li>
+  <li><strong>Domain:</strong> .com or .es domain</li>
+  <li><strong>Registration:</strong> €12-20/year (paid upfront)</li>
+  <li><strong>Privacy:</strong> WHOIS privacy included (GDPR)</li>
+  <li><strong>DNS Management:</strong> Included</li>
+  <li><strong>Monthly equivalent:</strong> €1.50</li>
+  <li><strong>Yearly:</strong> €18.00</li>
+</ul>
+<p class="note"><strong>Note:</strong> Typically paid yearly upfront, not monthly</p>
+
+<h3>6. SSL Certificate</h3>
+<ul>
+  <li><strong>Service:</strong> Let's Encrypt (free)</li>
+  <li><strong>Cost:</strong> €0.00</li>
+  <li><strong>Auto-renewal:</strong> Yes</li>
+  <li><strong>Coverage:</strong> Single domain or wildcard</li>
+</ul>
+
+<h3>7. Backups</h3>
+<ul>
+  <li><strong>VPS Backups:</strong> Included with VPS (daily automatic backups)</li>
+  <li><strong>Database Backups:</strong> Included with Managed PostgreSQL (30 days retention)</li>
+  <li><strong>Additional Backup Storage:</strong> Can add Object Storage for off-site backups</li>
+  <li><strong>Cost:</strong> €0.00 (included)</li>
+</ul>
+
+<h3>8. DNS Management</h3>
+<ul>
+  <li><strong>Service:</strong> OVH DNS</li>
+  <li><strong>Included with:</strong> Domain registration</li>
+  <li><strong>Cost:</strong> €0.00</li>
+</ul>
+
+<hr>
+
+<h2>💡 Cost Optimization Options</h2>
+
+<h3>Budget Option (VPS-2, Reduced Email):</h3>
+<table>
+  <thead>
+    <tr><th>Service</th><th>Cost/Month</th><th>Cost/Year</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VPS-2</td><td>€6.75</td><td>€81.00</td></tr>
+    <tr><td>Managed PostgreSQL (2GB)</td><td>€20.00</td><td>€240.00</td></tr>
+    <tr><td>Object Storage (250GB)</td><td>€5.00</td><td>€60.00</td></tr>
+    <tr><td>Business Email (3 mailboxes)</td><td>€6.00</td><td>€72.00</td></tr>
+    <tr><td>Domain</td><td>€1.50</td><td>€18.00</td></tr>
+    <tr class="total-row"><td><strong>TOTAL</strong></td><td><strong>€39.25/month</strong></td><td><strong>€471/year</strong></td></tr>
+  </tbody>
+</table>
+<p><strong>Savings:</strong> €4/month (€48/year) by reducing email mailboxes</p>
+
+<h3>Budget Option (VPS-2, Smaller Database):</h3>
+<table>
+  <thead>
+    <tr><th>Service</th><th>Cost/Month</th><th>Cost/Year</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VPS-2</td><td>€6.75</td><td>€81.00</td></tr>
+    <tr><td>Managed PostgreSQL (1GB RAM)</td><td>€15.00</td><td>€180.00</td></tr>
+    <tr><td>Object Storage (100GB)</td><td>€2.00</td><td>€24.00</td></tr>
+    <tr><td>Business Email (5 mailboxes)</td><td>€10.00</td><td>€120.00</td></tr>
+    <tr><td>Domain</td><td>€1.50</td><td>€18.00</td></tr>
+    <tr class="total-row"><td><strong>TOTAL</strong></td><td><strong>€35.25/month</strong></td><td><strong>€423/year</strong></td></tr>
+  </tbody>
+</table>
+<p class="note"><strong>Note:</strong> 1GB database RAM might be tight - monitor usage closely</p>
+
+<hr>
+
+<h2>📊 Summary Tables</h2>
+
+<h3>Recommended Setup (VPS-2):</h3>
+<pre>Monthly Breakdown:
+├── VPS-2                    €6.75
+├── Managed PostgreSQL       €20.00
+├── Object Storage           €5.00
+├── Business Email           €10.00
+└── Domain                   €1.50
+    ──────────────────────────────
+    TOTAL MONTHLY            €43.25
+
+Yearly Total:                €519.00</pre>
+
+<h3>High-Performance Setup (VPS-3):</h3>
+<pre>Monthly Breakdown:
+├── VPS-3                    €11.25-12.75 (verify current)
+├── Managed PostgreSQL       €40.00
+├── Object Storage           €5.00
+├── Business Email           €10.00
+└── Domain                   €1.50
+    ──────────────────────────────
+    TOTAL MONTHLY            €68-69
+
+Yearly Total:                €816-831</pre>
+
+<p class="note"><strong>Note:</strong> VPS-3 pricing and specifications may vary - check OVH website for current 2026 pricing.</p>
+
+<hr>
+
+<h2>🎯 Recommendation</h2>
+
+<div class="recommendation">
+  <h3>Start with VPS-2 Setup: €43.25/month (€519/year)</h3>
+  <p><strong>Why:</strong></p>
+  <ul>
+    <li>✅ Excellent price/performance ratio</li>
+    <li>✅ More than enough power to start</li>
+    <li>✅ Can handle 5,000-15,000 bookings/month</li>
+    <li>✅ Can upgrade to VPS-3 later if needed</li>
+    <li>✅ Managed database included (less maintenance)</li>
+  </ul>
+  <p><strong>Upgrade to VPS-3 when:</strong></p>
+  <ul>
+    <li>Consistently &gt;10,000 bookings/month</li>
+    <li>Need more RAM/CPU for additional services</li>
+    <li>Want more headroom for growth</li>
+    <li>Budget allows (€26/month more)</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>📝 Notes</h2>
+<ol>
+  <li><strong>Domain pricing:</strong> Typically paid yearly upfront (€12-20/year), not monthly</li>
+  <li><strong>VPS pricing:</strong> "From" prices - may vary slightly by data center location</li>
+  <li><strong>Database pricing:</strong> Can scale up/down as needed</li>
+  <li><strong>Storage pricing:</strong> Can expand Object Storage if needed</li>
+  <li><strong>Email pricing:</strong> Pay per mailbox - adjust number as needed</li>
+  <li><strong>All prices in EUR:</strong> OVH Europe pricing</li>
+  <li><strong>TVA included:</strong> Prices shown include French VAT (20%)</li>
+</ol>
+
+<hr>
+
+<p><strong>Provider:</strong> OVH (France/Europe)<br>
+<strong>Note:</strong> Prices are current as of document creation. Always verify current pricing on OVH website before ordering.</p>
+
+</body>
+</html>

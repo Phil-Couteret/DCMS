@@ -45,9 +45,6 @@ check_service() {
 # Check Backend API (port 3003)
 check_service "Backend API" "http://localhost:3003/api/health"
 
-# Check Sync Server (port 3002)
-check_service "Sync Server" "http://localhost:3002/health"
-
 # Check Public Website (port 3000) - React app, any response is good
 check_service "Public Website" "http://localhost:3000"
 

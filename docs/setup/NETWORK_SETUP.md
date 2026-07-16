@@ -1,5 +1,10 @@
 # Network Setup Guide for Multi-Machine Testing
 
+> **Note (2026-07-16):** `sync-server` was removed in Phase 1 cleanup - it only
+> ever mattered in mock mode (localStorage), and the app runs against the real
+> backend API (`API_CONFIG.mode = 'api'`) in every real deployment. Ignore any
+> "Start Sync Server" steps below; they no longer apply.
+
 This guide explains how to run DCMS on one machine (Mac) and access it from another machine (Windows 11) on the same network.
 
 ## Prerequisites

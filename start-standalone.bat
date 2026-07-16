@@ -35,95 +35,13 @@ echo.
 REM Ask user which mode to use
 echo Select mode:
 echo   1) Quick Demo - Admin Portal Only (Mock Mode - No backend/database) [FASTEST]
-echo   2) Full POC - Public Website + Admin Portal + Sync (Mock Mode) [RECOMMENDED]
-echo   3) Full Demo - Backend + Database
+echo   2) Full Demo - Backend + Database
 echo.
-set /p MODE_CHOICE="Enter choice [1, 2, or 3] (default: 1): "
+set /p MODE_CHOICE="Enter choice [1 or 2] (default: 1): "
 if "%MODE_CHOICE%"=="" set MODE_CHOICE=1
 
-if "%MODE_CHOICE%"=="3" goto FULL_DEMO
-if "%MODE_CHOICE%"=="2" goto FULL_POC
+if "%MODE_CHOICE%"=="2" goto FULL_DEMO
 goto QUICK_DEMO
-
-:FULL_POC
-echo.
-echo [INFO] Setting up Full POC Mode (Public Website + Admin Portal + Sync)
-echo.
-
-REM Install sync server dependencies if needed
-if not exist "sync-server\node_modules" (
-    echo [INFO] Installing sync server dependencies...
-    cd sync-server
-    call npm install
-    if %ERRORLEVEL% NEQ 0 (
-        echo [ERROR] Failed to install sync server dependencies
-        cd ..
-        pause
-        exit /b 1
-    )
-    cd ..
-)
-
-REM Install public website dependencies if needed
-if not exist "public-website\node_modules" (
-    echo [INFO] Installing public website dependencies...
-    cd public-website
-    call npm install
-    if %ERRORLEVEL% NEQ 0 (
-        echo [ERROR] Failed to install public website dependencies
-        cd ..
-        pause
-        exit /b 1
-    )
-    cd ..
-)
-
-REM Install admin portal dependencies if needed
-if not exist "frontend\node_modules" (
-    echo [INFO] Installing admin portal dependencies...
-    cd frontend
-    call npm install
-    if %ERRORLEVEL% NEQ 0 (
-        echo [ERROR] Failed to install admin portal dependencies
-        cd ..
-        pause
-        exit /b 1
-    )
-    cd ..
-)
-
-REM Start sync server
-echo.
-echo [INFO] Starting sync server on port 3002...
-cd sync-server
-start /B cmd /c "npm start > ..\sync-server.log 2>&1"
-cd ..
-set SYNC_STARTED=1
-
-REM Wait for sync server to start
-timeout /t 3 /nobreak >nul
-
-REM Start public website
-echo.
-echo [INFO] Starting public website on port 3000...
-cd public-website
-start /B cmd /c "set PORT=3000 && set BROWSER=none && npm start > ..\public-website.log 2>&1"
-cd ..
-set PUBLIC_STARTED=1
-
-REM Wait a moment
-timeout /t 2 /nobreak >nul
-
-REM Start admin portal
-echo.
-echo [INFO] Starting admin portal on port 3001...
-cd frontend
-start /B cmd /c "set PORT=3001 && set BROWSER=none && npm start > ..\frontend.log 2>&1"
-cd ..
-set FRONTEND_STARTED=1
-set BACKEND_STARTED=0
-
-goto WAIT_FOR_USER
 
 :QUICK_DEMO
 echo.
@@ -208,7 +126,8 @@ if not exist "frontend\node_modules" (
 REM Check for .env file in backend
 if not exist "backend\.env" (
     echo.
-    echo [INFO] Creating backend\.env file...
+    echo [INFO] Creating backend\.env file with a freshly generated JWT secret...
+    for /f "delims=" %%s in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set GENERATED_JWT_SECRET=%%s
     (
         echo # Database
         echo DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dcms_test?schema=public
@@ -219,6 +138,9 @@ if not exist "backend\.env" (
         echo.
         echo # CORS
         echo CORS_ORIGIN=http://localhost:3000
+        echo.
+        echo # Required - app refuses to start without this
+        echo JWT_SECRET=%GENERATED_JWT_SECRET%
     ) > backend\.env
     echo [OK] Created backend\.env
     echo [WARNING] Please update DATABASE_URL if your PostgreSQL credentials differ
@@ -281,18 +203,11 @@ echo ====================================
 echo  DCMS is running!
 echo ====================================
 echo.
-if "%MODE_CHOICE%"=="3" (
+if "%MODE_CHOICE%"=="2" (
     echo Services:
     echo   - Admin Portal: http://localhost:3000
     echo   - Backend API:  http://localhost:3001
     echo   - API Docs:     http://localhost:3001/api
-) else if "%MODE_CHOICE%"=="2" (
-    echo Services:
-    echo   - Public Website: http://localhost:3000
-    echo   - Admin Portal:   http://localhost:3001
-    echo   - Sync Server:    http://localhost:3002
-    echo.
-    echo [OK] Both sites are syncing! Bookings created on public site will appear in admin portal
 ) else (
     echo Admin Portal:
     echo   - Application: http://localhost:3000
@@ -301,10 +216,6 @@ if "%MODE_CHOICE%"=="3" (
 echo.
 echo Logs:
 if "%MODE_CHOICE%"=="2" (
-    echo   - Public Website: public-website.log
-    echo   - Admin Portal:   frontend.log
-    echo   - Sync Server:    sync-server.log
-) else if "%MODE_CHOICE%"=="3" (
     echo   - Admin Portal: frontend.log
     echo   - Backend:      backend.log
 ) else (
@@ -318,4 +229,3 @@ timeout /t 5 /nobreak >nul
 
 REM Keep window open and wait for user to close
 pause
-

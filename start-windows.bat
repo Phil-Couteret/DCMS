@@ -39,25 +39,20 @@ if not exist "public-website\node_modules" (
     exit /b 1
 )
 
-if not exist "sync-server\node_modules" (
-    echo [ERROR] Sync server dependencies not installed
-    echo Please run setup-windows.bat first
-    pause
-    exit /b 1
-)
-
 REM Check for backend .env file
 if not exist "backend\.env" (
     echo [WARNING] backend\.env not found
-    echo Creating default .env file...
+    echo Creating default .env file with a freshly generated JWT secret...
+    for /f "delims=" %%s in ('node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"') do set GENERATED_JWT_SECRET=%%s
     (
         echo DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dcms_production?schema=public
         echo PORT=3003
         echo NODE_ENV=development
         echo CORS_ORIGIN=http://localhost:3000,http://localhost:3001
-        echo JWT_SECRET=your-super-secret-jwt-key-change-in-production
+        echo JWT_SECRET=%GENERATED_JWT_SECRET%
     ) > backend\.env
     echo [WARNING] Using default database password. Please update backend\.env if needed.
+    echo [OK] Generated a unique JWT_SECRET - the app will not start without one.
 )
 
 echo [INFO] Starting services...
@@ -69,13 +64,6 @@ cd backend
 start "DCMS Backend" cmd /k "npm run start:dev"
 cd ..
 timeout /t 3 /nobreak >nul
-
-REM Start sync server (port 3002)
-echo [INFO] Starting sync server on port 3002...
-cd sync-server
-start "DCMS Sync Server" cmd /k "npm start"
-cd ..
-timeout /t 2 /nobreak >nul
 
 REM Start public website (port 3000)
 echo [INFO] Starting public website on port 3000...
@@ -99,9 +87,8 @@ echo All local servers will run on this machine:
 echo.
 echo   [1] PostgreSQL Database     - Port 5432 (Windows Service - should already be running)
 echo   [2] Backend API             - Port 3003 (http://localhost:3003)
-echo   [3] Sync Server             - Port 3002 (http://localhost:3002)
-echo   [4] Public Website          - Port 3000 (http://localhost:3000)
-echo   [5] Admin Portal            - Port 3001 (http://localhost:3001)
+echo   [3] Public Website          - Port 3000 (http://localhost:3000)
+echo   [4] Admin Portal            - Port 3001 (http://localhost:3001)
 echo.
 echo   API Documentation:          http://localhost:3003/api
 echo.

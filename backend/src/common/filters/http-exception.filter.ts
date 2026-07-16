@@ -4,11 +4,41 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+// Fields that must never be written to logs, even in an error dump.
+const SENSITIVE_BODY_KEYS = new Set([
+  'password',
+  'newPassword',
+  'oldPassword',
+  'apiSecret',
+  'api_secret',
+  'apiSecretHash',
+  'api_secret_hash',
+  'passwordHash',
+  'password_hash',
+  'token',
+  'access_token',
+  'refresh_token',
+]);
+
+function redactSensitive(body: unknown): unknown {
+  if (!body || typeof body !== 'object') return body;
+  const clone: Record<string, unknown> = { ...(body as Record<string, unknown>) };
+  for (const key of Object.keys(clone)) {
+    if (SENSITIVE_BODY_KEYS.has(key)) {
+      clone[key] = '[REDACTED]';
+    }
+  }
+  return clone;
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -27,19 +57,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message = exception.message;
     }
 
-    // Log the full error
-    console.error('=== Exception Caught ===');
-    console.error('Status:', status);
-    console.error('Message:', message);
-    console.error('Path:', request.url);
-    console.error('Method:', request.method);
-    if (exception instanceof Error) {
-      console.error('Stack:', exception.stack);
-    }
-    if (request.body) {
-      console.error('Request Body:', JSON.stringify(request.body, null, 2));
-    }
-    console.error('======================');
+    const stack = exception instanceof Error ? exception.stack : undefined;
+    this.logger.error(
+      `${request.method} ${request.url} -> ${status}: ${typeof message === 'string' ? message : JSON.stringify(message)}` +
+        (request.body ? ` | body=${JSON.stringify(redactSensitive(request.body))}` : ''),
+      stack,
+    );
 
     response.status(status).json({
       statusCode: status,

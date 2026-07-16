@@ -20,7 +20,6 @@ echo "Access URLs:"
 echo "  Admin Portal:  http://$LOCAL_IP:3001"
 echo "  Public Website: http://$LOCAL_IP:3000"
 echo "  Backend API:   http://$LOCAL_IP:3003/api"
-echo "  Sync Server:   http://$LOCAL_IP:3002"
 echo ""
 echo "Starting servers..."
 echo "Press Ctrl+C to stop all servers"
@@ -34,7 +33,7 @@ cd "$(dirname "$0")"
 cleanup() {
   echo ""
   echo "Stopping all servers..."
-  kill $BACKEND_PID $SYNC_PID $FRONTEND_PID 2>/dev/null
+  kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
   exit
 }
 
@@ -44,23 +43,15 @@ trap cleanup INT TERM
 mkdir -p logs
 
 # Start Backend API Server
-echo "[1/3] Starting Backend API (port 3003)..."
+echo "[1/2] Starting Backend API (port 3003)..."
 cd backend
 npm run start:dev > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
 sleep 2
 
-# Start Sync Server
-echo "[2/3] Starting Sync Server (port 3002)..."
-cd sync-server
-npm start > ../logs/sync.log 2>&1 &
-SYNC_PID=$!
-cd ..
-sleep 2
-
 # Start Frontend Admin Portal
-echo "[3/3] Starting Admin Portal (port 3001)..."
+echo "[2/2] Starting Admin Portal (port 3001)..."
 cd frontend
 HOST=0.0.0.0 PORT=3001 REACT_APP_API_URL=http://$LOCAL_IP:3003/api npm start > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
@@ -73,7 +64,6 @@ echo "Check logs in the 'logs' directory for any errors"
 echo ""
 echo "To view logs:"
 echo "  Backend:  tail -f logs/backend.log"
-echo "  Sync:     tail -f logs/sync.log"
 echo "  Frontend: tail -f logs/frontend.log"
 echo ""
 

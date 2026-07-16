@@ -24,19 +24,6 @@ if %ERRORLEVEL% EQU 0 (
 
 echo.
 
-REM Check Sync Server (port 3002)
-echo Checking Sync Server (port 3002)...
-netstat -ano | findstr ":3002" >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-    echo [OK] Sync Server is running on port 3002
-    echo        URL: http://localhost:3002
-) else (
-    echo [NOT RUNNING] Sync Server (port 3002)
-    set ALL_RUNNING=0
-)
-
-echo.
-
 REM Check Public Website (port 3000)
 echo Checking Public Website (port 3000)...
 netstat -ano | findstr ":3000" >nul 2>nul
@@ -83,7 +70,6 @@ if %ALL_RUNNING% EQU 1 (
     echo   - Public Website: http://localhost:3000
     echo   - Admin Portal:   http://localhost:3001
     echo   - Backend API:    http://localhost:3003
-    echo   - Sync Server:    http://localhost:3002
     echo   - API Docs:       http://localhost:3003/api
 ) else (
     echo  Some Services Are Not Running

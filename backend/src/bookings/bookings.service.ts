@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
 import { activity_type, booking_status, payment_method, payment_status } from '@prisma/client';
@@ -47,6 +47,8 @@ export interface UpdateBookingDto {
 
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     private prisma: PrismaService,
     private tenantContext: TenantContextService,
@@ -76,7 +78,7 @@ export class BookingsService {
     const mapped = mapping[frontendType];
     if (!mapped) {
       // Default to diving if unknown type
-      console.warn(`[BookingsService] Unknown activity type "${frontendType}", defaulting to "diving"`);
+      this.logger.warn(`Unknown activity type "${frontendType}", defaulting to "diving"`);
       return 'diving';
     }
     return mapped;
@@ -197,7 +199,7 @@ export class BookingsService {
         },
       });
     } catch (error) {
-      console.error('[BookingsService] Error creating booking:', error);
+      this.logger.error('Error creating booking', error instanceof Error ? error.stack : error);
       throw error;
     }
   }

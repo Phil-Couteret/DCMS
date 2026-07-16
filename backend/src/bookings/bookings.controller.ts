@@ -9,6 +9,7 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { BookingsService, CreateBookingDto, UpdateBookingDto } from './bookings.service';
@@ -16,6 +17,8 @@ import { BookingsService, CreateBookingDto, UpdateBookingDto } from './bookings.
 @ApiTags('bookings')
 @Controller('bookings')
 export class BookingsController {
+  private readonly logger = new Logger(BookingsController.name);
+
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Get()
@@ -54,7 +57,7 @@ export class BookingsController {
     try {
       return await this.bookingsService.create(createBookingDto);
     } catch (error) {
-      console.error('[BookingsController] Error in create endpoint:', error);
+      this.logger.error('Error in create endpoint', error instanceof Error ? error.stack : error);
       throw error;
     }
   }

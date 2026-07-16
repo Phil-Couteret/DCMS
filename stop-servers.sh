@@ -63,7 +63,6 @@ stop_service() {
 
 # Stop each service
 stop_service "Backend API" "3003"
-stop_service "Sync Server" "3002"
 stop_service "Public Website" "3000"
 stop_service "Admin Portal" "3001"
 

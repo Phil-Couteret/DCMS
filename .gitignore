@@ -19,8 +19,13 @@ build/
 *.js.map
 *.css.map
 
-# Cursor
-cursor_git_sync_completion_status.md
+# Cursor chat export log (dev session transcript, not documentation).
+# Note: docs/archive/cursor-chat-exports/ is NOT ignored - it was already
+# committed to git history before this rule existed, so ignoring it here
+# would only stop new changes from being tracked, not remove the existing
+# 6.7MB blob from history. That needs a deliberate history-rewrite pass,
+# same as the customer invoice PDF noted in docs/roadmap.md.
+docs/archive/cursor_git_sync_completion_status.md
 
 # IDE
 .vscode/

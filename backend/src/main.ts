@@ -1,8 +1,10 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+
+const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -66,10 +68,10 @@ async function bootstrap() {
   const port = process.env.PORT || 3003;
   await app.listen(port, '0.0.0.0'); // Listen on all network interfaces
   const localIP = process.env.LOCAL_NETWORK_IP || '192.168.18.254';
-  console.log(`🚀 DCMS Backend API is running on:`);
-  console.log(`   Local:   http://localhost:${port}`);
-  console.log(`   Network: http://${localIP}:${port}`);
-  console.log(`📚 Swagger documentation: http://localhost:${port}/api`);
+  logger.log(`🚀 DCMS Backend API is running on:`);
+  logger.log(`   Local:   http://localhost:${port}`);
+  logger.log(`   Network: http://${localIP}:${port}`);
+  logger.log(`📚 Swagger documentation: http://localhost:${port}/api`);
 }
 
 bootstrap();
