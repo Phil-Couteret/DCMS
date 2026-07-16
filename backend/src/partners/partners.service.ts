@@ -39,11 +39,20 @@ export class PartnersService {
     return tenantId ? { tenant_id: tenantId } : {};
   }
 
+  /** Never let api_secret_hash leave the server. */
+  private static omitSecretHash<T extends { api_secret_hash?: unknown }>(
+    partner: T,
+  ): Omit<T, 'api_secret_hash'> {
+    const { api_secret_hash, ...rest } = partner;
+    return rest;
+  }
+
   async findAll() {
-    return this.prisma.partners.findMany({
+    const partners = await this.prisma.partners.findMany({
       where: this.tenantFilter(),
       orderBy: { created_at: 'desc' },
     });
+    return partners.map((p) => PartnersService.omitSecretHash(p));
   }
 
   async findOne(id: string) {
@@ -55,7 +64,7 @@ export class PartnersService {
       throw new NotFoundException(`Partner with ID ${id} not found`);
     }
 
-    return partner;
+    return PartnersService.omitSecretHash(partner);
   }
 
   async findByApiKey(apiKey: string) {
@@ -98,9 +107,9 @@ export class PartnersService {
       },
     });
 
-    // Return partner with API secret (only shown once)
+    // Return partner with API secret (only shown once) - never the hash
     return {
-      ...partner,
+      ...PartnersService.omitSecretHash(partner),
       apiSecret, // Include the plain secret only on creation
     };
   }
@@ -128,10 +137,11 @@ export class PartnersService {
     if (updatePartnerDto.isActive !== undefined) updateData.is_active = updatePartnerDto.isActive;
     if (updatePartnerDto.settings !== undefined) updateData.settings = updatePartnerDto.settings;
 
-    return this.prisma.partners.update({
+    const partner = await this.prisma.partners.update({
       where: { id },
       data: updateData,
     });
+    return PartnersService.omitSecretHash(partner);
   }
 
   async regenerateApiKey(id: string) {
@@ -150,16 +160,17 @@ export class PartnersService {
     });
 
     return {
-      ...partner,
+      ...PartnersService.omitSecretHash(partner),
       apiSecret, // Include the plain secret only when regenerating
     };
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.partners.delete({
+    const partner = await this.prisma.partners.delete({
       where: { id },
     });
+    return PartnersService.omitSecretHash(partner);
   }
 
   private generateApiKey(): string {

@@ -28,7 +28,10 @@ services:
       PORT: 3003
       NODE_ENV: production
       CORS_ORIGIN: http://localhost:3000
-      JWT_SECRET: change-me-in-production
+      # Must be set in a .env file next to this compose file (repo root) -
+      # docker compose fails to start if JWT_SECRET is unset. Generate one with:
+      #   openssl rand -hex 32
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in a .env file at the repo root before running docker compose}
     depends_on:
       db:
         condition: service_healthy

@@ -7,10 +7,13 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiSecurity } from '@nestjs/swagger';
 import { PartnerAuthGuard } from '../common/guards/partner-auth.guard';
 import { Partner } from '../common/decorators/partner.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { LocationsService } from '../locations/locations.service';
 import { DiveSitesService } from '../dive-sites/dive-sites.service';
 
+// Authenticated via partner API key (PartnerAuthGuard below), not admin JWT.
+@Public()
 @ApiTags('partner')
 @ApiSecurity('api-key')
 @Controller('partner')

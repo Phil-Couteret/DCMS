@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { ConsentsModule } from './consents/consents.module';
 import { AuditModule } from './audit/audit.module';
 import { DsarModule } from './dsar/dsar.module';
@@ -29,6 +32,7 @@ import { TenantModule } from './tenant/tenant.module';
 @Module({
   imports: [
     TenantModule,
+    AuthModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -57,7 +61,17 @@ import { TenantModule } from './tenant/tenant.module';
     DataRetentionModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Global auth guard: every route requires a valid admin JWT by default.
+    // Routes that legitimately need no auth, or that enforce their own
+    // alternative auth (partner API key, partner JWT), must be marked
+    // @Public() explicitly rather than relying on the absence of a guard.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+  ],
 })
 export class AppModule {}
 

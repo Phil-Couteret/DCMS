@@ -13,7 +13,10 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@ne
 import { PartnerCustomersService, CreatePartnerCustomerDto, UpdatePartnerCustomerDto } from './partner-customers.service';
 import { JwtPartnerGuard } from '../partner-auth/jwt-partner.guard';
 import { Partner } from '../common/decorators/partner.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
+// Authenticated via partner JWT (JwtPartnerGuard below), not admin JWT.
+@Public()
 @ApiTags('partner')
 @ApiBearerAuth()
 @Controller('partner/customers')

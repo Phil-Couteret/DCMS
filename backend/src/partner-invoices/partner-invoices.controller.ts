@@ -19,6 +19,7 @@ import {
 } from './partner-invoices.service';
 import { JwtPartnerGuard } from '../partner-auth/jwt-partner.guard';
 import { Partner } from '../common/decorators/partner.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('partner-invoices')
 @Controller('partner-invoices')
@@ -54,6 +55,7 @@ export class PartnerInvoicesController {
     return this.partnerInvoicesService.findByPartner(partnerId);
   }
 
+  @Public()
   @Get('my-invoices')
   @UseGuards(JwtPartnerGuard)
   @ApiBearerAuth()

@@ -5,12 +5,13 @@ import { PartnerAuthService } from './partner-auth.service';
 import { PartnerAuthController } from './partner-auth.controller';
 import { JwtPartnerStrategy } from './jwt-partner.strategy';
 import { PrismaService } from '../prisma/prisma.service';
+import { getRequiredJwtSecret } from '../config/jwt-secret.util';
 
 @Module({
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+      secret: getRequiredJwtSecret(),
       signOptions: { expiresIn: '7d' }, // Partner tokens valid for 7 days
     }),
   ],

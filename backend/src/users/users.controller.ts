@@ -11,12 +11,14 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { UsersService, CreateUserDto, UpdateUserDto, LoginDto } from './users.service';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user' })
@@ -31,6 +33,15 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'List of users' })
   async findAll() {
     return this.usersService.findAll();
+  }
+
+  /** Prevent GET /users/login from matching :id (would pass "login" as UUID and cause 500) */
+  @Public()
+  @Get('login')
+  @HttpCode(HttpStatus.METHOD_NOT_ALLOWED)
+  @ApiOperation({ summary: 'Login is POST only' })
+  loginGet() {
+    return { statusCode: 405, message: 'Method Not Allowed. Use POST /users/login with { username, password }.' };
   }
 
   @Get(':id')

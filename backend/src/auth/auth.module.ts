@@ -4,12 +4,13 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { JwtAdminStrategy } from './jwt-admin.strategy';
 import { PrismaService } from '../prisma/prisma.service';
+import { getRequiredJwtSecret } from '../config/jwt-secret.util';
 
 @Module({
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+      secret: getRequiredJwtSecret(),
       signOptions: { expiresIn: '7d' },
     }),
   ],

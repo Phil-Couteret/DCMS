@@ -1,7 +1,10 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PartnerAuthService, PartnerLoginDto } from './partner-auth.service';
+import { Public } from '../common/decorators/public.decorator';
 
+// Login endpoint for partners - not admin-authenticated by definition.
+@Public()
 @ApiTags('partner-auth')
 @Controller('partner-auth')
 export class PartnerAuthController {

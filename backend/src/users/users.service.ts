@@ -41,12 +41,18 @@ export class UsersService {
   ) {}
 
   async findAll() {
-    return this.prisma.users.findMany({
+    const users = await this.prisma.users.findMany({
       orderBy: { created_at: 'desc' },
     });
+    return users.map(({ password_hash, ...user }) => user);
   }
 
+  private static readonly UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
   async findOne(id: string) {
+    if (!UsersService.UUID_REGEX.test(id)) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
     const user = await this.prisma.users.findUnique({
       where: { id },
     });
@@ -198,9 +204,11 @@ export class UsersService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.users.delete({
+    const user = await this.prisma.users.delete({
       where: { id },
     });
+    const { password_hash, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   }
 }
 

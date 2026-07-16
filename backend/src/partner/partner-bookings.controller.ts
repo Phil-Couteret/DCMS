@@ -15,7 +15,10 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth }
 import { PartnerBookingsService, CreatePartnerBookingDto, UpdatePartnerBookingDto } from './partner-bookings.service';
 import { JwtPartnerGuard } from '../partner-auth/jwt-partner.guard';
 import { Partner } from '../common/decorators/partner.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
+// Authenticated via partner JWT (JwtPartnerGuard below), not admin JWT.
+@Public()
 @ApiTags('partner')
 @ApiBearerAuth()
 @Controller('partner/bookings')
