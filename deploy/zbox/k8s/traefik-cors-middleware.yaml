@@ -18,6 +18,7 @@ spec:
       - PATCH
     accessControlAllowHeaders:
       - "*"
+    # Apex and fixed hosts
     accessControlAllowOriginList:
       - "http://admin.couteret.fr"
       - "https://admin.couteret.fr"
@@ -25,6 +26,9 @@ spec:
       - "https://dcms.couteret.fr"
       - "http://api.couteret.fr"
       - "https://api.couteret.fr"
+    # Multi-tenant: test.admin, deepblue.admin, *.dcms, etc. (YAML: backslash escaped twice)
+    accessControlAllowOriginListRegex:
+      - "^https?://([a-z0-9-]+\\.)*(admin|dcms)\\.couteret\\.fr(:\\d+)?$"
     accessControlAllowCredentials: true
     accessControlMaxAge: 86400
     addVaryHeader: true

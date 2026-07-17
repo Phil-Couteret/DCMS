@@ -22,6 +22,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed:users": "ts-node src/scripts/seed-users.ts",
+    "reset-password": "ts-node src/scripts/reset-admin-password.ts",
+    "create-tenant-admin": "ts-node src/scripts/create-tenant-admin.ts",
     "seed:settings": "ts-node src/scripts/seed-settings.ts",
     "seed:dive-sites:caleta": "ts-node src/scripts/seed-dive-sites-caleta.ts",
     "seed": "npm run seed:users && npm run seed:settings"

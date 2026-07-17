@@ -1,6 +1,7 @@
-import { IsBoolean, IsEnum, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
-import { location_type } from '@prisma/client';
+import { IsBoolean, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 
+// See create-location.dto.ts - locations.type is a free VARCHAR(50), not a
+// fixed DB enum, to support user-defined location types.
 export class UpdateLocationDto {
   @IsOptional()
   @IsString()
@@ -8,8 +9,9 @@ export class UpdateLocationDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(location_type)
-  type?: location_type;
+  @IsString()
+  @MinLength(1)
+  type?: string;
 
   @IsOptional()
   @IsObject()

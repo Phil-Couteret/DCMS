@@ -93,4 +93,5 @@ spec:
   tls:
     - hosts:
         - api.couteret.fr
+        - "*.api.couteret.fr"
       secretName: dcms-api-tls

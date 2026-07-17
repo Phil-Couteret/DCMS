@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
-import { location_type } from '@prisma/client';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 
@@ -68,7 +67,7 @@ export class LocationsService {
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.type !== undefined && { type: dto.type as location_type }),
+        ...(dto.type !== undefined && { type: dto.type }),
         ...(dto.address !== undefined && { address: dto.address }),
         ...(dto.contactInfo !== undefined && { contact_info: dto.contactInfo }),
         ...(dto.settings !== undefined && { settings: dto.settings }),

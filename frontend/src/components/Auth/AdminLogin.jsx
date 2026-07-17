@@ -53,7 +53,13 @@ const AdminLogin = ({ onSuccess }) => {
       login(transformedUser);
       onSuccess?.();
     } catch (err) {
-      setError(err.message || 'Login failed');
+      const base = typeof API_CONFIG.baseURL === 'function' ? API_CONFIG.baseURL() : API_CONFIG.baseURL;
+      const url = `${base}/users/login`;
+      if (err?.message === 'Failed to fetch' || err?.name === 'TypeError') {
+        setError(`Cannot reach the API at ${url}. Check that the backend is running and that ${window.location.hostname} can access it (DNS, VPN, CORS).`);
+      } else {
+        setError(err.message || 'Login failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -112,6 +118,16 @@ const AdminLogin = ({ onSuccess }) => {
           >
             {loading ? 'Logging in...' : 'Login'}
           </Button>
+          {(() => {
+            const base = typeof API_CONFIG.baseURL === 'function' ? API_CONFIG.baseURL() : API_CONFIG.baseURL;
+            const isDev = typeof base === 'string' && (base.includes('localhost') || base.includes('127.0.0.1'));
+            if (!isDev) return null;
+            return (
+              <Typography variant="caption" display="block" sx={{ mt: 2 }} color="text.secondary" align="center">
+                Default: superadmin / superadmin123 or admin / admin123. Can&apos;t connect? In backend run: npm run reset-password
+              </Typography>
+            );
+          })()}
         </form>
       </Paper>
     </Box>

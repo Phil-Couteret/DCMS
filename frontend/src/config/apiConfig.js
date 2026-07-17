@@ -24,7 +24,10 @@ const getApiBaseURL = () => {
     .replace(/^(admin|dcms)\./, 'api.')
     .replace(/\.(admin|dcms)\./, '.api.');
   const port = hostname.includes('couteret.fr') ? '' : ':3003';
-  return `${protocol}//${apiHost}${port}/api`;
+  // Use apex API for *.admin/*.dcms (e.g. test.admin) so it works without test.api DNS/cert
+  const useApexApi = hostname.includes('couteret.fr') && apiHost !== 'api.couteret.fr' && apiHost.includes('.');
+  const finalHost = useApexApi ? 'api.couteret.fr' : apiHost;
+  return `${protocol}//${finalHost}${port}/api`;
 };
 
 export const API_CONFIG = {

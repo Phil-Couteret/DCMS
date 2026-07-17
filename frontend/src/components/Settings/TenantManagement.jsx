@@ -44,14 +44,15 @@ function slugify(name) {
     .replace(/^-|-$/g, '') || 'tenant';
 }
 
-/** Base admin host (e.g. admin.couteret.fr) - derive from current origin */
+/** Base admin host for tenant URLs (e.g. admin.couteret.fr) - always the apex, not subdomain */
 function getAdminHost() {
   if (typeof window === 'undefined') return 'admin.couteret.fr';
   const host = window.location.hostname;
-  // If we're on deepblue.admin.couteret.fr, base is admin.couteret.fr
-  const m = host.match(/\.(admin\.couteret\.fr)$/i) || host.match(/^(admin)\./);
-  if (m) return host.includes('.') ? host.replace(/^[^.]+\./, 'admin.') : 'admin.couteret.fr';
-  return host.includes('localhost') ? 'admin.couteret.fr' : `admin.${host}`;
+  if (host.includes('localhost')) return 'admin.couteret.fr';
+  // *.admin.couteret.fr or *.dcms.couteret.fr → use apex admin.couteret.fr / dcms.couteret.fr
+  if (host.includes('.admin.')) return 'admin.' + host.split('.').slice(-2).join('.');
+  if (host.includes('.dcms.')) return 'dcms.' + host.split('.').slice(-2).join('.');
+  return host.startsWith('admin.') ? host : `admin.${host}`;
 }
 
 const TenantManagement = () => {

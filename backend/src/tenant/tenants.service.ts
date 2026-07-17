@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 /** Slugify: company name → URL-safe slug (e.g. "Deep Blue Diving" → "deep-blue-diving") */
 function slugify(name: string): string {
@@ -109,7 +110,7 @@ export class TenantsService {
       this.estimateTenantStorageBytes(tenantId),
     ]);
     const tenant = await this.prisma.tenants.findUnique({ where: { id: tenantId } });
-    const quotas = tenant ? this.getQuotas(tenant) : { locations: 20, dive_sites: 15, boats: 10, users: 20, customers: 500, storage_gb: 5 };
+    const quotas = tenant ? this.getQuotas(tenant) : { locations: 20, dive_sites: 15, boats: 10, users: 20, customers: 500, storage_gb: 5, storage_price_per_gb_per_month: 0 };
     const storageGb = quotas.storage_gb ?? 5;
     const authorizedBytes = storageGb * 1024 * 1024 * 1024;
     return {
@@ -204,6 +205,22 @@ export class TenantsService {
       where: { slug },
     });
     if (existing) {
+      if (!existing.is_active) {
+        // Reactivate deleted tenant and update it (allows "recreate" after soft delete)
+        await this.prisma.tenants.update({
+          where: { id: existing.id },
+          data: {
+            is_active: true,
+            name: data.name,
+            ...(data.domain !== undefined && { domain: data.domain ?? null }),
+          },
+        });
+        await this.ensureDefaultTenantAdmin(existing.id, slug, data.name);
+        return this.prisma.tenants.findUnique({
+          where: { id: existing.id },
+          include: { locations: true },
+        });
+      }
       throw new ConflictException(`Tenant with slug "${slug}" already exists`);
     }
 
@@ -246,9 +263,39 @@ export class TenantsService {
       });
     }
 
+    // Create default admin user for this tenant (so they can log in with tenant context)
+    await this.ensureDefaultTenantAdmin(tenant.id, slug, data.name);
+
     return this.prisma.tenants.findUnique({
       where: { id: tenant.id },
       include: { locations: true },
+    });
+  }
+
+  /**
+   * Ensures `admin-{slug}` exists for a tenant, so it can be logged into with
+   * tenant context right after creation/reactivation. Default password
+   * matches the seed-users.ts convention (see docs ADMIN_LOGIN.md) -
+   * intended to be changed on first login, not a long-term credential.
+   */
+  private async ensureDefaultTenantAdmin(tenantId: string, slug: string, tenantName: string) {
+    const username = `admin-${slug}`;
+    const existingAdmin = await this.prisma.users.findUnique({ where: { username } });
+    if (existingAdmin) return;
+
+    const passwordHash = await bcrypt.hash('admin123', 10);
+    await this.prisma.users.create({
+      data: {
+        username,
+        name: `Admin (${tenantName})`,
+        email: `admin@${slug}.local`,
+        password_hash: passwordHash,
+        role: 'admin',
+        permissions: ['dashboard', 'bookings', 'customers', 'settings', 'users'],
+        location_access: [],
+        is_active: true,
+        tenant_id: tenantId,
+      },
     });
   }
 

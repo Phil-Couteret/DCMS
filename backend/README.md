@@ -35,6 +35,10 @@ npm run start:dev
 
 The API will be available at `http://localhost:3001`
 
+### Admin login (API mode)
+
+Default users are created by `npm run seed:users` (superadmin / superadmin123, admin / admin123). If you **can't connect** to the admin with the password, see [ADMIN_LOGIN.md](./ADMIN_LOGIN.md) and use `npm run reset-password` to reset passwords.
+
 ---
 
 ## 📁 Project Structure

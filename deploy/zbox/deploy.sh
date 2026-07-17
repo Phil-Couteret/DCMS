@@ -84,7 +84,8 @@ fi
 cd "$DCMS_ROOT"
 
 docker build -t dcms-backend:latest ./backend
-docker build -t dcms-admin:latest --build-arg REACT_APP_API_URL="${API_URL}/api" ./frontend
+# Admin: no fixed REACT_APP_API_URL so it uses hostname (test.admin → test.api, admin → api)
+docker build -t dcms-admin:latest ./frontend
 docker build -t dcms-public:latest --build-arg REACT_APP_API_URL="${API_URL}/api" ./public-website
 
 echo "==> Importing images into K3s..."

@@ -7,7 +7,8 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 COPY . .
-ARG REACT_APP_API_URL=http://localhost:3003/api
+# Empty = use hostname (test.admin → test.api, admin → api, localhost → localhost:3003)
+ARG REACT_APP_API_URL=
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 ENV CI=false
 # Bypass broken .bin/react-scripts wrapper - run build script directly
