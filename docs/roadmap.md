@@ -30,15 +30,21 @@ Do this before any further feature work, and before touching the multi-tenant sc
 
 ## Phase 2 — Validation & migrations (backend correctness)
 
-1. Convert plain-interface DTOs to `class-validator` classes, module by module, starting with the highest-traffic ones (bookings, customers, users).
-2. Re-enable `forbidNonWhitelisted: true` once a module's DTOs are converted — do this per-module, not globally in one step, so a forgotten field surfaces one module at a time.
-3. Reconstruct a clean Prisma baseline migration reflecting the current schema; retire `database/migrations/*.sql` as historical reference; delete/resolve the duplicate `008_*` pair.
+**Status: items 1–2 done, item 3 written as a guide for you to run (2026-07-17).**
+
+1. ✅ Converted every plain-`interface` DTO to a `class-validator` class, across all 24 modules that had one (users, customers, bookings, staff, equipment, boats, boat-preps, locations, dive-sites, government-bonos, settings, customer-bills, breaches, dsar, audit, partners, partner-invoices, partner bookings/customers, consents, tenant, partner-auth). Along the way, consolidated a few modules that had 2–3 duplicate DTO declarations down to one, and fixed inline untyped `@Body()` params in `tenants.controller.ts`. `bookings`'s `activityType` deliberately stays `@IsString()` rather than a strict enum — `BookingsService.mapActivityType()` remaps frontend aliases (e.g. `scuba_diving`) after validation; documented inline in the DTO. `settings`'s `value` field stays untyped/unvalidated — it's genuinely free-form JSON by design.
+2. ✅ Flipped `forbidNonWhitelisted: false` → `true` globally in `main.ts` now that every module has a real DTO to validate against, instead of doing it module-by-module (the original plan) — since all modules were converted in the same pass, there was no partial state where some endpoints had DTOs and others didn't. **Not yet smoke-tested against the running frontend** — this is the one Phase 2 item with real regression risk if any frontend flow sends extra fields no DTO expects. `BookingForm.jsx` and `realApiAdapter.js` both have comments suggesting the frontend already assumed strict DTOs, but that needs verifying against the actual running app before this goes to production.
+3. ⏳ Reconstructing the clean Prisma baseline needs a live DB connection this session doesn't have. Wrote `docs/guides/PRISMA_MIGRATION_BASELINE.md` — a step-by-step guide (back up DB, `prisma migrate diff --from-empty`, `prisma migrate resolve --applied`, verify with `prisma migrate status`, archive `database/migrations/*.sql` to `docs/archive/legacy-sql-migrations/`) for you to run locally.
+
+`npx tsc --noEmit` passes clean after these changes.
 
 ## Phase 3 — Test safety net (before touching the data model further)
 
-1. Add backend unit tests for the services touched in phases 0–2 (auth, tenant resolution, bookings, customers, users).
-2. Add e2e tests that specifically assert: unauthenticated requests are rejected on every controller; tenant A's JWT cannot read/write tenant B's data.
-3. Treat these as a gate — phase 4 (adding `tenant_id` broadly) should not proceed until this suite exists and passes against phase 0–2 code.
+**Status: item 1 done for the phase 0 security fixes (2026-07-17); e2e tests (item 2) not started.**
+
+1. ✅ Added backend unit tests for the security-critical code from phases 0–2: `public.decorator.spec.ts` and `jwt-auth.guard.spec.ts` (the `@Public()`/global-guard bypass logic), `tenant.interceptor.spec.ts` (8 cases covering the JWT-authoritative tenant fix — header/JWT mismatch rejection, deactivated-tenant rejection, superadmin platform-level default and header-switch, pre-login and default-tenant fallback), `users.service.spec.ts` and `partners.service.spec.ts` (6 cases each confirming `password_hash`/`api_secret_hash` never appear in any returned object, across every service method), and `create-booking.dto.spec.ts` (a `class-validator`-direct test confirming valid payloads pass, invalid UUID/enum/negative values are rejected, and an unexpected extra field is rejected the same way `forbidNonWhitelisted` rejects it live). All 6 suites (32 tests) pass. Note: `UsersService`/`PartnersService`/`TenantsService` import `bcrypt` directly for password/secret hashing, which ships a native binary compiled for the machine it's installed on — the tests use `jest.mock('bcrypt', ...)` to stub it out, so they run without needing a matching native build.
+2. ⏳ Not started — e2e tests asserting unauthenticated requests are rejected on every controller, and tenant A's JWT cannot read/write tenant B's data, still need to be written.
+3. Given item 1 above, the security-critical code from phases 0–2 now has unit coverage. Phase 4 (`tenant_id` everywhere) should still wait for the e2e isolation suite in item 2 before proceeding, per the original intent of this gate.
 
 ## Phase 4 — Full multi-tenant data model
 

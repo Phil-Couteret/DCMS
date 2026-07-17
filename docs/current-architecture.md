@@ -1,6 +1,6 @@
 # DCMS — Current Architecture (As-Is)
 
-_Last reviewed: 2026-07-16. Updated 2026-07-16: Phase 0 security fixes from `roadmap.md` have been applied — see the "Phase 0 status" notes inline below._
+_Last reviewed: 2026-07-16. Updated 2026-07-16: Phase 0 security fixes from `roadmap.md` have been applied — see the "Phase 0 status" notes inline below. Updated 2026-07-17: Phase 1 cleanup, Phase 2 validation/migration work, and Phase 3 unit tests applied — see the "Phase 1/2/3" notes inline below._
 
 ## 1. What DCMS is
 
@@ -92,7 +92,7 @@ Models: `tenants, audit_logs, boat_preps, boats, bono_usage, bookings, certifica
 
 ### 4.4 Validation
 
-`ValidationPipe` is registered globally in `main.ts`, but `forbidNonWhitelisted: false` is set explicitly ("temporarily disabled to allow interfaces without decorators"). Only a handful of files define real `class-validator` DTO classes; most request bodies are typed as plain TypeScript `interface`s, which Nest's pipe cannot validate at runtime. In effect, input validation is mostly inert.
+~~`ValidationPipe` is registered globally in `main.ts`, but `forbidNonWhitelisted: false` is set explicitly ("temporarily disabled to allow interfaces without decorators"). Only a handful of files define real `class-validator` DTO classes; most request bodies are typed as plain TypeScript `interface`s, which Nest's pipe cannot validate at runtime. In effect, input validation is mostly inert.~~ **Fixed (Phase 2):** every module's plain-`interface` DTO was converted to a real `class-validator` class (24 modules), and `forbidNonWhitelisted` is now `true` globally. Two fields stay deliberately loose: `bookings`' `activityType` is `@IsString()` rather than a strict enum, because `BookingsService.mapActivityType()` remaps frontend aliases after validation; `settings`' `value` is untyped, since it's genuinely free-form JSON. **Not yet smoke-tested against the running frontend** — verify no real request relies on a field outside its DTO before deploying.
 
 ### 4.5 Auth/secrets
 
@@ -103,12 +103,12 @@ Models: `tenants, audit_logs, boat_preps, boats, bono_usage, bookings, certifica
 
 ### 4.6 Tests
 
-Zero unit spec files (`*.spec.ts`) under `backend/src`. One end-to-end test in total.
+~~Zero unit spec files (`*.spec.ts`) under `backend/src`. One end-to-end test in total.~~ **Partially fixed (Phase 3):** 6 unit spec files now cover the security-critical code from Phases 0–2 — `@Public()`/`JwtAuthGuard` bypass logic, the JWT-authoritative tenant fix (`tenant.interceptor.spec.ts`, 8 cases), `password_hash`/`api_secret_hash` stripping (`users.service.spec.ts`, `partners.service.spec.ts`, 6 cases each), and DTO validation (`create-booking.dto.spec.ts`). 32 tests total, all passing. E2e tests (unauthenticated-request rejection per controller, cross-tenant isolation) are still not started — see `roadmap.md` Phase 3.
 
 ## 5. Frontend (staff/admin PWA)
 
 - Routing (`frontend/src/App.jsx`, `BrowserRouter`): `/partner/login`, `/partner/dashboard` (guarded by `ProtectedPartnerRoute`); everything else (`/`, `/bookings`, `/bookings/new`, `/bookings/:id`, `/stays`, `/customers`, `/equipment`, `/boat-prep`, `/schedule`, `/schedule/trip/:date/:type/:boatId?/:session?`, `/settings`, `/breaches`, `/bill`, `/partners`, `/partner-invoices`, `/bills`, `/financial`) wrapped in `ProtectedRoute`.
-- `ProtectedRoute.jsx`: checks `useAuth()`; if `isMockMode()` is on, shows a `UserSelector` with no real auth; otherwise checks `isAuthenticated() && localStorage.getItem('auth_token')`, plus a `canAccess(permission)` check. This is UI gating only — since most backend endpoints are unguarded, it doesn't back onto any server-side check.
+- `ProtectedRoute.jsx`: checks `useAuth()`; if `isMockMode()` is on, shows a `UserSelector` with no real auth; otherwise checks `isAuthenticated() && localStorage.getItem('auth_token')`, plus a `canAccess(permission)` check. This is UI gating only. ~~Since most backend endpoints are unguarded, it doesn't back onto any server-side check.~~ **Fixed (Phase 0):** every backend controller now sits behind the global `JwtAuthGuard` by default, with only genuinely public routes (login endpoints, partner routes with their own guard) marked `@Public()` — see §4.5.
 - Structure: 17 page files (some very large: `Settings.jsx` 3,544 lines, `BoatPrep.jsx` 2,721, `Financial.jsx` 2,370), 18 component files, 15 service files (`api/`, `apiService`, `bookingRepricingService`, `breachService`, `dataService`, `financialService`, `pricingService`, `sharedStorage`, `stayCostsService`, `stayService`, `syncService`, `tankService`), 8 util files including `authContext.js`. No `hooks/`, `context/`, or `store/` folder — state is managed ad hoc via `authContext.js` and local component state.
 - Zero frontend tests found.
 
@@ -123,7 +123,7 @@ Zero unit spec files (`*.spec.ts`) under `backend/src`. One end-to-end test in t
 
 - `database/migrations/`: 002 through 011, hand-written raw SQL, including a genuine duplicate: `008_location_type_varchar.sql` and `008_rollback_restore_location_type_enum.sql` share the same number (one forward, one rollback).
 - `backend/prisma/migrations/`: only 2 real migrations (`20251227114043_add_partner_invoices`, `20251228212110_add_customer_bills`) plus `migration_lock.toml` — the rest of the schema was introspected/hand-maintained rather than migrated through Prisma.
-- These two systems are not reconciled; there is no single source of truth for schema history.
+- These two systems are not reconciled; there is no single source of truth for schema history. **Guide written (Phase 2):** `docs/guides/PRISMA_MIGRATION_BASELINE.md` walks through baselining `backend/prisma/migrations/` as the sole source of truth and archiving `database/migrations/*.sql` to `docs/archive/legacy-sql-migrations/`. Requires a live DB connection this environment doesn't have, so it's written up for you to run rather than executed automatically — not yet done.
 
 ## 8. sync-server
 
@@ -131,10 +131,10 @@ Zero unit spec files (`*.spec.ts`) under `backend/src`. One end-to-end test in t
 
 ## 9. Infra
 
-- `docker-compose.yml`: `db` (postgres:15-alpine), `backend` (port 3003, env includes `JWT_SECRET=change-me-in-production` hardcoded in the compose file), `frontend` (port 3000). `docker-compose.import.yml` overrides `db` for restoring a host DB dump.
+- `docker-compose.yml`: `db` (postgres:15-alpine), `backend` (port 3003), `frontend` (port 3000). `docker-compose.import.yml` overrides `db` for restoring a host DB dump. ~~env includes `JWT_SECRET=change-me-in-production` hardcoded in the compose file~~ **Fixed (Phase 0):** now `${JWT_SECRET:?Set JWT_SECRET in a .env file at the repo root before running docker compose}`, failing loudly instead of silently using a known default.
 - `deploy/ovh/`: scripts to FTP-deploy `public-website` to OVH shared hosting under the `couteret.fr` domain.
 - `deploy/zbox/`: K3s manifests (`namespace, backend, admin, public, postgres+pv, ingress, cert-manager-issuer, traefik-cors-middleware, secrets.yaml.example`) for the real production target, a ZBOX CI331 nano server.
-- No `.env.example` exists; env vars referenced in code: `CORS_ORIGIN, JWT_SECRET, LOCAL_NETWORK_IP, PORT, RESET_ADMIN_PASSWORD, RESET_ADMIN_USER, TENANT_SLUG`.
+- ~~No `.env.example` exists~~ **Fixed (Phase 0/1):** `backend/.env.example`, `frontend/.env.example`, and `public-website/.env.example` now exist. Env vars referenced in code: `CORS_ORIGIN, JWT_SECRET, LOCAL_NETWORK_IP, PORT, RESET_ADMIN_PASSWORD, RESET_ADMIN_USER, TENANT_SLUG`.
 
 ## 10. Repo hygiene
 
