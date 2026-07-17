@@ -116,11 +116,18 @@ describe('Cross-tenant data isolation (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Clean up everything this run created, FK-safe order (children first).
-    await prisma.customers.deleteMany({ where: { id: { in: [customerA?.id, customerB?.id].filter(Boolean) as string[] } } });
-    await prisma.users.deleteMany({ where: { id: { in: [userA?.id, userB?.id].filter(Boolean) as string[] } } });
-    await prisma.tenants.deleteMany({ where: { id: { in: [tenantA?.id, tenantB?.id].filter(Boolean) as string[] } } });
-    await app.close();
+    // If beforeAll failed (e.g. no reachable DB), prisma/app were never
+    // assigned - skip cleanup rather than throwing a second, more
+    // confusing error that masks the real failure from beforeAll.
+    if (prisma) {
+      // Clean up everything this run created, FK-safe order (children first).
+      await prisma.customers.deleteMany({ where: { id: { in: [customerA?.id, customerB?.id].filter(Boolean) as string[] } } });
+      await prisma.users.deleteMany({ where: { id: { in: [userA?.id, userB?.id].filter(Boolean) as string[] } } });
+      await prisma.tenants.deleteMany({ where: { id: { in: [tenantA?.id, tenantB?.id].filter(Boolean) as string[] } } });
+    }
+    if (app) {
+      await app.close();
+    }
   });
 
   it("does not include tenant B's customer when tenant A lists customers", async () => {
