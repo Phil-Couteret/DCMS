@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, RequestMethod } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { PATH_METADATA, METHOD_METADATA, GUARDS_METADATA } from '@nestjs/common/constants';
 import { DiscoveryModule, DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import * as request from 'supertest';
@@ -143,6 +143,14 @@ describe('Every controller requires auth unless @Public() (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    // e2e tests bypass main.ts's bootstrap(), so the global ValidationPipe
+    // it applies imperatively (unlike the DI-registered guard) isn't here
+    // unless we add it ourselves - without it, an empty POST body reaches
+    // the login handlers unvalidated and they legitimately 401 on missing
+    // credentials, which would be indistinguishable from a guard 401.
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
 
     routes = discoverRoutes(

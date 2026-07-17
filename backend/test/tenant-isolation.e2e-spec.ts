@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -45,6 +45,11 @@ describe('Cross-tenant data isolation (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    // e2e tests bypass main.ts's bootstrap(), so replicate its global
+    // ValidationPipe here to match production request handling.
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
