@@ -1,14 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateDsarDto as CreateDsarBodyDto } from './dto/create-dsar.dto';
 
-export interface CreateDsarDto {
-  customerId: string;
-  requestType?: string;
-  requestedBy?: string;
-  requestDetails?: any;
-  responseFormat?: string;
-  responseDeliveryMethod?: string;
-}
+// customerId is injected by the controller from the :customerId route param
+// (not part of the validated request body - see dto/create-dsar.dto.ts).
+export type CreateDsarDto = CreateDsarBodyDto & { customerId: string };
+export { CreateDsarBodyDto };
 
 @Injectable()
 export class DsarService {

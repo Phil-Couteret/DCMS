@@ -39,7 +39,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false, // Temporarily disabled to allow interfaces without decorators
+      forbidNonWhitelisted: true,
       transform: true,
       disableErrorMessages: false,
     }),

@@ -1,49 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
-import { activity_type, booking_status, payment_method, payment_status } from '@prisma/client';
+import { activity_type, payment_method } from '@prisma/client';
+import { CreateBookingDto } from './dto/create-booking.dto';
+import { UpdateBookingDto } from './dto/update-booking.dto';
 
-export interface CreateBookingDto {
-  customerId: string;
-  locationId: string;
-  boatId?: string;
-  diveSiteId?: string;
-  staffPrimaryId?: string;
-  bookingDate: Date | string;
-  activityType: activity_type;
-  numberOfDives?: number;
-  price: number;
-  discount?: number;
-  totalPrice: number;
-  paymentMethod?: payment_method;
-  paymentStatus?: payment_status;
-  status?: booking_status;
-  specialRequirements?: string;
-  equipmentNeeded?: any;
-  bonoId?: string;
-  stayId?: string;
-}
-
-export interface UpdateBookingDto {
-  customerId?: string;
-  locationId?: string;
-  boatId?: string;
-  diveSiteId?: string;
-  staffPrimaryId?: string;
-  bookingDate?: Date | string;
-  activityType?: activity_type;
-  numberOfDives?: number;
-  price?: number;
-  discount?: number;
-  totalPrice?: number;
-  paymentMethod?: payment_method;
-  paymentStatus?: payment_status;
-  status?: booking_status;
-  specialRequirements?: string;
-  equipmentNeeded?: any;
-  bonoId?: string;
-  stayId?: string;
-}
+export { CreateBookingDto, UpdateBookingDto };
 
 @Injectable()
 export class BookingsService {

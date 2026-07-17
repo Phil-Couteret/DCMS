@@ -1,38 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
-import { customer_type } from '@prisma/client';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
 
-export interface CreateCustomerDto {
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  dob?: Date | string;
-  nationality?: string;
-  address?: any;
-  customerType?: customer_type;
-  preferences?: any;
-  medicalConditions?: any;
-  restrictions?: any;
-  notes?: string;
-}
-
-export interface UpdateCustomerDto {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  dob?: Date | string;
-  nationality?: string;
-  address?: any;
-  customerType?: customer_type;
-  preferences?: any;
-  medicalConditions?: any;
-  restrictions?: any;
-  notes?: string;
-  isActive?: boolean;
-}
+export { CreateCustomerDto, UpdateCustomerDto };
 
 @Injectable()
 export class CustomersService {

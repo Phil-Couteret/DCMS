@@ -1,31 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateBoatPrepDto } from './dto/create-boat-prep.dto';
+import { UpdateBoatPrepDto } from './dto/update-boat-prep.dto';
 
-export interface CreateBoatPrepDto {
-  locationId: string;
-  date: string;
-  session: string;
-  boatId?: string | null;
-  diverIds: string[];
-  diveSiteId?: string | null;
-  actualDiveSiteId?: string | null;
-  diveSiteStatus?: any;
-  postDiveReport?: any;
-  staff?: any;
-}
-
-export interface UpdateBoatPrepDto {
-  locationId?: string;
-  date?: string;
-  session?: string;
-  boatId?: string | null;
-  diverIds?: string[];
-  diveSiteId?: string | null;
-  actualDiveSiteId?: string | null;
-  diveSiteStatus?: any;
-  postDiveReport?: any;
-  staff?: any;
-}
+export { CreateBoatPrepDto, UpdateBoatPrepDto };
 
 @Injectable()
 export class BoatPrepsService {

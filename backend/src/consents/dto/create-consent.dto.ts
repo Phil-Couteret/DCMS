@@ -1,10 +1,9 @@
-import { IsEnum, IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsBoolean, IsOptional, IsString } from 'class-validator';
 import { consent_type, consent_method } from '@prisma/client';
 
+// customerId comes from the :customerId route param (see
+// ConsentsController.recordConsent), not the request body.
 export class CreateConsentDto {
-  @IsUUID()
-  customerId: string;
-
   @IsEnum(consent_type)
   consentType: consent_type;
 

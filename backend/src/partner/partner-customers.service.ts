@@ -1,36 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { customer_type, booking_source } from '@prisma/client';
+import { booking_source } from '@prisma/client';
+import { CreatePartnerCustomerDto } from './dto/create-partner-customer.dto';
+import { UpdatePartnerCustomerDto } from './dto/update-partner-customer.dto';
 
-export interface CreatePartnerCustomerDto {
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  dob?: Date | string;
-  nationality?: string;
-  address?: any;
-  customerType?: customer_type;
-  preferences?: any;
-  medicalConditions?: any;
-  restrictions?: any;
-  notes?: string;
-}
-
-export interface UpdatePartnerCustomerDto {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  dob?: Date | string;
-  nationality?: string;
-  address?: any;
-  customerType?: customer_type;
-  preferences?: any;
-  medicalConditions?: any;
-  restrictions?: any;
-  notes?: string;
-}
+export { CreatePartnerCustomerDto, UpdatePartnerCustomerDto };
 
 @Injectable()
 export class PartnerCustomersService {

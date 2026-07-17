@@ -1,33 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateStaffDto } from './dto/create-staff.dto';
+import { UpdateStaffDto } from './dto/update-staff.dto';
 
-export interface CreateStaffDto {
-  locationId?: string;
-  locationIds?: string[];
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  role: string;
-  certifications?: any;
-  emergencyContact?: any;
-  employmentStartDate?: string;
-  isActive?: boolean;
-}
-
-export interface UpdateStaffDto {
-  locationId?: string;
-  locationIds?: string[];
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  role?: string;
-  certifications?: any;
-  emergencyContact?: any;
-  employmentStartDate?: string;
-  isActive?: boolean;
-}
+export { CreateStaffDto, UpdateStaffDto };
 
 @Injectable()
 export class StaffService {

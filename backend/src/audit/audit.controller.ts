@@ -10,17 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
-
-class CreateAuditLogDto {
-  userType: string;
-  userId?: string;
-  action: string;
-  resourceType: string;
-  resourceId?: string;
-  details?: any;
-  ipAddress?: string;
-  userAgent?: string;
-}
+import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 
 @ApiTags('audit')
 @Controller('audit-logs')

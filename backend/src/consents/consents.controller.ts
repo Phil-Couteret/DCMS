@@ -11,15 +11,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { ConsentsService } from './consents.service';
-import { consent_type, consent_method } from '@prisma/client';
-
-class CreateConsentDto {
-  consentType: consent_type;
-  consentGiven: boolean;
-  consentMethod?: consent_method;
-  ipAddress?: string;
-  userAgent?: string;
-}
+import { consent_type } from '@prisma/client';
+import { CreateConsentDto } from './dto/create-consent.dto';
 
 @ApiTags('consents')
 @Controller('customers/:customerId/consents')

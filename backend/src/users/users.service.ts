@@ -2,35 +2,12 @@ import { Injectable, NotFoundException, ConflictException, UnauthorizedException
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
-import { user_role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { LoginDto } from './dto/login.dto';
 
-export interface CreateUserDto {
-  username: string;
-  name: string;
-  email?: string;
-  password: string;
-  role?: user_role;
-  permissions?: string[];
-  locationAccess?: string[];
-  isActive?: boolean;
-}
-
-export interface UpdateUserDto {
-  username?: string;
-  name?: string;
-  email?: string;
-  password?: string;
-  role?: user_role;
-  permissions?: string[];
-  locationAccess?: string[];
-  isActive?: boolean;
-}
-
-export interface LoginDto {
-  username: string;
-  password: string;
-}
+export { CreateUserDto, UpdateUserDto, LoginDto };
 
 @Injectable()
 export class UsersService {

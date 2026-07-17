@@ -1,28 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateCustomerBillDto } from './dto/create-customer-bill.dto';
+import { UpdateCustomerBillDto } from './dto/update-customer-bill.dto';
 
-export interface CreateCustomerBillDto {
-  customerId: string;
-  locationId: string;
-  billNumber: string;
-  stayStartDate: string;
-  billDate: string;
-  bookingIds?: string[];
-  billItems?: any[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  partnerPaidTotal?: number;
-  customerPaidTotal?: number;
-  partnerTax?: number;
-  customerTax?: number;
-  breakdown?: any;
-  notes?: string;
-}
-
-export interface UpdateCustomerBillDto {
-  notes?: string;
-}
+export { CreateCustomerBillDto, UpdateCustomerBillDto };
 
 @Injectable()
 export class CustomerBillsService {

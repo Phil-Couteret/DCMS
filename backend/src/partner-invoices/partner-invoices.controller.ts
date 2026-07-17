@@ -20,6 +20,7 @@ import {
 import { JwtPartnerGuard } from '../partner-auth/jwt-partner.guard';
 import { Partner } from '../common/decorators/partner.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { MarkPaidDto } from './dto/mark-paid.dto';
 
 @ApiTags('partner-invoices')
 @Controller('partner-invoices')
@@ -100,7 +101,7 @@ export class PartnerInvoicesController {
   @ApiOperation({ summary: 'Mark invoice as paid' })
   @ApiParam({ name: 'id', description: 'Partner invoice UUID' })
   @ApiResponse({ status: 200, description: 'Invoice marked as paid' })
-  async markAsPaid(@Param('id') id: string, @Body() body: { paidAmount?: number }) {
+  async markAsPaid(@Param('id') id: string, @Body() body: MarkPaidDto) {
     return this.partnerInvoicesService.update(id, {
       paidAmount: body.paidAmount,
       status: 'paid',

@@ -3,29 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { CreatePartnerDto } from './dto/create-partner.dto';
+import { UpdatePartnerDto } from './dto/update-partner.dto';
 
-export interface CreatePartnerDto {
-  name: string;
-  companyName: string;
-  contactEmail: string;
-  contactPhone?: string;
-  webhookUrl?: string;
-  commissionRate?: number;
-  allowedLocations?: string[];
-  settings?: any;
-}
-
-export interface UpdatePartnerDto {
-  name?: string;
-  companyName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  webhookUrl?: string;
-  commissionRate?: number;
-  allowedLocations?: string[];
-  isActive?: boolean;
-  settings?: any;
-}
+export { CreatePartnerDto, UpdatePartnerDto };
 
 @Injectable()
 export class PartnersService {

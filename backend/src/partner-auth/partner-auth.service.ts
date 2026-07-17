@@ -2,12 +2,9 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { PartnerLoginDto } from './dto/partner-login.dto';
 
-export interface PartnerLoginDto {
-  email?: string;
-  apiKey?: string;
-  apiSecret: string;
-}
+export { PartnerLoginDto };
 
 export interface PartnerJwtPayload {
   partnerId: string;

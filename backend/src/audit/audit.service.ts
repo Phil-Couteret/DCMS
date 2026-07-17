@@ -1,16 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 
-export interface CreateAuditLogDto {
-  userType: string;
-  userId?: string;
-  action: string;
-  resourceType: string;
-  resourceId?: string;
-  details?: any;
-  ipAddress?: string;
-  userAgent?: string;
-}
+export { CreateAuditLogDto };
 
 @Injectable()
 export class AuditService {

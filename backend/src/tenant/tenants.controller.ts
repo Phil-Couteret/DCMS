@@ -4,6 +4,8 @@ import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../common/guards/superadmin.guard';
 import { UseGuards } from '@nestjs/common';
+import { CreateTenantDto } from './dto/create-tenant.dto';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
 
 @ApiTags('tenants')
 @Controller('tenants')
@@ -36,26 +38,13 @@ export class TenantsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create tenant (superadmin)' })
   @ApiResponse({ status: 201, description: 'Tenant created' })
-  async create(
-    @Body()
-    body: {
-      name: string;
-      slug?: string;
-      domain?: string;
-      settings?: object;
-      numberOfLocations?: number;
-      locationType?: string;
-    },
-  ) {
+  async create(@Body() body: CreateTenantDto) {
     return this.tenantsService.create(body);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update tenant (superadmin)' })
-  async update(
-    @Param('id') id: string,
-    @Body() body: { slug?: string; name?: string; domain?: string; is_active?: boolean; settings?: object },
-  ) {
+  async update(@Param('id') id: string, @Body() body: UpdateTenantDto) {
     return this.tenantsService.update(id, body);
   }
 

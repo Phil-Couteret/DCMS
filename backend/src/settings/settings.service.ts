@@ -1,17 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateSettingDto } from './dto/create-setting.dto';
+import { UpdateSettingDto } from './dto/update-setting.dto';
 
-export interface CreateSettingDto {
-  key: string;
-  value: any;
-  description?: string;
-}
-
-export interface UpdateSettingDto {
-  key?: string;
-  value?: any;
-  description?: string;
-}
+export { CreateSettingDto, UpdateSettingDto };
 
 @Injectable()
 export class SettingsService {

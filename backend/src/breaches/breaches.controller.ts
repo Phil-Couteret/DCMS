@@ -11,30 +11,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { BreachesService } from './breaches.service';
-
-class CreateBreachDto {
-  breachType: string;
-  severity?: string;
-  description: string;
-  occurredAt?: Date;
-  affectedDataTypes?: string[];
-  affectedCustomerIds?: string[];
-  rootCause?: string;
-  containmentMeasures?: string;
-  mitigationActions?: string;
-  reportedBy?: string;
-  assignedTo?: string;
-  notes?: string;
-}
-
-class UpdateBreachStatusDto {
-  status: string;
-  authorityNotificationDate?: Date;
-  authorityName?: string;
-  customerNotificationDate?: Date;
-  customersNotifiedCount?: number;
-  resolvedAt?: Date;
-}
+import { CreateBreachDto } from './dto/create-breach.dto';
+import { UpdateBreachStatusDto } from './dto/update-breach-status.dto';
 
 @ApiTags('breaches')
 @Controller('breaches')

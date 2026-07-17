@@ -1,29 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { equipment_type } from '@prisma/client';
+import { CreateEquipmentDto } from './dto/create-equipment.dto';
+import { UpdateEquipmentDto } from './dto/update-equipment.dto';
 
-export interface CreateEquipmentDto {
-  locationId: string;
-  name: string;
-  category: equipment_type;
-  type: equipment_type;
-  size?: string;
-  condition?: string;
-  serialNumber?: string;
-  isAvailable?: boolean;
-}
-
-export interface UpdateEquipmentDto {
-  locationId?: string;
-  name?: string;
-  category?: equipment_type;
-  type?: equipment_type;
-  size?: string;
-  condition?: string;
-  serialNumber?: string;
-  isAvailable?: boolean;
-  isActive?: boolean;
-}
+export { CreateEquipmentDto, UpdateEquipmentDto };
 
 @Injectable()
 export class EquipmentService {

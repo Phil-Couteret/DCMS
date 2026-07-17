@@ -1,29 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateGovernmentBonoDto } from './dto/create-government-bono.dto';
+import { UpdateGovernmentBonoDto } from './dto/update-government-bono.dto';
 
-export interface CreateGovernmentBonoDto {
-  code: string;
-  type: string;
-  discountPercentage?: number;
-  maxAmount?: number;
-  validFrom: string;
-  validUntil: string;
-  usageLimit?: number;
-  currentUsage?: number;
-  isActive?: boolean;
-}
-
-export interface UpdateGovernmentBonoDto {
-  code?: string;
-  type?: string;
-  discountPercentage?: number;
-  maxAmount?: number;
-  validFrom?: string;
-  validUntil?: string;
-  usageLimit?: number;
-  currentUsage?: number;
-  isActive?: boolean;
-}
+export { CreateGovernmentBonoDto, UpdateGovernmentBonoDto };
 
 @Injectable()
 export class GovernmentBonosService {

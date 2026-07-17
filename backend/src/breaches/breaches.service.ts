@@ -1,20 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateBreachDto } from './dto/create-breach.dto';
 
-export interface CreateBreachDto {
-  breachType: string;
-  severity?: string;
-  description: string;
-  occurredAt?: Date;
-  affectedDataTypes?: string[];
-  affectedCustomerIds?: string[];
-  rootCause?: string;
-  containmentMeasures?: string;
-  mitigationActions?: string;
-  reportedBy?: string;
-  assignedTo?: string;
-  notes?: string;
-}
+export { CreateBreachDto };
 
 @Injectable()
 export class BreachesService {
@@ -116,11 +104,11 @@ export class BreachesService {
     breachId: string,
     status: string,
     updates?: {
-      authorityNotificationDate?: Date;
+      authorityNotificationDate?: Date | string;
       authorityName?: string;
-      customerNotificationDate?: Date;
+      customerNotificationDate?: Date | string;
       customersNotifiedCount?: number;
-      resolvedAt?: Date;
+      resolvedAt?: Date | string;
     },
   ) {
     const updateData: any = {

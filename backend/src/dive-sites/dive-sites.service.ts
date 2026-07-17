@@ -1,25 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateDiveSiteDto } from './dto/create-dive-site.dto';
+import { UpdateDiveSiteDto } from './dto/update-dive-site.dto';
 
-export interface CreateDiveSiteDto {
-  locationId: string;
-  name: string;
-  type: string;
-  depthRange?: any;
-  difficultyLevel?: string;
-  conditions?: any;
-  isActive?: boolean;
-}
-
-export interface UpdateDiveSiteDto {
-  locationId?: string;
-  name?: string;
-  type?: string;
-  depthRange?: any;
-  difficultyLevel?: string;
-  conditions?: any;
-  isActive?: boolean;
-}
+export { CreateDiveSiteDto, UpdateDiveSiteDto };
 
 @Injectable()
 export class DiveSitesService {

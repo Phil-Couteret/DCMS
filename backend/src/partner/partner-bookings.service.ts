@@ -1,45 +1,10 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { activity_type, booking_status, payment_method, payment_status, booking_source } from '@prisma/client';
+import { activity_type, booking_source, booking_status, payment_method } from '@prisma/client';
+import { CreatePartnerBookingDto } from './dto/create-partner-booking.dto';
+import { UpdatePartnerBookingDto } from './dto/update-partner-booking.dto';
 
-export interface CreatePartnerBookingDto {
-  customerId?: string; // Optional - can create customer inline
-  customer?: {
-    firstName: string;
-    lastName: string;
-    email?: string;
-    phone?: string;
-    dob?: Date | string;
-    nationality?: string;
-  };
-  locationId: string;
-  boatId?: string;
-  diveSiteId?: string;
-  bookingDate: Date | string;
-  activityType: activity_type;
-  numberOfDives?: number;
-  price: number;
-  discount?: number;
-  totalPrice: number;
-  paymentMethod?: payment_method;
-  paymentStatus?: payment_status;
-  status?: booking_status;
-  specialRequirements?: string;
-  equipmentNeeded?: any;
-}
-
-export interface UpdatePartnerBookingDto {
-  bookingDate?: Date | string;
-  activityType?: activity_type;
-  numberOfDives?: number;
-  price?: number;
-  discount?: number;
-  totalPrice?: number;
-  paymentStatus?: payment_status;
-  status?: booking_status;
-  specialRequirements?: string;
-  equipmentNeeded?: any;
-}
+export { CreatePartnerBookingDto, UpdatePartnerBookingDto };
 
 @Injectable()
 export class PartnerBookingsService {

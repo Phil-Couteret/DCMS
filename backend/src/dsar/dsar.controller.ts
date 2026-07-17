@@ -11,20 +11,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { DsarService } from './dsar.service';
-
-class CreateDsarDto {
-  requestType?: string;
-  requestedBy?: string;
-  requestDetails?: any;
-  responseFormat?: string;
-  responseDeliveryMethod?: string;
-}
-
-class UpdateDsarStatusDto {
-  status: string;
-  responseData?: any;
-  rejectionReason?: string;
-}
+import { CreateDsarDto } from './dto/create-dsar.dto';
+import { UpdateDsarStatusDto } from './dto/update-dsar-status.dto';
 
 @ApiTags('dsar')
 @Controller('customers/:customerId/dsar')

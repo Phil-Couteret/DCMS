@@ -1,15 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { consent_type, consent_method } from '@prisma/client';
+import { consent_type } from '@prisma/client';
+import { CreateConsentDto as CreateConsentBodyDto } from './dto/create-consent.dto';
 
-export interface CreateConsentDto {
-  customerId: string;
-  consentType: consent_type;
-  consentGiven: boolean;
-  consentMethod?: consent_method;
-  ipAddress?: string;
-  userAgent?: string;
-}
+// customerId is injected by the controller from the :customerId route param.
+export type CreateConsentDto = CreateConsentBodyDto & { customerId: string };
+export { CreateConsentBodyDto };
 
 @Injectable()
 export class ConsentsService {
