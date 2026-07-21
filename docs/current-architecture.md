@@ -76,10 +76,10 @@ Only 6 files anywhere use `@UseGuards`. There is no global `APP_GUARD`. Core ope
 
 - `bookings`: `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`
 - `customers`: `GET /`, `GET /email/:email`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`
-- `users`: `POST /login`, `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`
+- `users`: `POST /login`, `POST /login/select-tenant`, `POST /switch-tenant`, `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`, `GET /:id/tenant-memberships`, `POST /:id/tenant-memberships`, `DELETE /:id/tenant-memberships/:tenantId`
 - `staff`, `equipment`: standard CRUD, same shape as above
 
-There is no dedicated `auth` controller — login is `POST /users/login`, validated only by the `jwt-admin` passport strategy afterward.
+There is no dedicated `auth` controller — login is `POST /users/login`, validated only by the `jwt-admin` passport strategy afterward. Since Phase 4.6, a user whose account has 2+ tenants (primary + memberships) gets `{ requiresTenantSelection: true, tenants: [...] }` back from `/login` instead of a token; `POST /login/select-tenant` (re-checks credentials) completes it. `POST /switch-tenant` is the post-login equivalent — authenticated (JWT only, no password), lets a multi-membership user re-token into a different tenant they already have access to without logging out. Superadmins don't use either selection flow; they switch tenants via `X-Tenant-ID`/`X-Tenant-Slug`/subdomain, handled by `tenant.interceptor.ts`.
 
 ### 4.3 Data model (Prisma, `backend/prisma/schema.prisma`, 22 models)
 
