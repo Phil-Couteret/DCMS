@@ -26,6 +26,16 @@ function makeTenantsServiceMock(overrides: {
   } as any;
 }
 
+// The interceptor now also fire-and-forget audit-logs superadmin tenant
+// switches via PrismaService - a minimal mock covering the one call it makes.
+function makePrismaMock() {
+  return {
+    audit_logs: {
+      create: jest.fn().mockResolvedValue({}),
+    },
+  } as any;
+}
+
 function makeContext(headers: Record<string, string> = {}, user?: any): ExecutionContext {
   const request = { headers, user };
   return {
@@ -48,7 +58,7 @@ describe('TenantInterceptor', () => {
   it('sets tenant context from the JWT tenantId for a regular authenticated user, ignoring absent header', async () => {
     const resolve = jest.fn().mockResolvedValue({ id: 'tenant-a', slug: 'deep-blue' });
     const tenantsService = makeTenantsServiceMock({ resolve });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, makePrismaMock());
 
     const context = makeContext({}, { tenantId: 'tenant-a', role: 'admin' });
     await (await interceptor.intercept(context, next)).toPromise();
@@ -65,7 +75,7 @@ describe('TenantInterceptor', () => {
       return Promise.resolve(null);
     });
     const tenantsService = makeTenantsServiceMock({ resolve });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, makePrismaMock());
 
     const context = makeContext(
       { 'x-tenant-slug': 'deep-blue' },
@@ -82,7 +92,7 @@ describe('TenantInterceptor', () => {
       return Promise.resolve(null);
     });
     const tenantsService = makeTenantsServiceMock({ resolve });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, makePrismaMock());
 
     // Attacker-controlled header claims a different tenant than the caller's JWT.
     const context = makeContext(
@@ -98,7 +108,7 @@ describe('TenantInterceptor', () => {
   it('rejects (does not fall back to unscoped) when the JWT tenant no longer resolves', async () => {
     const resolve = jest.fn().mockResolvedValue(null); // tenant deactivated/deleted
     const tenantsService = makeTenantsServiceMock({ resolve });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, makePrismaMock());
 
     const context = makeContext({}, { tenantId: 'tenant-a', role: 'admin' });
 
@@ -111,7 +121,7 @@ describe('TenantInterceptor', () => {
   it('leaves superadmin (tenantId: null) at platform level when no header is sent', async () => {
     const resolve = jest.fn();
     const tenantsService = makeTenantsServiceMock({ resolve });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, makePrismaMock());
 
     const context = makeContext({}, { tenantId: null, role: 'superadmin' });
     await (await interceptor.intercept(context, next)).toPromise();
@@ -120,21 +130,36 @@ describe('TenantInterceptor', () => {
     expect(tenantContext.hasTenant()).toBe(false);
   });
 
-  it('lets superadmin switch tenant context via header', async () => {
+  it('lets superadmin switch tenant context via header, and audit-logs the switch', async () => {
     const resolve = jest.fn().mockResolvedValue({ id: 'tenant-c', slug: 'other' });
     const tenantsService = makeTenantsServiceMock({ resolve });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const prisma = makePrismaMock();
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, prisma);
 
-    const context = makeContext({ 'x-tenant-id': 'tenant-c' }, { tenantId: null, role: 'superadmin' });
+    const context = makeContext({ 'x-tenant-id': 'tenant-c' }, { tenantId: null, role: 'superadmin', sub: 'superadmin-1' });
     await (await interceptor.intercept(context, next)).toPromise();
 
     expect(tenantContext.getTenantId()).toBe('tenant-c');
+    // Fire-and-forget - flush microtasks so the .create() call has landed.
+    await Promise.resolve();
+    expect(prisma.audit_logs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tenant_id: 'tenant-c',
+          user_id: 'superadmin-1',
+          user_type: 'superadmin',
+          action: 'tenant_switch',
+          resource_type: 'tenant',
+          resource_id: 'tenant-c',
+        }),
+      }),
+    );
   });
 
   it('falls back to header/subdomain resolution for unauthenticated requests (e.g. pre-login)', async () => {
     const resolve = jest.fn().mockResolvedValue({ id: 'tenant-a', slug: 'deep-blue' });
     const tenantsService = makeTenantsServiceMock({ resolve });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, makePrismaMock());
 
     const context = makeContext({ 'x-tenant-slug': 'deep-blue' }, undefined);
     await (await interceptor.intercept(context, next)).toPromise();
@@ -146,7 +171,7 @@ describe('TenantInterceptor', () => {
   it('falls back to the default tenant when unauthenticated and no header/subdomain is present', async () => {
     const getDefaultTenant = jest.fn().mockResolvedValue({ id: 'default-tenant', slug: 'default' });
     const tenantsService = makeTenantsServiceMock({ getDefaultTenant });
-    const interceptor = new TenantInterceptor(tenantContext, tenantsService);
+    const interceptor = new TenantInterceptor(tenantContext, tenantsService, makePrismaMock());
 
     const context = makeContext({}, undefined);
     await (await interceptor.intercept(context, next)).toPromise();

@@ -26,6 +26,20 @@ model tenants {
   partners            partners[]
   tenant_settings     settings[]
   users               users[]
+  bookings            bookings[]
+  staff               staff[]
+  equipment           equipment[]
+  boat_preps          boat_preps[]
+  boats               boats[]
+  dive_sites          dive_sites[]
+  customer_stays      customer_stays[]
+  customer_bills      customer_bills[]
+  partner_invoices    partner_invoices[]
+  pricing_configs     pricing_configs[]
+  customer_consents   customer_consents[]
+  customer_certifications customer_certifications[]
+  data_subject_access_requests data_subject_access_requests[]
+  bono_usage          bono_usage[]
 
   @@index([slug], map: "idx_tenants_slug")
   @@index([is_active], map: "idx_tenants_active")
@@ -57,6 +71,7 @@ model audit_logs {
 
 model boat_preps {
   id                                                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                                             String?     @db.Uuid
   location_id                                           String      @db.Uuid
   date                                                  DateTime    @db.Date
   session                                               String      @db.VarChar(50)
@@ -73,14 +88,17 @@ model boat_preps {
   boats                                                 boats?      @relation(fields: [boat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   dive_sites_boat_preps_dive_site_idTodive_sites        dive_sites? @relation("boat_preps_dive_site_idTodive_sites", fields: [dive_site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   locations                                             locations   @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants                                               tenants?    @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([boat_id], map: "idx_boat_preps_boat")
   @@index([date], map: "idx_boat_preps_date")
   @@index([location_id], map: "idx_boat_preps_location")
+  @@index([tenant_id], map: "idx_boat_preps_tenant")
 }
 
 model boats {
   id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String?      @db.Uuid
   location_id          String       @db.Uuid
   name                 String       @db.VarChar(100)
   capacity             Int
@@ -91,14 +109,17 @@ model boats {
   updated_at           DateTime?    @default(now()) @db.Timestamptz(6)
   boat_preps           boat_preps[]
   locations            locations    @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants              tenants?     @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
   bookings             bookings[]
 
   @@index([is_active], map: "idx_boats_active")
   @@index([location_id], map: "idx_boats_location")
+  @@index([tenant_id], map: "idx_boats_tenant")
 }
 
 model bono_usage {
   id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String?          @db.Uuid
   bono_id          String           @db.Uuid
   booking_id       String           @db.Uuid
   customer_id      String           @db.Uuid
@@ -107,10 +128,14 @@ model bono_usage {
   government_bonos government_bonos @relation(fields: [bono_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   bookings         bookings         @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customers        customers        @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenants          tenants?         @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
+
+  @@index([tenant_id], map: "idx_bono_usage_tenant")
 }
 
 model bookings {
   id                                                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                                         String?         @db.Uuid
   customer_id                                       String          @db.Uuid
   location_id                                       String          @db.Uuid
   boat_id                                           String?         @db.Uuid
@@ -146,11 +171,13 @@ model bookings {
   partners_bookings_partner_idTopartners            partners?       @relation("bookings_partner_idTopartners", fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   staff                                             staff?          @relation(fields: [staff_primary_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customer_stays                                    customer_stays? @relation(fields: [stay_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenants                                           tenants?        @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([created_by_partner_id], map: "idx_bookings_created_by_partner")
   @@index([customer_id], map: "idx_bookings_customer")
   @@index([partner_id], map: "idx_bookings_partner")
   @@index([source], map: "idx_bookings_source")
+  @@index([tenant_id], map: "idx_bookings_tenant")
 }
 
 model certification_agencies {
@@ -173,6 +200,7 @@ model certification_agencies {
 
 model customer_certifications {
   id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String?                @db.Uuid
   customer_id            String                 @db.Uuid
   agency_id              String                 @db.Uuid
   certification_number   String                 @db.VarChar(100)
@@ -188,12 +216,15 @@ model customer_certifications {
   updated_at             DateTime?              @default(now()) @db.Timestamptz(6)
   certification_agencies certification_agencies @relation(fields: [agency_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customers              customers              @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants                tenants?               @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([customer_id], map: "idx_certifications_customer")
+  @@index([tenant_id], map: "idx_customer_certifications_tenant")
 }
 
 model customer_consents {
   id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String?        @db.Uuid
   customer_id     String         @db.Uuid
   consent_type    consent_type
   consent_given   Boolean
@@ -206,15 +237,18 @@ model customer_consents {
   created_at      DateTime?      @default(now()) @db.Timestamptz(6)
   updated_at      DateTime?      @default(now()) @db.Timestamptz(6)
   customers       customers      @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants         tenants?       @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([is_active], map: "idx_customer_consents_active")
   @@index([customer_id], map: "idx_customer_consents_customer")
   @@index([customer_id, consent_type, is_active], map: "idx_customer_consents_customer_type_active")
   @@index([consent_type], map: "idx_customer_consents_type")
+  @@index([tenant_id], map: "idx_customer_consents_tenant")
 }
 
 model customer_stays {
   id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String?    @db.Uuid
   customer_id     String     @db.Uuid
   stay_start_date DateTime   @db.Date
   stay_end_date   DateTime?  @db.Date
@@ -225,8 +259,10 @@ model customer_stays {
   updated_at      DateTime?  @default(now()) @db.Timestamptz(6)
   bookings        bookings[]
   customers       customers  @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants         tenants?   @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([customer_id], map: "idx_customer_stays_customer")
+  @@index([tenant_id], map: "idx_customer_stays_tenant")
 }
 
 model customers {
@@ -313,6 +349,7 @@ model data_breaches {
 
 model data_subject_access_requests {
   id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String?   @db.Uuid
   customer_id              String    @db.Uuid
   request_type             String    @default("access") @db.VarChar(50)
   status                   String    @default("pending") @db.VarChar(20)
@@ -330,15 +367,18 @@ model data_subject_access_requests {
   created_at               DateTime? @default(now()) @db.Timestamptz(6)
   updated_at               DateTime? @default(now()) @db.Timestamptz(6)
   customers                customers @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants                  tenants?  @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([customer_id], map: "idx_dsar_customer")
   @@index([deadline], map: "idx_dsar_deadline")
   @@index([requested_at], map: "idx_dsar_requested_at")
   @@index([status], map: "idx_dsar_status")
+  @@index([tenant_id], map: "idx_dsar_tenant")
 }
 
 model dive_sites {
   id                                                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                                             String?       @db.Uuid
   location_id                                           String        @db.Uuid
   name                                                  String        @db.VarChar(100)
   type                                                  activity_type
@@ -352,12 +392,15 @@ model dive_sites {
   boat_preps_boat_preps_dive_site_idTodive_sites        boat_preps[]  @relation("boat_preps_dive_site_idTodive_sites")
   bookings                                              bookings[]
   locations                                             locations     @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants                                               tenants?      @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([location_id], map: "idx_dive_sites_location")
+  @@index([tenant_id], map: "idx_dive_sites_tenant")
 }
 
 model equipment {
   id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String?        @db.Uuid
   location_id   String         @db.Uuid
   name          String         @db.VarChar(100)
   category      equipment_type
@@ -370,9 +413,11 @@ model equipment {
   created_at    DateTime?      @default(now()) @db.Timestamptz(6)
   updated_at    DateTime?      @default(now()) @db.Timestamptz(6)
   locations     locations      @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants       tenants?       @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([category], map: "idx_equipment_category")
   @@index([location_id], map: "idx_equipment_location")
+  @@index([tenant_id], map: "idx_equipment_tenant")
 }
 
 model government_bonos {
@@ -423,6 +468,7 @@ model locations {
 
 model customer_bills {
   id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String?   @db.Uuid
   customer_id         String    @db.Uuid
   location_id         String    @db.Uuid
   bill_number         String    @unique @db.VarChar(100)
@@ -443,15 +489,18 @@ model customer_bills {
   updated_at          DateTime? @default(now()) @db.Timestamptz(6)
   customers           customers @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   locations           locations @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenants             tenants?  @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([bill_date], map: "idx_customer_bills_date")
   @@index([bill_number], map: "idx_customer_bills_number")
   @@index([customer_id], map: "idx_customer_bills_customer")
   @@index([stay_start_date], map: "idx_customer_bills_stay_start")
+  @@index([tenant_id], map: "idx_customer_bills_tenant")
 }
 
 model partner_invoices {
   id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String?   @db.Uuid
   partner_id         String    @db.Uuid
   invoice_number     String    @unique @db.VarChar(50)
   customer_id        String?   @db.Uuid
@@ -471,11 +520,13 @@ model partner_invoices {
   created_at         DateTime? @default(now()) @db.Timestamptz(6)
   updated_at         DateTime? @default(now()) @db.Timestamptz(6)
   partners           partners  @relation(fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenants            tenants?  @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([due_date], map: "idx_partner_invoices_due_date")
   @@index([invoice_number], map: "idx_partner_invoices_number")
   @@index([partner_id], map: "idx_partner_invoices_partner")
   @@index([status], map: "idx_partner_invoices_status")
+  @@index([tenant_id], map: "idx_partner_invoices_tenant")
 }
 
 model partners {
@@ -508,6 +559,7 @@ model partners {
 
 model pricing_configs {
   id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String?        @db.Uuid
   location_id           String?        @db.Uuid
   pricing_type          String         @default("standard") @db.VarChar(50)
   activity_type         activity_type?
@@ -523,6 +575,9 @@ model pricing_configs {
   created_at            DateTime?      @default(now()) @db.Timestamptz(6)
   updated_at            DateTime?      @default(now()) @db.Timestamptz(6)
   locations             locations?     @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenants               tenants?       @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
+
+  @@index([tenant_id], map: "idx_pricing_configs_tenant")
 }
 
 model settings {
@@ -540,6 +595,7 @@ model settings {
 
 model staff {
   id                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String?    @db.Uuid
   location_id           String     @db.Uuid
   location_ids          String[]   @default([]) @db.Uuid
   first_name            String     @db.VarChar(50)
@@ -555,9 +611,11 @@ model staff {
   updated_at            DateTime?  @default(now()) @db.Timestamptz(6)
   bookings              bookings[]
   locations             locations  @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants               tenants?   @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([location_id], map: "idx_staff_location")
   @@index([role], map: "idx_staff_role")
+  @@index([tenant_id], map: "idx_staff_tenant")
 }
 
 model users {

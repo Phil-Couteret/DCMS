@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateBoatDto } from './dto/create-boat.dto';
 import { UpdateBoatDto } from './dto/update-boat.dto';
 
@@ -7,11 +8,19 @@ export { CreateBoatDto, UpdateBoatDto };
 
 @Injectable()
 export class BoatsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll() {
     return this.prisma.boats.findMany({
-      where: { is_active: true },
+      where: { is_active: true, ...this.tenantFilter() },
       include: {
         locations: true,
       },
@@ -21,9 +30,10 @@ export class BoatsService {
 
   async findByLocation(locationId: string) {
     return this.prisma.boats.findMany({
-      where: { 
+      where: {
         location_id: locationId,
-        is_active: true 
+        is_active: true,
+        ...this.tenantFilter(),
       },
       include: {
         locations: true,
@@ -33,8 +43,8 @@ export class BoatsService {
   }
 
   async findOne(id: string) {
-    const boat = await this.prisma.boats.findUnique({
-      where: { id },
+    const boat = await this.prisma.boats.findFirst({
+      where: { id, ...this.tenantFilter() },
       include: {
         locations: true,
       },
@@ -48,9 +58,9 @@ export class BoatsService {
   }
 
   async create(dto: CreateBoatDto) {
-    // Verify location exists
-    const location = await this.prisma.locations.findUnique({
-      where: { id: dto.locationId },
+    // Verify location exists (and belongs to this tenant, when scoped)
+    const location = await this.prisma.locations.findFirst({
+      where: { id: dto.locationId, ...this.tenantFilter() },
     });
     if (!location) {
       throw new NotFoundException(`Location with ID ${dto.locationId} not found`);
@@ -58,6 +68,7 @@ export class BoatsService {
 
     return this.prisma.boats.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? location.tenant_id ?? null,
         location_id: dto.locationId,
         name: dto.name,
         capacity: dto.capacity,
@@ -75,8 +86,8 @@ export class BoatsService {
     const boat = await this.findOne(id);
 
     if (dto.locationId) {
-      const location = await this.prisma.locations.findUnique({
-        where: { id: dto.locationId },
+      const location = await this.prisma.locations.findFirst({
+        where: { id: dto.locationId, ...this.tenantFilter() },
       });
       if (!location) {
         throw new NotFoundException(`Location with ID ${dto.locationId} not found`);

@@ -16,9 +16,9 @@ export class BookingsService {
     private tenantContext: TenantContextService,
   ) {}
 
-  private tenantLocationFilter() {
+  private tenantFilter() {
     const tenantId = this.tenantContext.getTenantId();
-    return tenantId ? { locations: { tenant_id: tenantId } } : {};
+    return tenantId ? { tenant_id: tenantId } : {};
   }
 
   /**
@@ -48,7 +48,7 @@ export class BookingsService {
 
   async findAll() {
     return this.prisma.bookings.findMany({
-      where: this.tenantLocationFilter(),
+      where: this.tenantFilter(),
       orderBy: { booking_date: 'desc' },
       include: {
         customers: true,
@@ -62,7 +62,7 @@ export class BookingsService {
   async findByDate(date: Date | string) {
     const bookingDate = typeof date === 'string' ? new Date(date) : date;
     return this.prisma.bookings.findMany({
-      where: { booking_date: bookingDate, ...this.tenantLocationFilter() },
+      where: { booking_date: bookingDate, ...this.tenantFilter() },
       include: {
         customers: true,
         locations: true,
@@ -75,7 +75,7 @@ export class BookingsService {
 
   async findByCustomer(customerId: string) {
     return this.prisma.bookings.findMany({
-      where: { customer_id: customerId, ...this.tenantLocationFilter() },
+      where: { customer_id: customerId, ...this.tenantFilter() },
       include: {
         locations: true,
         boats: true,
@@ -87,7 +87,7 @@ export class BookingsService {
 
   async findOne(id: string) {
     const booking = await this.prisma.bookings.findFirst({
-      where: { id, ...this.tenantLocationFilter() },
+      where: { id, ...this.tenantFilter() },
       include: {
         customers: true,
         locations: true,
@@ -105,16 +105,16 @@ export class BookingsService {
   }
 
   async create(dto: CreateBookingDto) {
-    // Verify customer and location exist
-    const customer = await this.prisma.customers.findUnique({
-      where: { id: dto.customerId },
+    // Verify customer and location exist (and belong to this tenant, when scoped)
+    const customer = await this.prisma.customers.findFirst({
+      where: { id: dto.customerId, ...this.tenantFilter() },
     });
     if (!customer) {
       throw new NotFoundException(`Customer with ID ${dto.customerId} not found`);
     }
 
-    const location = await this.prisma.locations.findUnique({
-      where: { id: dto.locationId },
+    const location = await this.prisma.locations.findFirst({
+      where: { id: dto.locationId, ...this.tenantFilter() },
     });
     if (!location) {
       throw new NotFoundException(`Location with ID ${dto.locationId} not found`);
@@ -136,6 +136,7 @@ export class BookingsService {
       
       return await this.prisma.bookings.create({
         data: {
+          tenant_id: this.tenantContext.getTenantId() ?? location.tenant_id ?? null,
           customer_id: dto.customerId,
           location_id: dto.locationId,
           boat_id: dto.boatId || null,

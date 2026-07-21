@@ -1,12 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateBreachDto } from './dto/create-breach.dto';
 
 export { CreateBreachDto };
 
 @Injectable()
 export class BreachesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   /**
    * Create a new data breach record
@@ -22,6 +31,7 @@ export class BreachesService {
 
     return (this.prisma as any).data_breaches.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? null,
         breach_type: dto.breachType as any,
         severity: (dto.severity || 'medium') as any,
         description: dto.description,
@@ -55,7 +65,7 @@ export class BreachesService {
     limit?: number;
     offset?: number;
   }) {
-    const where: any = {};
+    const where: any = { ...this.tenantFilter() };
 
     if (filters?.status) {
       where.status = filters.status;
@@ -86,8 +96,8 @@ export class BreachesService {
    * Get a specific breach
    */
   async getBreach(breachId: string) {
-    const breach = await (this.prisma as any).data_breaches.findUnique({
-      where: { id: breachId },
+    const breach = await (this.prisma as any).data_breaches.findFirst({
+      where: { id: breachId, ...this.tenantFilter() },
     });
 
     if (!breach) {
@@ -147,6 +157,7 @@ export class BreachesService {
     
     return (this.prisma as any).data_breaches.findMany({
       where: {
+        ...this.tenantFilter(),
         notification_deadline: {
           lt: now,
         },
@@ -165,6 +176,7 @@ export class BreachesService {
   async getBreachesRequiringCustomerNotification() {
     return (this.prisma as any).data_breaches.findMany({
       where: {
+        ...this.tenantFilter(),
         customer_notification_required: true,
         customer_notification_date: null,
         status: {
@@ -188,13 +200,14 @@ export class BreachesService {
       overdue,
       requiringCustomerNotification,
     ] = await Promise.all([
-      (this.prisma as any).data_breaches.count(),
-      (this.prisma as any).data_breaches.count({ where: { status: 'detected' } }),
-      (this.prisma as any).data_breaches.count({ where: { status: 'assessed' } }),
-      (this.prisma as any).data_breaches.count({ where: { status: 'reported' } }),
-      (this.prisma as any).data_breaches.count({ where: { status: 'resolved' } }),
+      (this.prisma as any).data_breaches.count({ where: this.tenantFilter() }),
+      (this.prisma as any).data_breaches.count({ where: { ...this.tenantFilter(), status: 'detected' } }),
+      (this.prisma as any).data_breaches.count({ where: { ...this.tenantFilter(), status: 'assessed' } }),
+      (this.prisma as any).data_breaches.count({ where: { ...this.tenantFilter(), status: 'reported' } }),
+      (this.prisma as any).data_breaches.count({ where: { ...this.tenantFilter(), status: 'resolved' } }),
       (this.prisma as any).data_breaches.count({
         where: {
+          ...this.tenantFilter(),
           notification_deadline: { lt: new Date() },
           reported_to_authority: false,
           status: { in: ['detected', 'assessed'] },
@@ -202,6 +215,7 @@ export class BreachesService {
       }),
       (this.prisma as any).data_breaches.count({
         where: {
+          ...this.tenantFilter(),
           customer_notification_required: true,
           customer_notification_date: null,
         },

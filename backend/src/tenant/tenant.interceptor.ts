@@ -9,6 +9,7 @@ import {
 import { Observable } from 'rxjs';
 import { TenantContextService } from './tenant-context.service';
 import { TenantsService } from './tenants.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Resolves the tenant for the current request.
@@ -30,7 +31,35 @@ export class TenantInterceptor implements NestInterceptor {
   constructor(
     private tenantContext: TenantContextService,
     private tenantsService: TenantsService,
+    private prisma: PrismaService,
   ) {}
+
+  /**
+   * Fire-and-forget audit log entry for a superadmin explicitly switching
+   * into a tenant's context (via X-Tenant-ID/X-Tenant-Slug/subdomain).
+   * Not awaited so it never adds latency to the request it's logging;
+   * a failure here must never break the actual request.
+   */
+  private logSuperadminTenantSwitch(
+    request: { method?: string; url?: string; user?: { sub?: string } },
+    tenantId: string,
+  ): void {
+    this.prisma.audit_logs
+      .create({
+        data: {
+          tenant_id: tenantId,
+          user_id: request.user?.sub ?? null,
+          user_type: 'superadmin',
+          action: 'tenant_switch',
+          resource_type: 'tenant',
+          resource_id: tenantId,
+          details: { method: request.method, path: request.url },
+        },
+      })
+      .catch(() => {
+        // Auditing must never break the request it's auditing.
+      });
+  }
 
   async intercept(
     context: ExecutionContext,
@@ -68,9 +97,11 @@ export class TenantInterceptor implements NestInterceptor {
     if (authUser && authUser.tenantId !== undefined) {
       if (authUser.tenantId === null) {
         // Superadmin: platform-level by default, may switch into a tenant
-        // via header/subdomain.
+        // via header/subdomain. Explicitly audit-logged, since this is a
+        // cross-tenant access performed on another tenant's behalf.
         if (requestedResolved) {
           this.tenantContext.setTenant(requestedResolved.id, requestedResolved.slug);
+          this.logSuperadminTenantSwitch(request, requestedResolved.id);
         }
         return next.handle();
       }

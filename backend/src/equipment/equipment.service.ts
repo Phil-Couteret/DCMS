@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { equipment_type } from '@prisma/client';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto';
@@ -8,11 +9,19 @@ export { CreateEquipmentDto, UpdateEquipmentDto };
 
 @Injectable()
 export class EquipmentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll() {
     return this.prisma.equipment.findMany({
-      where: { is_active: true },
+      where: { is_active: true, ...this.tenantFilter() },
       include: {
         locations: true,
       },
@@ -22,9 +31,10 @@ export class EquipmentService {
 
   async findByLocation(locationId: string) {
     return this.prisma.equipment.findMany({
-      where: { 
+      where: {
         location_id: locationId,
-        is_active: true 
+        is_active: true,
+        ...this.tenantFilter(),
       },
       include: {
         locations: true,
@@ -35,9 +45,10 @@ export class EquipmentService {
 
   async findAvailable(category?: equipment_type) {
     return this.prisma.equipment.findMany({
-      where: { 
+      where: {
         is_available: true,
         is_active: true,
+        ...this.tenantFilter(),
         ...(category && { category }),
       },
       include: {
@@ -48,8 +59,8 @@ export class EquipmentService {
   }
 
   async findOne(id: string) {
-    const equipment = await this.prisma.equipment.findUnique({
-      where: { id },
+    const equipment = await this.prisma.equipment.findFirst({
+      where: { id, ...this.tenantFilter() },
       include: {
         locations: true,
       },
@@ -63,9 +74,9 @@ export class EquipmentService {
   }
 
   async create(dto: CreateEquipmentDto) {
-    // Verify location exists
-    const location = await this.prisma.locations.findUnique({
-      where: { id: dto.locationId },
+    // Verify location exists (and belongs to this tenant, when scoped)
+    const location = await this.prisma.locations.findFirst({
+      where: { id: dto.locationId, ...this.tenantFilter() },
     });
     if (!location) {
       throw new NotFoundException(`Location with ID ${dto.locationId} not found`);
@@ -73,6 +84,7 @@ export class EquipmentService {
 
     return this.prisma.equipment.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? location.tenant_id ?? null,
         location_id: dto.locationId,
         name: dto.name,
         category: dto.category,
@@ -93,8 +105,8 @@ export class EquipmentService {
     const equipment = await this.findOne(id);
 
     if (dto.locationId) {
-      const location = await this.prisma.locations.findUnique({
-        where: { id: dto.locationId },
+      const location = await this.prisma.locations.findFirst({
+        where: { id: dto.locationId, ...this.tenantFilter() },
       });
       if (!location) {
         throw new NotFoundException(`Location with ID ${dto.locationId} not found`);

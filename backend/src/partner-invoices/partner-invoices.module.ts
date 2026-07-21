@@ -3,9 +3,10 @@ import { PartnerInvoicesController } from './partner-invoices.controller';
 import { PartnerInvoicesService } from './partner-invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PartnerAuthModule } from '../partner-auth/partner-auth.module';
+import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
-  imports: [PartnerAuthModule],
+  imports: [PartnerAuthModule, TenantModule],
   controllers: [PartnerInvoicesController],
   providers: [PartnerInvoicesService, PrismaService],
   exports: [PartnerInvoicesService],

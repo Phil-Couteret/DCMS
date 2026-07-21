@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 
 @Injectable()
 export class StatisticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
 
   async getStatistics(locationId?: string) {
-    const where: any = {};
+    const tenantId = this.tenantContext.getTenantId();
+    const where: any = tenantId ? { tenant_id: tenantId } : {};
     if (locationId) {
       where.location_id = locationId;
     }

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreatePartnerInvoiceDto } from './dto/create-partner-invoice.dto';
 import { UpdatePartnerInvoiceDto } from './dto/update-partner-invoice.dto';
 
@@ -7,10 +8,18 @@ export { CreatePartnerInvoiceDto, UpdatePartnerInvoiceDto };
 
 @Injectable()
 export class PartnerInvoicesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll(partnerId?: string, status?: string) {
-    const where: any = {};
+    const where: any = { ...this.tenantFilter() };
     if (partnerId) {
       where.partner_id = partnerId;
     }
@@ -28,8 +37,8 @@ export class PartnerInvoicesService {
   }
 
   async findOne(id: string) {
-    const invoice = await this.prisma.partner_invoices.findUnique({
-      where: { id },
+    const invoice = await this.prisma.partner_invoices.findFirst({
+      where: { id, ...this.tenantFilter() },
       include: {
         partners: true,
       },
@@ -44,7 +53,7 @@ export class PartnerInvoicesService {
 
   async findByPartner(partnerId: string) {
     return this.prisma.partner_invoices.findMany({
-      where: { partner_id: partnerId },
+      where: { partner_id: partnerId, ...this.tenantFilter() },
       include: {
         partners: true,
       },
@@ -53,9 +62,9 @@ export class PartnerInvoicesService {
   }
 
   async create(createPartnerInvoiceDto: CreatePartnerInvoiceDto) {
-    // Verify partner exists
-    const partner = await this.prisma.partners.findUnique({
-      where: { id: createPartnerInvoiceDto.partnerId },
+    // Verify partner exists (and belongs to this tenant, when scoped)
+    const partner = await this.prisma.partners.findFirst({
+      where: { id: createPartnerInvoiceDto.partnerId, ...this.tenantFilter() },
     });
 
     if (!partner) {
@@ -80,6 +89,7 @@ export class PartnerInvoicesService {
 
     const invoice = await this.prisma.partner_invoices.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? partner.tenant_id ?? null,
         partner_id: createPartnerInvoiceDto.partnerId,
         customer_id: createPartnerInvoiceDto.customerId || null,
         bill_id: createPartnerInvoiceDto.billId || null,

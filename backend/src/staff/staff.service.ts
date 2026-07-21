@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
 
@@ -7,11 +8,19 @@ export { CreateStaffDto, UpdateStaffDto };
 
 @Injectable()
 export class StaffService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll() {
     return this.prisma.staff.findMany({
-      where: { is_active: true },
+      where: { is_active: true, ...this.tenantFilter() },
       include: {
         locations: true,
       },
@@ -21,8 +30,9 @@ export class StaffService {
 
   async findByLocation(locationId: string) {
     return this.prisma.staff.findMany({
-      where: { 
+      where: {
         is_active: true,
+        ...this.tenantFilter(),
         OR: [
           { location_id: locationId },
           { location_ids: { isEmpty: true } },
@@ -37,8 +47,8 @@ export class StaffService {
   }
 
   async findOne(id: string) {
-    const staff = await this.prisma.staff.findUnique({
-      where: { id },
+    const staff = await this.prisma.staff.findFirst({
+      where: { id, ...this.tenantFilter() },
       include: {
         locations: true,
       },
@@ -56,10 +66,12 @@ export class StaffService {
     const locationId = createStaffDto.locationId
       || (locationIds.length > 0 ? locationIds[0] : undefined);
     const effectiveLocationId = locationId
-      || (await this.prisma.locations.findFirst())?.id;
+      || (await this.prisma.locations.findFirst({ where: this.tenantFilter() }))?.id;
     if (!effectiveLocationId) throw new Error('Staff requires at least one location');
+    const location = await this.prisma.locations.findUnique({ where: { id: effectiveLocationId } });
     return this.prisma.staff.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? location?.tenant_id ?? null,
         location_id: effectiveLocationId,
         location_ids: locationIds,
         first_name: createStaffDto.firstName,

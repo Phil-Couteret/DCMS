@@ -85,9 +85,7 @@ There is no dedicated `auth` controller — login is `POST /users/login`, valida
 
 Models: `tenants, audit_logs, boat_preps, boats, bono_usage, bookings, certification_agencies, customer_certifications, customer_consents, customer_stays, customers, data_breaches, data_subject_access_requests, dive_sites, equipment, government_bonos, locations, customer_bills, partner_invoices, partners, pricing_configs, settings, staff, users`.
 
-**Have `tenant_id`:** tenants, audit_logs, certification_agencies, customers, data_breaches, government_bonos, locations, partners, settings, users (9 of 22).
-
-**Missing `tenant_id`** (isolated only indirectly via `location_id`/`customer_id`, or not at all): boat_preps, boats, bono_usage, **bookings**, customer_certifications, customer_consents, customer_stays, data_subject_access_requests, dive_sites, **equipment**, customer_bills, partner_invoices, pricing_configs, **staff**. The three busiest operational tables (bookings, staff, equipment) have no tenant column at all.
+**Have `tenant_id` (Phase 4, 2026-07-21):** all 23 tenant-scoped models — the original 9 (audit_logs, certification_agencies, customers, data_breaches, government_bonos, locations, partners, settings, users) plus the 14 added in Phase 4.1 (boat_preps, boats, bono_usage, bookings, customer_bills, customer_certifications, customer_consents, customer_stays, data_subject_access_requests, dive_sites, equipment, partner_invoices, pricing_configs, staff). `tenants` itself is the 24th model and isn't tenant-scoped (it *is* the tenant). Migration `20260721140235_phase4_tenant_id_everywhere` backfills every new column from the row's existing `location_id`/`customer_id` relation — **must be run (`prisma migrate deploy`) before deploying the updated service code**, or existing rows briefly disappear from tenant-scoped queries until backfilled. See `roadmap.md` Phase 4 for full detail, including which services previously had zero tenant filtering (`staff`, `equipment`, `boats`, `dive_sites`, `boat_preps`, `audit_logs`, `data_breaches`, `government_bonos`, `settings`, and the dashboard statistics endpoint) and the one composite-uniqueness item deliberately deferred (`users`/`partners`/`settings` login-lookup fields stay globally unique — see roadmap for why).
 
 ### 4.4 Validation
 
@@ -127,6 +125,7 @@ Models: `tenants, audit_logs, boat_preps, boats, bono_usage, bookings, certifica
 - `backend/docker-entrypoint.sh`, `setup-database.sh`, and `setup-local-db.sh` all now create the schema via `prisma migrate deploy`/the baseline instead of the archived raw SQL.
 - A real schema/DB drift was caught during baselining: `schema.prisma` declared `onDelete: SetNull` on 9 `tenant_id` relations that the live DB didn't actually have. Resolved by relaxing `schema.prisma` to match the DB's actual (safer) `NO ACTION` behavior — see `roadmap.md` Phase 2.3 for detail.
 - `database/` now holds only `README.md` and `seeds/002_sample_data.sql` (optional demo data, loaded by `backend/docker-entrypoint.sh` when present and the `locations` table is empty — not part of schema history).
+- A second migration, `20260721140235_phase4_tenant_id_everywhere`, was added on top of the baseline for Phase 4 (see §4.3 and `roadmap.md` Phase 4) — unlike the baseline, this one is a genuine forward migration (adds columns + backfills real data) and needs to actually **run** via `prisma migrate deploy`, not be marked applied.
 
 ## 8. sync-server
 

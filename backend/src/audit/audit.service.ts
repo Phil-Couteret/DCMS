@@ -1,12 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 
 export { CreateAuditLogDto };
 
 @Injectable()
 export class AuditService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   /**
    * Create an audit log entry
@@ -14,6 +23,7 @@ export class AuditService {
   async createAuditLog(dto: CreateAuditLogDto) {
     return this.prisma.audit_logs.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? null,
         user_type: dto.userType,
         user_id: dto.userId || null,
         action: dto.action,
@@ -40,7 +50,7 @@ export class AuditService {
     limit?: number;
     offset?: number;
   }) {
-    const where: any = {};
+    const where: any = { ...this.tenantFilter() };
 
     if (filters.userId) {
       where.user_id = filters.userId;
@@ -93,6 +103,7 @@ export class AuditService {
       where: {
         resource_type: resourceType,
         resource_id: resourceId,
+        ...this.tenantFilter(),
       },
       orderBy: { created_at: 'desc' },
       take: limit,
@@ -106,6 +117,7 @@ export class AuditService {
     return this.prisma.audit_logs.findMany({
       where: {
         user_id: userId,
+        ...this.tenantFilter(),
       },
       orderBy: { created_at: 'desc' },
       take: limit,

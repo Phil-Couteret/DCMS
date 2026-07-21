@@ -12,6 +12,11 @@ import { AuthService } from '../src/auth/auth.service';
  * through a normal, well-formed request - not just when a header disagrees
  * with the JWT (that's covered by tenant.interceptor.spec.ts), but the more
  * basic case of "does this service's query actually filter by tenant_id".
+ * Extended for Phase 4 with a `staff` case: staff.service.ts had zero tenant
+ * filtering at all before Phase 4.3, so this also guards against that
+ * regressing (and stands in for the same fix applied to equipment, boats,
+ * dive_sites, boat_preps, audit logs, breaches, government bonos, settings,
+ * and the dashboard statistics endpoint - see roadmap.md Phase 4).
  *
  * REQUIRES A REAL, REACHABLE POSTGRES matching backend/.env's DATABASE_URL
  * (and a Prisma client generated against the current schema.prisma - run
@@ -36,6 +41,10 @@ describe('Cross-tenant data isolation (e2e)', () => {
   let userB: { id: string; username: string };
   let customerA: { id: string };
   let customerB: { id: string };
+  let locationA: { id: string };
+  let locationB: { id: string };
+  let staffA: { id: string };
+  let staffB: { id: string };
   let tokenA: string;
   let tokenB: string;
 
@@ -97,6 +106,38 @@ describe('Cross-tenant data isolation (e2e)', () => {
       data: { first_name: 'Bob', last_name: 'TenantB', tenant_id: tenantB.id, is_active: true },
     });
 
+    // Phase 4: locations/staff regression guard. `staff` (like several other
+    // Phase 4.1 tables) had zero tenant filtering before this change - any
+    // authenticated admin could list or fetch any other tenant's staff.
+    locationA = await prisma.locations.create({
+      data: { name: 'Location A', type: 'diving', address: {}, contact_info: {}, tenant_id: tenantA.id, is_active: true },
+    });
+    locationB = await prisma.locations.create({
+      data: { name: 'Location B', type: 'diving', address: {}, contact_info: {}, tenant_id: tenantB.id, is_active: true },
+    });
+    staffA = await prisma.staff.create({
+      data: {
+        tenant_id: tenantA.id,
+        location_id: locationA.id,
+        first_name: 'Staff',
+        last_name: 'A',
+        email: `e2e-staff-a-${runId}@example.com`,
+        role: 'instructor',
+        is_active: true,
+      },
+    });
+    staffB = await prisma.staff.create({
+      data: {
+        tenant_id: tenantB.id,
+        location_id: locationB.id,
+        first_name: 'Staff',
+        last_name: 'B',
+        email: `e2e-staff-b-${runId}@example.com`,
+        role: 'instructor',
+        is_active: true,
+      },
+    });
+
     // Sign real tokens the same way AuthService.login() does, skipping the
     // bcrypt password check (irrelevant to what this suite verifies).
     tokenA = authService.signAdminToken({
@@ -121,8 +162,10 @@ describe('Cross-tenant data isolation (e2e)', () => {
     // confusing error that masks the real failure from beforeAll.
     if (prisma) {
       // Clean up everything this run created, FK-safe order (children first).
+      await prisma.staff.deleteMany({ where: { id: { in: [staffA?.id, staffB?.id].filter(Boolean) as string[] } } });
       await prisma.customers.deleteMany({ where: { id: { in: [customerA?.id, customerB?.id].filter(Boolean) as string[] } } });
       await prisma.users.deleteMany({ where: { id: { in: [userA?.id, userB?.id].filter(Boolean) as string[] } } });
+      await prisma.locations.deleteMany({ where: { id: { in: [locationA?.id, locationB?.id].filter(Boolean) as string[] } } });
       await prisma.tenants.deleteMany({ where: { id: { in: [tenantA?.id, tenantB?.id].filter(Boolean) as string[] } } });
     }
     if (app) {
@@ -176,5 +219,32 @@ describe('Cross-tenant data isolation (e2e)', () => {
       .set('Authorization', `Bearer ${tokenB}`)
       .expect(200);
     expect(res.body.id).toBe(customerB.id);
+  });
+
+  // Phase 4 regression guard: `staff` had no tenant filtering at all before
+  // this change (GET /staff and GET /staff/:id returned every tenant's data).
+  it("does not include tenant B's staff when tenant A lists staff", async () => {
+    const res = await request(app.getHttpServer())
+      .get('/staff')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(200);
+    const ids = res.body.map((s: { id: string }) => s.id);
+    expect(ids).toContain(staffA.id);
+    expect(ids).not.toContain(staffB.id);
+  });
+
+  it("returns 404 when tenant A fetches tenant B's staff member by ID", async () => {
+    await request(app.getHttpServer())
+      .get(`/staff/${staffB.id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(404);
+  });
+
+  it("tenant B can read its own staff member normally", async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/staff/${staffB.id}`)
+      .set('Authorization', `Bearer ${tokenB}`)
+      .expect(200);
+    expect(res.body.id).toBe(staffB.id);
   });
 });

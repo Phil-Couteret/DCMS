@@ -50,9 +50,10 @@ export class DsarController {
 
   @Get('requests/:dsarId')
   @ApiOperation({ summary: 'Get a specific DSAR request' })
+  @ApiParam({ name: 'customerId', description: 'Customer UUID' })
   @ApiParam({ name: 'dsarId', description: 'DSAR request UUID' })
-  async getDsar(@Param('dsarId') dsarId: string) {
-    return this.dsarService.getDsar(dsarId);
+  async getDsar(@Param('customerId') customerId: string, @Param('dsarId') dsarId: string) {
+    return this.dsarService.getDsar(dsarId, customerId);
   }
 
   @Patch('requests/:dsarId/status')

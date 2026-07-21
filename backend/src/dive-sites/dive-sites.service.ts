@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateDiveSiteDto } from './dto/create-dive-site.dto';
 import { UpdateDiveSiteDto } from './dto/update-dive-site.dto';
 
@@ -7,10 +8,19 @@ export { CreateDiveSiteDto, UpdateDiveSiteDto };
 
 @Injectable()
 export class DiveSitesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll() {
     return this.prisma.dive_sites.findMany({
+      where: this.tenantFilter(),
       include: {
         locations: true,
       },
@@ -20,9 +30,10 @@ export class DiveSitesService {
 
   async findByLocation(locationId: string) {
     return this.prisma.dive_sites.findMany({
-      where: { 
+      where: {
         location_id: locationId,
-        is_active: true 
+        is_active: true,
+        ...this.tenantFilter(),
       },
       include: {
         locations: true,
@@ -32,8 +43,8 @@ export class DiveSitesService {
   }
 
   async findOne(id: string) {
-    const diveSite = await this.prisma.dive_sites.findUnique({
-      where: { id },
+    const diveSite = await this.prisma.dive_sites.findFirst({
+      where: { id, ...this.tenantFilter() },
       include: {
         locations: true,
       },
@@ -47,8 +58,16 @@ export class DiveSitesService {
   }
 
   async create(createDiveSiteDto: CreateDiveSiteDto) {
+    const location = await this.prisma.locations.findFirst({
+      where: { id: createDiveSiteDto.locationId, ...this.tenantFilter() },
+    });
+    if (!location) {
+      throw new NotFoundException(`Location with ID ${createDiveSiteDto.locationId} not found`);
+    }
+
     return this.prisma.dive_sites.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? location.tenant_id ?? null,
         location_id: createDiveSiteDto.locationId,
         name: createDiveSiteDto.name,
         type: createDiveSiteDto.type as any,

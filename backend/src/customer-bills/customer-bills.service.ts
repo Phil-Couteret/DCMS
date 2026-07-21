@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateCustomerBillDto } from './dto/create-customer-bill.dto';
 import { UpdateCustomerBillDto } from './dto/update-customer-bill.dto';
 
@@ -7,10 +8,18 @@ export { CreateCustomerBillDto, UpdateCustomerBillDto };
 
 @Injectable()
 export class CustomerBillsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll(customerId?: string, startDate?: string, endDate?: string) {
-    const where: any = {};
+    const where: any = { ...this.tenantFilter() };
     if (customerId) {
       where.customer_id = customerId;
     }
@@ -35,8 +44,8 @@ export class CustomerBillsService {
   }
 
   async findOne(id: string) {
-    const bill = await this.prisma.customer_bills.findUnique({
-      where: { id },
+    const bill = await this.prisma.customer_bills.findFirst({
+      where: { id, ...this.tenantFilter() },
       include: {
         customers: true,
         locations: true,
@@ -51,8 +60,8 @@ export class CustomerBillsService {
   }
 
   async findByBillNumber(billNumber: string) {
-    return this.prisma.customer_bills.findUnique({
-      where: { bill_number: billNumber },
+    return this.prisma.customer_bills.findFirst({
+      where: { bill_number: billNumber, ...this.tenantFilter() },
       include: {
         customers: true,
         locations: true,
@@ -62,7 +71,7 @@ export class CustomerBillsService {
 
   async findByCustomer(customerId: string) {
     return this.prisma.customer_bills.findMany({
-      where: { customer_id: customerId },
+      where: { customer_id: customerId, ...this.tenantFilter() },
       include: {
         customers: true,
         locations: true,
@@ -72,18 +81,18 @@ export class CustomerBillsService {
   }
 
   async create(createCustomerBillDto: CreateCustomerBillDto) {
-    // Verify customer exists
-    const customer = await this.prisma.customers.findUnique({
-      where: { id: createCustomerBillDto.customerId },
+    // Verify customer exists (and belongs to this tenant, when scoped)
+    const customer = await this.prisma.customers.findFirst({
+      where: { id: createCustomerBillDto.customerId, ...this.tenantFilter() },
     });
 
     if (!customer) {
       throw new NotFoundException(`Customer with ID ${createCustomerBillDto.customerId} not found`);
     }
 
-    // Verify location exists
-    const location = await this.prisma.locations.findUnique({
-      where: { id: createCustomerBillDto.locationId },
+    // Verify location exists (and belongs to this tenant, when scoped)
+    const location = await this.prisma.locations.findFirst({
+      where: { id: createCustomerBillDto.locationId, ...this.tenantFilter() },
     });
 
     if (!location) {
@@ -101,6 +110,7 @@ export class CustomerBillsService {
 
     return this.prisma.customer_bills.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? location.tenant_id ?? null,
         customer_id: createCustomerBillDto.customerId,
         location_id: createCustomerBillDto.locationId,
         bill_number: createCustomerBillDto.billNumber,

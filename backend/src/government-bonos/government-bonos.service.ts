@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateGovernmentBonoDto } from './dto/create-government-bono.dto';
 import { UpdateGovernmentBonoDto } from './dto/update-government-bono.dto';
 
@@ -7,18 +8,26 @@ export { CreateGovernmentBonoDto, UpdateGovernmentBonoDto };
 
 @Injectable()
 export class GovernmentBonosService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   async findAll() {
     return this.prisma.government_bonos.findMany({
-      where: { is_active: true },
+      where: { is_active: true, ...this.tenantFilter() },
       orderBy: { created_at: 'desc' },
     });
   }
 
   async findOne(id: string) {
-    const bono = await this.prisma.government_bonos.findUnique({
-      where: { id },
+    const bono = await this.prisma.government_bonos.findFirst({
+      where: { id, ...this.tenantFilter() },
     });
 
     if (!bono) {
@@ -37,6 +46,7 @@ export class GovernmentBonosService {
   async create(createBonoDto: CreateGovernmentBonoDto) {
     return this.prisma.government_bonos.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? null,
         code: createBonoDto.code,
         type: createBonoDto.type,
         discount_percentage: createBonoDto.discountPercentage,

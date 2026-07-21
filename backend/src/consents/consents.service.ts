@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { consent_type } from '@prisma/client';
 import { CreateConsentDto as CreateConsentBodyDto } from './dto/create-consent.dto';
 
@@ -9,7 +10,15 @@ export { CreateConsentBodyDto };
 
 @Injectable()
 export class ConsentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private tenantFilter() {
+    const tenantId = this.tenantContext.getTenantId();
+    return tenantId ? { tenant_id: tenantId } : {};
+  }
 
   /**
    * Get all consents for a customer
@@ -56,9 +65,9 @@ export class ConsentsService {
    * Record consent for a customer
    */
   async recordConsent(dto: CreateConsentDto) {
-    // Verify customer exists
-    const customer = await this.prisma.customers.findUnique({
-      where: { id: dto.customerId },
+    // Verify customer exists (and belongs to this tenant, when scoped)
+    const customer = await this.prisma.customers.findFirst({
+      where: { id: dto.customerId, ...this.tenantFilter() },
     });
 
     if (!customer) {
@@ -85,6 +94,7 @@ export class ConsentsService {
     // Create new consent record
     return this.prisma.customer_consents.create({
       data: {
+        tenant_id: this.tenantContext.getTenantId() ?? customer.tenant_id ?? null,
         customer_id: dto.customerId,
         consent_type: dto.consentType,
         consent_given: dto.consentGiven,

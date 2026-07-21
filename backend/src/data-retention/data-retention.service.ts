@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 
 @Injectable()
 export class DataRetentionService {
@@ -23,7 +24,10 @@ export class DataRetentionService {
     communicationData: 3 * 365, // 1095 days
   };
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantContext: TenantContextService,
+  ) {}
 
   /**
    * Get last activity date for a customer
@@ -69,8 +73,11 @@ export class DataRetentionService {
   async anonymizeCustomer(customerId: string, reason: string = 'retention_policy'): Promise<void> {
     this.logger.log(`Anonymizing customer ${customerId} - Reason: ${reason}`);
 
-    await this.prisma.customers.update({
-      where: { id: customerId },
+    // updateMany + tenant filter (rather than update by bare id) so a
+    // caller can never anonymize a customer belonging to another tenant.
+    const tenantId = this.tenantContext.getTenantId();
+    const { count } = await this.prisma.customers.updateMany({
+      where: { id: customerId, ...(tenantId && { tenant_id: tenantId }) },
       data: {
         first_name: 'Anonymized',
         last_name: '[Customer]',
@@ -87,6 +94,10 @@ export class DataRetentionService {
         updated_at: new Date(),
       },
     });
+
+    if (count === 0) {
+      throw new NotFoundException(`Customer with ID ${customerId} not found`);
+    }
 
     this.logger.log(`Customer ${customerId} anonymized successfully`);
   }
@@ -113,11 +124,15 @@ export class DataRetentionService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - this.RETENTION_PERIODS.customerPersonalData);
 
-    // Get all non-anonymized, non-deleted customers
+    // Get all non-anonymized, non-deleted customers. Scoped to the caller's
+    // tenant when one is set - otherwise (superadmin, no tenant context)
+    // this runs platform-wide, same convention as other list endpoints.
+    const tenantId = this.tenantContext.getTenantId();
     const customers = await this.prisma.customers.findMany({
       where: {
         anonymized: false,
         deleted_at: null,
+        ...(tenantId && { tenant_id: tenantId }),
       },
       select: { id: true },
     });
