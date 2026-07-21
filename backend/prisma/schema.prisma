@@ -43,7 +43,7 @@ model audit_logs {
   ip_address    String?   @db.Inet
   user_agent    String?
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  tenants       tenants?  @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants       tenants?  @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([tenant_id], map: "idx_audit_logs_tenant")
   @@index([action], map: "idx_audit_logs_action")
@@ -165,7 +165,7 @@ model certification_agencies {
   is_active               Boolean?                  @default(true)
   created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
   updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
-  tenants                  tenants?                 @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants                  tenants?                 @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
   customer_certifications customer_certifications[]
 
   @@index([tenant_id], map: "idx_certification_agencies_tenant")
@@ -261,7 +261,7 @@ model customers {
   customer_stays                                     customer_stays[]
   partners_customers_created_by_partner_idTopartners partners?                      @relation("customers_created_by_partner_idTopartners", fields: [created_by_partner_id], references: [id], onUpdate: NoAction)
   partners_customers_partner_idTopartners            partners?                      @relation("customers_partner_idTopartners", fields: [partner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tenants                                            tenants?                       @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants                                            tenants?                       @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
   data_subject_access_requests                       data_subject_access_requests[]
 
   @@index([tenant_id], map: "idx_customers_tenant")
@@ -301,7 +301,7 @@ model data_breaches {
   notes                          String?
   created_at                     DateTime?   @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime?   @default(now()) @db.Timestamptz(6)
-  tenants                        tenants?    @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants                        tenants?    @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([tenant_id], map: "idx_data_breaches_tenant")
   @@index([detected_at], map: "idx_data_breaches_detected_at")
@@ -389,7 +389,7 @@ model government_bonos {
   is_active           Boolean?     @default(true)
   created_at          DateTime?    @default(now()) @db.Timestamptz(6)
   updated_at          DateTime?    @default(now()) @db.Timestamptz(6)
-  tenants             tenants?     @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants             tenants?     @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
   bono_usage          bono_usage[]
 
   @@index([tenant_id], map: "idx_government_bonos_tenant")
@@ -406,7 +406,7 @@ model locations {
   is_active       Boolean?          @default(true)
   created_at      DateTime?         @default(now()) @db.Timestamptz(6)
   updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
-  tenants         tenants?          @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants         tenants?          @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
   boat_preps      boat_preps[]
   boats           boats[]
   bookings        bookings[]
@@ -494,7 +494,7 @@ model partners {
   settings                                            Json?              @default("{}")
   created_at                                          DateTime?          @default(now()) @db.Timestamptz(6)
   updated_at                                          DateTime?          @default(now()) @db.Timestamptz(6)
-  tenants                                             tenants?           @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants                                             tenants?           @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
   bookings_bookings_created_by_partner_idTopartners   bookings[]         @relation("bookings_created_by_partner_idTopartners")
   bookings_bookings_partner_idTopartners              bookings[]         @relation("bookings_partner_idTopartners")
   customers_customers_created_by_partner_idTopartners customers[]        @relation("customers_created_by_partner_idTopartners")
@@ -533,7 +533,7 @@ model settings {
   description String?
   created_at  DateTime? @default(now()) @db.Timestamptz(6)
   updated_at  DateTime? @default(now()) @db.Timestamptz(6)
-  tenants     tenants?  @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants     tenants?  @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([tenant_id], map: "idx_settings_tenant")
 }
@@ -573,7 +573,7 @@ model users {
   is_active       Boolean?  @default(true)
   created_at      DateTime? @default(now()) @db.Timestamptz(6)
   updated_at      DateTime? @default(now()) @db.Timestamptz(6)
-  tenants         tenants?  @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenants         tenants?  @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([tenant_id], map: "idx_users_tenant")
   @@index([is_active], map: "idx_users_active")

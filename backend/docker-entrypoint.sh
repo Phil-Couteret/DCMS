@@ -22,14 +22,20 @@ else
   npx prisma migrate deploy 2>/dev/null || true
 fi
 
-# Apply multi-tenant migration when tenants table doesn't exist (idempotent)
-if ! psql "$PSQL_URL" -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='tenants'" 2>/dev/null | grep -q 1; then
-  echo "Applying multi-tenant migration..."
-  psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f /app/scripts/migrations/011_add_multi_tenant.sql && echo "  applied 011_add_multi_tenant"
-fi
-
 # Seed users and settings (idempotent) - use compiled JS for production
 node dist/scripts/seed-users.js || npx ts-node src/scripts/seed-users.ts || true
 node dist/scripts/seed-settings.js || npx ts-node src/scripts/seed-settings.ts || true
+
+# Optional demo sample data (docker-compose only, mounted read-only at
+# /init - see docker-compose.yml). Runs once, after schema migration,
+# only if the locations table is still empty. Not idempotent SQL, so
+# it must never run twice against the same data.
+if [ -f /init/seeds/002_sample_data.sql ]; then
+  LOCATIONS_COUNT=$(psql "$PSQL_URL" -tAc "SELECT count(*) FROM locations" 2>/dev/null | tr -d '[:space:]')
+  if [ "$LOCATIONS_COUNT" = "0" ]; then
+    echo "Loading sample data..."
+    psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f /init/seeds/002_sample_data.sql && echo "  sample data loaded"
+  fi
+fi
 
 exec "$@"

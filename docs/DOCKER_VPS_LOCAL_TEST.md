@@ -69,13 +69,13 @@ docker compose up -d
 
 ## 4. Initial DB setup
 
-On first `up`, Postgres runs `docker/postgres-init/init-dcms.sh`, which:
+On first `up`, `backend`'s `docker-entrypoint.sh` (not a Postgres init script — see note below) runs, in order:
 
-1. Applies `database/schema/001_create_tables.sql`
-2. Applies `database/migrations/002` … `009`
-3. Loads `database/seeds/002_sample_data.sql`
+1. Applies the schema via `backend/prisma/migrations/*/migration.sql` (baselined 2026-07-17 — the old raw SQL in `database/schema/`/`database/migrations/` is archived at `docs/archive/legacy-sql-migrations/` and no longer applied anywhere).
+2. Runs `seed-users` and `seed-settings` (idempotent).
+3. Loads `database/seeds/002_sample_data.sql` if present and the `locations` table is still empty.
 
-Then the backend entrypoint runs `seed-users` and `seed-settings` (idempotent).
+**Note (2026-07-21):** this used to be split across a Postgres `docker-entrypoint-initdb.d` script (`docker/postgres-init/init-dcms.sh`) and the backend entrypoint. That script has been removed — `docker-entrypoint-initdb.d` runs synchronously during Postgres's own bootstrap, before the container can pass its healthcheck, so it could never safely wait on `backend` to create tables first. Everything now happens in `backend/docker-entrypoint.sh`, which runs after `db` is already healthy.
 
 If you add or change migrations, **reset the volume** (`down -v` then `up -d`) so init runs again. Otherwise Postgres reuses existing data.
 
@@ -124,12 +124,6 @@ The **import override** (`docker-compose.import.yml`) skips the init script so t
 
 ## 6. Troubleshooting
 
-**Init script not executable**
-
-```bash
-chmod +x docker/postgres-init/init-dcms.sh
-```
-
 **Backend won’t start / “Cannot connect to db”**
 
 - Wait 30–60 s for Postgres to finish init.
@@ -161,9 +155,8 @@ docker compose up -d --build
 | `backend/docker-entrypoint.sh` | Waits for Postgres, runs seed, then starts the app. |
 | `frontend/Dockerfile` | Builds React app, nginx serves it. |
 | `frontend/docker/nginx.conf` | Nginx config for SPA. |
-| `docker/postgres-init/init-dcms.sh` | Postgres init: schema, migrations, sample data. |
-| `database/migrations/006b_add_settings.sql` | Creates `settings` table. |
-| `database/migrations/009_add_users_table.sql` | Creates `users` table and `user_role` enum. |
+| `backend/prisma/migrations/` | Schema source of truth (Prisma, baselined 2026-07-17); applied by `backend/docker-entrypoint.sh`. |
+| `database/seeds/002_sample_data.sql` | Optional demo data, loaded by `backend/docker-entrypoint.sh`. |
 | `docker-compose.import.yml` | Override: DB without init, for host-DB import. |
 | `scripts/import-host-db-to-docker.sh` | Imports a host `pg_dump` into Docker Postgres. |
 

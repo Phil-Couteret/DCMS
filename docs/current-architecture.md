@@ -1,6 +1,6 @@
 # DCMS — Current Architecture (As-Is)
 
-_Last reviewed: 2026-07-16. Updated 2026-07-16: Phase 0 security fixes from `roadmap.md` have been applied — see the "Phase 0 status" notes inline below. Updated 2026-07-17: Phase 1 cleanup, Phase 2 validation/migration work, and Phase 3 unit tests applied — see the "Phase 1/2/3" notes inline below._
+_Last reviewed: 2026-07-16. Updated 2026-07-16: Phase 0 security fixes from `roadmap.md` have been applied — see the "Phase 0 status" notes inline below. Updated 2026-07-17: Phase 1 cleanup, Phase 2 validation/migration work, and Phase 3 unit tests applied — see the "Phase 1/2/3" notes inline below. Updated 2026-07-21: Phase 2.3 Prisma migration baseline completed — the two disconnected migration systems described in §7 are reconciled; see the note there._
 
 ## 1. What DCMS is
 
@@ -14,8 +14,7 @@ DCMS/
 ├── frontend/            React 18 admin/staff PWA (CRA)
 ├── public-website/      React 18 customer-facing site (CRA)
 ├── sync-server/         POC-only localStorage sync hack (see §8)
-├── database/            Parallel raw-SQL schema/migrations (see §6)
-├── docker/               postgres init script
+├── database/            Seed/sample data only; old raw-SQL schema/migrations archived (see §7)
 ├── deploy/               ovh/ (public-website FTP deploy) + zbox/ (K3s manifests)
 ├── docs/                 ~25 markdown docs (GDPR, market research, pricing, multi-tenant design)
 ├── scripts/, logs/, database backups, dcms-backend.tar (173MB), "Data Saved/", "Open Source/"
@@ -30,7 +29,7 @@ DCMS/
 | frontend | React + MUI, Create React App | React ^18.2.0, react-scripts 5.0.1 (deprecated) |
 | public-website | React + MUI, Create React App | React ^18.2.0, react-scripts 5.0.1 (deprecated) |
 | sync-server | Node/Express-style POC | localStorage relay, not a real backend |
-| database | PostgreSQL 15 | Two competing migration mechanisms (§6) |
+| database | PostgreSQL 15 | Single migration mechanism: Prisma (§7) |
 | infra | Docker Compose (local/dev), K3s on a ZBOX mini-server (prod); public-website separately FTP-deployed to OVH shared hosting | |
 
 Root `package.json` requires Node ≥18, npm ≥9. No `engines` field on the sub-packages.
@@ -119,11 +118,15 @@ Models: `tenants, audit_logs, boat_preps, boats, bono_usage, bookings, certifica
 - `index.html` title is generic: "DCMS - Dive Center Management Software"; meta description is generic/product-focused rather than branded to the actual dive center; no Open Graph tags.
 - No `robots.txt`, no `sitemap.xml` in either `public-website/public` or `frontend/public`.
 
-## 7. Database migrations — two disconnected systems
+## 7. Database migrations — baselined onto Prisma (2026-07-21)
 
-- `database/migrations/`: 002 through 011, hand-written raw SQL, including a genuine duplicate: `008_location_type_varchar.sql` and `008_rollback_restore_location_type_enum.sql` share the same number (one forward, one rollback).
-- `backend/prisma/migrations/`: only 2 real migrations (`20251227114043_add_partner_invoices`, `20251228212110_add_customer_bills`) plus `migration_lock.toml` — the rest of the schema was introspected/hand-maintained rather than migrated through Prisma.
-- These two systems are not reconciled; there is no single source of truth for schema history. **Guide written (Phase 2):** `docs/guides/PRISMA_MIGRATION_BASELINE.md` walks through baselining `backend/prisma/migrations/` as the sole source of truth and archiving `database/migrations/*.sql` to `docs/archive/legacy-sql-migrations/`. Requires a live DB connection this environment doesn't have, so it's written up for you to run rather than executed automatically — not yet done.
+**Status: done.** `backend/prisma/migrations/` is now the single source of truth for schema history:
+
+- A `0_baseline/migration.sql` was generated via `prisma migrate diff --from-empty --to-schema-datamodel` against the real, current schema, then marked applied via `prisma migrate resolve --applied 0_baseline`. `prisma migrate status` confirms the schema is up to date with no drift.
+- The old hand-written raw SQL (`database/schema/001_create_tables.sql`, `database/migrations/002`–`011`, including the genuine duplicate `008_location_type_varchar.sql`/`008_rollback_restore_location_type_enum.sql` pair) is archived at `docs/archive/legacy-sql-migrations/` (see its `README.md`) — kept for history only, not applied by anything.
+- `backend/docker-entrypoint.sh`, `setup-database.sh`, and `setup-local-db.sh` all now create the schema via `prisma migrate deploy`/the baseline instead of the archived raw SQL.
+- A real schema/DB drift was caught during baselining: `schema.prisma` declared `onDelete: SetNull` on 9 `tenant_id` relations that the live DB didn't actually have. Resolved by relaxing `schema.prisma` to match the DB's actual (safer) `NO ACTION` behavior — see `roadmap.md` Phase 2.3 for detail.
+- `database/` now holds only `README.md` and `seeds/002_sample_data.sql` (optional demo data, loaded by `backend/docker-entrypoint.sh` when present and the `locations` table is empty — not part of schema history).
 
 ## 8. sync-server
 

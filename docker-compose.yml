@@ -11,8 +11,6 @@ services:
       POSTGRES_PASSWORD: dcms
     volumes:
       - dcms_pgdata:/var/lib/postgresql/data
-      - ./database:/init:ro
-      - ./docker/postgres-init/init-dcms.sh:/docker-entrypoint-initdb.d/init-dcms.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dcms -d dcms"]
       interval: 5s
@@ -32,6 +30,10 @@ services:
       # docker compose fails to start if JWT_SECRET is unset. Generate one with:
       #   openssl rand -hex 32
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in a .env file at the repo root before running docker compose}
+    volumes:
+      # Optional demo seed data (backend/docker-entrypoint.sh loads
+      # database/seeds/002_sample_data.sql if present, after schema migration).
+      - ./database:/init:ro
     depends_on:
       db:
         condition: service_healthy

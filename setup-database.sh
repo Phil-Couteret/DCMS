@@ -70,14 +70,17 @@ echo "Setting timezone..."
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "ALTER DATABASE $DB_NAME SET timezone = 'Europe/Madrid';"
 echo -e "${GREEN}✅ Timezone set${NC}"
 
-# Run schema
+# Run schema (via Prisma migrations - see backend/prisma/migrations/;
+# baselined 2026-07-17, the old hand-written SQL in database/schema/ is
+# archived at docs/archive/legacy-sql-migrations/)
 echo ""
-echo "Running database schema..."
-if [ -f "database/schema/001_create_tables.sql" ]; then
-    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/schema/001_create_tables.sql
+echo "Running database schema (Prisma migrate deploy)..."
+if [ -d "backend/prisma/migrations" ]; then
+    SETUP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME?schema=public"
+    ( cd backend && DATABASE_URL="$SETUP_DATABASE_URL" npx prisma migrate deploy )
     echo -e "${GREEN}✅ Schema applied${NC}"
 else
-    echo -e "${RED}❌ Schema file not found: database/schema/001_create_tables.sql${NC}"
+    echo -e "${RED}❌ Prisma migrations not found: backend/prisma/migrations${NC}"
     exit 1
 fi
 

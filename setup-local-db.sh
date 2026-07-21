@@ -64,15 +64,16 @@ psql -d postgres -c "CREATE DATABASE $DB_NAME;" 2>/dev/null || {
 echo "✅ Database '$DB_NAME' created"
 echo ""
 
-# Check if schema file exists
-SCHEMA_FILE="database/schema/001_create_tables.sql"
-if [ ! -f "$SCHEMA_FILE" ]; then
-    echo "❌ Schema file not found: $SCHEMA_FILE"
+# Create schema via Prisma migrations (see backend/prisma/migrations/;
+# baselined 2026-07-17). The old hand-written SQL in database/schema/ is
+# archived at docs/archive/legacy-sql-migrations/.
+if [ ! -d "backend/prisma/migrations" ]; then
+    echo "❌ Prisma migrations not found: backend/prisma/migrations"
     exit 1
 fi
 
-echo "Creating database schema..."
-psql -d "$DB_NAME" -f "$SCHEMA_FILE"
+echo "Creating database schema (Prisma migrate deploy)..."
+( cd backend && DATABASE_URL="postgresql://$DB_USER@localhost:5432/$DB_NAME?schema=public" npx prisma migrate deploy )
 
 echo "✅ Database schema created"
 echo ""
