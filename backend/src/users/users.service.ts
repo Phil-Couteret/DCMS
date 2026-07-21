@@ -3,11 +3,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
 import * as bcrypt from 'bcrypt';
+import { user_role } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginDto } from './dto/login.dto';
+import { SelectTenantDto } from './dto/select-tenant.dto';
 
-export { CreateUserDto, UpdateUserDto, LoginDto };
+export { CreateUserDto, UpdateUserDto, LoginDto, SelectTenantDto };
+
+interface TenantOption {
+  tenantId: string;
+  role: user_role;
+  permissions: string[];
+  locationAccess: string[];
+}
 
 @Injectable()
 export class UsersService {
@@ -55,51 +64,202 @@ export class UsersService {
     });
   }
 
-  async login(loginDto: LoginDto) {
-    const user = await this.findByUsername(loginDto.username);
-    
-    if (!user) {
-      throw new UnauthorizedException('Invalid username or password');
+  /**
+   * Every tenant this user can log into: their primary users.tenant_id
+   * (if set) plus any active user_tenant_memberships rows. A regular staff
+   * member with only one tenant (still the common case) gets exactly one
+   * option here and login proceeds with zero extra friction.
+   */
+  private async getTenantOptions(user: {
+    id: string;
+    tenant_id: string | null;
+    role: user_role;
+    permissions: string[];
+    location_access: string[];
+  }): Promise<TenantOption[]> {
+    const options: TenantOption[] = [];
+    if (user.tenant_id) {
+      options.push({
+        tenantId: user.tenant_id,
+        role: user.role,
+        permissions: user.permissions,
+        locationAccess: user.location_access,
+      });
     }
-
-    if (!user.is_active) {
-      throw new UnauthorizedException('User account is inactive');
+    const memberships = await this.prisma.user_tenant_memberships.findMany({
+      where: { user_id: user.id, is_active: true },
+    });
+    for (const m of memberships) {
+      options.push({
+        tenantId: m.tenant_id,
+        role: m.role,
+        permissions: m.permissions,
+        locationAccess: m.location_access,
+      });
     }
+    return options;
+  }
 
-    const isValidPassword = await bcrypt.compare(loginDto.password, user.password_hash);
-    if (!isValidPassword) {
-      throw new UnauthorizedException('Invalid username or password');
-    }
-
-    // Tenant check: superadmin can log in without tenant; others must match context
-    const contextTenantId = this.tenantContext.getTenantId();
-    if (user.role !== 'superadmin') {
-      if (contextTenantId && user.tenant_id !== contextTenantId) {
-        throw new UnauthorizedException('User does not belong to this tenant');
-      }
-    }
-
-    const tenantId = user.role === 'superadmin' ? null : (user.tenant_id ?? contextTenantId);
+  /** Signs the JWT and builds the login response for one chosen tenant option (or null/superadmin). */
+  private async issueSession(
+    user: { id: string; username: string; role: user_role; [key: string]: unknown },
+    tenantId: string | null,
+    role: user_role,
+    permissions: string[],
+    locationAccess?: string[],
+  ) {
     const accessToken = this.authService.signAdminToken({
       sub: user.id,
       username: user.username,
       tenantId,
-      role: user.role,
-      permissions: user.permissions,
+      role,
+      permissions,
     });
 
-    const { password_hash, ...userWithoutPassword } = user;
+    const { password_hash, tenant_id, ...userRest } = user as Record<string, unknown> & { password_hash?: unknown; tenant_id?: unknown };
     let tenantSlug: string | null = null;
-    if (user.tenant_id) {
-      const tenant = await this.prisma.tenants.findUnique({
-        where: { id: user.tenant_id },
-      });
+    if (tenantId) {
+      const tenant = await this.prisma.tenants.findUnique({ where: { id: tenantId } });
       tenantSlug = tenant?.slug ?? null;
     }
+
     return {
-      user: { ...userWithoutPassword, tenantSlug },
+      user: {
+        ...userRest,
+        tenant_id: tenantId,
+        role,
+        permissions,
+        ...(locationAccess !== undefined && { location_access: locationAccess }),
+        tenantSlug,
+      },
       access_token: accessToken,
     };
+  }
+
+  private async describeTenantOptions(options: TenantOption[]) {
+    const tenants = await this.prisma.tenants.findMany({
+      where: { id: { in: options.map((o) => o.tenantId) } },
+    });
+    const byId = new Map(tenants.map((t) => [t.id, t]));
+    return options.map((o) => ({
+      tenantId: o.tenantId,
+      slug: byId.get(o.tenantId)?.slug ?? null,
+      name: byId.get(o.tenantId)?.name ?? null,
+      role: o.role,
+    }));
+  }
+
+  private async verifyCredentials(username: string, password: string) {
+    const user = await this.findByUsername(username);
+    if (!user) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+    if (!user.is_active) {
+      throw new UnauthorizedException('User account is inactive');
+    }
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+    return user;
+  }
+
+  async login(loginDto: LoginDto) {
+    const user = await this.verifyCredentials(loginDto.username, loginDto.password);
+
+    if (user.role === 'superadmin') {
+      // Unchanged from before: superadmin has no tenant of its own and
+      // switches tenants post-login via header/subdomain (tenant.interceptor.ts).
+      return this.issueSession(user, null, user.role, user.permissions, user.location_access);
+    }
+
+    const options = await this.getTenantOptions(user);
+    if (options.length === 0) {
+      throw new UnauthorizedException('User is not assigned to any tenant');
+    }
+
+    // A subdomain/header already narrowed the request to one tenant - if it
+    // matches one of this user's tenants, log straight into it (same
+    // zero-friction behavior as before this feature existed). If it names a
+    // tenant the user has no access to, reject exactly as before.
+    const contextTenantId = this.tenantContext.getTenantId();
+    if (contextTenantId) {
+      const match = options.find((o) => o.tenantId === contextTenantId);
+      if (!match) {
+        throw new UnauthorizedException('User does not belong to this tenant');
+      }
+      return this.issueSession(user, match.tenantId, match.role, match.permissions, match.locationAccess);
+    }
+
+    if (options.length === 1) {
+      const only = options[0];
+      return this.issueSession(user, only.tenantId, only.role, only.permissions, only.locationAccess);
+    }
+
+    // 2+ tenants and nothing narrowed it down - let the client choose rather
+    // than guessing. No token is issued at this step.
+    return {
+      requiresTenantSelection: true,
+      tenants: await this.describeTenantOptions(options),
+    };
+  }
+
+  /** Completes login once the client has picked a tenant from the list `login()` returned. */
+  async selectTenant(dto: SelectTenantDto) {
+    const user = await this.verifyCredentials(dto.username, dto.password);
+
+    if (user.role === 'superadmin') {
+      throw new UnauthorizedException('Superadmin accounts do not use tenant selection');
+    }
+
+    const options = await this.getTenantOptions(user);
+    const chosen = options.find((o) => o.tenantId === dto.tenantId);
+    if (!chosen) {
+      throw new UnauthorizedException('User does not belong to this tenant');
+    }
+
+    return this.issueSession(user, chosen.tenantId, chosen.role, chosen.permissions, chosen.locationAccess);
+  }
+
+  /** Grants a user access to an additional tenant, with its own role/permissions there. */
+  async addTenantMembership(
+    userId: string,
+    tenantId: string,
+    role: user_role = 'admin',
+    permissions: string[] = [],
+    locationAccess: string[] = [],
+  ) {
+    await this.findOne(userId); // 404s if the user doesn't exist
+    const tenant = await this.prisma.tenants.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
+    }
+    return this.prisma.user_tenant_memberships.upsert({
+      where: { user_id_tenant_id: { user_id: userId, tenant_id: tenantId } },
+      create: { user_id: userId, tenant_id: tenantId, role, permissions, location_access: locationAccess, is_active: true },
+      update: { role, permissions, location_access: locationAccess, is_active: true },
+    });
+  }
+
+  /** Revokes a user's access to a (non-primary) tenant. */
+  async removeTenantMembership(userId: string, tenantId: string) {
+    await this.prisma.user_tenant_memberships.deleteMany({
+      where: { user_id: userId, tenant_id: tenantId },
+    });
+    return { message: 'Membership removed' };
+  }
+
+  /** Lists every tenant a user can access - their primary plus all memberships. */
+  async listTenantMemberships(userId: string) {
+    const user = await this.findOne(userId);
+    const options = await this.getTenantOptions({
+      id: userId,
+      tenant_id: (user as any).tenant_id,
+      role: (user as any).role,
+      permissions: (user as any).permissions,
+      location_access: (user as any).location_access,
+    });
+    return this.describeTenantOptions(options);
   }
 
   async create(dto: CreateUserDto) {

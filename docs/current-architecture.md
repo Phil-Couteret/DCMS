@@ -126,6 +126,7 @@ Models: `tenants, audit_logs, boat_preps, boats, bono_usage, bookings, certifica
 - A real schema/DB drift was caught during baselining: `schema.prisma` declared `onDelete: SetNull` on 9 `tenant_id` relations that the live DB didn't actually have. Resolved by relaxing `schema.prisma` to match the DB's actual (safer) `NO ACTION` behavior — see `roadmap.md` Phase 2.3 for detail.
 - `database/` now holds only `README.md` and `seeds/002_sample_data.sql` (optional demo data, loaded by `backend/docker-entrypoint.sh` when present and the `locations` table is empty — not part of schema history).
 - A second migration, `20260721140235_phase4_tenant_id_everywhere`, was added on top of the baseline for Phase 4 (see §4.3 and `roadmap.md` Phase 4) — unlike the baseline, this one is a genuine forward migration (adds columns + backfills real data) and needs to actually **run** via `prisma migrate deploy`, not be marked applied.
+- A third migration, `20260721141428_user_tenant_memberships`, adds the `user_tenant_memberships` table for Phase 4.6 (multi-tenant user memberships — see `roadmap.md` Phase 4.6). Purely additive (new table, no existing column changes), but still needs to actually run the same way.
 
 ## 8. sync-server
 

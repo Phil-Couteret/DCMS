@@ -11,6 +11,12 @@ import {
   Alert,
   InputAdornment,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  List,
+  ListItemButton,
+  ListItemText,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../../utils/authContext';
@@ -25,6 +31,25 @@ const AdminLogin = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Populated when the account has 2+ tenants and login() can't pick one on
+  // its own - shows a "which center?" popup instead of failing the login.
+  const [tenantChoices, setTenantChoices] = useState(null);
+
+  const completeLogin = (access_token, user) => {
+    const transformedUser = realApiAdapter.transformResponse('users', user);
+    httpClient.setAuthToken(access_token);
+    login(transformedUser);
+    onSuccess?.();
+  };
+
+  const describeFetchError = (err, path) => {
+    const base = typeof API_CONFIG.baseURL === 'function' ? API_CONFIG.baseURL() : API_CONFIG.baseURL;
+    const url = `${base}${path}`;
+    if (err?.message === 'Failed to fetch' || err?.name === 'TypeError') {
+      return `Cannot reach the API at ${url}. Check that the backend is running and that ${window.location.hostname} can access it (DNS, VPN, CORS).`;
+    }
+    return err.message || 'Login failed';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,23 +68,49 @@ const AdminLogin = ({ onSuccess }) => {
         throw new Error(data.message || data.error || `Login failed (${response.status})`);
       }
 
+      if (data.requiresTenantSelection) {
+        // Multiple centers - show the picker instead of completing login.
+        setTenantChoices(data.tenants || []);
+        return;
+      }
+
       const { access_token, user } = data;
       if (!access_token || !user) {
         throw new Error('Invalid login response');
       }
-
-      const transformedUser = realApiAdapter.transformResponse('users', user);
-      httpClient.setAuthToken(access_token);
-      login(transformedUser);
-      onSuccess?.();
+      completeLogin(access_token, user);
     } catch (err) {
+      setError(describeFetchError(err, '/users/login'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectTenant = async (tenantId) => {
+    setError('');
+    setLoading(true);
+    try {
       const base = typeof API_CONFIG.baseURL === 'function' ? API_CONFIG.baseURL() : API_CONFIG.baseURL;
-      const url = `${base}/users/login`;
-      if (err?.message === 'Failed to fetch' || err?.name === 'TypeError') {
-        setError(`Cannot reach the API at ${url}. Check that the backend is running and that ${window.location.hostname} can access it (DNS, VPN, CORS).`);
-      } else {
-        setError(err.message || 'Login failed');
+      const response = await fetch(`${base}/users/login/select-tenant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password, tenantId }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || `Login failed (${response.status})`);
       }
+
+      const { access_token, user } = data;
+      if (!access_token || !user) {
+        throw new Error('Invalid login response');
+      }
+      setTenantChoices(null);
+      completeLogin(access_token, user);
+    } catch (err) {
+      setError(describeFetchError(err, '/users/login/select-tenant'));
+      setTenantChoices(null);
     } finally {
       setLoading(false);
     }
@@ -130,6 +181,22 @@ const AdminLogin = ({ onSuccess }) => {
           })()}
         </form>
       </Paper>
+
+      <Dialog open={!!tenantChoices} onClose={() => !loading && setTenantChoices(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Which center?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Your account has access to more than one diving center. Choose which one to log into.
+          </Typography>
+          <List>
+            {(tenantChoices || []).map((t) => (
+              <ListItemButton key={t.tenantId} onClick={() => handleSelectTenant(t.tenantId)} disabled={loading}>
+                <ListItemText primary={t.name || t.slug || t.tenantId} secondary={t.role} />
+              </ListItemButton>
+            ))}
+          </List>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
