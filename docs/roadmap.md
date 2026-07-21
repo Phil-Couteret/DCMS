@@ -77,7 +77,7 @@ Rather than patch the constraint (which only helps `email`, not the deeper "one 
 4. Frontend: `AdminLogin.jsx` shows a "which center?" popup (per your request for something along those lines) when `login()` returns `requiresTenantSelection`, then completes login via the new endpoint once one is picked.
 5. New unit tests in `users.service.spec.ts` cover the selection prompt, successful tenant selection with per-membership role/permissions, and rejection of a tenantId the user has no membership for.
 
-**Not done, worth a follow-up:** a post-login "switch center" affordance (so a multi-membership user doesn't have to log out to change tenants) — the backend already supports this trivially (call `login/select-tenant` again), but no frontend UI was built for it beyond the login-time popup.
+**Done (follow-up):** post-login "switch center" affordance. New authenticated `POST /users/switch-tenant` endpoint (`{ tenantId }`, no password - identifies the user from their existing JWT and re-validates the requested tenant via the same `getTenantOptions()` used by login) plus a "Switch Center" item in `Navigation.jsx`'s user menu, shown only when the user has 2+ tenant options. Selecting one re-tokens and reloads the app. Superadmins are unaffected - they keep their separate header/subdomain switch mechanism.
 
 ## Phase 5 — Frontend & public-website polish
 
