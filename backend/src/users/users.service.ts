@@ -8,8 +8,9 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { SelectTenantDto } from './dto/select-tenant.dto';
+import { SwitchTenantDto } from './dto/switch-tenant.dto';
 
-export { CreateUserDto, UpdateUserDto, LoginDto, SelectTenantDto };
+export { CreateUserDto, UpdateUserDto, LoginDto, SelectTenantDto, SwitchTenantDto };
 
 interface TenantOption {
   tenantId: string;
@@ -216,6 +217,33 @@ export class UsersService {
     const chosen = options.find((o) => o.tenantId === dto.tenantId);
     if (!chosen) {
       throw new UnauthorizedException('User does not belong to this tenant');
+    }
+
+    return this.issueSession(user, chosen.tenantId, chosen.role, chosen.permissions, chosen.locationAccess);
+  }
+
+  /**
+   * Post-login "switch center": the request is already authenticated (a
+   * valid JWT got it past the guard), so unlike selectTenant() this doesn't
+   * ask for credentials again - it just re-validates that the tenant being
+   * switched into is one this specific user actually has access to (their
+   * primary tenant or an active membership) and issues a fresh JWT scoped
+   * to it. Superadmins already have their own cross-tenant switch mechanism
+   * (X-Tenant-ID/subdomain, see tenant.interceptor.ts) and don't use this.
+   */
+  async switchTenant(userId: string, tenantId: string) {
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    if (!user || !user.is_active) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+    if (user.role === 'superadmin') {
+      throw new UnauthorizedException('Superadmins switch tenants via the tenant selector, not this endpoint');
+    }
+
+    const options = await this.getTenantOptions(user);
+    const chosen = options.find((o) => o.tenantId === tenantId);
+    if (!chosen) {
+      throw new UnauthorizedException('User does not have access to this tenant');
     }
 
     return this.issueSession(user, chosen.tenantId, chosen.role, chosen.permissions, chosen.locationAccess);

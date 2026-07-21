@@ -6,11 +6,13 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { UsersService, CreateUserDto, UpdateUserDto, LoginDto, SelectTenantDto } from './users.service';
+import { Request } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { UsersService, CreateUserDto, UpdateUserDto, LoginDto, SelectTenantDto, SwitchTenantDto } from './users.service';
 import { AddTenantMembershipDto } from './dto/add-tenant-membership.dto';
 import { Public } from '../common/decorators/public.decorator';
 
@@ -37,6 +39,17 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Invalid credentials, or user has no access to that tenant' })
   async selectTenant(@Body() selectTenantDto: SelectTenantDto) {
     return this.usersService.selectTenant(selectTenantDto);
+  }
+
+  @Post('switch-tenant')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Post-login 'switch center': re-issue the JWT for a different tenant the authenticated user already has access to, no password needed" })
+  @ApiResponse({ status: 200, description: 'Switched successfully, new token issued' })
+  @ApiResponse({ status: 401, description: 'User does not have access to that tenant' })
+  async switchTenant(@Req() request: Request, @Body() switchTenantDto: SwitchTenantDto) {
+    const userId = (request.user as { id: string }).id;
+    return this.usersService.switchTenant(userId, switchTenantDto.tenantId);
   }
 
   @Get()

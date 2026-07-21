@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Drawer, 
-  List, 
-  ListItem, 
-  ListItemIcon, 
-  ListItemText, 
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemButton,
   Box,
   Divider,
   Chip,
@@ -17,7 +18,11 @@ import {
   Tabs,
   Tab,
   FormControl,
-  Select
+  Select,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Alert
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -39,7 +44,8 @@ import {
   Receipt as ReceiptIcon,
   AccountBalance as FinancialIcon,
   DirectionsBike as BikeIcon,
-  Domain as DomainIcon
+  Domain as DomainIcon,
+  SwapHoriz as SwapHorizIcon
 } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from '../../utils/languageContext';
@@ -48,13 +54,15 @@ import dataService from '../../services/dataService';
 import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
 import { hasDivingFeatures } from '../../utils/locationTypes';
 import { getTenantSlug } from '../../utils/tenantContext';
+import { httpClient } from '../../services/api/httpClient';
+import realApiAdapter from '../../services/api/realApiAdapter';
 
 const drawerWidth = 240;
 
 const Navigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, logout, canAccess } = useAuth();
+  const { currentUser, login, logout, canAccess } = useAuth();
   const { t } = useTranslation();
   const [anchorEl, setAnchorEl] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -62,6 +70,13 @@ const Navigation = () => {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [boats, setBoats] = useState([]);
   const [orgName, setOrgName] = useState('');
+  // Centers (tenants) this user can log into - populates the "Switch Center"
+  // menu item/popup when there's more than one (regular multi-membership
+  // staff). Superadmin already has its own cross-tenant mechanism.
+  const [tenantOptions, setTenantOptions] = useState([]);
+  const [showSwitchDialog, setShowSwitchDialog] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState('');
 
   // Build menu items by scope
   const userHasGlobalAccess = !currentUser?.locationAccess || (Array.isArray(currentUser?.locationAccess) && currentUser.locationAccess.length === 0);
@@ -214,6 +229,23 @@ const Navigation = () => {
     loadBoats();
   }, []);
 
+  // Load the centers this user can log into, to populate "Switch Center".
+  React.useEffect(() => {
+    const loadTenantOptions = async () => {
+      if (!currentUser || currentUser.role === USER_ROLES.SUPERADMIN) {
+        setTenantOptions([]);
+        return;
+      }
+      try {
+        const opts = await httpClient.get(`/users/${currentUser.id}/tenant-memberships`);
+        setTenantOptions(Array.isArray(opts) ? opts : []);
+      } catch (e) {
+        console.error('[Navigation] Error loading tenant options:', e);
+      }
+    };
+    loadTenantOptions();
+  }, [currentUser]);
+
   React.useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -257,6 +289,35 @@ const Navigation = () => {
   const handleChangePassword = () => {
     setShowPasswordDialog(true);
     handleUserMenuClose();
+  };
+
+  const handleOpenSwitchCenter = () => {
+    setSwitchError('');
+    setShowSwitchDialog(true);
+    handleUserMenuClose();
+  };
+
+  const handleSwitchTenant = async (tenantId) => {
+    setSwitchError('');
+    setSwitching(true);
+    try {
+      const response = await httpClient.post('/users/switch-tenant', { tenantId });
+      const { access_token, user } = response;
+      if (!access_token || !user) {
+        throw new Error('Invalid response while switching center');
+      }
+      const transformedUser = realApiAdapter.transformResponse('users', user);
+      httpClient.setAuthToken(access_token);
+      login(transformedUser);
+      setShowSwitchDialog(false);
+      // Full reload rather than just navigate('/') - clears any tenant-scoped
+      // data already cached in mounted components (locations, boats, etc.)
+      window.location.href = '/';
+    } catch (e) {
+      setSwitchError(e.message || 'Failed to switch center');
+    } finally {
+      setSwitching(false);
+    }
   };
 
   const handleLogout = () => {
@@ -335,6 +396,14 @@ const Navigation = () => {
                     Tenant Management
                   </MenuItem>
                 )}
+                {tenantOptions.length > 1 && (
+                  <MenuItem onClick={handleOpenSwitchCenter}>
+                    <ListItemIcon>
+                      <SwapHorizIcon fontSize="small" />
+                    </ListItemIcon>
+                    Switch Center
+                  </MenuItem>
+                )}
                 <MenuItem onClick={handleChangePassword}>
                   <ListItemIcon>
                     <LockResetIcon fontSize="small" />
@@ -405,6 +474,31 @@ const Navigation = () => {
         open={showPasswordDialog}
         onClose={() => setShowPasswordDialog(false)}
       />
+
+      <Dialog open={showSwitchDialog} onClose={() => !switching && setShowSwitchDialog(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Switch Center</DialogTitle>
+        <DialogContent>
+          {switchError && (
+            <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSwitchError('')}>
+              {switchError}
+            </Alert>
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Choose which center to switch into.
+          </Typography>
+          <List>
+            {tenantOptions.map((opt) => (
+              <ListItemButton
+                key={opt.tenantId}
+                onClick={() => handleSwitchTenant(opt.tenantId)}
+                disabled={switching || opt.tenantId === currentUser?.tenant_id}
+              >
+                <ListItemText primary={opt.name || opt.slug || opt.tenantId} secondary={opt.role} />
+              </ListItemButton>
+            ))}
+          </List>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
