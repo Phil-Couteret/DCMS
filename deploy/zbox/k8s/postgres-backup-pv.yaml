@@ -1,0 +1,38 @@
+# Separate PersistentVolume for pg_dump backups - deliberately NOT the same
+# hostPath as postgres-pv.yaml. A backup that lives inside the same
+# directory tree as the live data protects against nothing (one bad `rm -rf`
+# or disk-format-level corruption takes both out together). This still
+# shares the same physical disk as the live DB, so it does not protect
+# against hardware failure - see the note in postgres-backup-cronjob.yaml
+# about off-box replication being a follow-up, not solved here.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dcms-postgres-backup-pv
+  labels:
+    app: dcms-postgres-backup
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /data/dcms/postgres-backups
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dcms-postgres-backup-pvc
+  namespace: dcms
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  volumeName: dcms-postgres-backup-pv

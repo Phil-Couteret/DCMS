@@ -47,12 +47,15 @@ fi
 echo "==> Creating namespace and storage..."
 kubectl apply -f "$K8S/namespace.yaml"
 kubectl apply -f "$K8S/postgres-pv.yaml"
+kubectl apply -f "$K8S/postgres-backup-pv.yaml"
 
 # Create /data/dcms/postgres on host if missing
 if [ -d /data ]; then
   sudo mkdir -p /data/dcms/postgres
+  sudo mkdir -p /data/dcms/postgres-backups
   # postgres:15-alpine runs as UID 70 (Debian postgres uses 999)
   sudo chown -R 70:70 /data/dcms/postgres 2>/dev/null || true
+  sudo chown -R 70:70 /data/dcms/postgres-backups 2>/dev/null || true
 fi
 
 # Secrets
@@ -101,6 +104,7 @@ sed "s|admin@couteret.fr|$LETSENCRYPT_EMAIL|g" "$K8S/cert-manager-issuer.yaml" |
 echo "==> Applying deployments..."
 kubectl apply -f "$K8S/postgres.yaml"
 sleep 5
+kubectl apply -f "$K8S/postgres-backup-cronjob.yaml"
 kubectl apply -f "$K8S/backend.yaml"
 kubectl apply -f "$K8S/admin.yaml"
 kubectl apply -f "$K8S/public.yaml"

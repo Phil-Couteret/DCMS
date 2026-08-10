@@ -1,0 +1,75 @@
+# Phase 6.4: automated production DB backups. Previously nothing backed up
+# the ZBOX Postgres at all - a single hostPath volume was the only copy of
+# all booking/customer/financial data.
+#
+# What this does: daily pg_dump (custom format, so it works with pg_restore
+# --clean/--if-exists and partial/table-level restores, not just psql <
+# dump.sql) to a separate PVC (see postgres-backup-pv.yaml), pruning dumps
+# older than 14 days. Same postgres:15-alpine image as the live DB, so
+# pg_dump's version always matches the server it's dumping.
+#
+# What this does NOT do: copy backups off the ZBOX itself. They live on a
+# different hostPath directory than the live data (protects against
+# accidental deletion/corruption of the live DB), but it's still the same
+# physical disk (does not protect against disk/hardware failure). Off-box
+# replication (rsync/rclone to another machine or object storage) is a
+# follow-up - deliberately not bundled here since it depends on what remote
+# target is actually available, which wasn't known at the time this was
+# written.
+#
+# Restore: see deploy/zbox/scripts/restore-backup.sh.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: dcms
+spec:
+  schedule: "15 3 * * *" # 03:15 daily, server local time
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              image: postgres:15-alpine
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: dcms-secrets
+                      key: db-password
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  STAMP="$(date +%Y%m%d-%H%M%S)"
+                  OUT="/backups/dcms-${STAMP}.dump"
+                  echo "==> Dumping dcms to ${OUT}"
+                  pg_dump -h db -U dcms -d dcms --format=custom --file="${OUT}"
+                  echo "==> Dump complete: $(du -h "${OUT}" | cut -f1)"
+
+                  echo "==> Pruning dumps older than 14 days"
+                  find /backups -name 'dcms-*.dump' -mtime +14 -print -delete
+
+                  echo "==> Current backups:"
+                  ls -lh /backups
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "500m"
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: dcms-postgres-backup-pvc
