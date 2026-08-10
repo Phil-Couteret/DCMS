@@ -43,7 +43,7 @@ async function main() {
         email: `admin@${TENANT_SLUG}.local`,
         password_hash: passwordHash,
         role: 'admin',
-        permissions: ['dashboard', 'bookings', 'customers', 'settings', 'users'],
+        permissions: ['dashboard', 'bookings', 'customers', 'settings', 'users', 'equipment', 'boatPrep', 'stays'],
         location_access: [],
         is_active: true,
         tenant_id: tenant.id,
@@ -51,7 +51,13 @@ async function main() {
     });
     console.log(`✅ Tenant admin: ${adminUsername} / admin123`);
   } else {
-    console.log(`ℹ️  Tenant admin ${adminUsername} already exists`);
+    // Re-run safety: make sure boatPrep (and the rest) are present even if
+    // this account was created by an earlier version of this script.
+    await prisma.users.update({
+      where: { id: existingAdmin.id },
+      data: { permissions: ['dashboard', 'bookings', 'customers', 'settings', 'users', 'equipment', 'boatPrep', 'stays'] },
+    });
+    console.log(`ℹ️  Tenant admin ${adminUsername} already exists - permissions refreshed`);
   }
 
   let location = await prisma.locations.findFirst({
