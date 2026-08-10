@@ -3,7 +3,9 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# package-lock.json is intentionally tracked (see backend/frontend/
+# public-website/root) for reproducible installs - npm audit fix only
+# has lasting effect if the resulting lockfile travels with the repo.
 yarn.lock
 
 # Environment variables
