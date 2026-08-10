@@ -41,6 +41,7 @@ model tenants {
   data_subject_access_requests data_subject_access_requests[]
   bono_usage          bono_usage[]
   user_tenant_memberships user_tenant_memberships[]
+  schedule_slot_guides schedule_slot_guides[]
 
   @@index([slug], map: "idx_tenants_slug")
   @@index([is_active], map: "idx_tenants_active")
@@ -112,6 +113,7 @@ model boats {
   locations            locations    @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tenants              tenants?     @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
   bookings             bookings[]
+  schedule_slot_guides schedule_slot_guides[]
 
   @@index([is_active], map: "idx_boats_active")
   @@index([location_id], map: "idx_boats_location")
@@ -161,6 +163,15 @@ model bookings {
   source                                            booking_source? @default(direct)
   partner_id                                        String?         @db.Uuid
   created_by_partner_id                             String?         @db.Uuid
+  // Phase 6.17 (roadmap): Schedule's Mole (shore) slot assignment and boat
+  // session, previously ephemeral (rebuilt each load from a `slotAssignment`
+  // field that was never a real column - never survived a page reload).
+  // mole_slot_time is the "HH:mm" start of the 30-min Mole slot; only set
+  // for shore/discovery bookings. session ("morning"/"afternoon", same
+  // free-text convention as boat_preps.session) distinguishes multiple boat
+  // trips on the same boat/day; only set for boat bookings.
+  mole_slot_time                                    String?         @db.VarChar(5)
+  session                                           String?         @db.VarChar(20)
   created_at                                        DateTime?       @default(now()) @db.Timestamptz(6)
   updated_at                                        DateTime?       @default(now()) @db.Timestamptz(6)
   bono_usage                                        bono_usage[]
@@ -468,6 +479,7 @@ model locations {
   equipment       equipment[]
   pricing_configs pricing_configs[]
   staff           staff[]
+  schedule_slot_guides schedule_slot_guides[]
 
   @@index([tenant_id], map: "idx_locations_tenant")
   @@index([is_active], map: "idx_locations_active")
@@ -586,6 +598,37 @@ model pricing_configs {
   tenants               tenants?       @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
 
   @@index([tenant_id], map: "idx_pricing_configs_tenant")
+}
+
+// Phase 6.17 (roadmap): who's covering a given Schedule slot (Mole time-slot
+// or boat session) for the day - independent of any specific booking, since
+// a guide can be assigned to a slot before any customer is. One row per
+// slot identity (location + date + slot_type + slot_key); slot_key is the
+// same opaque identifier string the frontend already builds for a slot
+// ("mole-2026-08-10-09-00" for Mole, "boat-<boatId>-2026-08-10-morning" for
+// boat) - re-encoding it here rather than re-deriving it keeps the backend
+// from having to parse UUIDs out of a hyphen-delimited string. boat_id is a
+// separate, real FK column purely for relational integrity/joins, not part
+// of the uniqueness key (slot_key already disambiguates fully).
+model schedule_slot_guides {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String?   @db.Uuid
+  location_id String    @db.Uuid
+  date        DateTime  @db.Date
+  slot_type   String    @db.VarChar(10)
+  slot_key    String    @db.VarChar(150)
+  boat_id     String?   @db.Uuid
+  guide_ids   Json      @default("[]")
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  boats       boats?    @relation(fields: [boat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locations   locations @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants     tenants?  @relation(fields: [tenant_id], references: [id], onUpdate: NoAction)
+
+  @@unique([location_id, date, slot_type, slot_key], map: "uq_schedule_slot_guides_slot")
+  @@index([date], map: "idx_schedule_slot_guides_date")
+  @@index([location_id], map: "idx_schedule_slot_guides_location")
+  @@index([tenant_id], map: "idx_schedule_slot_guides_tenant")
 }
 
 model settings {

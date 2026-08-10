@@ -159,6 +159,8 @@ export class BookingsService {
           equipment_needed: equipmentNeeded,
           bono_id: dto.bonoId || null,
           stay_id: dto.stayId || null,
+          mole_slot_time: dto.moleSlotTime || null,
+          session: dto.session || null,
         },
         include: {
           customers: true,
@@ -211,6 +213,8 @@ export class BookingsService {
         ...(dto.equipmentNeeded !== undefined && { equipment_needed: dto.equipmentNeeded }),
         ...(dto.bonoId !== undefined && { bono_id: dto.bonoId || null }),
         ...(dto.stayId !== undefined && { stay_id: dto.stayId || null }),
+        ...(dto.moleSlotTime !== undefined && { mole_slot_time: dto.moleSlotTime || null }),
+        ...(dto.session !== undefined && { session: dto.session || null }),
       },
       include: {
         customers: true,

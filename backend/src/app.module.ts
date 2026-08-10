@@ -22,6 +22,7 @@ import { DiveSitesModule } from './dive-sites/dive-sites.module';
 import { GovernmentBonosModule } from './government-bonos/government-bonos.module';
 import { StaffModule } from './staff/staff.module';
 import { BoatPrepsModule } from './boat-preps/boat-preps.module';
+import { ScheduleSlotGuidesModule } from './schedule-slot-guides/schedule-slot-guides.module';
 import { SettingsModule } from './settings/settings.module';
 import { PartnersModule } from './partners/partners.module';
 import { PartnerModule } from './partner/partner.module';
@@ -80,6 +81,7 @@ import { TenantModule } from './tenant/tenant.module';
     GovernmentBonosModule,
     StaffModule,
     BoatPrepsModule,
+    ScheduleSlotGuidesModule,
     SettingsModule,
     PartnersModule,
     PartnerModule,

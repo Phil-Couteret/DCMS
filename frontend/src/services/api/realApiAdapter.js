@@ -17,6 +17,7 @@ const realApiAdapter = {
     else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'staff') endpoint = 'staff';
     else if (resource === 'tenants') endpoint = 'tenants';
+    else if (resource === 'scheduleSlotGuides') endpoint = 'schedule-slot-guides';
 
     const response = await httpClient.get(`/${endpoint}`);
     return this.transformResponse(resource, response.data || response);
@@ -34,7 +35,8 @@ const realApiAdapter = {
     else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'staff') endpoint = 'staff';
     else if (resource === 'tenants') endpoint = 'tenants';
-    
+    else if (resource === 'scheduleSlotGuides') endpoint = 'schedule-slot-guides';
+
     const response = await httpClient.get(`/${endpoint}/${id}`);
     return this.transformResponse(resource, response.data || response);
   },
@@ -47,7 +49,8 @@ const realApiAdapter = {
     else if (resource === 'governmentBonos') endpoint = 'government-bonos';
     else if (resource === 'boatPreps') endpoint = 'boat-preps';
     else if (resource === 'partners') endpoint = 'partners';
-    
+    else if (resource === 'scheduleSlotGuides') endpoint = 'schedule-slot-guides';
+
     // Transform data from frontend to backend format
     let transformedData = data;
     if (resource === 'customers') {
@@ -77,8 +80,10 @@ const realApiAdapter = {
     } else if (resource === 'customerBills') {
       transformedData = this.transformCustomerBillToBackend(data);
       endpoint = 'customer-bills';
+    } else if (resource === 'scheduleSlotGuides') {
+      transformedData = this.transformScheduleSlotGuideToBackend(data);
     }
-    
+
     const response = await httpClient.post(`/${endpoint}`, transformedData);
     return this.transformResponse(resource, response.data || response);
   },
@@ -96,7 +101,8 @@ const realApiAdapter = {
     else if (resource === 'partnerInvoices') endpoint = 'partner-invoices';
     else if (resource === 'customerBills') endpoint = 'customer-bills';
     else if (resource === 'tenants') endpoint = 'tenants';
-    
+    else if (resource === 'scheduleSlotGuides') endpoint = 'schedule-slot-guides';
+
     // Transform data from frontend to backend format
     let transformedData = data;
     if (resource === 'customers') {
@@ -121,6 +127,8 @@ const realApiAdapter = {
       transformedData = this.transformPartnerInvoiceToBackend(data);
     } else if (resource === 'customerBills') {
       transformedData = this.transformCustomerBillToBackend(data);
+    } else if (resource === 'scheduleSlotGuides') {
+      transformedData = this.transformScheduleSlotGuideToBackend(data);
     }
     const response = await httpClient.put(`/${endpoint}/${id}`, transformedData);
     return this.transformResponse(resource, response.data || response);
@@ -495,6 +503,47 @@ const realApiAdapter = {
     };
   },
 
+  // Phase 6.17 (roadmap): who's covering a Schedule slot (Mole time-slot or
+  // boat session) - see CreateScheduleSlotGuideDto for field meanings.
+  transformScheduleSlotGuideToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    const transformed = {};
+    if (data.locationId !== undefined || data.location_id !== undefined) {
+      transformed.locationId = data.locationId || data.location_id;
+    }
+    if (data.date !== undefined) transformed.date = data.date;
+    if (data.slotType !== undefined || data.slot_type !== undefined) {
+      transformed.slotType = data.slotType || data.slot_type;
+    }
+    if (data.slotKey !== undefined || data.slot_key !== undefined) {
+      transformed.slotKey = data.slotKey || data.slot_key;
+    }
+    if (data.boatId !== undefined || data.boat_id !== undefined) {
+      transformed.boatId = data.boatId || data.boat_id || null;
+    }
+    if (data.guideIds !== undefined || data.guide_ids !== undefined) {
+      transformed.guideIds = data.guideIds || data.guide_ids || [];
+    }
+    return transformed;
+  },
+
+  transformScheduleSlotGuideFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    return {
+      id: data.id,
+      locationId: data.location_id || data.locationId,
+      date: data.date,
+      slotType: data.slot_type || data.slotType,
+      slotKey: data.slot_key || data.slotKey,
+      boatId: data.boat_id || data.boatId || null,
+      guideIds: data.guide_ids || data.guideIds || [],
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
   transformPartnerInvoiceToBackend(data) {
     if (!data || typeof data !== 'object') return data;
     
@@ -688,6 +737,12 @@ const realApiAdapter = {
       }
       return this.transformEquipmentFromBackend(data);
     }
+    if (resource === 'scheduleSlotGuides') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformScheduleSlotGuideFromBackend(item));
+      }
+      return this.transformScheduleSlotGuideFromBackend(data);
+    }
     if (resource === 'partnerInvoices') {
       if (Array.isArray(data)) {
         return data.map(item => this.transformPartnerInvoiceFromBackend(item));
@@ -806,6 +861,10 @@ const realApiAdapter = {
       equipmentNeeded: data.equipment_needed !== undefined ? data.equipment_needed : data.equipmentNeeded,
       bonoId: data.bono_id || data.bonoId,
       stayId: data.stay_id || data.stayId,
+      // Phase 6.17: real columns replacing the old ephemeral
+      // `booking.slotAssignment` (see Phase 6.14's audit).
+      moleSlotTime: data.mole_slot_time || data.moleSlotTime || null,
+      session: data.session || null,
       createdAt: data.created_at || data.createdAt,
       updatedAt: data.updated_at || data.updatedAt,
     };

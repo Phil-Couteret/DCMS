@@ -189,7 +189,7 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
                     <Select
                       multiple
                       value={slotGuides[slotItem.id] || []}
-                      onChange={(e) => onUpdateGuides(slotItem.id, e.target.value)}
+                      onChange={(e) => onUpdateGuides(slotItem.id, e.target.value, { slotType: 'mole', date: slot.date })}
                       renderValue={(selected) => {
                         if (selected.length === 0) return 'Select guides';
                         return selected.map(id => {
@@ -249,13 +249,22 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
     // Boat slots - show only the selected session (morning or afternoon)
     const selectedSession = BOAT_SESSIONS.find(s => s.name.toLowerCase() === (slot.sessionTime || 'morning'));
     const sessionKey = slot.sessionTime || 'morning';
-    
-    // Get bookings assigned to this boat (check by boatId in booking)
+    // Phase 6.17 (roadmap): guide-slot key now includes the date - it used
+    // to be `boat-${boatId}-${session}` with no date at all, which meant
+    // guides "assigned" to e.g. Boat A's morning session would show as
+    // assigned on every day, not just the day they were actually set for.
+    const dateStr = format(slot.date, 'yyyy-MM-dd');
+    const boatGuideSlotKey = `boat-${slot.boatId}-${dateStr}-${sessionKey}`;
+
+    // Get bookings assigned to this boat for this session (check by
+    // boatId+session in booking; bookings saved before Phase 6.17 have no
+    // session at all, treated as 'morning' for backward compatibility).
     const assignedBookings = bookings.filter(b => {
       const bookingBoatId = b.boatId || b.boat_id;
-      return bookingBoatId === slot.boatId;
+      const bookingSession = b.session || 'morning';
+      return bookingBoatId === slot.boatId && bookingSession === sessionKey;
     });
-    
+
     // Get unassigned bookings (no boatId set)
     const unassignedBookings = bookings.filter(b => {
       const bookingBoatId = b.boatId || b.boat_id;
@@ -331,8 +340,8 @@ const SlotDetailView = ({ slot, bookings, customers, boats, staff, slotAssignmen
               <InputLabel>Guides</InputLabel>
               <Select
                 multiple
-                value={slotGuides[`boat-${slot.boatId}-${sessionKey}`] || []}
-                onChange={(e) => onUpdateGuides(`boat-${slot.boatId}-${sessionKey}`, e.target.value)}
+                value={slotGuides[boatGuideSlotKey] || []}
+                onChange={(e) => onUpdateGuides(boatGuideSlotKey, e.target.value, { slotType: 'boat', date: slot.date, boatId: slot.boatId })}
                 renderValue={(selected) => {
                   if (selected.length === 0) return 'Select guides';
                   return selected.map(id => {

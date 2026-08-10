@@ -50,6 +50,7 @@ const TripDetails = () => {
   const [diveSites, setDiveSites] = useState([]);
   const [staff, setStaff] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [scheduleSlotGuides, setScheduleSlotGuides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [newDiverForm, setNewDiverForm] = useState({ firstName: '', lastName: '' });
@@ -64,13 +65,14 @@ const TripDetails = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [bookingsData, customersData, boatsData, diveSitesData, staffData, locationsData] = await Promise.all([
+      const [bookingsData, customersData, boatsData, diveSitesData, staffData, locationsData, slotGuidesData] = await Promise.all([
         dataService.getAll('bookings'),
         dataService.getAll('customers'),
         dataService.getAll('boats'),
         dataService.getAll('diveSites'),
         dataService.getAll('staff'),
-        dataService.getAll('locations')
+        dataService.getAll('locations'),
+        dataService.getAll('scheduleSlotGuides')
       ]);
 
       const allBookings = Array.isArray(bookingsData) ? bookingsData : [];
@@ -80,6 +82,7 @@ const TripDetails = () => {
       setDiveSites(Array.isArray(diveSitesData) ? diveSitesData : []);
       setStaff(Array.isArray(staffData) ? staffData : []);
       setLocations(Array.isArray(locationsData) ? locationsData : []);
+      setScheduleSlotGuides(Array.isArray(slotGuidesData) ? slotGuidesData : []);
 
       // Initialize selected bookings from existing bookings (calculate tripBookings here)
       const dateStr = tripDate?.includes('T') ? tripDate.split('T')[0] : tripDate;
@@ -212,23 +215,35 @@ const TripDetails = () => {
     return customers.find(c => c.id === customerId);
   };
 
+  // Phase 6.17 (roadmap): guide coverage is per-*slot*, not per-booking (a
+  // guide can be assigned before any customer is - see
+  // useScheduleData.js's handleUpdateGuides). This used to read
+  // `booking.slotAssignment.guideIds`, a field that never had a backing
+  // column and so always evaluated to `[]` - Trip Details has never
+  // actually shown assigned guides for any booking. Now derives the
+  // booking's slot key from its real fields (moleSlotTime, or
+  // boatId+session+bookingDate) and looks it up in the real
+  // scheduleSlotGuides list loaded above.
   const getGuideNames = (booking) => {
-    let slotAssignment = booking.slotAssignment || booking.slot_assignment;
-    
-    // Handle case where slotAssignment might be a JSON string
-    if (typeof slotAssignment === 'string') {
-      try {
-        slotAssignment = JSON.parse(slotAssignment);
-      } catch {
-        return [];
-      }
+    const bookingDate = booking.bookingDate || booking.booking_date;
+    const dateStr = bookingDate ? (bookingDate.split ? bookingDate.split('T')[0] : bookingDate) : null;
+    if (!dateStr) return [];
+
+    let slotKey = null;
+    const moleSlotTime = booking.moleSlotTime || booking.mole_slot_time;
+    const bookingBoatId = booking.boatId || booking.boat_id;
+    if (moleSlotTime) {
+      slotKey = `mole-${dateStr}-${moleSlotTime.replace(':', '-')}`;
+    } else if (bookingBoatId) {
+      const bookingSession = booking.session || 'morning';
+      slotKey = `boat-${bookingBoatId}-${dateStr}-${bookingSession}`;
     }
-    
-    if (!slotAssignment || !slotAssignment.guideIds || !Array.isArray(slotAssignment.guideIds)) {
-      return [];
-    }
-    
-    return slotAssignment.guideIds
+    if (!slotKey) return [];
+
+    const record = scheduleSlotGuides.find(r => (r.slotKey || r.slot_key) === slotKey);
+    const guideIds = record ? (record.guideIds || record.guide_ids || []) : [];
+
+    return guideIds
       .map(guideId => {
         const guide = staff.find(s => s.id === guideId);
         if (!guide) return null;
@@ -277,9 +292,13 @@ const TripDetails = () => {
     try {
       const booking = bookings.find(b => b.id === bookingId);
       if (booking) {
-        // `slotAssignment` is not a real field on `bookings` (see
-        // useScheduleData.js's handleAssignCustomer) - only `boatId` persists.
-        await dataService.update('bookings', bookingId, { boatId: null });
+        // Phase 6.17: clear whichever real slot field this trip type
+        // actually uses (mole bookings were never touching `boatId` at all,
+        // so this previously did nothing for a Mole trip's "remove diver").
+        const clearData = tripType === 'mole'
+          ? { moleSlotTime: null }
+          : { boatId: null, session: null };
+        await dataService.update('bookings', bookingId, clearData);
         await loadData();
       }
     } catch (error) {
@@ -314,8 +333,13 @@ const TripDetails = () => {
       } else if (field === 'assignment') {
         if (value === 'unassigned') {
           updateData.boatId = null;
+          updateData.session = null;
         } else {
           updateData.boatId = value;
+          // Phase 6.17: this page always operates within one specific
+          // trip session (tripSession, from the URL) - keep the booking's
+          // session in sync with whichever trip you're reassigning it to.
+          updateData.session = tripSession;
         }
       } else if (field === 'diveSiteId') {
         if (value === '') {

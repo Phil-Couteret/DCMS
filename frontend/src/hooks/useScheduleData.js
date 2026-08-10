@@ -43,6 +43,13 @@ export default function useScheduleData() {
   const [loading, setLoading] = useState(true);
   const [slotAssignments, setSlotAssignments] = useState({});
   const [slotGuides, setSlotGuides] = useState({}); // { slotId: [guideId1, guideId2, ...] }
+  // Phase 6.17 (roadmap): slotGuides above is the display map used by
+  // SlotDetailView; slotGuideRecordIds tracks the backing
+  // scheduleSlotGuides row id per slotKey (when one exists yet) so
+  // handleUpdateGuides knows whether to update() or create() - same
+  // "editing ? update : create" pattern as useEquipmentData.js's
+  // handleSaveTank, since a slot has no id until a guide is first saved to it.
+  const [slotGuideRecordIds, setSlotGuideRecordIds] = useState({});
 
   const currentLocationId = localStorage.getItem('dcms_current_location');
 
@@ -68,13 +75,14 @@ export default function useScheduleData() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [locationsData, boatsData, bookingsData, customersData, diveSitesData, staffData] = await Promise.all([
+      const [locationsData, boatsData, bookingsData, customersData, diveSitesData, staffData, slotGuidesData] = await Promise.all([
         dataService.getAll('locations'),
         dataService.getAll('boats'),
         dataService.getAll('bookings'),
         dataService.getAll('customers'),
         dataService.getAll('diveSites'),
-        dataService.getAll('staff')
+        dataService.getAll('staff'),
+        dataService.getAll('scheduleSlotGuides')
       ]);
 
       setLocations(Array.isArray(locationsData) ? locationsData : []);
@@ -89,29 +97,26 @@ export default function useScheduleData() {
       setDiveSites(Array.isArray(diveSitesData) ? diveSitesData : []);
       setStaff(Array.isArray(staffData) ? staffData.filter(s => s.isActive !== false) : []);
 
-      // Initialize slot assignments from existing bookings
-      // Store arrays of booking IDs per slot to allow multiple divers
-      // Preserve any existing optimistic updates that might not be in the database yet
+      // Phase 6.17 (roadmap): rebuild slotAssignments from the real
+      // `booking.moleSlotTime` column (Mole/shore assignment) instead of the
+      // old ephemeral `booking.slotAssignment` field, which never had a
+      // backing column and never survived a reload. Boat-slot customer
+      // assignment isn't derived here at all - SlotDetailView reads it
+      // directly from `booking.boatId`/`booking.session`, a real column,
+      // same as before this change.
       setSlotAssignments(prev => {
         const initialAssignments = {};
         allBookings.forEach(booking => {
-          if (booking.slotAssignment) {
-            const slotAssign = booking.slotAssignment;
-            if (slotAssign.type === 'mole' && slotAssign.slotId) {
-              if (!initialAssignments[slotAssign.slotId]) {
-                initialAssignments[slotAssign.slotId] = [];
-              }
-              if (!initialAssignments[slotAssign.slotId].includes(booking.id)) {
-                initialAssignments[slotAssign.slotId].push(booking.id);
-              }
-            } else if (slotAssign.type === 'boat' && slotAssign.boatId && slotAssign.session) {
-              const boatSlotId = `boat-${slotAssign.boatId}-${slotAssign.session}`;
-              if (!initialAssignments[boatSlotId]) {
-                initialAssignments[boatSlotId] = [];
-              }
-              if (!initialAssignments[boatSlotId].includes(booking.id)) {
-                initialAssignments[boatSlotId].push(booking.id);
-              }
+          const moleSlotTime = booking.moleSlotTime || booking.mole_slot_time;
+          const bookingDate = booking.bookingDate || booking.booking_date;
+          if (moleSlotTime && bookingDate) {
+            const dateStr = (bookingDate.split ? bookingDate.split('T')[0] : bookingDate);
+            const slotId = `mole-${dateStr}-${moleSlotTime.replace(':', '-')}`;
+            if (!initialAssignments[slotId]) {
+              initialAssignments[slotId] = [];
+            }
+            if (!initialAssignments[slotId].includes(booking.id)) {
+              initialAssignments[slotId].push(booking.id);
             }
           }
         });
@@ -124,28 +129,25 @@ export default function useScheduleData() {
         return { ...prev, ...initialAssignments };
       });
 
-      // Initialize guide assignments from slotAssignments (if guides are stored in booking.slotAssignment)
+      // Phase 6.17: guide coverage per slot now comes from the real
+      // scheduleSlotGuides table instead of never being persisted at all.
+      // Filtered to the current location, same as boats/staff above.
+      const locationSlotGuides = Array.isArray(slotGuidesData)
+        ? slotGuidesData.filter(r => (r.locationId || r.location_id) === currentLocationId)
+        : [];
       setSlotGuides(prev => {
         const initialGuides = {};
-        allBookings.forEach(booking => {
-          if (booking.slotAssignment && booking.slotAssignment.guideIds) {
-            const slotAssign = booking.slotAssignment;
-            let slotId = null;
-            if (slotAssign.type === 'mole' && slotAssign.slotId) {
-              slotId = slotAssign.slotId;
-            } else if (slotAssign.type === 'boat' && slotAssign.boatId && slotAssign.session) {
-              slotId = `boat-${slotAssign.boatId}-${slotAssign.session}`;
-            }
-            if (slotId && Array.isArray(slotAssign.guideIds)) {
-              if (!initialGuides[slotId]) {
-                initialGuides[slotId] = [];
-              }
-              // Merge guide IDs (avoid duplicates)
-              initialGuides[slotId] = [...new Set([...initialGuides[slotId], ...slotAssign.guideIds])];
-            }
-          }
+        locationSlotGuides.forEach(record => {
+          initialGuides[record.slotKey || record.slot_key] = record.guideIds || record.guide_ids || [];
         });
         return { ...prev, ...initialGuides };
+      });
+      setSlotGuideRecordIds(prev => {
+        const ids = {};
+        locationSlotGuides.forEach(record => {
+          ids[record.slotKey || record.slot_key] = record.id;
+        });
+        return { ...prev, ...ids };
       });
     } catch (error) {
       console.error('Error loading schedule data:', error);
@@ -350,61 +352,34 @@ export default function useScheduleData() {
         return;
       }
 
-      const updateData = {};
+      // Phase 6.17 (roadmap): moleSlotTime/session are real bookings columns
+      // now (replacing the old ephemeral `slotAssignment` field - see
+      // Phase 6.14's audit). Multiple customers can always be assigned to
+      // the same slot - Discovery/Mole dives are always shore dives,
+      // multiple customers allowed; boat slots also allow multiple
+      // customers (personal-instructor customers count as 2 in capacity
+      // calculations elsewhere).
+      const backendUpdateData = {};
 
       if (slotType === 'mole') {
-        // Store slot time for Mole assignments
         // Slot ID format: mole-yyyy-MM-dd-HH-mm
         // So after split by '-': [0]=mole, [1]=yyyy, [2]=MM, [3]=dd, [4]=HH, [5]=mm
         const slotInfo = slotId.split('-');
         if (slotInfo.length >= 6) {
-          const slotTime = `${slotInfo[4]}:${slotInfo[5]}`; // HH:mm (indices 4 and 5)
-          updateData.slotAssignment = {
-            type: 'mole',
-            slotId: slotId,
-            slotTime: slotTime
-          };
+          backendUpdateData.moleSlotTime = `${slotInfo[4]}:${slotInfo[5]}`; // HH:mm
         } else {
-          // Fallback: still set slotAssignment even if time parsing fails
-          console.warn('[Schedule] Invalid Mole slot ID format, using slotId only:', slotId);
-          updateData.slotAssignment = {
-            type: 'mole',
-            slotId: slotId
-          };
+          console.warn('[Schedule] Invalid Mole slot ID format, cannot persist slot time:', slotId);
         }
       } else if (slotType === 'boat') {
-        // Store boat and session for boat assignments
-        updateData.boatId = boatId;
-        updateData.slotAssignment = {
-          type: 'boat',
-          boatId: boatId,
-          session: sessionTime || 'morning'
-        };
+        backendUpdateData.boatId = boatId;
+        backendUpdateData.session = sessionTime || 'morning';
       }
 
-      // Note: Multiple customers can always be assigned to the same slot
-      // - Discovery dives (Mole slots): Always shore dives, multiple customers allowed
-      // - Boat slots: Multiple customers allowed, personal instructor customers count as 2 in capacity calculations
-
-      // `updateData.slotAssignment` above is local-only bookkeeping - there is
-      // no `slot_assignment` column on `bookings` (never has been; the
-      // Schedule page's actual slot/guide grouping is driven entirely by the
-      // separate `slotAssignments`/`slotGuides` state, rebuilt each load from
-      // whatever `booking.slotAssignment` the frontend itself last attached
-      // in memory). Sending it to the API used to be silently dropped by the
-      // backend's explicit per-field update mapping; since `forbidNonWhitelisted`
-      // was turned on it makes the *entire* PUT request 400, which was also
-      // silently swallowing the one real field here (`boatId`) that DOES
-      // persist. Build a backend-only payload with just the real DTO fields.
-      const backendUpdateData = {};
-      if (updateData.boatId !== undefined) {
-        backendUpdateData.boatId = updateData.boatId;
-      }
       if (Object.keys(backendUpdateData).length > 0) {
         await dataService.update('bookings', bookingId, backendUpdateData);
       }
 
-      // Update local state optimistically (before API call for immediate UI feedback)
+      // Update local state optimistically (before reload for immediate UI feedback)
       setSlotAssignments(prev => {
         const prevSlotAssignments = prev[slotId];
         // Handle both array and single value for backward compatibility
@@ -420,7 +395,7 @@ export default function useScheduleData() {
       // Update the local bookings state to reflect the change
       setBookings(prev => prev.map(b =>
         b.id === bookingId
-          ? { ...b, slotAssignment: updateData.slotAssignment }
+          ? { ...b, ...backendUpdateData }
           : b
       ));
 
@@ -456,13 +431,14 @@ export default function useScheduleData() {
         ? [bookingIdToRemove]
         : (Array.isArray(slotBookings) ? slotBookings : [slotBookings]);
 
-      // Update each booking. `slotAssignment` is local-only bookkeeping (see
-      // handleAssignCustomer) - there is no such column on `bookings`, so
-      // only the real `boatId` field (boat slots only) is sent to the API.
+      // Phase 6.17: both slot types now have real columns to clear.
       for (const bookingId of bookingIdsToRemove) {
         const booking = bookings.find(b => b.id === bookingId);
-        if (booking && slotType === 'boat') {
-          await dataService.update('bookings', bookingId, { boatId: null });
+        if (!booking) continue;
+        if (slotType === 'boat') {
+          await dataService.update('bookings', bookingId, { boatId: null, session: null });
+        } else if (slotType === 'mole') {
+          await dataService.update('bookings', bookingId, { moleSlotTime: null });
         }
       }
 
@@ -493,9 +469,7 @@ export default function useScheduleData() {
     try {
       const booking = bookings.find(b => b.id === bookingId);
       if (booking) {
-        // `slotAssignment` is local-only bookkeeping, no such column exists
-        // on `bookings` - only `boatId` is a real, persistable field.
-        await dataService.update('bookings', bookingId, { boatId: null });
+        await dataService.update('bookings', bookingId, { boatId: null, session: null });
 
         // Reload bookings
         await loadData();
@@ -505,35 +479,47 @@ export default function useScheduleData() {
     }
   };
 
-  const handleUpdateGuides = async (slotId, guideIds) => {
+  // Phase 6.17 (roadmap): persists guide coverage for a slot via the real
+  // scheduleSlotGuides table (previously never persisted at all - see
+  // Phase 6.14's audit). `context` carries what's needed to build the
+  // record when one doesn't exist yet for this slot: { slotType: 'mole'|
+  // 'boat', date: Date, boatId?: string }. slotKey already uniquely
+  // identifies the slot (it's the same string used as the React key/prop
+  // throughout Schedule's views).
+  const handleUpdateGuides = async (slotKey, guideIds, context = {}) => {
+    const previousGuideIds = slotGuides[slotKey];
     try {
-      // Update local state
+      // Update local state optimistically
       setSlotGuides(prev => ({
         ...prev,
-        [slotId]: guideIds
+        [slotKey]: guideIds
       }));
 
-      // Determine slot type and update all bookings for this slot
-      const slotBookings = slotAssignments[slotId];
-      if (!slotBookings || (Array.isArray(slotBookings) && slotBookings.length === 0)) {
-        // No bookings yet, just store the guide assignment (could store in a separate slotGuides table)
+      if (!currentLocationId || !context.slotType || !context.date) {
+        console.warn('[Schedule] Missing context for handleUpdateGuides, cannot persist:', slotKey, context);
         return;
       }
 
-      // Guide assignments have no backing column on `bookings` at all (no
-      // API call was ever actually persisting this - `slotAssignment` isn't
-      // a real field, see handleAssignCustomer) - the `setSlotGuides` call
-      // above is the entire mechanism for this, same as before. Reload just
-      // to stay in sync with any other changes since the last load.
-      await loadData();
+      const existingId = slotGuideRecordIds[slotKey];
+      if (existingId) {
+        await dataService.update('scheduleSlotGuides', existingId, { guideIds });
+      } else {
+        const created = await dataService.create('scheduleSlotGuides', {
+          locationId: currentLocationId,
+          date: format(context.date, 'yyyy-MM-dd'),
+          slotType: context.slotType,
+          slotKey,
+          boatId: context.boatId || null,
+          guideIds
+        });
+        if (created && created.id) {
+          setSlotGuideRecordIds(prev => ({ ...prev, [slotKey]: created.id }));
+        }
+      }
     } catch (error) {
       console.error('Error updating guides:', error);
       // Revert on error
-      setSlotGuides(prev => {
-        const newState = { ...prev };
-        delete newState[slotId];
-        return newState;
-      });
+      setSlotGuides(prev => ({ ...prev, [slotKey]: previousGuideIds }));
     }
   };
 

@@ -84,4 +84,14 @@ export class CreateBookingDto {
   @IsOptional()
   @IsUUID()
   stayId?: string;
+
+  // Phase 6.17: which Mole (shore) slot or boat session this booking is
+  // assigned to on the Schedule page. See docs/roadmap.md Phase 6.17.
+  @IsOptional()
+  @IsString()
+  moleSlotTime?: string;
+
+  @IsOptional()
+  @IsString()
+  session?: string;
 }

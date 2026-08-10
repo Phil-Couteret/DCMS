@@ -256,6 +256,47 @@ describe('BookingsService - update()', () => {
   });
 });
 
+// Phase 6.17 (roadmap): moleSlotTime/session are the two new real columns
+// that replace the ephemeral, never-persisted `booking.slotAssignment`
+// field the Schedule page used to rely on (see Phase 6.14's audit).
+describe('BookingsService - moleSlotTime/session (Phase 6.17)', () => {
+  it('create() persists moleSlotTime and session when provided', async () => {
+    const create = jest.fn().mockResolvedValue(rawBooking);
+    const service = makeService(makePrismaMock({ bookingsCreate: create }));
+    await service.create({ ...baseCreateDto(), moleSlotTime: '09:00' } as any);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ mole_slot_time: '09:00', session: null }) }),
+    );
+  });
+
+  it('create() defaults both to null when omitted', async () => {
+    const create = jest.fn().mockResolvedValue(rawBooking);
+    const service = makeService(makePrismaMock({ bookingsCreate: create }));
+    await service.create(baseCreateDto() as any);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ mole_slot_time: null, session: null }) }),
+    );
+  });
+
+  it('update() only touches moleSlotTime/session when actually provided (partial update)', async () => {
+    const update = jest.fn().mockResolvedValue(rawBooking);
+    const service = makeService(makePrismaMock({ bookingsUpdate: update }));
+    await service.update('booking-1', { session: 'morning' } as any);
+    const dataArg = update.mock.calls[0][0].data;
+    expect(dataArg).toEqual({ session: 'morning' });
+    expect(dataArg).not.toHaveProperty('mole_slot_time');
+  });
+
+  it('update() can clear moleSlotTime/session by sending null (e.g. removing a Mole assignment)', async () => {
+    const update = jest.fn().mockResolvedValue(rawBooking);
+    const service = makeService(makePrismaMock({ bookingsUpdate: update }));
+    await service.update('booking-1', { moleSlotTime: null } as any);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { mole_slot_time: null } }),
+    );
+  });
+});
+
 describe('BookingsService - remove()', () => {
   it('404s via findOne() before attempting the delete when the booking does not exist', async () => {
     const service = makeService(
