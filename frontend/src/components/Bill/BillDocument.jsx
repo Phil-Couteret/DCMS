@@ -422,7 +422,12 @@ export default function BillDocument(props) {
                           await dataService.create('partnerInvoices', {
                             partnerId,
                             customerId: stay.customer.id,
-                            billId: calculatedBill.billNumber,
+                            // Note: CreatePartnerInvoiceDto.billId is a UUID FK to a real
+                            // customerBills row, but no such row is created in this flow -
+                            // calculatedBill.billNumber is a display string ("BILL-<ts>"),
+                            // not a UUID, so sending it here always failed IsUUID
+                            // validation. The bill number is already included in `notes`
+                            // below, so omit billId rather than send an invalid value.
                             locationId: stayLocationId,
                             invoiceDate,
                             dueDate: dueDate.toISOString().split('T')[0],
@@ -537,21 +542,13 @@ export default function BillDocument(props) {
                     localStorage.setItem('dcms_billed_stays', JSON.stringify(billedStays));
                   }
                   
-                  // Also mark all bookings in this stay as billed
-                  const stayBookings = await getCustomerStayBookings(stay.customer.id, stay.stayStartDate);
-                  for (const booking of stayBookings) {
-                    try {
-                      // Try to update booking with bill reference if backend supports it
-                      await dataService.update('bookings', booking.id, {
-                        ...booking,
-                        billId: calculatedBill.billNumber,
-                        billDate: calculatedBill.billDate
-                      });
-                    } catch (err) {
-                      // If update fails, continue with other bookings
-                      console.warn(`Could not update booking ${booking.id} with bill info:`, err);
-                    }
-                  }
+                  // Note: bookings aren't individually stamped with a bill
+                  // reference here - `billId`/`billDate` have never been
+                  // real fields on `bookings` (checked schema.prisma), so
+                  // this always silently failed to persist. The actual,
+                  // working link between a bill and its bookings is the
+                  // `bookingIds` array already saved on the `customerBills`
+                  // record created above.
                   
                   setStayBilled(true);
                   alert('Stay marked as billed. Bill saved for tax control. It will no longer appear in active stays.');

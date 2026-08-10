@@ -107,7 +107,9 @@ const LocationsManagement = () => {
         await dataService.update('locations', editingLocation.id, locationData);
         setSnackbar({ open: true, message: 'Location updated successfully!', severity: 'success' });
       } else {
-        await dataService.create('locations', { ...locationData, createdAt: new Date().toISOString() });
+        // createdAt is server-managed and isn't declared on CreateLocationDto -
+        // sending it makes forbidNonWhitelisted reject the whole request.
+        await dataService.create('locations', locationData);
         setSnackbar({ open: true, message: 'Location created successfully!', severity: 'success' });
       }
 

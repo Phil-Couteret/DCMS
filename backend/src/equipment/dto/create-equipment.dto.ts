@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsObject, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 import { equipment_type } from '@prisma/client';
 
 export class CreateEquipmentDto {
@@ -30,4 +30,12 @@ export class CreateEquipmentDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
+
+  // Free-form extra detail (brand, model, thickness, purchase/warranty/
+  // revision dates, first/second-stage + octopus brand/model for
+  // regulators, notes) - see docs/roadmap.md Phase 6.12. No fixed shape,
+  // same pattern as customers.preferences.
+  @IsOptional()
+  @IsObject()
+  details?: Record<string, unknown>;
 }

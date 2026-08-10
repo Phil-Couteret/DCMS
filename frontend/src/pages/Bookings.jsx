@@ -239,11 +239,11 @@ const Bookings = () => {
     }
     
     try {
-      const updatedBooking = {
-        ...booking,
-        status: 'cancelled'
-      };
-      await dataService.update('bookings', booking.id, updatedBooking);
+      // Only send status - spreading the whole `booking` object here used to
+      // also send fields the transform layer adds (id, nested customer/
+      // location/boat objects, tenant_id, etc.) that UpdateBookingDto
+      // doesn't declare, which forbidNonWhitelisted rejects wholesale.
+      await dataService.update('bookings', booking.id, { status: 'cancelled' });
       loadBookings(); // Reload the bookings list
     } catch (error) {
       console.error('Error cancelling booking:', error);

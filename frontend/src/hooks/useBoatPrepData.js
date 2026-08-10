@@ -519,12 +519,12 @@ export default function useBoatPrepData() {
     if (updates.length > 0) {
       const timeoutId = setTimeout(async () => {
         try {
-          await Promise.all(updates.map(({ bookingId, boatId }) => {
-            const updateData = { boatId };
-            // Clear slotAssignment since Boat Prep overrides Schedule assignments
-            updateData.slotAssignment = null;
-            return dataService.update('bookings', bookingId, updateData);
-          }));
+          // Note: `slotAssignment` is not a real field on `bookings` (no such
+          // column exists - see useScheduleData.js's handleAssignCustomer)
+          // so there is nothing to clear on the backend beyond `boatId`.
+          await Promise.all(updates.map(({ bookingId, boatId }) =>
+            dataService.update('bookings', bookingId, { boatId })
+          ));
         } catch (error) {
           console.error('[BoatPrep] Error updating bookings with boat assignments:', error);
         }

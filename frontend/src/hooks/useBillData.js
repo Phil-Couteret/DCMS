@@ -416,7 +416,12 @@ export default function useBillData() {
             await dataService.create('partnerInvoices', {
               partnerId,
               customerId: stay.customer.id,
-              billId: calculatedBill.billNumber,
+              // Note: CreatePartnerInvoiceDto.billId is a UUID FK to a real
+              // customerBills row, but no such row is created in this flow -
+              // calculatedBill.billNumber is a display string ("BILL-<ts>"),
+              // not a UUID, so sending it here always failed IsUUID
+              // validation. The bill number is already included in `notes`
+              // below, so omit billId rather than send an invalid value.
               locationId: stayLocationId,
               invoiceDate,
               dueDate: dueDate.toISOString().split('T')[0],

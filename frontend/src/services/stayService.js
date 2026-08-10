@@ -281,14 +281,14 @@ export const recalculateCustomerStayPricing = async (customerId, stayStartDate =
     
     const newPrice = bookingDives * cumulativePricing.pricePerDive;
     
-    // Update the booking with new pricing
-    const updatedBooking = {
-      ...booking,
+    // Only send the two fields that actually changed - spreading the whole
+    // `booking` object sends transform-layer-added fields (id, nested
+    // customer/location/boat, etc.) that UpdateBookingDto doesn't declare,
+    // which forbidNonWhitelisted rejects wholesale.
+    await dataService.update('bookings', booking.id, {
       price: newPrice,
-      totalPrice: newPrice + (booking.discount || 0)
-    };
-    
-    await dataService.update('bookings', booking.id, updatedBooking);
+      totalPrice: newPrice + (booking.discount || 0),
+    });
   }
   
   return cumulativePricing;

@@ -277,10 +277,9 @@ const TripDetails = () => {
     try {
       const booking = bookings.find(b => b.id === bookingId);
       if (booking) {
-        await dataService.update('bookings', bookingId, {
-          boatId: null,
-          slotAssignment: null
-        });
+        // `slotAssignment` is not a real field on `bookings` (see
+        // useScheduleData.js's handleAssignCustomer) - only `boatId` persists.
+        await dataService.update('bookings', bookingId, { boatId: null });
         await loadData();
       }
     } catch (error) {
@@ -304,10 +303,14 @@ const TripDetails = () => {
         } else {
           updateData.equipmentNeeded = value;
         }
-      } else if (field === 'notes') {
-        updateData.notes = value;
-      } else if (field === 'diet') {
-        updateData.dietaryRequirements = value;
+      } else if (field === 'notes' || field === 'diet') {
+        // `notes` and `dietaryRequirements` have never existed as columns on
+        // `bookings` (checked schema.prisma - no such fields, not even under
+        // a different name) - there's nothing to persist to the backend, so
+        // this only updates local state below (same as before this fix,
+        // when it silently failed to save rather than 400ing the request).
+        // A real fix needs a product decision on where this data should
+        // actually live; flagged in docs/roadmap.md rather than guessed at.
       } else if (field === 'assignment') {
         if (value === 'unassigned') {
           updateData.boatId = null;
@@ -324,7 +327,9 @@ const TripDetails = () => {
         updateData.numberOfDives = value;
       }
 
-      await dataService.update('bookings', bookingId, updateData);
+      if (Object.keys(updateData).length > 0) {
+        await dataService.update('bookings', bookingId, updateData);
+      }
       setSelectedBookings(prev => ({
         ...prev,
         [bookingId]: {

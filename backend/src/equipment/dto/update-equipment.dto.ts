@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsObject, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 import { equipment_type } from '@prisma/client';
 
 export class UpdateEquipmentDto {
@@ -38,4 +38,8 @@ export class UpdateEquipmentDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  details?: Record<string, unknown>;
 }

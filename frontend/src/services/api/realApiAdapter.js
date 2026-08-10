@@ -66,6 +66,8 @@ const realApiAdapter = {
       transformedData = this.transformDiveSiteToBackend(data);
     } else if (resource === 'boatPreps') {
       transformedData = this.transformBoatPrepToBackend(data);
+    } else if (resource === 'equipment') {
+      transformedData = this.transformEquipmentToBackend(data);
     } else if (resource === 'tenants') {
       transformedData = data; // Pass through
       endpoint = 'tenants';
@@ -113,6 +115,8 @@ const realApiAdapter = {
       transformedData = this.transformDiveSiteToBackend(data);
     } else if (resource === 'boatPreps') {
       transformedData = this.transformBoatPrepToBackend(data);
+    } else if (resource === 'equipment') {
+      transformedData = this.transformEquipmentToBackend(data);
     } else if (resource === 'partnerInvoices') {
       transformedData = this.transformPartnerInvoiceToBackend(data);
     } else if (resource === 'customerBills') {
@@ -296,13 +300,18 @@ const realApiAdapter = {
 
   transformBoatToBackend(data) {
     if (!data || typeof data !== 'object') return data;
-    
+
+    // CreateBoatDto/UpdateBoatDto expect camelCase (locationId,
+    // equipmentOnboard, isActive) - the service maps to snake_case for
+    // Prisma internally. This used to send snake_case directly, which
+    // forbidNonWhitelisted rejects wholesale (and even without that, would
+    // have left the required `locationId` completely missing).
     return {
       name: data.name,
-      location_id: data.locationId || data.location_id,
+      locationId: data.locationId || data.location_id,
       capacity: data.capacity,
-      equipment_onboard: data.equipmentOnboard || data.equipment_onboard || [],
-      is_active: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
+      equipmentOnboard: data.equipmentOnboard || data.equipment_onboard || [],
+      isActive: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
     };
   },
 
@@ -323,15 +332,17 @@ const realApiAdapter = {
 
   transformDiveSiteToBackend(data) {
     if (!data || typeof data !== 'object') return data;
-    
+
+    // CreateDiveSiteDto/UpdateDiveSiteDto expect camelCase - same bug and
+    // same fix as transformBoatToBackend above.
     return {
       name: data.name,
-      location_id: data.locationId || data.location_id,
+      locationId: data.locationId || data.location_id,
       type: data.type || 'diving',
-      depth_range: data.depthRange || data.depth_range || { min: 0, max: 0 },
-      difficulty_level: data.difficultyLevel || data.difficulty_level || 'beginner',
+      depthRange: data.depthRange || data.depth_range || { min: 0, max: 0 },
+      difficultyLevel: data.difficultyLevel || data.difficulty_level || 'beginner',
       conditions: data.conditions || {},
-      is_active: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
+      isActive: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
     };
   },
 
@@ -367,8 +378,10 @@ const realApiAdapter = {
       diveSiteStatus: data.diveSiteStatus || data.dive_site_status || {},
       postDiveReport: data.postDiveReport || data.post_dive_report || null,
       staff: data.staff || {},
-      createdAt: data.createdAt || data.created_at,
-      updatedAt: data.updatedAt || data.updated_at,
+      // createdAt/updatedAt are server-managed and not declared on
+      // Create/UpdateBoatPrepDto - sending them (always true on an edit,
+      // since a loaded boat prep already has real timestamps) made
+      // forbidNonWhitelisted reject the whole request.
     };
   },
 
@@ -387,6 +400,96 @@ const realApiAdapter = {
       diveSiteStatus: data.dive_site_status || data.diveSiteStatus || {},
       postDiveReport: data.post_dive_report || data.postDiveReport || null,
       staff: data.staff || {},
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    };
+  },
+
+  // Backend DTO supports name/category/type/size/condition/serialNumber/
+  // isAvailable/isActive/locationId directly, plus a free-form `details`
+  // JSON column (Phase 6.12) for everything the Equipment form has always
+  // collected but never had a real column for: brand, model, thickness,
+  // style, hood, purchaseDate, warranty, lastRevisionDate, nextRevisionDate,
+  // firstStageBrand/Model, secondStageBrand/Model, octopusBrand/Model,
+  // notes. Same pattern as transformCustomerToBackend's `preferences`.
+  transformEquipmentToBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    const DETAIL_KEYS = [
+      'notes', 'brand', 'model', 'thickness', 'style', 'hood',
+      'purchaseDate', 'warranty', 'lastRevisionDate', 'nextRevisionDate',
+      'firstStageBrand', 'firstStageModel', 'secondStageBrand', 'secondStageModel',
+      'octopusBrand', 'octopusModel',
+    ];
+
+    // Preserve any existing details (e.g. loaded from backend) and overlay
+    // whichever detail fields are present on this payload.
+    const existingDetails = data.details || {};
+    const details = { ...existingDetails };
+    DETAIL_KEYS.forEach((key) => {
+      if (data[key] !== undefined) details[key] = data[key];
+    });
+
+    const transformed = {};
+    if (data.locationId !== undefined || data.location_id !== undefined) {
+      transformed.locationId = data.locationId || data.location_id;
+    }
+    if (data.name !== undefined) transformed.name = data.name;
+    if (data.category !== undefined) transformed.category = data.category;
+    if (data.type !== undefined) transformed.type = data.type;
+    if (data.size !== undefined) transformed.size = data.size;
+    if (data.condition !== undefined) transformed.condition = data.condition;
+    if (data.serialNumber !== undefined || data.serial_number !== undefined) {
+      transformed.serialNumber = data.serialNumber || data.serial_number;
+    }
+    if (data.isAvailable !== undefined || data.is_available !== undefined) {
+      transformed.isAvailable = data.isAvailable !== undefined ? data.isAvailable : data.is_available;
+    }
+    if (data.isActive !== undefined || data.is_active !== undefined) {
+      transformed.isActive = data.isActive !== undefined ? data.isActive : data.is_active;
+    }
+    // Always include details (even if empty) so a save that clears the last
+    // detail field actually clears it server-side instead of leaving stale data.
+    transformed.details = details;
+
+    return transformed;
+  },
+
+  transformEquipmentFromBackend(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    const details = data.details || {};
+
+    return {
+      id: data.id,
+      locationId: data.location_id || data.locationId,
+      name: data.name,
+      category: data.category,
+      type: data.type,
+      size: data.size,
+      condition: data.condition,
+      serialNumber: data.serial_number || data.serialNumber || '',
+      isAvailable: data.is_available !== undefined ? data.is_available : (data.isAvailable !== undefined ? data.isAvailable : true),
+      isActive: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : true),
+      // Flatten `details` JSON back onto the root, same as
+      // transformCustomerFromBackend does for `preferences`.
+      notes: details.notes || '',
+      brand: details.brand || '',
+      model: details.model || '',
+      thickness: details.thickness || '',
+      style: details.style || '',
+      hood: details.hood || '',
+      purchaseDate: details.purchaseDate || '',
+      warranty: details.warranty || '',
+      lastRevisionDate: details.lastRevisionDate || '',
+      nextRevisionDate: details.nextRevisionDate || '',
+      firstStageBrand: details.firstStageBrand || '',
+      firstStageModel: details.firstStageModel || '',
+      secondStageBrand: details.secondStageBrand || '',
+      secondStageModel: details.secondStageModel || '',
+      octopusBrand: details.octopusBrand || '',
+      octopusModel: details.octopusModel || '',
+      details,
       createdAt: data.created_at || data.createdAt,
       updatedAt: data.updated_at || data.updatedAt,
     };
@@ -578,6 +681,12 @@ const realApiAdapter = {
         return data.map(item => this.transformBoatPrepFromBackend(item));
       }
       return this.transformBoatPrepFromBackend(data);
+    }
+    if (resource === 'equipment') {
+      if (Array.isArray(data)) {
+        return data.map(item => this.transformEquipmentFromBackend(item));
+      }
+      return this.transformEquipmentFromBackend(data);
     }
     if (resource === 'partnerInvoices') {
       if (Array.isArray(data)) {

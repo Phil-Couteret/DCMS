@@ -386,6 +386,24 @@ export default function useScheduleData() {
       // - Discovery dives (Mole slots): Always shore dives, multiple customers allowed
       // - Boat slots: Multiple customers allowed, personal instructor customers count as 2 in capacity calculations
 
+      // `updateData.slotAssignment` above is local-only bookkeeping - there is
+      // no `slot_assignment` column on `bookings` (never has been; the
+      // Schedule page's actual slot/guide grouping is driven entirely by the
+      // separate `slotAssignments`/`slotGuides` state, rebuilt each load from
+      // whatever `booking.slotAssignment` the frontend itself last attached
+      // in memory). Sending it to the API used to be silently dropped by the
+      // backend's explicit per-field update mapping; since `forbidNonWhitelisted`
+      // was turned on it makes the *entire* PUT request 400, which was also
+      // silently swallowing the one real field here (`boatId`) that DOES
+      // persist. Build a backend-only payload with just the real DTO fields.
+      const backendUpdateData = {};
+      if (updateData.boatId !== undefined) {
+        backendUpdateData.boatId = updateData.boatId;
+      }
+      if (Object.keys(backendUpdateData).length > 0) {
+        await dataService.update('bookings', bookingId, backendUpdateData);
+      }
+
       // Update local state optimistically (before API call for immediate UI feedback)
       setSlotAssignments(prev => {
         const prevSlotAssignments = prev[slotId];
@@ -398,9 +416,6 @@ export default function useScheduleData() {
           [slotId]: [...prevArray, bookingId]
         };
       });
-
-      // Update booking via API
-      await dataService.update('bookings', bookingId, updateData);
 
       // Update the local bookings state to reflect the change
       setBookings(prev => prev.map(b =>
@@ -441,17 +456,13 @@ export default function useScheduleData() {
         ? [bookingIdToRemove]
         : (Array.isArray(slotBookings) ? slotBookings : [slotBookings]);
 
-      // Update each booking
+      // Update each booking. `slotAssignment` is local-only bookkeeping (see
+      // handleAssignCustomer) - there is no such column on `bookings`, so
+      // only the real `boatId` field (boat slots only) is sent to the API.
       for (const bookingId of bookingIdsToRemove) {
         const booking = bookings.find(b => b.id === bookingId);
-        if (booking) {
-          // Remove slot assignment from booking
-          const updateData = { slotAssignment: null };
-          if (slotType === 'boat') {
-            updateData.boatId = null;
-          }
-
-          await dataService.update('bookings', bookingId, updateData);
+        if (booking && slotType === 'boat') {
+          await dataService.update('bookings', bookingId, { boatId: null });
         }
       }
 
@@ -482,13 +493,9 @@ export default function useScheduleData() {
     try {
       const booking = bookings.find(b => b.id === bookingId);
       if (booking) {
-        // Remove boat assignment from booking
-        const updateData = {
-          boatId: null,
-          slotAssignment: null
-        };
-
-        await dataService.update('bookings', bookingId, updateData);
+        // `slotAssignment` is local-only bookkeeping, no such column exists
+        // on `bookings` - only `boatId` is a real, persistable field.
+        await dataService.update('bookings', bookingId, { boatId: null });
 
         // Reload bookings
         await loadData();
@@ -513,23 +520,11 @@ export default function useScheduleData() {
         return;
       }
 
-      const bookingIds = Array.isArray(slotBookings) ? slotBookings : [slotBookings];
-
-      // Update each booking's slotAssignment to include guideIds
-      for (const bookingId of bookingIds) {
-        const booking = bookings.find(b => b.id === bookingId);
-        if (booking && booking.slotAssignment) {
-          const updateData = {
-            slotAssignment: {
-              ...booking.slotAssignment,
-              guideIds: guideIds
-            }
-          };
-          await dataService.update('bookings', bookingId, updateData);
-        }
-      }
-
-      // Reload bookings to sync
+      // Guide assignments have no backing column on `bookings` at all (no
+      // API call was ever actually persisting this - `slotAssignment` isn't
+      // a real field, see handleAssignCustomer) - the `setSlotGuides` call
+      // above is the entire mechanism for this, same as before. Reload just
+      // to stay in sync with any other changes since the last load.
       await loadData();
     } catch (error) {
       console.error('Error updating guides:', error);

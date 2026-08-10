@@ -285,15 +285,17 @@ const Prices = () => {
       if (selectedLocationId) {
         const loc = locations.find(l => l.id === selectedLocationId);
         if (loc && loc.pricing) {
-          // Save pricing to location.settings.pricing (database format)
-          const locationToSave = {
-            ...loc,
+          // Only send `settings` - it's a partial update (LocationsService
+          // only touches fields actually present in the request), and
+          // spreading the whole `loc` object sends raw backend fields
+          // (snake_case, id, tenant_id, etc.) that UpdateLocationDto
+          // doesn't declare, which forbidNonWhitelisted rejects wholesale.
+          await dataService.update('locations', loc.id, {
             settings: {
               ...(loc.settings || {}),
               pricing: loc.pricing
             }
-          };
-          await dataService.update('locations', loc.id, locationToSave);
+          });
         }
       }
       

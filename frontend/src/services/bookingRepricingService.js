@@ -52,10 +52,12 @@ export const recalculateAllBookingPrices = async () => {
     // In API mode, update bookings via API
     for (const booking of updatedBookings) {
       try {
+        // `updatedAt` isn't a settable field on UpdateBookingDto (it's
+        // server-managed) - sending it makes forbidNonWhitelisted reject the
+        // whole request, which was also blocking the two real fields here.
         await dataService.update('bookings', booking.id, {
           price: booking.price,
           totalPrice: booking.totalPrice,
-          updatedAt: booking.updatedAt
         });
       } catch (error) {
         console.warn(`Error updating booking ${booking.id}:`, error);

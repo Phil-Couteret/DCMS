@@ -411,6 +411,13 @@ model equipment {
   serial_number String?        @db.VarChar(100)
   is_available  Boolean?       @default(true)
   is_active     Boolean?       @default(true)
+  // Free-form extra detail the Equipment form has always collected but
+  // never had a column for (brand, model, thickness, purchase/warranty/
+  // revision dates, first/second-stage + octopus brand/model for
+  // regulators, general notes) - see docs/roadmap.md Phase 6.12. Same
+  // pattern as customers.preferences: known keys, no fixed shape, so a
+  // JSON column rather than a wide table.
+  details       Json?          @default("{}")
   created_at    DateTime?      @default(now()) @db.Timestamptz(6)
   updated_at    DateTime?      @default(now()) @db.Timestamptz(6)
   locations     locations      @relation(fields: [location_id], references: [id], onDelete: Cascade, onUpdate: NoAction)

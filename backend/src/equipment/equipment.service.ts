@@ -98,6 +98,7 @@ export class EquipmentService {
         serial_number: dto.serialNumber || null,
         is_available: dto.isAvailable !== undefined ? dto.isAvailable : true,
         is_active: true,
+        details: dto.details ?? {},
       },
       include: {
         locations: true,
@@ -129,6 +130,7 @@ export class EquipmentService {
         ...(dto.serialNumber !== undefined && { serial_number: dto.serialNumber || null }),
         ...(dto.isAvailable !== undefined && { is_available: dto.isAvailable }),
         ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+        ...(dto.details !== undefined && { details: dto.details }),
       },
       include: {
         locations: true,
