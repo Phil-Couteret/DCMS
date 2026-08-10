@@ -36,5 +36,14 @@ EXPOSE 3003
 # Wait for Postgres, seed, then start
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+
+# Run as the non-root `node` user the base image already provides (uid
+# 1000), not root. Nothing in docker-entrypoint.sh or the app itself needs
+# root - no privileged port (3003), no writes outside /app, and the only
+# external mount (/init/seeds, docker-compose only) is read-only. chown
+# /app so the node user can actually read what got COPYed in as root.
+RUN chown -R node:node /app
+USER node
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "dist/main.js"]
