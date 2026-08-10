@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateBoatDto } from './dto/create-boat.dto';
 import { UpdateBoatDto } from './dto/update-boat.dto';
+import { PaginationArgs } from '../common/utils/pagination';
 
 export { CreateBoatDto, UpdateBoatDto };
 
@@ -18,17 +19,18 @@ export class BoatsService {
     return tenantId ? { tenant_id: tenantId } : {};
   }
 
-  async findAll() {
+  async findAll(pagination: PaginationArgs = {}) {
     return this.prisma.boats.findMany({
       where: { is_active: true, ...this.tenantFilter() },
       include: {
         locations: true,
       },
       orderBy: { name: 'asc' },
+      ...pagination,
     });
   }
 
-  async findByLocation(locationId: string) {
+  async findByLocation(locationId: string, pagination: PaginationArgs = {}) {
     return this.prisma.boats.findMany({
       where: {
         location_id: locationId,
@@ -39,6 +41,7 @@ export class BoatsService {
         locations: true,
       },
       orderBy: { name: 'asc' },
+      ...pagination,
     });
   }
 

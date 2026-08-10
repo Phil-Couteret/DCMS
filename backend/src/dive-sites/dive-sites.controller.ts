@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { DiveSitesService, CreateDiveSiteDto, UpdateDiveSiteDto } from './dive-sites.service';
+import { parsePaginationQuery } from '../common/utils/pagination';
 
 @ApiTags('dive-sites')
 @Controller('dive-sites')
@@ -21,12 +22,19 @@ export class DiveSitesController {
   @Get()
   @ApiOperation({ summary: 'Get all active dive sites' })
   @ApiQuery({ name: 'locationId', required: false, description: 'Filter by location ID' })
+  @ApiQuery({ name: 'skip', required: false, description: 'Pagination: number of records to skip (opt-in, unbounded when omitted)' })
+  @ApiQuery({ name: 'take', required: false, description: 'Pagination: max records to return, capped at 500 (opt-in, unbounded when omitted)' })
   @ApiResponse({ status: 200, description: 'List of dive sites' })
-  async findAll(@Query('locationId') locationId?: string) {
+  async findAll(
+    @Query('locationId') locationId?: string,
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
+  ) {
+    const pagination = parsePaginationQuery(skip, take);
     if (locationId) {
-      return this.diveSitesService.findByLocation(locationId);
+      return this.diveSitesService.findByLocation(locationId, pagination);
     }
-    return this.diveSitesService.findAll();
+    return this.diveSitesService.findAll(pagination);
   }
 
   @Get(':id')

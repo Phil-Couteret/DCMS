@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { EquipmentService, CreateEquipmentDto, UpdateEquipmentDto } from './equipment.service';
+import { parsePaginationQuery } from '../common/utils/pagination';
 
 @ApiTags('equipment')
 @Controller('equipment')
@@ -23,19 +24,24 @@ export class EquipmentController {
   @ApiQuery({ name: 'locationId', required: false, description: 'Filter by location ID' })
   @ApiQuery({ name: 'available', required: false, description: 'Filter by availability' })
   @ApiQuery({ name: 'category', required: false, description: 'Filter by category' })
+  @ApiQuery({ name: 'skip', required: false, description: 'Pagination: number of records to skip (opt-in, unbounded when omitted)' })
+  @ApiQuery({ name: 'take', required: false, description: 'Pagination: max records to return, capped at 500 (opt-in, unbounded when omitted)' })
   @ApiResponse({ status: 200, description: 'List of equipment' })
   async findAll(
     @Query('locationId') locationId?: string,
     @Query('available') available?: string,
     @Query('category') category?: string,
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
   ) {
+    const pagination = parsePaginationQuery(skip, take);
     if (locationId) {
-      return this.equipmentService.findByLocation(locationId);
+      return this.equipmentService.findByLocation(locationId, pagination);
     }
     if (available === 'true') {
-      return this.equipmentService.findAvailable(category as any);
+      return this.equipmentService.findAvailable(category as any, pagination);
     }
-    return this.equipmentService.findAll();
+    return this.equipmentService.findAll(pagination);
   }
 
   @Get(':id')

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateDiveSiteDto } from './dto/create-dive-site.dto';
 import { UpdateDiveSiteDto } from './dto/update-dive-site.dto';
+import { PaginationArgs } from '../common/utils/pagination';
 
 export { CreateDiveSiteDto, UpdateDiveSiteDto };
 
@@ -18,17 +19,18 @@ export class DiveSitesService {
     return tenantId ? { tenant_id: tenantId } : {};
   }
 
-  async findAll() {
+  async findAll(pagination: PaginationArgs = {}) {
     return this.prisma.dive_sites.findMany({
       where: this.tenantFilter(),
       include: {
         locations: true,
       },
       orderBy: { name: 'asc' },
+      ...pagination,
     });
   }
 
-  async findByLocation(locationId: string) {
+  async findByLocation(locationId: string, pagination: PaginationArgs = {}) {
     return this.prisma.dive_sites.findMany({
       where: {
         location_id: locationId,
@@ -39,6 +41,7 @@ export class DiveSitesService {
         locations: true,
       },
       orderBy: { name: 'asc' },
+      ...pagination,
     });
   }
 

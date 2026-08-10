@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { BookingsService, CreateBookingDto, UpdateBookingDto } from './bookings.service';
+import { parsePaginationQuery } from '../common/utils/pagination';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -25,18 +26,23 @@ export class BookingsController {
   @ApiOperation({ summary: 'Get all bookings' })
   @ApiQuery({ name: 'date', required: false, description: 'Filter by date (YYYY-MM-DD)' })
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'skip', required: false, description: 'Pagination: number of records to skip (opt-in, unbounded when omitted)' })
+  @ApiQuery({ name: 'take', required: false, description: 'Pagination: max records to return, capped at 500 (opt-in, unbounded when omitted)' })
   @ApiResponse({ status: 200, description: 'List of bookings' })
   async findAll(
     @Query('date') date?: string,
     @Query('customerId') customerId?: string,
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
   ) {
+    const pagination = parsePaginationQuery(skip, take);
     if (date) {
-      return this.bookingsService.findByDate(date);
+      return this.bookingsService.findByDate(date, pagination);
     }
     if (customerId) {
-      return this.bookingsService.findByCustomer(customerId);
+      return this.bookingsService.findByCustomer(customerId, pagination);
     }
-    return this.bookingsService.findAll();
+    return this.bookingsService.findAll(pagination);
   }
 
   @Get(':id')

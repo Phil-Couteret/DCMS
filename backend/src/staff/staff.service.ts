@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
+import { PaginationArgs } from '../common/utils/pagination';
 
 export { CreateStaffDto, UpdateStaffDto };
 
@@ -18,17 +19,18 @@ export class StaffService {
     return tenantId ? { tenant_id: tenantId } : {};
   }
 
-  async findAll() {
+  async findAll(pagination: PaginationArgs = {}) {
     return this.prisma.staff.findMany({
       where: { is_active: true, ...this.tenantFilter() },
       include: {
         locations: true,
       },
       orderBy: { first_name: 'asc' },
+      ...pagination,
     });
   }
 
-  async findByLocation(locationId: string) {
+  async findByLocation(locationId: string, pagination: PaginationArgs = {}) {
     return this.prisma.staff.findMany({
       where: {
         is_active: true,
@@ -43,6 +45,7 @@ export class StaffService {
         locations: true,
       },
       orderBy: { first_name: 'asc' },
+      ...pagination,
     });
   }
 

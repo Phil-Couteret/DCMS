@@ -4,6 +4,7 @@ import { TenantContextService } from '../tenant/tenant-context.service';
 import { equipment_type } from '@prisma/client';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto';
+import { PaginationArgs } from '../common/utils/pagination';
 
 export { CreateEquipmentDto, UpdateEquipmentDto };
 
@@ -19,17 +20,18 @@ export class EquipmentService {
     return tenantId ? { tenant_id: tenantId } : {};
   }
 
-  async findAll() {
+  async findAll(pagination: PaginationArgs = {}) {
     return this.prisma.equipment.findMany({
       where: { is_active: true, ...this.tenantFilter() },
       include: {
         locations: true,
       },
       orderBy: { name: 'asc' },
+      ...pagination,
     });
   }
 
-  async findByLocation(locationId: string) {
+  async findByLocation(locationId: string, pagination: PaginationArgs = {}) {
     return this.prisma.equipment.findMany({
       where: {
         location_id: locationId,
@@ -40,10 +42,11 @@ export class EquipmentService {
         locations: true,
       },
       orderBy: { name: 'asc' },
+      ...pagination,
     });
   }
 
-  async findAvailable(category?: equipment_type) {
+  async findAvailable(category?: equipment_type, pagination: PaginationArgs = {}) {
     return this.prisma.equipment.findMany({
       where: {
         is_available: true,
@@ -55,6 +58,7 @@ export class EquipmentService {
         locations: true,
       },
       orderBy: { name: 'asc' },
+      ...pagination,
     });
   }
 

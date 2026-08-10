@@ -4,6 +4,7 @@ import { TenantContextService } from '../tenant/tenant-context.service';
 import { activity_type, payment_method } from '@prisma/client';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
+import { PaginationArgs } from '../common/utils/pagination';
 
 export { CreateBookingDto, UpdateBookingDto };
 
@@ -46,7 +47,7 @@ export class BookingsService {
     return mapped;
   }
 
-  async findAll() {
+  async findAll(pagination: PaginationArgs = {}) {
     return this.prisma.bookings.findMany({
       where: this.tenantFilter(),
       orderBy: { booking_date: 'desc' },
@@ -56,10 +57,11 @@ export class BookingsService {
         boats: true,
         dive_sites: true,
       },
+      ...pagination,
     });
   }
 
-  async findByDate(date: Date | string) {
+  async findByDate(date: Date | string, pagination: PaginationArgs = {}) {
     const bookingDate = typeof date === 'string' ? new Date(date) : date;
     return this.prisma.bookings.findMany({
       where: { booking_date: bookingDate, ...this.tenantFilter() },
@@ -70,10 +72,11 @@ export class BookingsService {
         dive_sites: true,
       },
       orderBy: { booking_date: 'asc' },
+      ...pagination,
     });
   }
 
-  async findByCustomer(customerId: string) {
+  async findByCustomer(customerId: string, pagination: PaginationArgs = {}) {
     return this.prisma.bookings.findMany({
       where: { customer_id: customerId, ...this.tenantFilter() },
       include: {
@@ -82,6 +85,7 @@ export class BookingsService {
         dive_sites: true,
       },
       orderBy: { booking_date: 'desc' },
+      ...pagination,
     });
   }
 

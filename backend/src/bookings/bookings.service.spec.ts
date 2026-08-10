@@ -80,6 +80,41 @@ describe('BookingsService - tenant scoping', () => {
   });
 });
 
+// Phase 6.8 (roadmap item 10): pagination is opt-in - omitting skip/take
+// must keep findMany() exactly as it was (no skip/take keys at all), since
+// dataService.getAll() on the frontend never passes them and still expects
+// the full unbounded array.
+describe('BookingsService - pagination (roadmap item 10, opt-in only)', () => {
+  it('findAll() passes no skip/take to Prisma when pagination is omitted', async () => {
+    const findMany = jest.fn().mockResolvedValue([rawBooking]);
+    const service = makeService(makePrismaMock({ bookingsFindMany: findMany }));
+    await service.findAll();
+    const arg = findMany.mock.calls[0][0];
+    expect(arg).not.toHaveProperty('skip');
+    expect(arg).not.toHaveProperty('take');
+  });
+
+  it('findAll() forwards skip/take through to Prisma when provided', async () => {
+    const findMany = jest.fn().mockResolvedValue([rawBooking]);
+    const service = makeService(makePrismaMock({ bookingsFindMany: findMany }));
+    await service.findAll({ skip: 20, take: 50 });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 50 }),
+    );
+  });
+
+  it('findByDate() and findByCustomer() also forward skip/take when provided', async () => {
+    const findMany = jest.fn().mockResolvedValue([rawBooking]);
+    const service = makeService(makePrismaMock({ bookingsFindMany: findMany }));
+
+    await service.findByDate('2026-08-10', { take: 10 });
+    expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 10 }));
+
+    await service.findByCustomer('cust-1', { skip: 5 });
+    expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({ skip: 5 }));
+  });
+});
+
 describe('BookingsService - findOne', () => {
   it('returns the booking when found', async () => {
     const service = makeService(makePrismaMock());

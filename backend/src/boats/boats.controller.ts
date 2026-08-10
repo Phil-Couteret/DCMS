@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { BoatsService, CreateBoatDto, UpdateBoatDto } from './boats.service';
+import { parsePaginationQuery } from '../common/utils/pagination';
 
 @ApiTags('boats')
 @Controller('boats')
@@ -21,12 +22,19 @@ export class BoatsController {
   @Get()
   @ApiOperation({ summary: 'Get all active boats' })
   @ApiQuery({ name: 'locationId', required: false, description: 'Filter by location ID' })
+  @ApiQuery({ name: 'skip', required: false, description: 'Pagination: number of records to skip (opt-in, unbounded when omitted)' })
+  @ApiQuery({ name: 'take', required: false, description: 'Pagination: max records to return, capped at 500 (opt-in, unbounded when omitted)' })
   @ApiResponse({ status: 200, description: 'List of boats' })
-  async findAll(@Query('locationId') locationId?: string) {
+  async findAll(
+    @Query('locationId') locationId?: string,
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
+  ) {
+    const pagination = parsePaginationQuery(skip, take);
     if (locationId) {
-      return this.boatsService.findByLocation(locationId);
+      return this.boatsService.findByLocation(locationId, pagination);
     }
-    return this.boatsService.findAll();
+    return this.boatsService.findAll(pagination);
   }
 
   @Get(':id')
