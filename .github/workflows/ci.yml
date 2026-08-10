@@ -1,0 +1,138 @@
+name: CI
+
+# Phase 6.7 (roadmap item 7): first CI pipeline for this repo. Runs on
+# every push to main and every PR - tests, a production build, and a
+# dependency-vulnerability check for each of the three apps (backend,
+# frontend, public-website), so a regression is caught before it reaches
+# the ZBOX production deploy rather than after.
+#
+# Deliberately NOT included yet (documented as a follow-up, not an
+# oversight):
+#   - backend/test/*.e2e-spec.ts: needs a real Postgres service container
+#     and a fixed app.e2e-spec.ts (currently fails on bcrypt's native
+#     binary in some environments - a pre-existing issue, not caused by
+#     this workflow). The unit specs under backend/src/**/*.spec.ts run
+#     here and don't need a database - they mock PrismaService directly.
+#   - Docker image builds: the backend/frontend Dockerfiles were only
+#     hardened to run non-root in Phase 6.3 and haven't been verified with
+#     an actual `docker build` yet (no Docker available in the sandbox this
+#     work was done in) - safer to verify that manually once before wiring
+#     it into CI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (NestJS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # prisma generate reads schema.prisma's `url = env("DATABASE_URL")`
+      # and fails fast if the var is entirely unset - it never actually
+      # connects for `generate`, so a placeholder is fine. The unit specs
+      # (src/**/*.spec.ts) mock PrismaService directly and don't need a
+      # real database either.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/dcms_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Type-check + build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Dependency audit (fails only on critical - see docs/roadmap.md Phase 6.7 for the currently-accepted high/moderate findings, all requiring the deferred NestJS 10->11 major bump)
+        run: npm audit --omit=dev --audit-level=critical
+
+  frontend:
+    name: Frontend (Admin PWA)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18' # matches frontend/Dockerfile - react-scripts 5.0.1 has resolution issues with Node 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm install --legacy-peer-deps
+
+      - name: Tests
+        run: npx react-scripts test --watchAll=false
+        env:
+          CI: true
+
+      - name: Build
+        # frontend/Dockerfile bypasses the .bin/react-scripts wrapper the
+        # same way (see its comment) - the wrapper can fail depending on
+        # how node_modules was installed, `node .../scripts/build.js`
+        # doesn't.
+        run: node node_modules/react-scripts/scripts/build.js
+        env:
+          # CRA treats ESLint warnings as build-failing errors when CI is
+          # truthy - GitHub Actions sets CI=true on every runner by
+          # default. This repo's build is not currently warning-free, and
+          # the same CI=false override is already used deliberately in
+          # frontend/Dockerfile - matching that here rather than trying to
+          # zero out every existing warning as a side effect of adding CI.
+          CI: false
+
+      - name: Dependency audit (fails only on critical - see docs/roadmap.md Phase 6.1 for the currently-accepted high findings, mostly react-scripts' own build-tool chain which never ships in the served build/ output)
+        run: npm audit --audit-level=critical
+
+  public-website:
+    name: Public website
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: public-website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: public-website/package-lock.json
+
+      - run: npm install --legacy-peer-deps
+
+      - name: Tests
+        # public-website has no test files yet (unlike frontend) -
+        # --passWithNoTests keeps that a non-failure rather than treating
+        # "nothing to test" as a CI failure.
+        run: npx react-scripts test --watchAll=false --passWithNoTests
+        env:
+          CI: true
+
+      - name: Build
+        # Same .bin/react-scripts wrapper workaround as frontend/Dockerfile
+        # and the frontend job above.
+        run: node node_modules/react-scripts/scripts/build.js
+        env:
+          CI: false
+
+      - name: Dependency audit (fails only on critical - see docs/roadmap.md Phase 6.1 for the currently-accepted high findings, mostly react-scripts' own build-tool chain which never ships in the served build/ output)
+        run: npm audit --audit-level=critical
