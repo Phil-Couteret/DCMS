@@ -12,9 +12,17 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { UsersService, CreateUserDto, UpdateUserDto, LoginDto, SelectTenantDto, SwitchTenantDto } from './users.service';
 import { AddTenantMembershipDto } from './dto/add-tenant-membership.dto';
 import { Public } from '../common/decorators/public.decorator';
+
+// Tighter than the app-wide default (100/60s, see app.module.ts) - these
+// are the credential-checking endpoints, the ones brute-force/credential-
+// stuffing attempts actually target. 10 attempts/60s per IP is generous
+// for a real person mistyping a password, tight enough to meaningfully
+// slow automated guessing.
+const LOGIN_THROTTLE = { default: { limit: 10, ttl: 60000 } };
 
 @ApiTags('users')
 @Controller('users')
@@ -22,6 +30,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Public()
+  @Throttle(LOGIN_THROTTLE)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user' })
@@ -32,6 +41,7 @@ export class UsersController {
   }
 
   @Public()
+  @Throttle(LOGIN_THROTTLE)
   @Post('login/select-tenant')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Complete login by picking one of the tenants login() offered' })

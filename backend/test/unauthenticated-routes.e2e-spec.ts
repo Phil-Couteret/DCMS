@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { PATH_METADATA, METHOD_METADATA, GUARDS_METADATA } from '@nestjs/common/constants';
 import { DiscoveryModule, DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -140,6 +141,14 @@ describe('Every controller requires auth unless @Public() (e2e)', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(makePrismaStub())
+      // This suite deliberately fires one request per registered route
+      // (100+) from a single client to test the *auth* guard, not rate
+      // limiting - without this override the app's real global
+      // ThrottlerGuard (100 req/60s, see app.module.ts) would start
+      // returning 429 partway through and be indistinguishable from a
+      // route that failed to reject an unauthenticated request.
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();

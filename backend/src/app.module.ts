@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -37,6 +38,16 @@ import { TenantModule } from './tenant/tenant.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    // Baseline rate limiting for every route (100 requests / 60s per IP).
+    // Tighter, endpoint-specific limits (e.g. login) are set via the
+    // @Throttle() decorator on top of this default - see users.controller.ts.
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     ConsentsModule,
     AuditModule,
     DsarModule,
@@ -70,6 +81,12 @@ import { TenantModule } from './tenant/tenant.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // Rate limiting, applied globally alongside the auth guard above.
+    // Nest runs multiple APP_GUARD providers in registration order.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

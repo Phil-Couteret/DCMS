@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
@@ -8,6 +9,15 @@ const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Security headers (CSP left at helmet's default-off here since the
+  // Swagger UI served from this same app needs inline scripts/styles;
+  // revisit if Swagger is ever split onto its own origin).
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
 
   // Enable CORS - allow connections from localhost, local network, and production
   const localNetworkIP = process.env.LOCAL_NETWORK_IP || '192.168.18.254';
