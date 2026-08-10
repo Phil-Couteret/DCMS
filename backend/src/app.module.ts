@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { LoggerModule } from 'nestjs-pino';
+import { buildPinoHttpOptions } from './common/logger/pino-http.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -37,6 +39,22 @@ import { TenantModule } from './tenant/tenant.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    // Phase 6.9 (roadmap item 9): structured JSON logging. Replaces Nest's
+    // default pretty-printed console logger app-wide - every `new
+    // Logger(ctx)` call anywhere in the codebase (services, the global
+    // exception filter, framework bootstrap messages) is automatically
+    // routed through this once `app.useLogger(app.get(Logger))` is called
+    // in main.ts, since Nest's built-in Logger delegates to whatever
+    // logger was registered via `useLogger`. No call sites needed to
+    // change. In production this writes one JSON object per log line to
+    // stdout - matching how container logs are already collected (`docs`
+    // notes this was previously just unstructured stdout) and ready to
+    // feed into a log aggregator (Loki, ELK, etc.) later without another
+    // code change. Outside production, `pino-pretty` renders the same
+    // JSON as readable colored lines instead.
+    LoggerModule.forRoot({
+      pinoHttp: buildPinoHttpOptions(),
     }),
     // Baseline rate limiting for every route (100 requests / 60s per IP).
     // Tighter, endpoint-specific limits (e.g. login) are set via the

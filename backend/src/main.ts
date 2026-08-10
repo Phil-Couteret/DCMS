@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -8,7 +9,16 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // bufferLogs holds Nest's own startup log lines (module init, route
+  // mapping, etc.) until the pino logger below is wired up via
+  // useLogger(), instead of losing them to the default console logger for
+  // the brief window before that call.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+
+  // Phase 6.9 (roadmap item 9): route every Logger call in the app -
+  // framework-internal and every `new Logger(ctx)` in application code -
+  // through the structured JSON logger configured in app.module.ts.
+  app.useLogger(app.get(PinoLogger));
 
   // Security headers (CSP left at helmet's default-off here since the
   // Swagger UI served from this same app needs inline scripts/styles;
