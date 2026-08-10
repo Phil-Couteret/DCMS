@@ -55,7 +55,7 @@ Target:
 ## 7. Code quality / structure
 
 - ✅ Backend: consistent Nest logger (`Logger` from `@nestjs/common`) instead of raw `console.*` — done in Phase 1 for runtime code (CLI scripts under `backend/src/scripts/` still use `console.log`, which is fine for one-off tooling). The enum-remapping band-aids in `bookings.service.ts` are still there — that's a schema/frontend consistency fix, not a logging one, still open.
-- Frontend: split the largest pages (`Settings.jsx` 3,544 lines, `BoatPrep.jsx` 2,721, `Financial.jsx` 2,370) into smaller feature components with a `hooks/` and possibly a lightweight store (context or a small state library) instead of everything living in page components plus `authContext.js`.
+- ✅ Frontend: split the largest pages (`Settings.jsx` 3,544 lines, `BoatPrep.jsx` 2,721, `Financial.jsx` 2,370) into smaller feature components with a `hooks/` directory — done in Phase 5.2 (see `roadmap.md`). `Settings.jsx` used self-contained per-tab components (`components/Settings/`); `BoatPrep.jsx` and `Financial.jsx` used a shared-hook pattern (`hooks/useBoatPrepData.js`, `hooks/useFinancialData.js`) since their tabs share tightly-coupled state, with presentational tab components under `components/BoatPrep/` and `components/Financial/`.
 - ✅ `sync-server` retired entirely in Phase 1 (folder deleted, all references removed from start/stop/check scripts including Windows `.bat` equivalents) — confirmed dead first via `apiConfig.js`'s hardcoded `mode: 'api'`.
 - Consider migrating both React apps off Create React App (deprecated, unmaintained) to Vite — not urgent, but worth scheduling once higher-priority items are done.
 
