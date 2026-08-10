@@ -13,11 +13,14 @@ name: CI
 #     binary in some environments - a pre-existing issue, not caused by
 #     this workflow). The unit specs under backend/src/**/*.spec.ts run
 #     here and don't need a database - they mock PrismaService directly.
-#   - Docker image builds: the backend/frontend Dockerfiles were only
-#     hardened to run non-root in Phase 6.3 and haven't been verified with
-#     an actual `docker build` yet (no Docker available in the sandbox this
-#     work was done in) - safer to verify that manually once before wiring
-#     it into CI.
+#   - Docker image builds: not wired into this workflow. The Phase 6.3
+#     non-root hardening (all three Dockerfiles) has since been verified
+#     manually - `docker compose up -d --build` + `docker build` for
+#     public-website, confirmed non-root via `whoami` and a working
+#     `curl -I` against each service (2026-08-10, see docs/roadmap.md
+#     item 3) - so this is a scope decision now, not an unverified gap:
+#     add a `docker build` step per app here if/when image builds should
+#     also gate merges, rather than just being run manually before deploy.
 
 on:
   push:
