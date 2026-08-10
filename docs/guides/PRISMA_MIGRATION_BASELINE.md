@@ -4,6 +4,13 @@ _Phase 2.3 follow-up. This needs your live Postgres database, which isn't reacha
 this session, so it's written up here as a guide for you to run locally rather than
 executed automatically._
 
+> **Update (2026-08-10):** the two pre-existing migrations referenced below
+> (`20251227114043_add_partner_invoices`, `20251228212110_add_customer_bills`) turned out to
+> be redundant duplicates of what `0_baseline` already created, and were removed as part of
+> the Phase 6 migration-history cleanup — see `docs/roadmap.md` item 12 and
+> `docs/current-architecture.md` §7 for the current, accurate migration list. This doc is
+> kept as a historical record of the original baselining process.
+
 ## The problem
 
 Two disconnected schema-history mechanisms currently coexist:
