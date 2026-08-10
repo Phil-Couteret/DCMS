@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../tenant/tenant-context.service';
-import { equipment_type } from '@prisma/client';
+import { equipment_type, Prisma } from '@prisma/client';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto';
 import { PaginationArgs } from '../common/utils/pagination';
@@ -98,7 +98,10 @@ export class EquipmentService {
         serial_number: dto.serialNumber || null,
         is_available: dto.isAvailable !== undefined ? dto.isAvailable : true,
         is_active: true,
-        details: dto.details ?? {},
+        // DTO types this Record<string, unknown> (stricter than customers.preferences'
+        // `any`) so class-validator's @IsObject() actually enforces it - Prisma's own
+        // JSON input type needs an explicit cast at this boundary.
+        details: (dto.details ?? {}) as Prisma.InputJsonValue,
       },
       include: {
         locations: true,
@@ -130,7 +133,7 @@ export class EquipmentService {
         ...(dto.serialNumber !== undefined && { serial_number: dto.serialNumber || null }),
         ...(dto.isAvailable !== undefined && { is_available: dto.isAvailable }),
         ...(dto.isActive !== undefined && { is_active: dto.isActive }),
-        ...(dto.details !== undefined && { details: dto.details }),
+        ...(dto.details !== undefined && { details: dto.details as Prisma.InputJsonValue }),
       },
       include: {
         locations: true,
