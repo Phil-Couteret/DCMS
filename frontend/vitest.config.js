@@ -22,6 +22,12 @@ const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
 const needsWebStorageFix = nodeMajor === 25;
 const execArgv = needsWebStorageFix ? ['--no-webstorage'] : [];
 
+// Vitest 4 removed `poolOptions` entirely - execArgv (like every other former
+// poolOptions.<pool> option) is now a top-level `test` option, applied
+// regardless of which pool is active. See the "Pool Rework" section of
+// https://vitest.dev/guide/migration#pool-rework (fetched directly to get
+// this right after the first attempt used the removed, pre-v4 nested shape
+// and silently did nothing - see docs/roadmap.md item 18).
 export default mergeConfig(
   viteConfig,
   defineConfig({
@@ -30,10 +36,7 @@ export default mergeConfig(
       environment: 'jsdom',
       setupFiles: ['./src/setupTests.js'],
       css: true,
-      poolOptions: {
-        forks: { execArgv },
-        threads: { execArgv },
-      },
+      execArgv,
     },
   })
 );
