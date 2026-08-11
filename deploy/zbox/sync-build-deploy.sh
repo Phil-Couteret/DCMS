@@ -92,9 +92,9 @@ cd DCMS
 
 echo "==> [3/4] Building Docker images..."
 docker build -t dcms-backend:latest ./backend
-# Admin: no fixed REACT_APP_API_URL so it uses hostname (test.admin → test.api, admin → api)
+# Admin: no fixed VITE_API_URL so it uses hostname (test.admin → test.api, admin → api)
 docker build -t dcms-admin:latest ./frontend
-docker build -t dcms-public:latest --build-arg REACT_APP_API_URL="${API_URL}/api" ./public-website
+docker build -t dcms-public:latest --build-arg VITE_API_URL="${API_URL}/api" ./public-website
 
 echo "==> [4/4] Importing into K3s and restarting..."
 docker save dcms-backend:latest dcms-admin:latest dcms-public:latest | sudo k3s ctr images import -

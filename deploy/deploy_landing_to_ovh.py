@@ -97,12 +97,14 @@ def main():
         sys.exit(1)
 
     # Build with API URL pointing to ZBOX
-    api_url = os.environ.get("REACT_APP_API_URL", "https://api.couteret.fr/api")
-    print(f"==> Building public-website (REACT_APP_API_URL={api_url})...")
+    # VITE_API_URL (was REACT_APP_API_URL pre-Vite-migration, 2026-08-11 -
+    # see docs/roadmap.md item 19)
+    api_url = os.environ.get("VITE_API_URL", "https://api.couteret.fr/api")
+    print(f"==> Building public-website (VITE_API_URL={api_url})...")
     result = subprocess.run(
         ["npm", "run", "build"],
         cwd=PUBLIC_WEBSITE,
-        env={**os.environ, "REACT_APP_API_URL": api_url, "CI": "false"},
+        env={**os.environ, "VITE_API_URL": api_url},
         capture_output=True,
         text=True,
     )

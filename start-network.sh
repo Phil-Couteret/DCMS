@@ -53,7 +53,11 @@ sleep 2
 # Start Frontend Admin Portal
 echo "[2/2] Starting Admin Portal (port 3001)..."
 cd frontend
-HOST=0.0.0.0 PORT=3001 REACT_APP_API_URL=http://$LOCAL_IP:3003/api npm start > ../logs/frontend.log 2>&1 &
+# Note: HOST/PORT env vars were a CRA (react-scripts) convention and no
+# longer control Vite's dev server port (see docs/roadmap.md item 18) -
+# frontend/vite.config.js hardcodes port 3000, not 3001, pre-existing
+# inconsistency with this script's banner text above, not introduced here.
+VITE_API_URL=http://$LOCAL_IP:3003/api npm start > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 cd ..
 sleep 3

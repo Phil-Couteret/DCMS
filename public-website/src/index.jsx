@@ -17,7 +17,7 @@ root.render(
 );
 
 // Register service worker for PWA (production only to avoid dev errors)
-if (process.env.NODE_ENV === 'production') {
+if (import.meta.env.PROD) {
   serviceWorkerRegistration.register({
     onSuccess: () => {},
     onUpdate: (registration) => {

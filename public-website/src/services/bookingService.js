@@ -95,7 +95,7 @@ const saveAll = async (resource, data) => {
 
 // Find or create customer (async - uses API directly)
 export const findOrCreateCustomer = async (customerData) => {
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // First, try to find existing customer by email using the dedicated endpoint
@@ -272,7 +272,7 @@ export const findOrCreateCustomer = async (customerData) => {
 
 // Check availability (basic validation) - uses API
 export const checkAvailability = async (date, time, location, activityType) => {
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // Map location name to locationId (using same UUIDs as admin portal)
@@ -394,7 +394,7 @@ export const createBooking = async (bookingData) => {
   }
   
   // Prepare booking data for backend API
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   // Map paymentMethod: 'account' -> 'deferred' (backend enum doesn't support 'account')
   const paymentMethod = bookingData.paymentMethod === 'account' ? 'deferred' : (bookingData.paymentMethod || 'card');
@@ -500,7 +500,7 @@ export const createBooking = async (bookingData) => {
 export const updateBookingEquipmentDetails = async (bookingId, updates = {}) => {
   if (!bookingId) return null;
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // First, get the current booking from API
@@ -598,7 +598,7 @@ export const updateBookingEquipmentDetails = async (bookingId, updates = {}) => 
 export const cancelBooking = async (bookingId, options = {}) => {
   if (!bookingId) return null;
   
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // First, get the current booking from API
@@ -776,7 +776,7 @@ const transformBookingFromBackend = (data) => {
 export const getCustomerBookings = async (email) => {
   if (!email) return [];
   
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // First, get the customer by email to get their ID
@@ -827,7 +827,7 @@ export const getCustomerBookings = async (email) => {
 export const getCustomerByEmail = async (email) => {
   if (!email) return null;
   
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // Use the dedicated email lookup endpoint
@@ -905,7 +905,7 @@ const mergePreferences = (existing = {}, incoming = {}) => {
 export const updateCustomerProfile = async (email, updates = {}) => {
   if (!email) return null;
   
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // First, get the current customer from API
@@ -1105,7 +1105,7 @@ export const migrateBookingLocationIds = () => {
 export const addOrUpdateCertification = async (email, certification) => {
   if (!email || !certification) return null;
   
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // First, get the current customer from API
@@ -1196,7 +1196,7 @@ export const addOrUpdateCertification = async (email, certification) => {
 export const deleteCertification = async (email, certificationId) => {
   if (!email || !certificationId) return null;
   
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // First, get the current customer from API
@@ -1266,8 +1266,11 @@ export const deleteCertification = async (email, certificationId) => {
 // Delete customer account with soft delete and anonymization
 // Personal data is anonymized, but booking/financial records are retained for 7 years (legal requirement)
 export const deleteCustomerAccount = async (email, reason = 'User requested') => {
-  const { anonymizeCustomer, anonymizeBooking } = require('./anonymizationService');
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+  // Dynamic import (was a CJS require()) - webpack tolerated bare require()
+  // in browser code via its CJS interop; Vite's ESM output doesn't, so this
+  // needs to be a real (awaited) dynamic import instead.
+  const { anonymizeCustomer, anonymizeBooking } = await import('./anonymizationService');
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   
   try {
     // Get customer from API

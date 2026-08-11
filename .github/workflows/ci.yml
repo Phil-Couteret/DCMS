@@ -62,7 +62,7 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Dependency audit (fails only on critical - see docs/roadmap.md Phase 6.7 for the currently-accepted high/moderate findings, all requiring the deferred NestJS 10->11 major bump)
+      - name: Dependency audit (fails only on critical - kept at this level even though the NestJS 10->11 bump that justified it is done now, item 17, since dev-tooling packages can still carry accepted high findings unrelated to what ships to production)
         run: npm audit --omit=dev --audit-level=critical
 
   frontend:
@@ -80,9 +80,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      # No longer needs --legacy-peer-deps (unlike public-website below) -
-      # that flag was working around a typescript/react-scripts peer
-      # conflict; react-scripts is gone now (see docs/roadmap.md item 18).
+      # No longer needs --legacy-peer-deps - that flag was working around a
+      # typescript/react-scripts peer conflict; react-scripts is gone now
+      # (see docs/roadmap.md item 18).
       - run: npm install
 
       - name: Tests
@@ -105,26 +105,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22' # matches public-website/Dockerfile - Vite 8 requires Node >=20.19 or >=22.12 (see docs/roadmap.md item 19; the old Node 18 pin was a react-scripts-only workaround, no longer needed)
           cache: 'npm'
           cache-dependency-path: public-website/package-lock.json
 
-      - run: npm install --legacy-peer-deps
+      # No longer needs --legacy-peer-deps - that flag was working around a
+      # typescript/react-scripts peer conflict; react-scripts is gone now
+      # (see docs/roadmap.md item 19).
+      - run: npm install
 
-      - name: Tests
-        # public-website has no test files yet (unlike frontend) -
-        # --passWithNoTests keeps that a non-failure rather than treating
-        # "nothing to test" as a CI failure.
-        run: npx react-scripts test --watchAll=false --passWithNoTests
-        env:
-          CI: true
+      # public-website still has no test files (a pre-existing gap, item 7) -
+      # nothing to run here yet. Revisit once tests exist.
 
       - name: Build
-        # Same .bin/react-scripts wrapper workaround as frontend/Dockerfile
-        # and the frontend job above.
-        run: node node_modules/react-scripts/scripts/build.js
-        env:
-          CI: false
+        run: npx vite build
 
-      - name: Dependency audit (fails only on critical - see docs/roadmap.md Phase 6.1 for the currently-accepted high findings, mostly react-scripts' own build-tool chain which never ships in the served build/ output)
+      - name: Dependency audit (fails only on critical - see docs/roadmap.md item 19; the react-scripts-era findings this gate used to carry accepted findings for, documented in item 1, are gone now that react-scripts itself is gone - the one remaining finding, `sharp`, is a devDependency used only by the standalone generate-icons script, never shipped, and predates this change)
         run: npm audit --audit-level=critical

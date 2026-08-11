@@ -1,7 +1,7 @@
 // Data Breach Tracking Service for GDPR Article 33-34 Compliance
 // Tracks security breaches and notification deadlines (72-hour requirement)
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 /**
  * Create a new breach record

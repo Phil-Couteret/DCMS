@@ -1,7 +1,7 @@
 // Sync Service - Connects to backend API
 // Syncs data between public website and admin portal via database
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 // No periodic sync - data is pushed immediately when changed, pulled on page load only
 
 class SyncService {

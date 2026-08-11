@@ -53,7 +53,7 @@ Usernames are **case-sensitive** (e.g. `admin`, not `Admin`).
 
 3. **Check backend and DB**  
    - Backend must be running (e.g. `npm run start:dev` in `backend`).  
-   - Frontend `REACT_APP_API_URL` (or default) must point to that API (e.g. `http://localhost:3003/api`).  
+   - Frontend `VITE_API_URL` (or default) must point to that API (e.g. `http://localhost:3003/api`).  
    - Database must be migrated and reachable (Prisma).
 
 If you use **mock mode** (localStorage), see the frontend doc: `frontend/ADD_SUPERADMIN.md`.

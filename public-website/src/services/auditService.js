@@ -1,7 +1,7 @@
 // Audit Logging Service for GDPR Accountability (Article 5(2))
 // Logs all data access, modifications, and user actions
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3003/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 /**
  * Log an audit event
