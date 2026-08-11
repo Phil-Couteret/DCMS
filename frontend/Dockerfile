@@ -1,18 +1,21 @@
 # DCMS Frontend (Admin PWA) - VPS-style Docker image
-# Node 18 - react-scripts 5.0.1 has resolution issues with Node 20
-FROM node:18-bullseye-slim AS builder
+# Node 22 - Vite 8 requires Node >=20.19 or >=22.12 (the old Node 18 pin
+# was specifically a react-scripts 5.0.1 workaround, no longer needed
+# now that the build runs on Vite instead - see docs/roadmap.md item 18)
+FROM node:22-bullseye-slim AS builder
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+# No longer needs --legacy-peer-deps - that flag was working around a
+# typescript/react-scripts peer conflict; react-scripts is gone now
+# (see docs/roadmap.md item 18).
+RUN npm install
 
 COPY . .
 # Empty = use hostname (test.admin → test.api, admin → api, localhost → localhost:3003)
-ARG REACT_APP_API_URL=
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
-ENV CI=false
-# Bypass broken .bin/react-scripts wrapper - run build script directly
-RUN node node_modules/react-scripts/scripts/build.js
+ARG VITE_API_URL=
+ENV VITE_API_URL=$VITE_API_URL
+RUN npx vite build
 
 # nginxinc/nginx-unprivileged: same nginx image, but pre-configured to run
 # as a non-root user (uid 101) on an unprivileged port - avoids the classic

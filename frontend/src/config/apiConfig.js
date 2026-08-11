@@ -9,15 +9,15 @@ const getApiBaseURL = () => {
   const protocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
 
   // Use same protocol as current page (avoids ERR_CERT_AUTHORITY_INVALID when HTTPS cert invalid)
-  if (process.env.REACT_APP_API_URL && typeof window !== 'undefined') {
+  if (import.meta.env.VITE_API_URL && typeof window !== 'undefined') {
     try {
-      const url = new URL(process.env.REACT_APP_API_URL);
+      const url = new URL(import.meta.env.VITE_API_URL);
       url.protocol = protocol;
       return url.toString();
     } catch (_) {}
   }
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
   // Multi-tenant: admin.couteret.fr->api, deepblue.admin.couteret.fr->deepblue.api
   const apiHost = hostname

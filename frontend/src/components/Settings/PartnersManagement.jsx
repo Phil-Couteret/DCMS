@@ -166,7 +166,7 @@ const PartnersManagement = () => {
   const handleRegenerateApiKey = async (partnerId) => {
     if (window.confirm('Are you sure you want to regenerate the API key? The old key will no longer work.')) {
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3003/api'}/partners/${partnerId}/regenerate-api-key`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3003/api'}/partners/${partnerId}/regenerate-api-key`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

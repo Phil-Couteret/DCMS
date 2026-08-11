@@ -14,38 +14,38 @@ import Financial from './Financial';
 // tab in the browser).
 //
 // Note: CRA's Jest config sets resetMocks: true, which clears any
-// .mockResolvedValue()/.mockReturnValue() set inside a jest.mock() factory
+// .mockResolvedValue()/.mockReturnValue() set inside a vi.mock() factory
 // before each test runs - the factory only establishes that the export IS
-// a jest.fn(). Return values must be (re)configured in beforeEach, which
+// a vi.fn(). Return values must be (re)configured in beforeEach, which
 // is why every mocked method below is set there rather than in the
-// jest.mock() calls themselves.
-jest.mock('../services/dataService', () => ({
+// vi.mock() calls themselves.
+vi.mock('../services/dataService', () => ({
   __esModule: true,
   default: {
-    getAll: jest.fn(),
-    getById: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
+    getAll: vi.fn(),
+    getById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
   },
 }));
 
-jest.mock('../services/financialService', () => ({
+vi.mock('../services/financialService', () => ({
   __esModule: true,
   default: {
-    getAllExpenses: jest.fn(),
-    getAllManualIncome: jest.fn(),
-    addExpense: jest.fn(),
-    addManualIncome: jest.fn(),
-    deleteExpense: jest.fn(),
-    deleteManualIncome: jest.fn(),
-    getDailyFinancialSummary: jest.fn(),
+    getAllExpenses: vi.fn(),
+    getAllManualIncome: vi.fn(),
+    addExpense: vi.fn(),
+    addManualIncome: vi.fn(),
+    deleteExpense: vi.fn(),
+    deleteManualIncome: vi.fn(),
+    getDailyFinancialSummary: vi.fn(),
   },
 }));
 
-jest.mock('../utils/authContext', () => ({
-  ...jest.requireActual('../utils/authContext'),
-  useAuth: jest.fn(),
+vi.mock('../utils/authContext', async () => ({
+  ...(await vi.importActual('../utils/authContext')),
+  useAuth: vi.fn(),
 }));
 
 import { useAuth } from '../utils/authContext';

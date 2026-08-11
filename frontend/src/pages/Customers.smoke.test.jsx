@@ -12,21 +12,21 @@ import Customers from './Customers';
 // a future change that breaks the list or the search flow is caught before
 // it reaches production, the same rationale as the other *.smoke.test.jsx
 // files in this directory.
-jest.mock('../services/dataService', () => ({
+vi.mock('../services/dataService', () => ({
   __esModule: true,
   default: {
-    getAll: jest.fn(),
-    getById: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
-    searchCustomers: jest.fn(),
+    getAll: vi.fn(),
+    getById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+    searchCustomers: vi.fn(),
   },
 }));
 
-jest.mock('../utils/authContext', () => ({
-  ...jest.requireActual('../utils/authContext'),
-  useAuth: jest.fn(),
+vi.mock('../utils/authContext', async () => ({
+  ...(await vi.importActual('../utils/authContext')),
+  useAuth: vi.fn(),
 }));
 
 import { useAuth } from '../utils/authContext';

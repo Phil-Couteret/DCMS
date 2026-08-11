@@ -12,32 +12,32 @@ import Equipment from './Equipment';
 // missing import as a crash rather than only on click in the browser.
 //
 // Note: CRA's Jest config sets resetMocks: true, so mock return values are
-// (re)configured in beforeEach rather than inside jest.mock() factories -
+// (re)configured in beforeEach rather than inside vi.mock() factories -
 // see Financial.smoke.test.jsx for the gotcha this works around.
-jest.mock('../services/dataService', () => ({
+vi.mock('../services/dataService', () => ({
   __esModule: true,
   default: {
-    getAll: jest.fn(),
-    getById: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
+    getAll: vi.fn(),
+    getById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
   },
 }));
 
-jest.mock('../services/tankService', () => ({
+vi.mock('../services/tankService', () => ({
   __esModule: true,
   default: {
-    enrichTankWithMetadata: jest.fn((tank) => tank),
-    getTankMetadata: jest.fn(() => ({})),
-    saveTankMetadata: jest.fn(),
-    deleteTankMetadata: jest.fn(),
+    enrichTankWithMetadata: vi.fn((tank) => tank),
+    getTankMetadata: vi.fn(() => ({})),
+    saveTankMetadata: vi.fn(),
+    deleteTankMetadata: vi.fn(),
   },
 }));
 
-jest.mock('../utils/authContext', () => ({
-  ...jest.requireActual('../utils/authContext'),
-  useAuth: jest.fn(),
+vi.mock('../utils/authContext', async () => ({
+  ...(await vi.importActual('../utils/authContext')),
+  useAuth: vi.fn(),
 }));
 
 import { useAuth } from '../utils/authContext';

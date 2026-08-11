@@ -76,33 +76,22 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18' # matches frontend/Dockerfile - react-scripts 5.0.1 has resolution issues with Node 20
+          node-version: '22' # matches frontend/Dockerfile - Vite 8 requires Node >=20.19 or >=22.12 (see docs/roadmap.md item 18; the old Node 18 pin was a react-scripts-only workaround, no longer needed)
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - run: npm install --legacy-peer-deps
+      # No longer needs --legacy-peer-deps (unlike public-website below) -
+      # that flag was working around a typescript/react-scripts peer
+      # conflict; react-scripts is gone now (see docs/roadmap.md item 18).
+      - run: npm install
 
       - name: Tests
-        run: npx react-scripts test --watchAll=false
-        env:
-          CI: true
+        run: npx vitest run
 
       - name: Build
-        # frontend/Dockerfile bypasses the .bin/react-scripts wrapper the
-        # same way (see its comment) - the wrapper can fail depending on
-        # how node_modules was installed, `node .../scripts/build.js`
-        # doesn't.
-        run: node node_modules/react-scripts/scripts/build.js
-        env:
-          # CRA treats ESLint warnings as build-failing errors when CI is
-          # truthy - GitHub Actions sets CI=true on every runner by
-          # default. This repo's build is not currently warning-free, and
-          # the same CI=false override is already used deliberately in
-          # frontend/Dockerfile - matching that here rather than trying to
-          # zero out every existing warning as a side effect of adding CI.
-          CI: false
+        run: npx vite build
 
-      - name: Dependency audit (fails only on critical - see docs/roadmap.md Phase 6.1 for the currently-accepted high findings, mostly react-scripts' own build-tool chain which never ships in the served build/ output)
+      - name: Dependency audit (fails only on critical - see docs/roadmap.md item 18; the react-scripts-era findings this gate used to carry accepted findings for, documented in item 1, are gone now that react-scripts itself is gone)
         run: npm audit --audit-level=critical
 
   public-website:

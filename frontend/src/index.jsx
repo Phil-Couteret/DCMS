@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
-import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import syncService from './services/syncService'; // Initialize sync service for POC
 
 // Make sync service available globally
@@ -17,8 +16,7 @@ root.render(
   </React.StrictMode>
 );
 
-// If you want your app to work offline and load faster, you can change
-// unregister() to register() below. Note this comes with some pitfalls.
-// Learn more about service workers: https://cra.link/PWA
-serviceWorkerRegistration.register();
-
+// Service worker registration is now handled by vite-plugin-pwa
+// (registerType: 'autoUpdate' in vite.config.js), which auto-injects the
+// registration script into the built index.html - replaces the old
+// src/serviceWorkerRegistration.js + explicit .register() call here.

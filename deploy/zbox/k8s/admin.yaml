@@ -1,4 +1,4 @@
-# Admin frontend - built with REACT_APP_API_URL for production
+# Admin frontend - built with VITE_API_URL for production (see frontend/Dockerfile)
 apiVersion: v1
 kind: Service
 metadata:

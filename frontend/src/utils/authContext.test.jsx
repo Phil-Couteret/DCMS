@@ -161,7 +161,7 @@ describe('AuthProvider / useAuth', () => {
 
   it('useAuth() throws when used outside an AuthProvider', () => {
     // Swallow the expected React error-boundary console noise for this one case.
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => renderHook(() => useAuth())).toThrow('useAuth must be used within AuthProvider');
     spy.mockRestore();
   });

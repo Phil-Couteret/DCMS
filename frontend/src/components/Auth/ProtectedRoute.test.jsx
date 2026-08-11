@@ -7,10 +7,12 @@ import { isMockMode } from '../../config/apiConfig';
 // ProtectedRoute is the single gate every authenticated page in the app
 // renders behind, so these tests exercise its branching directly rather
 // than through AdminLogin/UserSelector's own (separately tested) internals.
-jest.mock('../../utils/authContext');
-jest.mock('../../config/apiConfig');
-jest.mock('./AdminLogin', () => () => <div data-testid="admin-login">AdminLogin</div>);
-jest.mock('./UserSelector', () => () => <div data-testid="user-selector">UserSelector</div>);
+vi.mock('../../utils/authContext');
+vi.mock('../../config/apiConfig');
+// Vitest's ESM-based mocking (unlike Jest's CJS interop) needs the factory
+// to return the module's real export shape, not just the component itself.
+vi.mock('./AdminLogin', () => ({ default: () => <div data-testid="admin-login">AdminLogin</div> }));
+vi.mock('./UserSelector', () => ({ default: () => <div data-testid="user-selector">UserSelector</div> }));
 
 const setAuth = (overrides = {}) => {
   useAuth.mockReturnValue({

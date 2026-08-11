@@ -136,7 +136,7 @@ The **import override** (`docker-compose.import.yml`) skips the init script so t
 
 **Frontend can’t reach API**
 
-- Frontend is built with `REACT_APP_API_URL=http://localhost:3003/api`. You must use the app at **http://localhost:3000** (same host). If you use another host/port, rebuild the frontend image with the correct `REACT_APP_API_URL`.
+- Frontend is built with `VITE_API_URL=http://localhost:3003/api` (renamed from `REACT_APP_API_URL` in the 2026-08-11 Vite migration, see `docs/roadmap.md` item 18). You must use the app at **http://localhost:3000** (same host). If you use another host/port, rebuild the frontend image with the correct `VITE_API_URL`.
 
 **Re-build after code changes**
 

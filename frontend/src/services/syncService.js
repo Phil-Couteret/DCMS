@@ -76,7 +76,7 @@ class SyncService {
         this.isEnabled = false;
         
         // Only log warning in development mode, not in production
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           if (wasEnabled) {
             console.warn('[Sync] Lost connection to sync server:', e.message || e);
           } else {

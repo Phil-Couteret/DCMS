@@ -10,19 +10,19 @@ import { useAuth } from '../utils/authContext';
 // broken import, a prop mismatch, or a JSX slip introduced while moving
 // each section into its own file would fail here instead of only showing
 // up when a person happens to click that particular tab in the browser.
-jest.mock('../utils/authContext', () => ({
-  ...jest.requireActual('../utils/authContext'),
-  useAuth: jest.fn(),
+vi.mock('../utils/authContext', async () => ({
+  ...(await vi.importActual('../utils/authContext')),
+  useAuth: vi.fn(),
 }));
 
-jest.mock('../services/dataService', () => ({
+vi.mock('../services/dataService', () => ({
   __esModule: true,
   default: {
-    getAll: jest.fn().mockResolvedValue([]),
-    getById: jest.fn().mockResolvedValue(null),
-    create: jest.fn().mockResolvedValue({ id: 'new-id' }),
-    update: jest.fn().mockResolvedValue({}),
-    remove: jest.fn().mockResolvedValue({}),
+    getAll: vi.fn().mockResolvedValue([]),
+    getById: vi.fn().mockResolvedValue(null),
+    create: vi.fn().mockResolvedValue({ id: 'new-id' }),
+    update: vi.fn().mockResolvedValue({}),
+    remove: vi.fn().mockResolvedValue({}),
   },
 }));
 
@@ -80,7 +80,7 @@ describe('Settings page (Phase 5.2 tab split)', () => {
     });
     // TenantManagement.jsx (unchanged by this refactor) talks to httpClient
     // directly - stub fetch so it doesn't throw on mount.
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve([]),
     });

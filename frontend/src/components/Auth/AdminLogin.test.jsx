@@ -9,14 +9,14 @@ import realApiAdapter from '../../services/api/realApiAdapter';
 // Covers the Phase 4.6 login flow: a plain single-tenant login, plus the
 // "which center?" popup for accounts with 2+ tenants (memberships), which
 // is the part of the login screen this project added most recently.
-jest.mock('../../utils/authContext');
-jest.mock('../../services/api/httpClient');
-jest.mock('../../services/api/realApiAdapter');
-jest.mock('../../config/apiConfig', () => ({
+vi.mock('../../utils/authContext');
+vi.mock('../../services/api/httpClient');
+vi.mock('../../services/api/realApiAdapter');
+vi.mock('../../config/apiConfig', () => ({
   API_CONFIG: { baseURL: 'http://api.test' },
 }));
 
-const mockLogin = jest.fn();
+const mockLogin = vi.fn();
 
 function jsonResponse(body, ok = true, status = ok ? 200 : 400) {
   return Promise.resolve({
@@ -27,10 +27,10 @@ function jsonResponse(body, ok = true, status = ok ? 200 : 400) {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   useAuth.mockReturnValue({ login: mockLogin });
   realApiAdapter.transformResponse.mockImplementation((_resource, data) => data);
-  global.fetch = jest.fn();
+  global.fetch = vi.fn();
 });
 
 async function fillAndSubmit(user, username = 'alice', password = 'hunter2') {
@@ -53,7 +53,7 @@ describe('AdminLogin', () => {
     global.fetch.mockReturnValueOnce(
       jsonResponse({ access_token: 'jwt-1', user: { id: 'u1', username: 'alice', tenant_id: 't1' } }),
     );
-    const onSuccess = jest.fn();
+    const onSuccess = vi.fn();
     render(<AdminLogin onSuccess={onSuccess} />);
 
     await fillAndSubmit(user);

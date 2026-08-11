@@ -11,15 +11,15 @@ import BoatPrep from './BoatPrep';
 // This test mounts the real page, switches through all 3 tabs, and proves
 // each renders without throwing (which would surface any dropped prop as
 // a "used before assigned" / undefined-read crash).
-jest.mock('../services/dataService', () => ({
+vi.mock('../services/dataService', () => ({
   __esModule: true,
   default: {
-    getAll: jest.fn().mockResolvedValue([]),
-    getById: jest.fn().mockResolvedValue(null),
-    getAvailableEquipment: jest.fn().mockResolvedValue([]),
-    create: jest.fn().mockResolvedValue({ id: 'new-id' }),
-    update: jest.fn().mockResolvedValue({}),
-    remove: jest.fn().mockResolvedValue({}),
+    getAll: vi.fn().mockResolvedValue([]),
+    getById: vi.fn().mockResolvedValue(null),
+    getAvailableEquipment: vi.fn().mockResolvedValue([]),
+    create: vi.fn().mockResolvedValue({ id: 'new-id' }),
+    update: vi.fn().mockResolvedValue({}),
+    remove: vi.fn().mockResolvedValue({}),
   },
 }));
 
