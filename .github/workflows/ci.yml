@@ -49,7 +49,7 @@ jobs:
         with:
           node-version: '22'
 
-      - run: npm ci
+      - run: npm install
 
       - name: Prisma generate
         run: npx prisma generate
