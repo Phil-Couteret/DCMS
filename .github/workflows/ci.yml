@@ -117,3 +117,26 @@ jobs:
 
       - name: Dependency audit (fails only on critical - see docs/roadmap.md item 19; the react-scripts-era findings this gate used to carry accepted findings for, documented in item 1, are gone now that react-scripts itself is gone - the one remaining finding, `sharp`, is a devDependency used only by the standalone generate-icons script, never shipped, and predates this change)
         run: npm audit --audit-level=critical
+
+  backoffice:
+    name: Backoffice (staff tool)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backoffice
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backoffice/package-lock.json
+
+      - run: npm install
+
+      - name: Build
+        run: npx next build
+
+      - name: Dependency audit (fails only on critical)
+        run: npm audit --audit-level=critical
