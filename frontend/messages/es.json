@@ -55,5 +55,81 @@
       "fiveDives": "Bono de 5 inmersiones",
       "tenDives": "Bono de 10 inmersiones"
     }
+  },
+  "booking": {
+    "title": "Reserva tu inmersión",
+    "stepOf": "Paso {current} de {total}",
+    "steps": {
+      "activity": "Actividad",
+      "datetime": "Fecha y hora",
+      "details": "Tus datos",
+      "equipment": "Equipo",
+      "review": "Revisión"
+    },
+    "chooseActivity": "Elige una actividad",
+    "activityDescriptions": {
+      "snorkeling": "Explora el arrecife desde la superficie.",
+      "discoverScuba": "Tus primeras respiraciones bajo el agua, con un instructor.",
+      "funDive": "Una inmersión guiada para buceadores titulados.",
+      "openWater": "Tu primera titulación de buceo.",
+      "advanced": "Amplía tus habilidades con nuevos tipos de inmersión.",
+      "rescue": "Aprende a prevenir y gestionar problemas bajo el agua."
+    },
+    "date": "Fecha",
+    "timeSlot": "Horario",
+    "morning": "Mañana (8:00)",
+    "afternoon": "Tarde (14:00)",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "fields": {
+      "firstName": "Nombre",
+      "lastName": "Apellidos",
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "country": "País",
+      "certificationLevel": "Nivel de titulación"
+    },
+    "select": "Selecciona…",
+    "countries": {
+      "ES": "España",
+      "DE": "Alemania",
+      "GB": "Reino Unido",
+      "FR": "Francia",
+      "US": "Estados Unidos",
+      "Other": "Otro"
+    },
+    "certLevels": {
+      "none": "Ninguno",
+      "openWater": "Open Water",
+      "advanced": "Advanced",
+      "rescue": "Rescue",
+      "divemaster": "Divemaster",
+      "instructor": "Instructor"
+    },
+    "fullPackage": "Equipo completo (todo lo siguiente)",
+    "size": "Talla",
+    "shoeSize": "Número de calzado",
+    "activityPrice": "Actividad",
+    "equipmentPrice": "Equipo",
+    "fullPackageApplied": "precio de equipo completo",
+    "total": "Total",
+    "summary": "Resumen",
+    "noEquipment": "Ninguno",
+    "priceBreakdown": "Desglose del precio",
+    "paymentTitle": "Pago",
+    "paymentNote": "Pago seguro — nos pondremos en contacto contigo para confirmar tu reserva",
+    "confirm": "Confirmar reserva",
+    "sending": "Enviando…",
+    "errors": {
+      "noSlots": "No hay plazas disponibles para esta fecha y hora — elige otra, por favor",
+      "generic": "Algo ha salido mal — inténtalo de nuevo"
+    },
+    "success": {
+      "title": "Reserva recibida",
+      "reference": "Tu referencia de reserva",
+      "note": "Nos pondremos en contacto contigo en breve para confirmarla.",
+      "again": "Hacer otra reserva"
+    }
   }
 }

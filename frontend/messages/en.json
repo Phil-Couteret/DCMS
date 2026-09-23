@@ -55,5 +55,81 @@
       "fiveDives": "5-Dive Pack",
       "tenDives": "10-Dive Pack"
     }
+  },
+  "booking": {
+    "title": "Book Your Dive",
+    "stepOf": "Step {current} of {total}",
+    "steps": {
+      "activity": "Activity",
+      "datetime": "Date & time",
+      "details": "Your details",
+      "equipment": "Equipment",
+      "review": "Review"
+    },
+    "chooseActivity": "Choose an activity",
+    "activityDescriptions": {
+      "snorkeling": "Explore the reef from the surface.",
+      "discoverScuba": "Your first breaths underwater, with an instructor.",
+      "funDive": "A guided dive for certified divers.",
+      "openWater": "Your first diving certification.",
+      "advanced": "Build your skills with new types of dives.",
+      "rescue": "Learn to prevent and handle problems underwater."
+    },
+    "date": "Date",
+    "timeSlot": "Time",
+    "morning": "Morning (8:00 AM)",
+    "afternoon": "Afternoon (2:00 PM)",
+    "back": "Back",
+    "next": "Next",
+    "fields": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "country": "Country",
+      "certificationLevel": "Certification level"
+    },
+    "select": "Select…",
+    "countries": {
+      "ES": "Spain",
+      "DE": "Germany",
+      "GB": "United Kingdom",
+      "FR": "France",
+      "US": "United States",
+      "Other": "Other"
+    },
+    "certLevels": {
+      "none": "None",
+      "openWater": "Open Water",
+      "advanced": "Advanced",
+      "rescue": "Rescue",
+      "divemaster": "Divemaster",
+      "instructor": "Instructor"
+    },
+    "fullPackage": "Full package (all of the below)",
+    "size": "Size",
+    "shoeSize": "Shoe size",
+    "activityPrice": "Activity",
+    "equipmentPrice": "Equipment",
+    "fullPackageApplied": "full package price",
+    "total": "Total",
+    "summary": "Summary",
+    "noEquipment": "None",
+    "priceBreakdown": "Price breakdown",
+    "paymentTitle": "Payment",
+    "paymentNote": "Secure payment — you will be contacted to confirm your booking",
+    "confirm": "Confirm Booking",
+    "sending": "Sending…",
+    "errors": {
+      "noSlots": "No slots available for this date and time — please choose another",
+      "generic": "Something went wrong — please try again"
+    },
+    "success": {
+      "title": "Booking received",
+      "reference": "Your booking reference",
+      "note": "We will contact you shortly to confirm.",
+      "again": "Make another booking"
+    }
   }
 }

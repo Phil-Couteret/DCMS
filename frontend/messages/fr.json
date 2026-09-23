@@ -55,5 +55,81 @@
       "fiveDives": "Forfait 5 plongées",
       "tenDives": "Forfait 10 plongées"
     }
+  },
+  "booking": {
+    "title": "Réservez votre plongée",
+    "stepOf": "Étape {current} sur {total}",
+    "steps": {
+      "activity": "Activité",
+      "datetime": "Date et heure",
+      "details": "Vos coordonnées",
+      "equipment": "Matériel",
+      "review": "Récapitulatif"
+    },
+    "chooseActivity": "Choisissez une activité",
+    "activityDescriptions": {
+      "snorkeling": "Explorez le récif depuis la surface.",
+      "discoverScuba": "Vos premières respirations sous l'eau, avec un moniteur.",
+      "funDive": "Une plongée guidée pour plongeurs certifiés.",
+      "openWater": "Votre premier niveau de plongée.",
+      "advanced": "Développez vos compétences avec de nouveaux types de plongée.",
+      "rescue": "Apprenez à prévenir et gérer les incidents sous l'eau."
+    },
+    "date": "Date",
+    "timeSlot": "Horaire",
+    "morning": "Matin (8 h)",
+    "afternoon": "Après-midi (14 h)",
+    "back": "Retour",
+    "next": "Suivant",
+    "fields": {
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "name": "Nom",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "country": "Pays",
+      "certificationLevel": "Niveau de certification"
+    },
+    "select": "Sélectionnez…",
+    "countries": {
+      "ES": "Espagne",
+      "DE": "Allemagne",
+      "GB": "Royaume-Uni",
+      "FR": "France",
+      "US": "États-Unis",
+      "Other": "Autre"
+    },
+    "certLevels": {
+      "none": "Aucun",
+      "openWater": "Open Water",
+      "advanced": "Advanced",
+      "rescue": "Rescue",
+      "divemaster": "Divemaster",
+      "instructor": "Instructor"
+    },
+    "fullPackage": "Pack complet (tout le matériel ci-dessous)",
+    "size": "Taille",
+    "shoeSize": "Pointure",
+    "activityPrice": "Activité",
+    "equipmentPrice": "Matériel",
+    "fullPackageApplied": "tarif pack complet",
+    "total": "Total",
+    "summary": "Récapitulatif",
+    "noEquipment": "Aucun",
+    "priceBreakdown": "Détail du prix",
+    "paymentTitle": "Paiement",
+    "paymentNote": "Paiement sécurisé — nous vous contacterons pour confirmer votre réservation",
+    "confirm": "Confirmer la réservation",
+    "sending": "Envoi…",
+    "errors": {
+      "noSlots": "Aucune place disponible à cette date et cet horaire — veuillez en choisir un autre",
+      "generic": "Une erreur s'est produite — veuillez réessayer"
+    },
+    "success": {
+      "title": "Réservation reçue",
+      "reference": "Votre référence de réservation",
+      "note": "Nous vous contacterons rapidement pour la confirmer.",
+      "again": "Faire une autre réservation"
+    }
   }
 }

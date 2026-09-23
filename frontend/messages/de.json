@@ -55,5 +55,81 @@
       "fiveDives": "5er-Tauchpaket",
       "tenDives": "10er-Tauchpaket"
     }
+  },
+  "booking": {
+    "title": "Tauchgang buchen",
+    "stepOf": "Schritt {current} von {total}",
+    "steps": {
+      "activity": "Aktivität",
+      "datetime": "Datum & Uhrzeit",
+      "details": "Deine Daten",
+      "equipment": "Ausrüstung",
+      "review": "Überprüfen"
+    },
+    "chooseActivity": "Wähle eine Aktivität",
+    "activityDescriptions": {
+      "snorkeling": "Erkunde das Riff von der Oberfläche aus.",
+      "discoverScuba": "Deine ersten Atemzüge unter Wasser, mit einem Tauchlehrer.",
+      "funDive": "Ein geführter Tauchgang für brevetierte Taucher.",
+      "openWater": "Dein erstes Tauchbrevet.",
+      "advanced": "Erweitere deine Fähigkeiten mit neuen Tauchgangsarten.",
+      "rescue": "Lerne, Probleme unter Wasser zu vermeiden und zu bewältigen."
+    },
+    "date": "Datum",
+    "timeSlot": "Uhrzeit",
+    "morning": "Vormittag (8:00 Uhr)",
+    "afternoon": "Nachmittag (14:00 Uhr)",
+    "back": "Zurück",
+    "next": "Weiter",
+    "fields": {
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "name": "Name",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "country": "Land",
+      "certificationLevel": "Brevetstufe"
+    },
+    "select": "Bitte wählen…",
+    "countries": {
+      "ES": "Spanien",
+      "DE": "Deutschland",
+      "GB": "Vereinigtes Königreich",
+      "FR": "Frankreich",
+      "US": "Vereinigte Staaten",
+      "Other": "Anderes"
+    },
+    "certLevels": {
+      "none": "Keine",
+      "openWater": "Open Water",
+      "advanced": "Advanced",
+      "rescue": "Rescue",
+      "divemaster": "Divemaster",
+      "instructor": "Instructor"
+    },
+    "fullPackage": "Komplettpaket (alles Folgende)",
+    "size": "Größe",
+    "shoeSize": "Schuhgröße",
+    "activityPrice": "Aktivität",
+    "equipmentPrice": "Ausrüstung",
+    "fullPackageApplied": "Komplettpaketpreis",
+    "total": "Gesamt",
+    "summary": "Zusammenfassung",
+    "noEquipment": "Keine",
+    "priceBreakdown": "Preisaufstellung",
+    "paymentTitle": "Zahlung",
+    "paymentNote": "Sichere Zahlung — wir kontaktieren dich, um deine Buchung zu bestätigen",
+    "confirm": "Buchung bestätigen",
+    "sending": "Wird gesendet…",
+    "errors": {
+      "noSlots": "Für dieses Datum und diese Uhrzeit sind keine Plätze frei — bitte wähle einen anderen Termin",
+      "generic": "Etwas ist schiefgelaufen — bitte versuche es erneut"
+    },
+    "success": {
+      "title": "Buchung eingegangen",
+      "reference": "Deine Buchungsnummer",
+      "note": "Wir melden uns in Kürze, um sie zu bestätigen.",
+      "again": "Weitere Buchung vornehmen"
+    }
   }
 }
