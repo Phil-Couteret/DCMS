@@ -29,6 +29,7 @@ model User {
   name         String?
   role         Role     @default(CUSTOMER)
   customer     Customer?
+  staff        Staff?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -130,4 +131,55 @@ model Equipment {
   nextMaintenance DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+}
+
+enum StaffType {
+  GUIDE
+  TRAINER
+  CAPTAIN
+  ADMIN
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Staff {
+  id             String               @id @default(uuid())
+  userId         String               @unique
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName      String
+  lastName       String
+  phone          String
+  type           StaffType
+  status         StaffStatus          @default(ACTIVE)
+  hireDate       DateTime
+  qualifications StaffQualification[]
+  availability   StaffAvailability[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+model StaffQualification {
+  id         String    @id @default(uuid())
+  staffId    String
+  staff      Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type       String
+  agency     String
+  number     String
+  issueDate  DateTime
+  expiryDate DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model StaffAvailability {
+  id        String   @id @default(uuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date      DateTime
+  available Boolean  @default(true)
+  reason    String?
+
+  @@unique([staffId, date])
 }
