@@ -68,8 +68,26 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export function getBookings(filters: { status?: string; date?: string; boatId?: string } = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const query = params.size > 0 ? `?${params}` : "";
+  return apiFetch<Booking[]>(`/bookings${query}`);
+}
+
 export function getTodayBookings() {
-  return apiFetch<Booking[]>(`/bookings?date=${centerNow().isoDate}`);
+  return getBookings({ date: centerNow().isoDate });
+}
+
+export function getBooking(id: string) {
+  return apiFetch<Booking>(`/bookings/${id}`);
+}
+
+export function updateBookingStatus(id: string, status: BookingStatus) {
+  return apiFetch<Booking>(`/bookings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export function getBoats() {
@@ -81,8 +99,5 @@ export function getStaff() {
 }
 
 export function checkInBooking(id: string) {
-  return apiFetch<Booking>(`/bookings/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify({ status: "CONFIRMED" }),
-  });
+  return updateBookingStatus(id, "CONFIRMED");
 }
