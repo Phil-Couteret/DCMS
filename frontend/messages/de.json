@@ -8,5 +8,24 @@
   "hero": {
     "title": "Entdecke den Ozean",
     "subtitle": "Ganzjährig tauchen auf den Kanarischen Inseln"
+  },
+  "sites": {
+    "title": "Tauchplätze",
+    "filterLabel": "Deine Zertifizierung",
+    "depth": "Tiefe",
+    "current": "Strömung",
+    "marineLife": "Meeresleben",
+    "bookButton": "Diesen Platz buchen",
+    "certLevels": [
+      "Open Water",
+      "Advanced",
+      "Rescue",
+      "Divemaster",
+      "Instructor"
+    ],
+    "difficulty": "Schwierigkeit",
+    "all": "Alle",
+    "empty": "Für diese Zertifizierungsstufe gibt es keine Tauchplätze.",
+    "unavailable": "Die Tauchplätze sind gerade nicht verfügbar. Bitte versuche es später erneut."
   }
 }

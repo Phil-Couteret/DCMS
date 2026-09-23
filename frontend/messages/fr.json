@@ -8,5 +8,24 @@
   "hero": {
     "title": "Découvrez l'Océan",
     "subtitle": "Plongée toute l'année aux îles Canaries"
+  },
+  "sites": {
+    "title": "Sites de plongée",
+    "filterLabel": "Votre certification",
+    "depth": "Profondeur",
+    "current": "Courant",
+    "marineLife": "Faune marine",
+    "bookButton": "Réserver ce site",
+    "certLevels": [
+      "Open Water",
+      "Advanced",
+      "Rescue",
+      "Divemaster",
+      "Instructor"
+    ],
+    "difficulty": "Difficulté",
+    "all": "Tous",
+    "empty": "Aucun site de plongée ne correspond à ce niveau de certification.",
+    "unavailable": "Les sites de plongée sont indisponibles pour le moment. Veuillez réessayer plus tard."
   }
 }

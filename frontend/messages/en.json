@@ -8,5 +8,24 @@
   "hero": {
     "title": "Discover the Ocean",
     "subtitle": "Year-round diving in the Canary Islands"
+  },
+  "sites": {
+    "title": "Dive Sites",
+    "filterLabel": "Your certification",
+    "depth": "Depth",
+    "current": "Current",
+    "marineLife": "Marine life",
+    "bookButton": "Book This Site",
+    "certLevels": [
+      "Open Water",
+      "Advanced",
+      "Rescue",
+      "Divemaster",
+      "Instructor"
+    ],
+    "difficulty": "Difficulty",
+    "all": "All",
+    "empty": "No dive sites match this certification level.",
+    "unavailable": "Dive sites are unavailable right now. Please try again later."
   }
 }
