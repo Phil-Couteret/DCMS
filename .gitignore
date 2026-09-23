@@ -71,3 +71,4 @@ coverage/
 .npm-cache/
 .npmrc
 dcms-backend.tar
+*.tsbuildinfo
