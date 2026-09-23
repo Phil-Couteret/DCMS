@@ -66,3 +66,37 @@ model Boat {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
+
+model DiveSite {
+  id                String   @id @default(uuid())
+  nameEs            String
+  nameEn            String
+  nameDe            String
+  nameFr            String
+  descriptionEs     String   @db.Text
+  descriptionEn     String   @db.Text
+  descriptionDe     String   @db.Text
+  descriptionFr     String   @db.Text
+  latitude          Decimal  @db.Decimal(10, 7)
+  longitude         Decimal  @db.Decimal(10, 7)
+  depthMin          Int
+  depthMax          Int
+  requiredCertLevel Int
+  difficultyLevel   Int
+  typicalVisibility Int?
+  typicalCurrent    String   @default("none")
+  waterTempRange    Json
+  marineLife        Json
+  pointsOfInterest  Json
+  bestSeason        Json
+  travelTimeMinutes Int
+  maxDiversPerTrip  Int
+  accessibility     String   @default("boat_only")
+  facilities        Json
+  restrictions      Json?
+  photos            Json     @default("[]")
+  totalDives        Int      @default(0)
+  averageRating     Decimal? @db.Decimal(3, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

@@ -5,6 +5,7 @@ import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BoatsModule } from './boats/boats.module.js';
 import { CustomersModule } from './customers/customers.module.js';
+import { DiveSitesModule } from './dive-sites/dive-sites.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -16,6 +17,7 @@ import { UsersModule } from './users/users.module.js';
     AuthModule,
     CustomersModule,
     BoatsModule,
+    DiveSitesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
