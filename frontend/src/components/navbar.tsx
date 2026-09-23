@@ -1,6 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { routing } from "@/i18n/routing";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 const NAV_ITEMS = [
   { key: "home", href: "/" },
@@ -25,25 +25,7 @@ export async function Navbar({ className = "" }: { className?: string }) {
     </Link>
   ));
 
-  const languageSwitcher = (
-    <div className="flex gap-1">
-      {routing.locales.map((l) => (
-        <Link
-          key={l}
-          href="/"
-          locale={l}
-          aria-current={l === locale ? "true" : undefined}
-          className={`rounded px-2 py-1 text-xs font-semibold uppercase transition-colors ${
-            l === locale
-              ? "bg-white text-blue-900"
-              : "text-white/80 hover:bg-white/15 hover:text-white"
-          }`}
-        >
-          {l}
-        </Link>
-      ))}
-    </div>
-  );
+  const languageSwitcher = <LanguageSwitcher current={locale} />;
 
   return (
     <header className={`w-full ${className}`}>

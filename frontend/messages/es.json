@@ -27,5 +27,33 @@
     "all": "Todos",
     "empty": "Ningún sitio de buceo coincide con este nivel de certificación.",
     "unavailable": "Los sitios de buceo no están disponibles en este momento. Inténtalo de nuevo más tarde."
+  },
+  "pricing": {
+    "title": "Precios",
+    "activities": "Actividades",
+    "equipment": "Alquiler de equipo",
+    "packages": "Bonos de inmersiones",
+    "perDive": "{amount} por inmersión",
+    "save": "Ahorra {amount}",
+    "bookNow": "Reservar",
+    "item": "Artículo",
+    "price": "Precio",
+    "items": {
+      "snorkeling": "Snorkel",
+      "discoverScuba": "Bautismo de buceo",
+      "funDive": "Inmersión recreativa",
+      "openWater": "Curso Open Water",
+      "advanced": "Curso Advanced",
+      "rescue": "Curso Rescue",
+      "wetsuit": "Traje de neopreno",
+      "bcd": "Chaleco (BCD)",
+      "regulator": "Regulador",
+      "maskFins": "Máscara + aletas",
+      "computer": "Ordenador de buceo",
+      "fullPackage": "Equipo completo",
+      "fullPackageNote": "Todo lo anterior",
+      "fiveDives": "Bono de 5 inmersiones",
+      "tenDives": "Bono de 10 inmersiones"
+    }
   }
 }

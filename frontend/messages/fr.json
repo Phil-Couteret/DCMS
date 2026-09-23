@@ -27,5 +27,33 @@
     "all": "Tous",
     "empty": "Aucun site de plongée ne correspond à ce niveau de certification.",
     "unavailable": "Les sites de plongée sont indisponibles pour le moment. Veuillez réessayer plus tard."
+  },
+  "pricing": {
+    "title": "Tarifs",
+    "activities": "Activités",
+    "equipment": "Location de matériel",
+    "packages": "Forfaits plongée",
+    "perDive": "{amount} par plongée",
+    "save": "Économisez {amount}",
+    "bookNow": "Réserver",
+    "item": "Article",
+    "price": "Prix",
+    "items": {
+      "snorkeling": "Randonnée palmée",
+      "discoverScuba": "Baptême de plongée",
+      "funDive": "Plongée exploration",
+      "openWater": "Cours Open Water",
+      "advanced": "Cours Advanced",
+      "rescue": "Cours Rescue",
+      "wetsuit": "Combinaison",
+      "bcd": "Gilet stabilisateur (BCD)",
+      "regulator": "Détendeur",
+      "maskFins": "Masque + palmes",
+      "computer": "Ordinateur de plongée",
+      "fullPackage": "Pack complet",
+      "fullPackageNote": "Tout le matériel ci-dessus",
+      "fiveDives": "Forfait 5 plongées",
+      "tenDives": "Forfait 10 plongées"
+    }
   }
 }

@@ -27,5 +27,33 @@
     "all": "Alle",
     "empty": "Für diese Zertifizierungsstufe gibt es keine Tauchplätze.",
     "unavailable": "Die Tauchplätze sind gerade nicht verfügbar. Bitte versuche es später erneut."
+  },
+  "pricing": {
+    "title": "Preise",
+    "activities": "Aktivitäten",
+    "equipment": "Ausrüstungsverleih",
+    "packages": "Tauchpakete",
+    "perDive": "{amount} pro Tauchgang",
+    "save": "{amount} sparen",
+    "bookNow": "Jetzt buchen",
+    "item": "Artikel",
+    "price": "Preis",
+    "items": {
+      "snorkeling": "Schnorcheln",
+      "discoverScuba": "Schnuppertauchen",
+      "funDive": "Geführter Tauchgang",
+      "openWater": "Open-Water-Kurs",
+      "advanced": "Advanced-Kurs",
+      "rescue": "Rescue-Kurs",
+      "wetsuit": "Neoprenanzug",
+      "bcd": "Tarierweste (BCD)",
+      "regulator": "Atemregler",
+      "maskFins": "Maske + Flossen",
+      "computer": "Tauchcomputer",
+      "fullPackage": "Komplettpaket",
+      "fullPackageNote": "Alles oben Genannte",
+      "fiveDives": "5er-Tauchpaket",
+      "tenDives": "10er-Tauchpaket"
+    }
   }
 }

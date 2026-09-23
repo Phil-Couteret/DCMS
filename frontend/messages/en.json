@@ -27,5 +27,33 @@
     "all": "All",
     "empty": "No dive sites match this certification level.",
     "unavailable": "Dive sites are unavailable right now. Please try again later."
+  },
+  "pricing": {
+    "title": "Pricing",
+    "activities": "Activities",
+    "equipment": "Equipment Rental",
+    "packages": "Dive Packages",
+    "perDive": "{amount} per dive",
+    "save": "Save {amount}",
+    "bookNow": "Book Now",
+    "item": "Item",
+    "price": "Price",
+    "items": {
+      "snorkeling": "Snorkeling",
+      "discoverScuba": "Discover Scuba",
+      "funDive": "Fun Dive",
+      "openWater": "Open Water Course",
+      "advanced": "Advanced Course",
+      "rescue": "Rescue Course",
+      "wetsuit": "Wetsuit",
+      "bcd": "BCD",
+      "regulator": "Regulator",
+      "maskFins": "Mask + Fins",
+      "computer": "Dive Computer",
+      "fullPackage": "Full Package",
+      "fullPackageNote": "All of the above",
+      "fiveDives": "5-Dive Pack",
+      "tenDives": "10-Dive Pack"
+    }
   }
 }
