@@ -130,6 +130,7 @@
       "reference": "Tu referencia de reserva",
       "note": "Nos pondremos en contacto contigo en breve para confirmarla.",
       "again": "Hacer otra reserva"
-    }
+    },
+    "rateLimited": "Demasiados intentos de reserva — espera una hora y vuelve a intentarlo"
   }
 }

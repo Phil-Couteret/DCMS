@@ -130,6 +130,7 @@
       "reference": "Deine Buchungsnummer",
       "note": "Wir melden uns in Kürze, um sie zu bestätigen.",
       "again": "Weitere Buchung vornehmen"
-    }
+    },
+    "rateLimited": "Zu viele Buchungsversuche — bitte warte eine Stunde und versuche es dann erneut"
   }
 }

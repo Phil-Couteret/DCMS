@@ -130,6 +130,7 @@
       "reference": "Votre référence de réservation",
       "note": "Nous vous contacterons rapidement pour la confirmer.",
       "again": "Faire une autre réservation"
-    }
+    },
+    "rateLimited": "Trop de tentatives de réservation — veuillez patienter une heure avant de réessayer"
   }
 }

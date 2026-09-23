@@ -386,7 +386,7 @@ function StepReview({ onDone }: { onDone: (reference: string) => void }) {
   const format = useFormatter();
   const state = useBookingStore();
   const activity = selectedActivity(state.activityType);
-  const [status, setStatus] = useState<'idle' | 'sending' | 'noSlots' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'noSlots' | 'rateLimited' | 'error'>('idle');
 
   if (!activity || !state.timeSlot) return null;
 
@@ -406,6 +406,7 @@ function StepReview({ onDone }: { onDone: (reference: string) => void }) {
       country: state.customer.country,
       language: locale,
       activityType: activity.type,
+      ...(state.siteId && { siteId: state.siteId }),
       timeSlot: state.timeSlot!,
       date: state.date,
       participantCount: 1,
@@ -414,7 +415,7 @@ function StepReview({ onDone }: { onDone: (reference: string) => void }) {
       totalPrice: activity.price + kit,
     });
     if (result.ok) return onDone(result.reference);
-    setStatus(result.status === 409 ? 'noSlots' : 'error');
+    setStatus(result.status === 409 ? 'noSlots' : result.status === 429 ? 'rateLimited' : 'error');
   };
 
   const row = (label: string, value: ReactNode) => (
@@ -463,9 +464,13 @@ function StepReview({ onDone }: { onDone: (reference: string) => void }) {
         <p className="mt-1 text-sm text-slate-600">{t('paymentNote')}</p>
       </div>
 
-      {(status === 'noSlots' || status === 'error') && (
+      {(status === 'noSlots' || status === 'rateLimited' || status === 'error') && (
         <p role="alert" className="mt-6 rounded-lg bg-rose-50 p-4 text-sm text-rose-900 ring-1 ring-rose-200">
-          {status === 'noSlots' ? t('errors.noSlots') : t('errors.generic')}
+          {status === 'noSlots'
+            ? t('errors.noSlots')
+            : status === 'rateLimited'
+              ? t('rateLimited')
+              : t('errors.generic')}
         </p>
       )}
 
@@ -498,11 +503,23 @@ function Confirmation({ reference, onRestart }: { reference: string; onRestart: 
   );
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function BookingFlow() {
   const t = useTranslations('booking');
   const step = useBookingStore((s) => s.step);
   const reset = useBookingStore((s) => s.reset);
+  const setSiteId = useBookingStore((s) => s.setSiteId);
   const [reference, setReference] = useState<string | null>(null);
+
+  // Read on mount rather than through useSearchParams so the page stays
+  // statically rendered. Set every time, so a site from an earlier visit is
+  // cleared when the page is opened without one. Anything that is not a UUID
+  // is ignored rather than sent, since the API would reject it.
+  useEffect(() => {
+    const site = new URLSearchParams(window.location.search).get('site');
+    setSiteId(site && UUID.test(site) ? site : null);
+  }, [setSiteId]);
 
   const onDone = (ref: string) => {
     setReference(ref);

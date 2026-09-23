@@ -130,6 +130,7 @@
       "reference": "Your booking reference",
       "note": "We will contact you shortly to confirm.",
       "again": "Make another booking"
-    }
+    },
+    "rateLimited": "Too many booking attempts — please wait an hour and try again"
   }
 }

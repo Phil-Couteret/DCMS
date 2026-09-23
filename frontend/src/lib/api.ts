@@ -43,6 +43,7 @@ export interface GuestBookingRequest {
   country: string;
   language: string;
   activityType: string;
+  siteId?: string;
   timeSlot: string;
   date: string;
   participantCount: number;
