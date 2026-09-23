@@ -4,10 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
-import { BookingStatus, TimeSlot } from '../generated/prisma/enums.js';
+import { BookingSource, BookingStatus, Role, TimeSlot } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
+import { GuestBookingDto } from './dto/guest-booking.dto.js';
 import { UpdateBookingDto } from './dto/update-booking.dto.js';
 
 // Statuses that hold seats on the boat. CANCELLED and NO_SHOW free theirs.
@@ -102,6 +104,68 @@ export class BookingsService {
     }
   }
 
+  // Public booking without an account. Finds or creates the user and customer
+  // by email, then books the first active boat with room in that slot.
+  async createGuest(dto: GuestBookingDto) {
+    const date = startOfUtcDay(dto.date);
+    const email = dto.email.toLowerCase();
+    const booking = await this.prisma.$transaction(async (tx) => {
+      const user =
+        (await tx.user.findUnique({ where: { email }, select: { id: true } })) ??
+        // randomUUID is not a bcrypt hash, so no password can ever match it:
+        // the account exists for the booking and cannot be signed in to.
+        (await tx.user.create({
+          data: { email, passwordHash: randomUUID(), role: Role.CUSTOMER },
+          select: { id: true },
+        }));
+
+      // An existing customer's details are left untouched: this route is
+      // public, and anyone who knows an email address must not be able to
+      // rewrite that customer's name or phone.
+      const customer =
+        (await tx.customer.findUnique({ where: { userId: user.id }, select: { id: true } })) ??
+        (await tx.customer.create({
+          data: {
+            userId: user.id,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            phone: dto.phone,
+            country: dto.country,
+            language: dto.language,
+          },
+          select: { id: true },
+        }));
+
+      const boatId = await firstBoatWithRoom(tx, {
+        date,
+        timeSlot: dto.timeSlot,
+        participantCount: dto.participantCount,
+      });
+
+      return tx.booking.create({
+        data: {
+          customerId: customer.id,
+          boatId,
+          siteId: null,
+          activityType: dto.activityType,
+          date,
+          timeSlot: dto.timeSlot,
+          participantCount: dto.participantCount,
+          status: BookingStatus.PENDING,
+          bookingSource: BookingSource.DIRECT,
+          notes: JSON.stringify({
+            certificationLevel: dto.certificationLevel ?? null,
+            selectedEquipment: dto.selectedEquipment ?? [],
+            totalPrice: dto.totalPrice ?? null,
+          }),
+        },
+        select: { id: true },
+      });
+    });
+    // No invoice exists yet, so the booking id doubles as the reference.
+    return { bookingId: booking.id, reference: booking.id };
+  }
+
   async cancel(id: string) {
     await this.findOne(id);
     return this.prisma.booking.update({
@@ -134,8 +198,7 @@ async function lockBoat(tx: Tx, boatId: string) {
   return rows[0].capacity;
 }
 
-async function assertSeats(tx: Tx, slot: Slot, excludeBookingId?: string) {
-  const capacity = await lockBoat(tx, slot.boatId);
+async function seatsBooked(tx: Tx, slot: Omit<Slot, 'participantCount'>, excludeBookingId?: string) {
   const taken = await tx.booking.aggregate({
     _sum: { participantCount: true },
     where: {
@@ -146,13 +209,35 @@ async function assertSeats(tx: Tx, slot: Slot, excludeBookingId?: string) {
       ...(excludeBookingId && { id: { not: excludeBookingId } }),
     },
   });
-  const booked = taken._sum.participantCount ?? 0;
+  return taken._sum.participantCount ?? 0;
+}
+
+async function assertSeats(tx: Tx, slot: Slot, excludeBookingId?: string) {
+  const capacity = await lockBoat(tx, slot.boatId);
+  const booked = await seatsBooked(tx, slot, excludeBookingId);
   if (booked + slot.participantCount > capacity) {
     throw new ConflictException(
       `Boat capacity exceeded: ${booked} of ${capacity} seats already booked, ` +
         `${slot.participantCount} requested`,
     );
   }
+}
+
+// Tries active boats in a fixed order (by id, so concurrent requests lock them
+// in the same order and cannot deadlock) and returns the first with room.
+// Each boat is locked before its seats are counted, as in assertSeats.
+async function firstBoatWithRoom(tx: Tx, slot: Omit<Slot, 'boatId'>) {
+  const boats = await tx.boat.findMany({
+    where: { status: 'active' },
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  });
+  for (const { id } of boats) {
+    const capacity = await lockBoat(tx, id);
+    const booked = await seatsBooked(tx, { ...slot, boatId: id });
+    if (booked + slot.participantCount <= capacity) return id;
+  }
+  throw new ConflictException('No available boats for this slot');
 }
 
 function startOfUtcDay(value: string) {
