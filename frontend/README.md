@@ -1,148 +1,36 @@
-# DCMS Frontend - React PWA
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-**Status:** In Development  
-**Framework:** React 18 + Material-UI  
-**Type:** Progressive Web App (PWA)
+## Getting Started
 
----
+First, run the development server:
 
-## 🚀 Quick Start
-
-### **Installation:**
 ```bash
-cd frontend
-npm install
-npm start
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-App will open at `http://localhost:3000`
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
----
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## 📋 Features Implemented
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### ✅ **Completed:**
-- Project setup (React + PWA)
-- Routing structure
-- Material-UI theme
-- Basic layout structure
+## Learn More
 
-### 🚧 **In Progress:**
-- Mock data services
-- Booking components
-- Customer management
-- Equipment tracking
-- Dashboard
-- PWA offline mode
+To learn more about Next.js, take a look at the following resources:
 
-### 📝 **To Do:**
-- Volume discount calculator
-- Government bono system
-- Multilingual support
-- Offline storage
-- Service worker
-- Full component implementation
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
----
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## 📁 Project Structure
+## Deploy on Vercel
 
-```
-frontend/
-├── public/
-│   ├── manifest.json          # PWA manifest
-│   └── service-worker.js      # PWA worker
-├── src/
-│   ├── components/            # React components
-│   │   ├── Common/           # Shared components
-│   │   ├── Booking/          # Booking components
-│   │   ├── Customer/         # Customer components
-│   │   └── Equipment/        # Equipment components
-│   ├── pages/                 # Page components
-│   ├── data/                  # Mock data
-│   ├── services/              # API/mock services
-│   ├── utils/                 # Utilities
-│   ├── App.jsx                # Main app component
-│   └── index.js              # Entry point
-└── package.json
-```
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
----
-
-## 🎯 Features to Build
-
-### **1. Booking Management**
-- Create/Edit/Delete bookings
-- Volume discount calculator (1-2, 3-5, 6-8, 9+)
-- Night dive addon (+€20)
-- Personal instructor (+€100)
-- Government bono discounts
-- Cross-period stay pricing
-
-### **2. Customer Management**
-- Add/Edit customers
-- Certification tracking
-- Medical conditions
-- Booking history
-
-### **3. Equipment Tracking**
-- Equipment list
-- Availability checking
-- Assignment tracking
-
-### **4. Dashboard**
-- Today's bookings
-- Revenue summary
-- Booking statistics
-- Equipment usage
-
-### **5. PWA Features**
-- Offline mode
-- Local storage
-- Installable as app
-- Service worker
-
----
-
-## 📊 Technology Stack
-
-- **React** 18.2
-- **Material-UI** 5.15 (MUI)
-- **React Router** 6.20
-- **date-fns** (date formatting)
-- **LocalStorage** (data persistence)
-- **Service Worker** (PWA offline)
-
----
-
-## 🚀 Development Status
-
-**Phase 1: Setup** ✅ Complete
-- Project structure
-- Dependencies
-- PWA configuration
-- Routing
-
-**Phase 2: Mock Data** 📝 Next
-- Booking mock data
-- Customer mock data
-- Equipment mock data
-- Service layer
-
-**Phase 3: Components** 📝 Next
-- Booking components
-- Customer components
-- Equipment components
-- Dashboard
-
-**Phase 4: PWA** 📝 Next
-- Service worker
-- Offline mode
-- Local storage
-- Install functionality
-
----
-
-**Total Progress:** 15%  
-**Next Milestone:** Complete mock data and services (Week 1)
-
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

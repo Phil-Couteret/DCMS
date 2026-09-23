@@ -1,0 +1,98 @@
+import { NestFactory } from '@nestjs/core';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger as PinoLogger } from 'nestjs-pino';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
+import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+
+const logger = new Logger('Bootstrap');
+
+async function bootstrap() {
+  // bufferLogs holds Nest's own startup log lines (module init, route
+  // mapping, etc.) until the pino logger below is wired up via
+  // useLogger(), instead of losing them to the default console logger for
+  // the brief window before that call.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+
+  // Phase 6.9 (roadmap item 9): route every Logger call in the app -
+  // framework-internal and every `new Logger(ctx)` in application code -
+  // through the structured JSON logger configured in app.module.ts.
+  app.useLogger(app.get(PinoLogger));
+
+  // Security headers (CSP left at helmet's default-off here since the
+  // Swagger UI served from this same app needs inline scripts/styles;
+  // revisit if Swagger is ever split onto its own origin).
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
+
+  // Enable CORS - allow connections from localhost, local network, and production
+  const localNetworkIP = process.env.LOCAL_NETWORK_IP || '192.168.18.254';
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    : [];
+  app.enableCors({
+    origin: [
+      ...corsOrigins,
+      'http://localhost:3000',
+      'http://localhost:3001',
+      `http://${localNetworkIP}:3000`,
+      `http://${localNetworkIP}:3001`, // Admin portal from network
+      // Production: admin, dcms, api and multi-tenant subdomains (*.admin, *.dcms, *.api)
+      /^https?:\/\/([a-z0-9-]+\.)*(admin|dcms|api)\.couteret\.fr(:\d+)?$/,
+      /^https?:\/\/couteret\.fr(:\d+)?$/,
+      // Allow any origin on local network (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+      /^http:\/\/192\.168\.\d+\.\d+:\d+$/,
+      /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,
+      /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$/,
+    ],
+    credentials: true,
+  });
+
+  // Global exception filter to catch and log all errors
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      disableErrorMessages: false,
+    }),
+  );
+
+  // API prefix
+  app.setGlobalPrefix('api');
+
+  // Swagger documentation
+  const config = new DocumentBuilder()
+    .setTitle('DCMS API')
+    .setDescription('Dive Center Management System API Documentation')
+    .setVersion('1.0')
+    .addTag('bookings')
+    .addTag('customers')
+    .addTag('equipment')
+    .addTag('consents')
+    .addTag('audit')
+    .addTag('dsar')
+    .addTag('breaches')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+
+  const port = process.env.PORT || 3003;
+  await app.listen(port, '0.0.0.0'); // Listen on all network interfaces
+  const localIP = process.env.LOCAL_NETWORK_IP || '192.168.18.254';
+  logger.log(`🚀 DCMS Backend API is running on:`);
+  logger.log(`   Local:   http://localhost:${port}`);
+  logger.log(`   Network: http://${localIP}:${port}`);
+  logger.log(`📚 Swagger documentation: http://localhost:${port}/api`);
+}
+
+bootstrap();
+

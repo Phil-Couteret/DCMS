@@ -1,52 +1,55 @@
-import { IsDateString, IsEmail, IsEnum, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
-import { customer_type } from '@prisma/client';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
+import { Language } from '../../generated/prisma/enums.js';
 
 export class CreateCustomerDto {
+  @IsUUID()
+  userId: string;
+
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   firstName: string;
 
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   lastName: string;
-
-  @IsOptional()
-  @IsEmail()
-  email?: string;
 
   @IsOptional()
   @IsString()
   phone?: string;
 
+  @IsString()
+  @IsNotEmpty()
+  country: string;
+
+  @IsOptional()
+  @IsEnum(Language)
+  language?: Language;
+
   @IsOptional()
   @IsDateString()
-  dob?: string;
-
-  @IsOptional()
-  @IsString()
-  nationality?: string;
+  birthdate?: string;
 
   @IsOptional()
   @IsObject()
-  address?: any;
+  emergencyContact?: Record<string, unknown>;
 
   @IsOptional()
-  @IsEnum(customer_type)
-  customerType?: customer_type;
+  @IsInt()
+  @Min(0)
+  loyaltyPoints?: number;
 
   @IsOptional()
-  @IsObject()
-  preferences?: any;
-
-  @IsOptional()
-  @IsObject()
-  medicalConditions?: any;
-
-  @IsOptional()
-  @IsObject()
-  restrictions?: any;
-
-  @IsOptional()
-  @IsString()
-  notes?: string;
+  @IsInt()
+  @Min(0)
+  totalDives?: number;
 }

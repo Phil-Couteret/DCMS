@@ -1,23 +1,41 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-
-export interface AdminJwtPayload {
-  sub: string;
-  username: string;
-  tenantId: string | null;
-  role: string;
-  permissions: string[];
-}
+import bcrypt from 'bcrypt';
+import { UsersService } from '../users/users.service.js';
+import { LoginDto } from './dto/login.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
 
 @Injectable()
 export class AuthService {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly jwt: JwtService,
+  ) {}
 
-  signAdminToken(payload: AdminJwtPayload): string {
-    return this.jwtService.sign(payload, { expiresIn: '7d' });
+  async register(dto: RegisterDto) {
+    const email = dto.email.toLowerCase();
+    if (await this.users.findByEmail(email)) {
+      throw new ConflictException('Email already registered');
+    }
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const user = await this.users.create({ email, passwordHash, name: dto.name });
+    return { user, accessToken: await this.sign(user) };
   }
 
-  verifyAdminToken(token: string): AdminJwtPayload {
-    return this.jwtService.verify<AdminJwtPayload>(token);
+  async login(dto: LoginDto) {
+    const user = await this.users.findByEmail(dto.email.toLowerCase());
+    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const { passwordHash: _, ...safe } = user;
+    return { user: safe, accessToken: await this.sign(user) };
+  }
+
+  private sign(user: { id: string; email: string; role: string }) {
+    return this.jwt.signAsync({ sub: user.id, email: user.email, role: user.role });
   }
 }

@@ -1,77 +1,52 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Param,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseEnumPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
-  HttpCode,
-  HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
-import { CustomersService, CreateCustomerDto, UpdateCustomerDto } from './customers.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { Language } from '../generated/prisma/enums.js';
+import { CustomersService } from './customers.service.js';
+import { CreateCustomerDto } from './dto/create-customer.dto.js';
+import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 
-@ApiTags('customers')
 @Controller('customers')
+@UseGuards(JwtAuthGuard)
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(private readonly customers: CustomersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all active customers' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search term' })
-  @ApiResponse({ status: 200, description: 'List of customers' })
-  async findAll(@Query('search') search?: string) {
-    if (search) {
-      return this.customersService.search(search);
-    }
-    return this.customersService.findAll();
-  }
-
-  @Get('email/:email')
-  @ApiOperation({ summary: 'Get customer by email' })
-  @ApiParam({ name: 'email', description: 'Customer email' })
-  @ApiResponse({ status: 200, description: 'Customer found' })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async findByEmail(@Param('email') email: string) {
-    return this.customersService.findByEmail(email);
+  findAll(
+    @Query('country') country?: string,
+    @Query('language', new ParseEnumPipe(Language, { optional: true })) language?: Language,
+  ) {
+    return this.customers.findAll({ country, language });
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a customer by ID' })
-  @ApiParam({ name: 'id', description: 'Customer UUID' })
-  @ApiResponse({ status: 200, description: 'Customer found' })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async findOne(@Param('id') id: string) {
-    return this.customersService.findOne(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.customers.findOne(id);
   }
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new customer' })
-  @ApiResponse({ status: 201, description: 'Customer created' })
-  async create(@Body() createCustomerDto: CreateCustomerDto) {
-    return this.customersService.create(createCustomerDto);
+  create(@Body() dto: CreateCustomerDto) {
+    return this.customers.create(dto);
   }
 
-  @Put(':id')
-  @ApiOperation({ summary: 'Update a customer' })
-  @ApiParam({ name: 'id', description: 'Customer UUID' })
-  @ApiResponse({ status: 200, description: 'Customer updated' })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async update(@Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
-    return this.customersService.update(id, updateCustomerDto);
+  @Patch(':id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCustomerDto) {
+    return this.customers.update(id, dto);
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a customer (soft delete)' })
-  @ApiParam({ name: 'id', description: 'Customer UUID' })
-  @ApiResponse({ status: 200, description: 'Customer deleted' })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async remove(@Param('id') id: string) {
-    return this.customersService.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.customers.remove(id);
   }
 }
-
