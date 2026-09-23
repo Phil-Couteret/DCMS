@@ -4,6 +4,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BoatsModule } from './boats/boats.module.js';
+import { BookingsModule } from './bookings/bookings.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DiveSitesModule } from './dive-sites/dive-sites.module.js';
 import { EquipmentModule } from './equipment/equipment.module.js';
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module.js';
     DiveSitesModule,
     EquipmentModule,
     StaffModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

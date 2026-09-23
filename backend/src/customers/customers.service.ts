@@ -49,7 +49,14 @@ export class CustomersService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.customer.delete({ where: { id } });
+    try {
+      return await this.prisma.customer.delete({ where: { id } });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
+        throw new ConflictException('This customer has bookings and cannot be deleted');
+      }
+      throw e;
+    }
   }
 }
 

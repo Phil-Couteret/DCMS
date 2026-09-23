@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateBoatDto } from './dto/create-boat.dto.js';
@@ -32,7 +32,14 @@ export class BoatsService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.boat.delete({ where: { id } });
+    try {
+      return await this.prisma.boat.delete({ where: { id } });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
+        throw new ConflictException('This boat has bookings and cannot be deleted');
+      }
+      throw e;
+    }
   }
 }
 

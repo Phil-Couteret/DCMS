@@ -47,6 +47,7 @@ model Customer {
   emergencyContact Json?
   loyaltyPoints    Int       @default(0)
   totalDives       Int       @default(0)
+  bookings         Booking[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -64,6 +65,7 @@ model Boat {
   insuranceExpiry    DateTime?
   lastServiceDate    DateTime?
   nextServiceDate    DateTime?
+  bookings           Booking[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
@@ -98,6 +100,7 @@ model DiveSite {
   photos            Json     @default("[]")
   totalDives        Int      @default(0)
   averageRating     Decimal? @db.Decimal(3, 2)
+  bookings          Booking[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -182,4 +185,57 @@ model StaffAvailability {
   reason    String?
 
   @@unique([staffId, date])
+}
+
+enum ActivityType {
+  SNORKELING
+  DISCOVER_SCUBA
+  FUN_DIVE
+  OW_CERT
+  AOW_CERT
+  RESCUE_CERT
+  DM_CERT
+}
+
+enum TimeSlot {
+  MORNING
+  AFTERNOON
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookingSource {
+  DIRECT
+  WALK_IN
+  PARTNER
+}
+
+model Booking {
+  id               String        @id @default(uuid())
+  customerId       String
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  boatId           String
+  boat             Boat          @relation(fields: [boatId], references: [id], onDelete: Restrict)
+  siteId           String?
+  site             DiveSite?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  activityType     ActivityType
+  date             DateTime
+  timeSlot         TimeSlot
+  status           BookingStatus @default(PENDING)
+  participantCount Int
+  bookingSource    BookingSource @default(DIRECT)
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([boatId, date])
+  @@index([customerId])
+  @@index([status])
+  @@index([date, timeSlot])
 }
