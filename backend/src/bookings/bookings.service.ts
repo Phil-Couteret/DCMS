@@ -110,6 +110,11 @@ export class BookingsService {
     const date = startOfUtcDay(dto.date);
     const email = dto.email.toLowerCase();
     const booking = await this.prisma.$transaction(async (tx) => {
+      if (dto.siteId) {
+        const site = await tx.diveSite.findUnique({ where: { id: dto.siteId }, select: { id: true } });
+        if (!site) throw new NotFoundException(`Dive site ${dto.siteId} not found`);
+      }
+
       const user =
         (await tx.user.findUnique({ where: { email }, select: { id: true } })) ??
         // randomUUID is not a bcrypt hash, so no password can ever match it:
@@ -146,7 +151,7 @@ export class BookingsService {
         data: {
           customerId: customer.id,
           boatId,
-          siteId: null,
+          siteId: dto.siteId ?? null,
           activityType: dto.activityType,
           date,
           timeSlot: dto.timeSlot,

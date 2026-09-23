@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -48,6 +49,11 @@ export class GuestBookingDto {
 
   @IsEnum(ActivityType)
   activityType: ActivityType;
+
+  // Must be an existing dive site when given.
+  @IsOptional()
+  @IsUUID()
+  siteId?: string;
 
   @IsEnum(TimeSlot)
   timeSlot: TimeSlot;
