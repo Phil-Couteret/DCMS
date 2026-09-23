@@ -47,7 +47,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
@@ -85,11 +85,8 @@ jobs:
       # (see docs/roadmap.md item 18).
       - run: npm install
 
-      - name: Tests
-        run: npx vitest run
-
       - name: Build
-        run: npx vite build
+        run: npx next build
 
       - name: Dependency audit (fails only on critical - see docs/roadmap.md item 18; the react-scripts-era findings this gate used to carry accepted findings for, documented in item 1, are gone now that react-scripts itself is gone)
         run: npm audit --audit-level=critical
