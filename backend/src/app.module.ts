@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { BoatsModule } from './boats/boats.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { CustomersModule } from './customers/customers.module.js';
+import { DiveLogsModule } from './dive-logs/dive-logs.module.js';
 import { DiveSitesModule } from './dive-sites/dive-sites.module.js';
 import { EquipmentModule } from './equipment/equipment.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module.js';
     EquipmentModule,
     StaffModule,
     BookingsModule,
+    DiveLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

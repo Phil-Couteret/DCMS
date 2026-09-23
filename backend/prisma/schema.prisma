@@ -48,6 +48,7 @@ model Customer {
   loyaltyPoints    Int       @default(0)
   totalDives       Int       @default(0)
   bookings         Booking[]
+  diveLogEntries   DiveLogParticipant[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -101,6 +102,7 @@ model DiveSite {
   totalDives        Int      @default(0)
   averageRating     Decimal? @db.Decimal(3, 2)
   bookings          Booking[]
+  diveLogs          DiveLog[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -160,6 +162,7 @@ model Staff {
   hireDate       DateTime
   qualifications StaffQualification[]
   availability   StaffAvailability[]
+  diveLogs       DiveLog[]
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 }
@@ -231,6 +234,7 @@ model Booking {
   participantCount Int
   bookingSource    BookingSource @default(DIRECT)
   notes            String?
+  diveLog          DiveLog?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -238,4 +242,74 @@ model Booking {
   @@index([customerId])
   @@index([status])
   @@index([date, timeSlot])
+}
+
+enum IncidentSeverity {
+  MINOR
+  MODERATE
+  SERIOUS
+  CRITICAL
+}
+
+model DiveLog {
+  id                String               @id @default(uuid())
+  logNumber         String               @unique
+  bookingId         String               @unique
+  booking           Booking              @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  siteId            String
+  site              DiveSite             @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  guideId           String?
+  guide             Staff?               @relation(fields: [guideId], references: [id], onDelete: SetNull)
+  date              DateTime
+  entryTime         DateTime
+  exitTime          DateTime
+  maxDepth          Int
+  avgDepth          Int?
+  duration          Int
+  visibility        Int?
+  waterTemp         Int?
+  weatherConditions String?
+  seaConditions     String?
+  airStartBar       Int?
+  airEndBar         Int?
+  notes             String?
+  participants      DiveLogParticipant[]
+  signatures        DiveLogSignature[]
+  incident          Incident?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+model DiveLogParticipant {
+  id         String   @id @default(uuid())
+  diveLogId  String
+  diveLog    DiveLog  @relation(fields: [diveLogId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  role       String   @default("diver")
+
+  @@unique([diveLogId, customerId])
+}
+
+model DiveLogSignature {
+  id            String   @id @default(uuid())
+  diveLogId     String
+  diveLog       DiveLog  @relation(fields: [diveLogId], references: [id], onDelete: Cascade)
+  signerType    String
+  signerId      String
+  signerName    String
+  signatureData String   @db.Text
+  signedAt      DateTime @default(now())
+}
+
+model Incident {
+  id                    String           @id @default(uuid())
+  diveLogId             String           @unique
+  diveLog               DiveLog          @relation(fields: [diveLogId], references: [id], onDelete: Cascade)
+  type                  String
+  severity              IncidentSeverity
+  description           String           @db.Text
+  actionsTaken          String           @db.Text
+  reportedToAuthorities Boolean          @default(false)
+  createdAt             DateTime         @default(now())
 }

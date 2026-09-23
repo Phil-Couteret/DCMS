@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateDiveSiteDto } from './dto/create-dive-site.dto.js';
@@ -48,7 +53,14 @@ export class DiveSitesService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.diveSite.delete({ where: { id } });
+    try {
+      return await this.prisma.diveSite.delete({ where: { id } });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
+        throw new ConflictException('This dive site has dive logs and cannot be deleted');
+      }
+      throw e;
+    }
   }
 }
 

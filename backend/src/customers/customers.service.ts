@@ -53,7 +53,7 @@ export class CustomersService {
       return await this.prisma.customer.delete({ where: { id } });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
-        throw new ConflictException('This customer has bookings and cannot be deleted');
+        throw new ConflictException('This customer has bookings or dive log entries and cannot be deleted');
       }
       throw e;
     }
