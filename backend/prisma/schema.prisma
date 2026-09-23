@@ -100,3 +100,34 @@ model DiveSite {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
+
+enum EquipmentStatus {
+  AVAILABLE
+  RENTED
+  MAINTENANCE
+  DECOMMISSIONED
+}
+
+enum EquipmentCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+model Equipment {
+  id              String             @id @default(uuid())
+  type            String
+  brand           String
+  model           String?
+  size            String?
+  serialNumber    String?            @unique
+  status          EquipmentStatus    @default(AVAILABLE)
+  condition       EquipmentCondition @default(EXCELLENT)
+  purchaseDate    DateTime
+  purchaseCost    Decimal            @db.Decimal(10, 2)
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
