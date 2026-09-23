@@ -21,6 +21,12 @@ export function SidebarNav() {
           <Link
             key={href}
             href={href}
+            // Every request through the proxy re-issues the Auth.js session
+            // cookie. A prefetch still in flight when Sign out is clicked
+            // lands after the sign-out response and restores the cookie, so
+            // the redirect to /login bounces back to /dashboard. No prefetch,
+            // no race.
+            prefetch={false}
             aria-current={active ? "page" : undefined}
             className={`whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
               active
