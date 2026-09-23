@@ -24,6 +24,40 @@ export class CustomersService {
     });
   }
 
+  // The last 10 dive logs this customer took part in, newest first.
+  async diveHistory(id: string) {
+    await this.findOne(id);
+    const entries = await this.prisma.diveLogParticipant.findMany({
+      where: { customerId: id },
+      orderBy: [{ diveLog: { date: 'desc' } }, { diveLog: { entryTime: 'desc' } }],
+      take: 10,
+      select: {
+        role: true,
+        diveLog: {
+          select: {
+            id: true,
+            logNumber: true,
+            date: true,
+            siteId: true,
+            maxDepth: true,
+            duration: true,
+            site: { select: { nameEn: true } },
+          },
+        },
+      },
+    });
+    return entries.map(({ role, diveLog }) => ({
+      diveLogId: diveLog.id,
+      logNumber: diveLog.logNumber,
+      date: diveLog.date,
+      siteId: diveLog.siteId,
+      siteName: diveLog.site.nameEn,
+      maxDepth: diveLog.maxDepth,
+      duration: diveLog.duration,
+      role,
+    }));
+  }
+
   async findOne(id: string) {
     const customer = await this.prisma.customer.findUnique({ where: { id } });
     if (!customer) throw new NotFoundException(`Customer ${id} not found`);

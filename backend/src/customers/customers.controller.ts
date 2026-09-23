@@ -35,6 +35,11 @@ export class CustomersController {
     return this.customers.findOne(id);
   }
 
+  @Get(':id/dive-history')
+  diveHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.customers.diveHistory(id);
+  }
+
   @Post()
   create(@Body() dto: CreateCustomerDto) {
     return this.customers.create(dto);
