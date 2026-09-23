@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "sites": "Tauchplätze",
+    "booking": "Buchen",
+    "pricing": "Preise"
+  },
+  "hero": {
+    "title": "Entdecke den Ozean",
+    "subtitle": "Ganzjährig tauchen auf den Kanarischen Inseln"
+  }
+}

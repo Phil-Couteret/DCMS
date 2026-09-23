@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "home": "Home",
+    "sites": "Dive Sites",
+    "booking": "Book Now",
+    "pricing": "Pricing"
+  },
+  "hero": {
+    "title": "Discover the Ocean",
+    "subtitle": "Year-round diving in the Canary Islands"
+  }
+}

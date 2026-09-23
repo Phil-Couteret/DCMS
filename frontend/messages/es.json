@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "sites": "Sitios",
+    "booking": "Reservar",
+    "pricing": "Precios"
+  },
+  "hero": {
+    "title": "Descubre el Océano",
+    "subtitle": "Buceo todo el año en las Islas Canarias"
+  }
+}

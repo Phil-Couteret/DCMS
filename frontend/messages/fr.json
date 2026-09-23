@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "sites": "Sites",
+    "booking": "Réserver",
+    "pricing": "Tarifs"
+  },
+  "hero": {
+    "title": "Découvrez l'Océan",
+    "subtitle": "Plongée toute l'année aux îles Canaries"
+  }
+}
