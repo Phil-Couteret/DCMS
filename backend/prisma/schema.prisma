@@ -51,3 +51,18 @@ model Customer {
 
   @@index([country])
 }
+
+model Boat {
+  id                 String    @id @default(uuid())
+  name               String
+  capacity           Int
+  status             String    @default("active")
+  registrationNumber String
+  length             Decimal?  @db.Decimal(5, 2)
+  engine             String?
+  insuranceExpiry    DateTime?
+  lastServiceDate    DateTime?
+  nextServiceDate    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
