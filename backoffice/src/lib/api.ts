@@ -28,9 +28,39 @@ export interface Booking {
   participantCount: number;
   bookingSource: string;
   notes: string | null;
+  createdAt: string;
   customer: { id: string; firstName: string; lastName: string };
   boat: { id: string; name: string; capacity: number };
   site: { id: string; nameEn: string } | null;
+}
+
+export type Language = "EN" | "ES" | "DE" | "FR";
+
+export interface Customer {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  country: string;
+  language: Language;
+  birthdate: string | null;
+  emergencyContact: unknown;
+  loyaltyPoints: number;
+  totalDives: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiveHistoryEntry {
+  diveLogId: string;
+  logNumber: string;
+  date: string;
+  siteId: string;
+  siteName: string;
+  maxDepth: number;
+  duration: number;
+  role: string;
 }
 
 export interface Boat {
@@ -68,7 +98,9 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function getBookings(filters: { status?: string; date?: string; boatId?: string } = {}) {
+export function getBookings(
+  filters: { status?: string; date?: string; boatId?: string; customerId?: string } = {},
+) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   const query = params.size > 0 ? `?${params}` : "";
@@ -100,4 +132,19 @@ export function getStaff() {
 
 export function checkInBooking(id: string) {
   return updateBookingStatus(id, "CONFIRMED");
+}
+
+export function getCustomers(filters: { country?: string; language?: string } = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const query = params.size > 0 ? `?${params}` : "";
+  return apiFetch<Customer[]>(`/customers${query}`);
+}
+
+export function getCustomer(id: string) {
+  return apiFetch<Customer>(`/customers/${id}`);
+}
+
+export function getCustomerDiveHistory(id: string) {
+  return apiFetch<DiveHistoryEntry[]>(`/customers/${id}/dive-history`);
 }
