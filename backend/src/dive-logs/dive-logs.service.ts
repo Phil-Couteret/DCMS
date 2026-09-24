@@ -18,6 +18,7 @@ const LIST_INCLUDE = {
   site: { select: { id: true, nameEn: true } },
   guide: { select: { id: true, firstName: true, lastName: true } },
   _count: { select: { participants: true, signatures: true } },
+  incident: { select: { id: true, type: true, severity: true } },
 } satisfies Prisma.DiveLogInclude;
 
 const DETAIL_INCLUDE = {
