@@ -70,12 +70,45 @@ export interface Boat {
   status: string;
 }
 
+export type StaffType = "GUIDE" | "TRAINER" | "CAPTAIN" | "ADMIN";
+export type StaffStatus = "ACTIVE" | "INACTIVE";
+
 export interface Staff {
   id: string;
+  userId: string;
   firstName: string;
   lastName: string;
-  type: "GUIDE" | "TRAINER" | "CAPTAIN" | "ADMIN";
-  status: "ACTIVE" | "INACTIVE";
+  // Only sent to signed-in callers, which the backoffice always is.
+  phone?: string;
+  type: StaffType;
+  status: StaffStatus;
+  hireDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffQualification {
+  id: string;
+  staffId: string;
+  type: string;
+  agency: string;
+  number: string;
+  issueDate: string;
+  expiryDate: string | null;
+  createdAt: string;
+}
+
+export interface StaffAvailability {
+  id: string;
+  staffId: string;
+  date: string;
+  available: boolean;
+  reason: string | null;
+}
+
+export interface StaffDetail extends Staff {
+  qualifications: StaffQualification[];
+  availability: StaffAvailability[];
 }
 
 async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -126,8 +159,28 @@ export function getBoats() {
   return apiFetch<Boat[]>("/boats");
 }
 
-export function getStaff() {
-  return apiFetch<Staff[]>("/staff");
+export function getStaff(filters: { type?: string; status?: string } = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const query = params.size > 0 ? `?${params}` : "";
+  return apiFetch<Staff[]>(`/staff${query}`);
+}
+
+export function getStaffMember(id: string) {
+  return apiFetch<StaffDetail>(`/staff/${id}`);
+}
+
+export function updateStaffStatus(id: string, status: StaffStatus) {
+  return apiFetch<Staff>(`/staff/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+}
+
+// Creates or replaces the entry for that day. A missing reason clears the
+// stored one.
+export function setStaffAvailability(id: string, date: string, available: boolean, reason?: string) {
+  return apiFetch<StaffAvailability>(`/staff/${id}/availability`, {
+    method: "PUT",
+    body: JSON.stringify({ date, available, ...(reason && { reason }) }),
+  });
 }
 
 export function checkInBooking(id: string) {
