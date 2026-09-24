@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/bookings", label: "Bookings" },
   { href: "/dashboard/customers", label: "Customers" },
+  { href: "/dashboard/dive-logs", label: "Dive Logs" },
   { href: "/dashboard/equipment", label: "Equipment" },
   { href: "/dashboard/staff", label: "Staff" },
 ];
@@ -16,7 +17,8 @@ export function SidebarNav() {
   return (
     <nav className="flex gap-1 overflow-x-auto md:flex-col">
       {LINKS.map(({ href, label }) => {
-        const active = pathname === href;
+        // Sections stay highlighted on their sub-pages, e.g. /dashboard/dive-logs/new.
+        const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
         return (
           <Link
             key={href}

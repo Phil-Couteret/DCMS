@@ -264,3 +264,131 @@ export function addMaintenanceLog(
     body: JSON.stringify(data),
   });
 }
+
+export type IncidentSeverity = "MINOR" | "MODERATE" | "SERIOUS" | "CRITICAL";
+
+export interface DiveSiteOption {
+  id: string;
+  nameEn: string;
+}
+
+export interface Incident {
+  id: string;
+  diveLogId: string;
+  type: string;
+  severity: IncidentSeverity;
+  description: string;
+  actionsTaken: string;
+  reportedToAuthorities: boolean;
+  createdAt: string;
+}
+
+interface DiveLogBase {
+  id: string;
+  logNumber: string;
+  bookingId: string;
+  siteId: string;
+  guideId: string | null;
+  date: string;
+  entryTime: string;
+  exitTime: string;
+  maxDepth: number;
+  avgDepth: number | null;
+  duration: number;
+  visibility: number | null;
+  waterTemp: number | null;
+  weatherConditions: string | null;
+  seaConditions: string | null;
+  airStartBar: number | null;
+  airEndBar: number | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  site: { id: string; nameEn: string };
+  guide: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface DiveLogListItem extends DiveLogBase {
+  _count: { participants: number; signatures: number };
+  incident: Pick<Incident, "id" | "type" | "severity"> | null;
+}
+
+export interface DiveLogDetail extends DiveLogBase {
+  booking: { id: string; activityType: string; timeSlot: TimeSlot; status: BookingStatus };
+  participants: {
+    id: string;
+    customerId: string;
+    role: string;
+    customer: { id: string; firstName: string; lastName: string };
+  }[];
+  signatures: { id: string; signerType: string; signerId: string; signerName: string; signedAt: string }[];
+  incident: Incident | null;
+}
+
+export interface CreateDiveLogData {
+  bookingId: string;
+  siteId: string;
+  guideId?: string;
+  date: string;
+  entryTime: string;
+  exitTime: string;
+  maxDepth: number;
+  duration: number;
+  avgDepth?: number;
+  visibility?: number;
+  waterTemp?: number;
+  weatherConditions?: string;
+  seaConditions?: string;
+  airStartBar?: number;
+  airEndBar?: number;
+  notes?: string;
+}
+
+export interface SignatureData {
+  signerType: string;
+  signerId: string;
+  signerName: string;
+  signatureData: string;
+}
+
+export interface IncidentData {
+  type: string;
+  severity: IncidentSeverity;
+  description: string;
+  actionsTaken: string;
+  reportedToAuthorities?: boolean;
+}
+
+export function getDiveSites() {
+  return apiFetch<DiveSiteOption[]>("/dive-sites");
+}
+
+export function getDiveLogs(filters: { date?: string; siteId?: string; guideId?: string } = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const query = params.size > 0 ? `?${params}` : "";
+  return apiFetch<DiveLogListItem[]>(`/dive-logs${query}`);
+}
+
+export function getDiveLog(id: string) {
+  return apiFetch<DiveLogDetail>(`/dive-logs/${id}`);
+}
+
+export function createDiveLog(data: CreateDiveLogData) {
+  return apiFetch<DiveLogDetail>("/dive-logs", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function addParticipant(logId: string, customerId: string, role: string) {
+  return apiFetch(`/dive-logs/${logId}/participants`, {
+    method: "POST",
+    body: JSON.stringify({ customerId, role }),
+  });
+}
+
+export function addSignature(logId: string, data: SignatureData) {
+  return apiFetch(`/dive-logs/${logId}/signatures`, { method: "POST", body: JSON.stringify(data) });
+}
+
+export function reportIncident(logId: string, data: IncidentData) {
+  return apiFetch<Incident>(`/dive-logs/${logId}/incident`, { method: "POST", body: JSON.stringify(data) });
+}
