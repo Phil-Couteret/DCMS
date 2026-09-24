@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 
@@ -8,6 +8,10 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState(false);
   const [pending, setPending] = useState(false);
+  // Until React hydrates, onSubmit is not attached and the browser would
+  // submit the form natively. Keep the button disabled until then.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,7 +38,8 @@ export default function LoginPage() {
         <h1 className="text-xl font-semibold text-zinc-900">Dive Center Backoffice</h1>
         <p className="mt-1 text-sm text-zinc-500">Sign in with your staff account.</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        {/* method="post" so a native fallback submit never puts credentials in the URL. */}
+        <form method="post" onSubmit={onSubmit} className="mt-6 space-y-4">
           <label className="block text-sm font-medium text-zinc-700">
             Email
             <input
@@ -64,7 +69,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={pending}
+            disabled={!hydrated || pending}
             className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60"
           >
             {pending ? "Signing in…" : "Sign in"}
