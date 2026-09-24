@@ -148,3 +148,66 @@ export function getCustomer(id: string) {
 export function getCustomerDiveHistory(id: string) {
   return apiFetch<DiveHistoryEntry[]>(`/customers/${id}/dive-history`);
 }
+
+export type EquipmentStatus = "AVAILABLE" | "RENTED" | "MAINTENANCE" | "DECOMMISSIONED";
+export type EquipmentCondition = "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
+
+export interface Equipment {
+  id: string;
+  type: string;
+  brand: string;
+  model: string | null;
+  size: string | null;
+  serialNumber: string | null;
+  status: EquipmentStatus;
+  condition: EquipmentCondition;
+  purchaseDate: string;
+  purchaseCost: string; // Decimal, sent as a string
+  lastMaintenance: string | null;
+  nextMaintenance: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaintenanceLog {
+  id: string;
+  equipmentId: string;
+  date: string;
+  technician: string;
+  type: string;
+  notes: string | null;
+  cost: string | null; // Decimal, sent as a string
+  createdAt: string;
+}
+
+export function getEquipment(filters: { type?: string; size?: string; status?: string } = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const query = params.size > 0 ? `?${params}` : "";
+  return apiFetch<Equipment[]>(`/equipment${query}`);
+}
+
+export function getEquipmentItem(id: string) {
+  return apiFetch<Equipment>(`/equipment/${id}`);
+}
+
+export function updateEquipment(
+  id: string,
+  data: Partial<Pick<Equipment, "status" | "condition" | "nextMaintenance">>,
+) {
+  return apiFetch<Equipment>(`/equipment/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function getMaintenanceLogs(id: string) {
+  return apiFetch<MaintenanceLog[]>(`/equipment/${id}/maintenance`);
+}
+
+export function addMaintenanceLog(
+  id: string,
+  data: { date: string; technician: string; type: string; notes?: string; cost?: number },
+) {
+  return apiFetch<MaintenanceLog>(`/equipment/${id}/maintenance`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
