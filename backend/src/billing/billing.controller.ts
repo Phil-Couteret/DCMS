@@ -42,6 +42,12 @@ export class BillingController {
     return this.billing.create(dto);
   }
 
+  // Builds the whole invoice from the booking and the server price list.
+  @Post('from-booking/:bookingId')
+  createFromBooking(@Param('bookingId', ParseUUIDPipe) bookingId: string) {
+    return this.billing.createFromBooking(bookingId);
+  }
+
   @Patch(':id')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateInvoiceDto) {
     return this.billing.update(id, dto);

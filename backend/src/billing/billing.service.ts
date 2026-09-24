@@ -3,9 +3,19 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
+import {
+  ACTIVITY_NAMES,
+  ACTIVITY_PRICES,
+  EQUIPMENT_PRICES,
+  FULL_PACKAGE_PRICE,
+  IGIC_RATE,
+  type EquipmentKey,
+} from '../config/prices.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
+  BookingStatus,
   InvoiceStatus,
   PaymentMethod,
   PaymentStatus,
@@ -60,6 +70,64 @@ export class BillingService {
       amountPaid: amountPaid.toFixed(2),
       balance: new D(invoice.total).minus(amountPaid).toFixed(2),
     };
+  }
+
+  // Builds the invoice from the booking and the server-side price list: one
+  // line for the activity (price x participants), one per equipment item from
+  // a guest booking's notes (the full package when all five are chosen), IGIC
+  // on the subtotal, due on the dive date. A price in the notes is ignored:
+  // the guest's browser calculated it.
+  async createFromBooking(bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        customerId: true,
+        activityType: true,
+        participantCount: true,
+        date: true,
+        status: true,
+        notes: true,
+        invoice: { select: { id: true, invoiceNumber: true } },
+      },
+    });
+    if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+    if (booking.invoice) {
+      throw new ConflictException(`This booking already has invoice ${booking.invoice.invoiceNumber}`);
+    }
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new ConflictException('Cancelled bookings cannot be invoiced');
+    }
+
+    const unitPrice = ACTIVITY_PRICES[booking.activityType];
+    if (unitPrice === undefined) {
+      throw new UnprocessableEntityException(
+        `No price is set for ${ACTIVITY_NAMES[booking.activityType]}; add it to config/prices.ts`,
+      );
+    }
+
+    const items: InvoiceItemDto[] = [
+      {
+        description: ACTIVITY_NAMES[booking.activityType],
+        quantity: booking.participantCount,
+        unitPrice,
+        total: new D(unitPrice).times(booking.participantCount).toNumber(),
+        type: 'activity',
+      },
+      ...equipmentLines(booking.notes),
+    ];
+    const subtotal = sum(items.map((i) => i.total));
+    const tax = subtotal.times(IGIC_RATE).toDecimalPlaces(2, D.ROUND_HALF_UP);
+
+    return this.create({
+      bookingId,
+      customerId: booking.customerId,
+      subtotal: subtotal.toNumber(),
+      tax: tax.toNumber(),
+      discount: 0,
+      total: subtotal.plus(tax).toNumber(),
+      dueDate: booking.date.toISOString(),
+      items,
+    });
   }
 
   async create(dto: CreateInvoiceDto) {
@@ -288,6 +356,55 @@ async function assertBookingCustomer(tx: Tx, bookingId: string, customerId: stri
   if (booking.customerId !== customerId) {
     throw new BadRequestException("customerId must be the booking's customer");
   }
+}
+
+// Equipment from a guest booking's notes: {"selectedEquipment": ["wetsuit:M", ...]}.
+// Staff-written notes are plain text and carry no equipment. One set per
+// booking, as the booking form collects it.
+function equipmentLines(notes: string | null): InvoiceItemDto[] {
+  let selected: string[] = [];
+  try {
+    const parsed = notes ? (JSON.parse(notes) as { selectedEquipment?: unknown }) : null;
+    if (Array.isArray(parsed?.selectedEquipment)) {
+      selected = parsed.selectedEquipment.filter((x): x is string => typeof x === 'string');
+    }
+  } catch {
+    return [];
+  }
+  const chosen = new Map<EquipmentKey, string | undefined>();
+  for (const entry of selected) {
+    const [key, size] = entry.split(':');
+    if (key in EQUIPMENT_PRICES) chosen.set(key as EquipmentKey, size);
+  }
+  const keys = Object.keys(EQUIPMENT_PRICES) as EquipmentKey[];
+  if (keys.every((k) => chosen.has(k))) {
+    const sizes = keys
+      .filter((k) => chosen.get(k))
+      .map((k) => `${EQUIPMENT_PRICES[k].name} ${chosen.get(k)}`)
+      .join(', ');
+    return [
+      {
+        description: `Full equipment package${sizes ? ` (${sizes})` : ''}`,
+        quantity: 1,
+        unitPrice: FULL_PACKAGE_PRICE,
+        total: FULL_PACKAGE_PRICE,
+        type: 'equipment',
+      },
+    ];
+  }
+  return keys
+    .filter((k) => chosen.has(k))
+    .map((k) => {
+      const size = chosen.get(k);
+      const { name, price } = EQUIPMENT_PRICES[k];
+      return {
+        description: size ? `${name} (${size})` : name,
+        quantity: 1,
+        unitPrice: price,
+        total: price,
+        type: 'equipment',
+      };
+    });
 }
 
 function itemData(item: InvoiceItemDto) {
