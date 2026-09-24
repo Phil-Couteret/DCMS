@@ -10,7 +10,7 @@ export function SignOutButton() {
     <Button
       variant="outline"
       size="sm"
-      className="w-full"
+      className="w-full border-white/40 bg-transparent text-white hover:bg-white/20 hover:text-white"
       disabled={pending}
       onClick={() => {
         setPending(true);
