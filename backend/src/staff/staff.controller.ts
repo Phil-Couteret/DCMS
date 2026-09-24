@@ -26,13 +26,16 @@ import { StaffService } from './staff.service.js';
 export class StaffController {
   constructor(private readonly staff: StaffService) {}
 
+  // Public, but phone is only included when the caller sends a valid token.
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   findAll(
+    @Req() req: { user?: unknown },
     @Query('type', new ParseEnumPipe(StaffType, { optional: true })) type?: StaffType,
     @Query('status', new ParseEnumPipe(StaffStatus, { optional: true }))
     status?: StaffStatus,
   ) {
-    return this.staff.findAll({ type, status });
+    return this.staff.findAll({ type, status }, Boolean(req.user));
   }
 
   // Public, but phone is only included when the caller sends a valid token.

@@ -29,13 +29,13 @@ const PUBLIC_FIELDS = {
 export class StaffService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(filters: { type?: StaffType; status?: StaffStatus } = {}) {
+  findAll(filters: { type?: StaffType; status?: StaffStatus } = {}, includePhone = false) {
     return this.prisma.staff.findMany({
       where: {
         ...(filters.type && { type: filters.type }),
         ...(filters.status && { status: filters.status }),
       },
-      select: PUBLIC_FIELDS,
+      select: { ...PUBLIC_FIELDS, phone: includePhone },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
   }
