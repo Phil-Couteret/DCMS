@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { useFormAction } from "@/lib/use-form-action";
 import { changeStaffStatus, saveAvailability, type FormState } from "@/app/dashboard/staff/actions";
 import { Button } from "@/components/ui/button";
 import type { StaffStatus } from "@/lib/api";
@@ -28,14 +29,14 @@ export function StatusToggle({ staffId, status }: { staffId: string; status: Sta
 }
 
 export function AvailabilityForm({ staffId, today }: { staffId: string; today: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveAvailability, null);
+  const [state, onSubmit, pending] = useFormAction<FormState>(saveAvailability, null);
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) form.current?.reset();
   }, [state]);
 
   return (
-    <form ref={form} action={action} className="space-y-3">
+    <form ref={form} onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="staffId" value={staffId} />
       <label className="block max-w-xs text-sm font-medium text-zinc-700">
         Date

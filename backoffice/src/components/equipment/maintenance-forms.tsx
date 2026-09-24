@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { logMaintenance, scheduleMaintenance, type FormState } from "@/app/dashboard/equipment/actions";
 import { Button } from "@/components/ui/button";
 import { MAINTENANCE_TYPES } from "@/lib/equipment";
+import { useFormAction } from "@/lib/use-form-action";
 
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
@@ -15,9 +16,9 @@ function Feedback({ state, success }: { state: FormState; success: string }) {
 }
 
 export function ScheduleForm({ equipmentId, current }: { equipmentId: string; current: string | null }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(scheduleMaintenance, null);
+  const [state, onSubmit, pending] = useFormAction<FormState>(scheduleMaintenance, null);
   return (
-    <form action={action} className="space-y-3">
+    <form onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="equipmentId" value={equipmentId} />
       <label className="block text-sm font-medium text-zinc-700">
         Next maintenance
@@ -40,14 +41,14 @@ export function ScheduleForm({ equipmentId, current }: { equipmentId: string; cu
 }
 
 export function LogMaintenanceForm({ equipmentId, today }: { equipmentId: string; today: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(logMaintenance, null);
+  const [state, onSubmit, pending] = useFormAction<FormState>(logMaintenance, null);
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) form.current?.reset();
   }, [state]);
 
   return (
-    <form ref={form} action={action} className="space-y-3">
+    <form ref={form} onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="equipmentId" value={equipmentId} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-zinc-700">
