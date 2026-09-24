@@ -392,3 +392,125 @@ export function addSignature(logId: string, data: SignatureData) {
 export function reportIncident(logId: string, data: IncidentData) {
   return apiFetch<Incident>(`/dive-logs/${logId}/incident`, { method: "POST", body: JSON.stringify(data) });
 }
+
+export type InvoiceStatus = "DRAFT" | "SENT" | "PARTIAL" | "PAID" | "CANCELLED";
+export type PaymentMethod = "CARD" | "CASH" | "TRANSFER";
+export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED";
+
+// Money arrives as strings: the API sends Decimal columns that way.
+export interface InvoiceListItem {
+  id: string;
+  invoiceNumber: string;
+  bookingId: string;
+  customerId: string;
+  subtotal: string;
+  tax: string;
+  discount: string;
+  total: string;
+  currency: string;
+  status: InvoiceStatus;
+  dueDate: string;
+  createdAt: string;
+  updatedAt: string;
+  customer: { id: string; firstName: string; lastName: string };
+  _count: { items: number; payments: number };
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: string;
+  total: string;
+  type: string;
+}
+
+export interface Refund {
+  id: string;
+  paymentId: string;
+  amount: string;
+  reason: string;
+  stripeRefundId: string | null;
+  processedAt: string;
+}
+
+export interface Payment {
+  id: string;
+  amount: string;
+  currency: string;
+  method: PaymentMethod;
+  stripePaymentId: string | null;
+  status: PaymentStatus;
+  paidAt: string | null;
+  createdAt: string;
+  refunds: Refund[];
+}
+
+export interface InvoiceDetail extends Omit<InvoiceListItem, "_count"> {
+  items: InvoiceItem[];
+  payments: Payment[];
+  amountPaid: string;
+  balance: string;
+}
+
+export interface CreateInvoiceData {
+  bookingId: string;
+  customerId: string;
+  subtotal: number;
+  tax: number;
+  discount?: number;
+  total: number;
+  dueDate: string;
+  items: { description: string; quantity?: number; unitPrice: number; total: number; type: string }[];
+}
+
+export interface PaymentData {
+  amount: number;
+  method: PaymentMethod;
+  stripePaymentId?: string;
+}
+
+export interface RefundData {
+  amount: number;
+  reason: string;
+}
+
+export function getInvoices(filters: { status?: string; customerId?: string } = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const query = params.size > 0 ? `?${params}` : "";
+  return apiFetch<InvoiceListItem[]>(`/billing${query}`);
+}
+
+export function getInvoice(id: string) {
+  return apiFetch<InvoiceDetail>(`/billing/${id}`);
+}
+
+// Full invoice with amounts supplied by the caller.
+export function createInvoice(data: CreateInvoiceData) {
+  return apiFetch<InvoiceDetail>("/billing", { method: "POST", body: JSON.stringify(data) });
+}
+
+// Invoice built by the API from the booking and its own price list.
+export function createInvoiceFromBooking(bookingId: string) {
+  return apiFetch<InvoiceDetail>(`/billing/from-booking/${bookingId}`, { method: "POST" });
+}
+
+export function markInvoiceSent(id: string) {
+  return apiFetch<InvoiceDetail>(`/billing/${id}`, { method: "PATCH", body: JSON.stringify({ status: "SENT" }) });
+}
+
+export function addPayment(invoiceId: string, data: PaymentData) {
+  return apiFetch<Payment>(`/billing/${invoiceId}/payments`, { method: "POST", body: JSON.stringify(data) });
+}
+
+export function addRefund(invoiceId: string, paymentId: string, data: RefundData) {
+  return apiFetch<Refund>(`/billing/${invoiceId}/payments/${paymentId}/refunds`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function cancelInvoice(invoiceId: string) {
+  return apiFetch<InvoiceDetail>(`/billing/${invoiceId}`, { method: "DELETE" });
+}
