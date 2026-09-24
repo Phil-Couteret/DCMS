@@ -33,8 +33,8 @@ export function SidebarNav() {
             aria-current={active ? "page" : undefined}
             className={`whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
               active
-                ? "bg-zinc-900 text-white"
-                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                ? "bg-[#0077b6] text-white"
+                : "text-sky-100/70 hover:bg-white/10 hover:text-white"
             }`}
           >
             {label}
