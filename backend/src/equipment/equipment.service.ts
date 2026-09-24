@@ -1,8 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { EquipmentStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateEquipmentDto } from './dto/create-equipment.dto.js';
+import { CreateMaintenanceLogDto } from './dto/create-maintenance-log.dto.js';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto.js';
 
 @Injectable()
@@ -45,20 +51,61 @@ export class EquipmentService {
     }
   }
 
+  async maintenanceLogs(equipmentId: string) {
+    await this.findOne(equipmentId);
+    return this.prisma.maintenanceLog.findMany({
+      where: { equipmentId },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  // Records maintenance. When the entry is the newest on record it also sets
+  // lastMaintenance to its date and clears nextMaintenance, which staff then
+  // schedule again. A backdated entry leaves both dates alone, so logging an
+  // old repair cannot rewind lastMaintenance or wipe a schedule set since.
+  async addMaintenance(equipmentId: string, dto: CreateMaintenanceLogDto) {
+    const date = startOfUtcDay(dto.date);
+    return this.prisma.$transaction(async (tx) => {
+      const item = await tx.equipment.findUnique({
+        where: { id: equipmentId },
+        select: { lastMaintenance: true },
+      });
+      if (!item) throw new NotFoundException(`Equipment ${equipmentId} not found`);
+      const log = await tx.maintenanceLog.create({ data: { ...dto, date, equipmentId } });
+      if (!item.lastMaintenance || date >= item.lastMaintenance) {
+        await tx.equipment.update({
+          where: { id: equipmentId },
+          data: { lastMaintenance: date, nextMaintenance: null },
+        });
+      }
+      return log;
+    });
+  }
+
   async remove(id: string) {
     await this.findOne(id);
     return this.prisma.equipment.delete({ where: { id } });
   }
 }
 
-const DATE_FIELDS = ['purchaseDate', 'lastMaintenance', 'nextMaintenance'] as const;
+const NULLABLE_DATE_FIELDS = ['lastMaintenance', 'nextMaintenance'] as const;
 
 function toData(dto: UpdateEquipmentDto): Prisma.EquipmentUpdateInput {
   const data: Prisma.EquipmentUpdateInput = { ...dto };
-  for (const field of DATE_FIELDS) {
-    if (dto[field] !== undefined) data[field] = new Date(dto[field]);
+  const purchaseDate = dto.purchaseDate as string | null | undefined;
+  if (purchaseDate === null) throw new BadRequestException('purchaseDate cannot be cleared');
+  if (purchaseDate !== undefined) data.purchaseDate = new Date(purchaseDate);
+  for (const field of NULLABLE_DATE_FIELDS) {
+    const value = dto[field] as string | null | undefined;
+    // null clears the date; new Date(null) would store 1 January 1970.
+    if (value !== undefined) data[field] = value === null ? null : new Date(value);
   }
   return data;
+}
+
+function startOfUtcDay(value: string) {
+  const d = new Date(value);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
 function mapError(e: unknown) {
