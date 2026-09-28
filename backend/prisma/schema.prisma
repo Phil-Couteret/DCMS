@@ -68,6 +68,7 @@ model Boat {
   lastServiceDate    DateTime?
   nextServiceDate    DateTime?
   bookings           Booking[]
+  trips              Trip[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
@@ -104,6 +105,8 @@ model DiveSite {
   averageRating     Decimal? @db.Decimal(3, 2)
   bookings          Booking[]
   diveLogs          DiveLog[]
+  plannedTrips      Trip[]   @relation("TripPlannedSite")
+  actualTrips       Trip[]   @relation("TripActualSite")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -165,6 +168,7 @@ model Staff {
   qualifications StaffQualification[]
   availability   StaffAvailability[]
   diveLogs       DiveLog[]
+  trips          TripStaff[]
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 }
@@ -205,6 +209,7 @@ enum ActivityType {
 enum TimeSlot {
   MORNING
   AFTERNOON
+  NIGHT
 }
 
 enum BookingStatus {
@@ -229,6 +234,8 @@ model Booking {
   boat             Boat          @relation(fields: [boatId], references: [id], onDelete: Restrict)
   siteId           String?
   site             DiveSite?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  tripId           String?
+  trip             Trip?         @relation(fields: [tripId], references: [id], onDelete: SetNull)
   activityType     ActivityType
   date             DateTime
   timeSlot         TimeSlot
@@ -245,6 +252,58 @@ model Booking {
   @@index([customerId])
   @@index([status])
   @@index([date, timeSlot])
+  @@index([tripId])
+}
+
+enum TripStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TripStaffRole {
+  CAPTAIN
+  GUIDE
+  TRAINEE_GUIDE
+}
+
+// One outing: a boat (or, with no boat, a shore dive) on a date and time slot.
+model Trip {
+  id            String      @id @default(uuid())
+  date          DateTime
+  timeSlot      TimeSlot
+  boatId        String?
+  boat          Boat?       @relation(fields: [boatId], references: [id], onDelete: Restrict)
+  plannedSiteId String?
+  plannedSite   DiveSite?   @relation("TripPlannedSite", fields: [plannedSiteId], references: [id], onDelete: SetNull)
+  actualSiteId  String?
+  actualSite    DiveSite?   @relation("TripActualSite", fields: [actualSiteId], references: [id], onDelete: SetNull)
+  status        TripStatus  @default(PLANNED)
+  maxDivers     Int         @default(10)
+  notes         String?
+  bookings      Booking[]
+  staff         TripStaff[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // PostgreSQL treats NULLs as distinct, so this does not stop two shore
+  // trips (boatId null) in the same slot. TripsService checks that case.
+  @@unique([date, timeSlot, boatId])
+  @@index([date])
+}
+
+model TripStaff {
+  id          String        @id @default(uuid())
+  tripId      String
+  trip        Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  staffId     String
+  staff       Staff         @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  role        TripStaffRole
+  confirmedAt DateTime?
+
+  @@unique([tripId, staffId])
+  @@index([staffId])
 }
 
 enum IncidentSeverity {

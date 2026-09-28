@@ -13,6 +13,7 @@ import { DiveSitesModule } from './dive-sites/dive-sites.module.js';
 import { EquipmentModule } from './equipment/equipment.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { StaffModule } from './staff/staff.module.js';
+import { TripsModule } from './trips/trips.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module.js';
     BookingsModule,
     DiveLogsModule,
     BillingModule,
+    TripsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
