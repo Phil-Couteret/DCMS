@@ -8,7 +8,13 @@ async function bootstrap() {
   // Dive log signatures are sent as encoded images and exceed the 100kb default.
   app.useBodyParser('json', { limit: '1mb' });
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+    origin: [
+      process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+      'http://10.10.10.1:3000',
+      'http://10.10.10.1:3001',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ],
     credentials: true,
   });
   app.useGlobalPipes(
