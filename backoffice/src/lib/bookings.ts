@@ -15,6 +15,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
 export const SLOT_LABELS: Record<string, string> = {
   MORNING: "Morning · 08:00",
   AFTERNOON: "Afternoon · 14:00",
+  NIGHT: "Night · 18:00",
 };
 
 export const STATUS_LABELS: Record<BookingStatus, string> = {

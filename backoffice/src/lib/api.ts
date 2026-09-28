@@ -14,13 +14,14 @@ export class ApiError extends Error {
 }
 
 export type BookingStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
-export type TimeSlot = "MORNING" | "AFTERNOON";
+export type TimeSlot = "MORNING" | "AFTERNOON" | "NIGHT";
 
 export interface Booking {
   id: string;
   customerId: string;
   boatId: string;
   siteId: string | null;
+  tripId: string | null;
   activityType: string;
   date: string;
   timeSlot: TimeSlot;
@@ -513,4 +514,95 @@ export function addRefund(invoiceId: string, paymentId: string, data: RefundData
 
 export function cancelInvoice(invoiceId: string) {
   return apiFetch<InvoiceDetail>(`/billing/${invoiceId}`, { method: "DELETE" });
+}
+
+export type TripStatus = "PLANNED" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+export type TripRole = "CAPTAIN" | "GUIDE" | "TRAINEE_GUIDE";
+
+export interface TripStaffMember {
+  id: string;
+  tripId: string;
+  staffId: string;
+  role: TripRole;
+  confirmedAt: string | null;
+  staff: { id: string; firstName: string; lastName: string; type: StaffType };
+}
+
+interface TripBase {
+  id: string;
+  date: string; // the day at 00:00 UTC
+  timeSlot: TimeSlot;
+  boatId: string | null; // null for a shore dive
+  plannedSiteId: string | null;
+  actualSiteId: string | null;
+  status: TripStatus;
+  maxDivers: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  plannedSite: DiveSiteOption | null;
+  actualSite: DiveSiteOption | null;
+  staff: TripStaffMember[];
+}
+
+export interface TripListItem extends TripBase {
+  boat: { id: string; name: string } | null;
+  // Bookings holding a place: pending, confirmed or completed.
+  _count: { bookings: number };
+}
+
+export interface TripDetail extends TripBase {
+  boat: { id: string; name: string; capacity: number } | null;
+  bookings: (Omit<Booking, "customer" | "boat" | "site"> & {
+    customer: { id: string; firstName: string; lastName: string };
+  })[];
+}
+
+export interface CreateTripData {
+  date: string;
+  timeSlot: TimeSlot;
+  boatId?: string;
+  plannedSiteId?: string;
+  maxDivers?: number;
+  notes?: string;
+}
+
+export interface UpdateTripData {
+  status?: TripStatus;
+  plannedSiteId?: string | null;
+  actualSiteId?: string | null;
+  notes?: string | null;
+}
+
+// Both ends are inclusive calendar days (YYYY-MM-DD).
+export function getTrips(from: string, to: string) {
+  return apiFetch<TripListItem[]>(`/trips?${new URLSearchParams({ from, to })}`);
+}
+
+export function getTrip(id: string) {
+  return apiFetch<TripDetail>(`/trips/${id}`);
+}
+
+export function createTrip(data: CreateTripData) {
+  return apiFetch<TripDetail>("/trips", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateTrip(id: string, data: UpdateTripData) {
+  return apiFetch<TripDetail>(`/trips/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function assignStaff(tripId: string, staffId: string, role: TripRole) {
+  return apiFetch<TripDetail>(`/trips/${tripId}/staff`, {
+    method: "POST",
+    body: JSON.stringify({ staffId, role }),
+  });
+}
+
+export function removeStaff(tripId: string, staffId: string) {
+  return apiFetch<TripDetail>(`/trips/${tripId}/staff/${staffId}`, { method: "DELETE" });
+}
+
+// The booking must match the trip's date, time slot and (if any) boat.
+export function linkBooking(tripId: string, bookingId: string) {
+  return apiFetch<TripDetail>(`/trips/${tripId}/bookings/${bookingId}`, { method: "POST" });
 }

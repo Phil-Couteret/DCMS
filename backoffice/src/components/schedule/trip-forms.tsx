@@ -1,0 +1,205 @@
+"use client";
+
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  assignStaffAction,
+  changeTripStatus,
+  createTripAction,
+  linkBookingAction,
+  removeStaffAction,
+  type TripFormState,
+} from "@/app/dashboard/schedule/actions";
+import { Button } from "@/components/ui/button";
+import type { Boat, DiveSiteOption, Staff, TimeSlot, TripStatus } from "@/lib/api";
+import { useFormAction } from "@/lib/use-form-action";
+import { ROLE_LABELS, SLOT_NAMES, TRIP_ROLES, TRIP_SLOTS, TRIP_TRANSITIONS } from "@/lib/trips";
+
+const control =
+  "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
+
+function ErrorText({ state, className = "" }: { state: TripFormState; className?: string }) {
+  if (!state?.error) return null;
+  return (
+    <p role="alert" className={`text-xs text-destructive ${className}`}>
+      {state.error}
+    </p>
+  );
+}
+
+export function TripStatusActions({ tripId, status }: { tripId: string; status: TripStatus }) {
+  const [state, action, pending] = useActionState<TripFormState, FormData>(changeTripStatus, null);
+  const transitions = TRIP_TRANSITIONS[status];
+  if (transitions.length === 0) return null;
+  return (
+    <form action={action} className="space-y-1">
+      <input type="hidden" name="tripId" value={tripId} />
+      <div className="flex flex-wrap gap-2">
+        {transitions.map((t) => (
+          <Button
+            key={t.to}
+            type="submit"
+            name="status"
+            value={t.to}
+            size="sm"
+            variant={t.to === "CANCELLED" ? "outline" : "default"}
+            disabled={pending}
+          >
+            {t.label}
+          </Button>
+        ))}
+      </div>
+      <ErrorText state={state} />
+    </form>
+  );
+}
+
+export function AssignStaffForm({ tripId, staff }: { tripId: string; staff: Staff[] }) {
+  const [state, onSubmit, pending] = useFormAction<TripFormState>(assignStaffAction, null);
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state?.ok) form.current?.reset();
+  }, [state]);
+
+  if (staff.length === 0) {
+    return <p className="text-sm text-zinc-500">Every active staff member is already on this trip.</p>;
+  }
+  return (
+    <form ref={form} onSubmit={onSubmit} className="space-y-2">
+      <input type="hidden" name="tripId" value={tripId} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
+        <label className="block text-sm font-medium text-zinc-700">
+          Staff member
+          <select name="staffId" required defaultValue="" className={control}>
+            <option value="" disabled>
+              Choose…
+            </option>
+            {staff.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.firstName} {s.lastName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-zinc-700">
+          Role
+          <select name="role" defaultValue="GUIDE" className={control}>
+            {TRIP_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Adding…" : "Add"}
+        </Button>
+      </div>
+      <ErrorText state={state} />
+    </form>
+  );
+}
+
+export function RemoveStaffButton({ tripId, staffId, name }: { tripId: string; staffId: string; name: string }) {
+  const [state, action, pending] = useActionState<TripFormState, FormData>(removeStaffAction, null);
+  return (
+    <form action={action} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="tripId" value={tripId} />
+      <input type="hidden" name="staffId" value={staffId} />
+      <Button type="submit" size="xs" variant="ghost" disabled={pending} aria-label={`Remove ${name}`}>
+        {pending ? "Removing…" : "Remove"}
+      </Button>
+      <ErrorText state={state} className="text-right" />
+    </form>
+  );
+}
+
+export function LinkBookingButton({ tripId, bookingId }: { tripId: string; bookingId: string }) {
+  const [state, action, pending] = useActionState<TripFormState, FormData>(linkBookingAction, null);
+  return (
+    <form action={action} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="tripId" value={tripId} />
+      <input type="hidden" name="bookingId" value={bookingId} />
+      <Button type="submit" size="xs" variant="outline" disabled={pending}>
+        {pending ? "Adding…" : "Add to trip"}
+      </Button>
+      <ErrorText state={state} className="max-w-48 text-right" />
+    </form>
+  );
+}
+
+export function NewTripForm({
+  date,
+  boats,
+  sites,
+  tripHrefPrefix,
+}: {
+  date: string;
+  boats: Boat[];
+  sites: DiveSiteOption[];
+  // The schedule URL the new trip's id is appended to, to open its panel.
+  tripHrefPrefix: string;
+}) {
+  const router = useRouter();
+  const [state, onSubmit, pending] = useFormAction<TripFormState>(createTripAction, null);
+  useEffect(() => {
+    if (state?.tripId) router.push(`${tripHrefPrefix}${state.tripId}`, { scroll: false });
+  }, [state, router, tripHrefPrefix]);
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-medium text-zinc-700">
+          Date
+          <input type="date" name="date" required defaultValue={date} className={control} />
+        </label>
+        <label className="block text-sm font-medium text-zinc-700">
+          Time slot
+          <select name="timeSlot" defaultValue={"MORNING" satisfies TimeSlot} className={control}>
+            {TRIP_SLOTS.map((s) => (
+              <option key={s} value={s}>
+                {SLOT_NAMES[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-zinc-700">
+          Boat
+          <select name="boatId" defaultValue="" className={control}>
+            <option value="">No boat (shore dive)</option>
+            {boats.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.capacity} places)
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-zinc-700">
+          Planned site
+          <select name="plannedSiteId" defaultValue="" className={control}>
+            <option value="">Not decided</option>
+            {sites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nameEn}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-zinc-700">
+          Max divers
+          <input type="number" name="maxDivers" min={1} step={1} required defaultValue={10} className={control} />
+        </label>
+      </div>
+      <label className="block text-sm font-medium text-zinc-700">
+        Notes (optional)
+        <textarea name="notes" rows={3} maxLength={1000} className={control} />
+      </label>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Creating…" : "Create trip"}
+        </Button>
+        <ErrorText state={state} className="text-sm" />
+      </div>
+    </form>
+  );
+}

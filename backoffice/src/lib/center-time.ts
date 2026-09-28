@@ -2,8 +2,9 @@
 // is in. "Today", the greeting and the trip alerts all use this.
 export const CENTER_TIME_ZONE = "Atlantic/Canary";
 
-// Minutes after midnight, center time.
-export const SLOT_START = { MORNING: 8 * 60, AFTERNOON: 14 * 60 } as const;
+// Minutes after midnight, center time. Night dives start at 18:00, as in the
+// previous frontend's schedule.
+export const SLOT_START = { MORNING: 8 * 60, AFTERNOON: 14 * 60, NIGHT: 18 * 60 } as const;
 export type SlotKey = keyof typeof SLOT_START;
 
 const ALERT_WINDOW_MINUTES = 60;
