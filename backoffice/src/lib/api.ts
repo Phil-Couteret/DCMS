@@ -982,3 +982,156 @@ export interface Pricing {
 export function getPricing() {
   return apiFetch<Pricing>("/settings/pricing");
 }
+
+// Financial page.
+
+export type ExpenseCategory = "GASOLINE" | "TANK_NET" | "GLUE" | "EQUIPMENT" | "MAINTENANCE" | "OTHER";
+
+interface FinancialInvoiceRef {
+  invoiceId: string;
+  invoiceNumber: string;
+  customerName: string;
+  activityType: string;
+}
+
+export interface Expense {
+  id: string;
+  date: string; // midnight UTC of the day
+  category: ExpenseCategory;
+  description: string;
+  amount: string; // tax included
+  tax: string;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface ManualIncome {
+  id: string;
+  date: string;
+  description: string;
+  amount: string;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface FinancialTotals {
+  payments: string; // invoice payments less refunds
+  manualIncome: string;
+  income: string;
+  expenses: string;
+  net: string;
+}
+
+export interface DailyFinancial {
+  date: string;
+  taxName: string;
+  payments: (FinancialInvoiceRef & { id: string; paidAt: string; method: PaymentMethod; amount: string })[];
+  refunds: (FinancialInvoiceRef & {
+    id: string;
+    processedAt: string;
+    method: PaymentMethod;
+    amount: string;
+    reason: string;
+  })[];
+  byActivity: { activityType: string; label: string; amount: string }[];
+  byMethod: Record<PaymentMethod, string>;
+  manualIncome: ManualIncome[];
+  expenses: Expense[];
+  totals: FinancialTotals;
+  closed: { closedAt: string; closedBy: string } | null;
+}
+
+export interface ClosedDayListItem {
+  id: string;
+  date: string;
+  closedBy: string;
+  closedAt: string;
+  totals: FinancialTotals;
+}
+
+export interface ClosedDay {
+  id: string;
+  date: string;
+  closedBy: string;
+  closedAt: string;
+  summary: Omit<DailyFinancial, "closed">;
+}
+
+export interface FinancialInvoices {
+  from: string;
+  to: string;
+  invoices: Omit<InvoiceListItem, "_count">[];
+  totals: { count: number; subtotal: string; tax: string; discount: string; total: string };
+}
+
+export interface TaxDeclaration {
+  year: number;
+  quarter: number;
+  from: string;
+  to: string;
+  taxName: string;
+  taxRate: string;
+  sales: { count: number; base: string; tax: string; discount: string; total: string };
+  purchases: { count: number; base: string; tax: string; total: string };
+  net: string; // positive: to pay; negative: to offset
+}
+
+export interface ExpenseData {
+  date: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  tax?: number;
+  notes?: string;
+}
+
+export interface IncomeData {
+  date: string;
+  description: string;
+  amount: number;
+  notes?: string;
+}
+
+export function getDailyFinancial(date: string) {
+  return apiFetch<DailyFinancial>(`/financial/daily?${new URLSearchParams({ date })}`);
+}
+
+export function getClosedDays() {
+  return apiFetch<ClosedDayListItem[]>("/financial/closed-days");
+}
+
+export function getClosedDay(date: string) {
+  return apiFetch<ClosedDay>(`/financial/closed-days/${date}`);
+}
+
+export function closeDay(date: string) {
+  return apiFetch<ClosedDay>(`/financial/closed-days/${date}`, { method: "POST" });
+}
+
+export function addExpense(data: ExpenseData) {
+  return apiFetch<Expense>("/financial/expenses", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function deleteExpense(id: string) {
+  return apiFetch<Expense>(`/financial/expenses/${id}`, { method: "DELETE" });
+}
+
+export function addManualIncome(data: IncomeData) {
+  return apiFetch<ManualIncome>("/financial/income", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function deleteManualIncome(id: string) {
+  return apiFetch<ManualIncome>(`/financial/income/${id}`, { method: "DELETE" });
+}
+
+export function getFinancialInvoices(from: string, to: string) {
+  return apiFetch<FinancialInvoices>(`/financial/invoices?${new URLSearchParams({ from, to })}`);
+}
+
+export function getTaxDeclaration(year: number, quarter: number) {
+  return apiFetch<TaxDeclaration>(
+    `/financial/tax-declaration?${new URLSearchParams({ year: String(year), quarter: String(quarter) })}`,
+  );
+}

@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/dashboard/dive-prep", label: "Dive Prep" },
   { href: "/dashboard/bookings", label: "Bookings" },
   { href: "/dashboard/billing", label: "Billing" },
+  { href: "/dashboard/financial", label: "Financial" },
   { href: "/dashboard/customers", label: "Customers" },
   { href: "/dashboard/dive-logs", label: "Dive Logs" },
   { href: "/dashboard/equipment", label: "Equipment" },

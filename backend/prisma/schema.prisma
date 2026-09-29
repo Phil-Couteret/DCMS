@@ -538,3 +538,52 @@ model MaintenanceLog {
 
   @@index([equipmentId, date])
 }
+
+// Financial page: day-to-day money that does not go through invoices.
+
+enum ExpenseCategory {
+  GASOLINE
+  TANK_NET
+  GLUE
+  EQUIPMENT
+  MAINTENANCE
+  OTHER
+}
+
+// amount includes tax; tax is the part of it that can be deducted on the
+// quarterly declaration.
+model Expense {
+  id          String          @id @default(uuid())
+  date        DateTime        @db.Date
+  category    ExpenseCategory
+  description String
+  amount      Decimal         @db.Decimal(10, 2)
+  tax         Decimal         @db.Decimal(10, 2)
+  notes       String?
+  createdBy   String? // email of the staff member who recorded it
+  createdAt   DateTime        @default(now())
+
+  @@index([date])
+}
+
+// Income that is not an invoice payment, e.g. an equipment sale.
+model ManualIncome {
+  id          String   @id @default(uuid())
+  date        DateTime @db.Date
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  notes       String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+}
+
+// A day's figures frozen when staff close the day. Closing again replaces them.
+model ClosedDay {
+  id       String   @id @default(uuid())
+  date     DateTime @unique @db.Date
+  summary  Json
+  closedBy String
+  closedAt DateTime @default(now())
+}
