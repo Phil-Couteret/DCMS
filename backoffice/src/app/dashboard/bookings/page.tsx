@@ -39,7 +39,12 @@ export default async function BookingsPage({
 
   return (
     <main className="space-y-6 p-6 md:p-8">
-      <h1 className="text-2xl font-semibold text-zinc-900">Bookings</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-zinc-900">Bookings</h1>
+        <Button nativeButton={false} render={<Link href="/dashboard/bookings/new" prefetch={false} />}>
+          New Booking
+        </Button>
+      </div>
 
       <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
         <label className="block text-sm font-medium text-zinc-700">

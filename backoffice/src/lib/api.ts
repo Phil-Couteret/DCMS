@@ -47,6 +47,9 @@ export interface Customer {
   language: Language;
   birthdate: string | null;
   emergencyContact: unknown;
+  email: string; // the customer's account email
+  certificationAgency: string | null;
+  certificationLevel: string | null;
   loyaltyPoints: number;
   totalDives: number;
   createdAt: string;
@@ -69,6 +72,12 @@ export interface Boat {
   name: string;
   capacity: number;
   status: string;
+  registrationNumber: string;
+  length: string | null; // Decimal, sent as a string
+  engine: string | null;
+  insuranceExpiry: string | null;
+  lastServiceDate: string | null;
+  nextServiceDate: string | null;
 }
 
 export type StaffType = "GUIDE" | "TRAINER" | "CAPTAIN" | "ADMIN";
@@ -160,6 +169,56 @@ export function getBoats() {
   return apiFetch<Boat[]>("/boats");
 }
 
+export function getBoat(id: string) {
+  return apiFetch<Boat>(`/boats/${id}`);
+}
+
+export interface BoatData {
+  name: string;
+  capacity: number;
+  status: string;
+  registrationNumber: string;
+  // null clears the value on update.
+  length?: number | null;
+  engine?: string | null;
+  insuranceExpiry?: string | null;
+  lastServiceDate?: string | null;
+  nextServiceDate?: string | null;
+}
+
+export function createBoat(data: BoatData) {
+  return apiFetch<Boat>("/boats", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateBoat(id: string, data: BoatData) {
+  return apiFetch<Boat>(`/boats/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteBoat(id: string) {
+  return apiFetch<Boat>(`/boats/${id}`, { method: "DELETE" });
+}
+
+export interface BookingData {
+  customerId: string;
+  boatId: string;
+  siteId: string | null;
+  activityType: string;
+  date: string;
+  timeSlot: TimeSlot;
+  participantCount: number;
+  bookingSource: string;
+  notes: string | null;
+  status?: BookingStatus; // create only; later changes go through the status actions
+}
+
+export function createBooking(data: BookingData) {
+  return apiFetch<Booking>("/bookings", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateBooking(id: string, data: BookingData) {
+  return apiFetch<Booking>(`/bookings/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
 export function getStaff(filters: { type?: string; status?: string } = {}) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
@@ -197,6 +256,28 @@ export function getCustomers(filters: { country?: string; language?: string } = 
 
 export function getCustomer(id: string) {
   return apiFetch<Customer>(`/customers/${id}`);
+}
+
+export interface CustomerData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  country: string;
+  language: Language;
+  birthdate: string | null;
+  certificationAgency: string | null;
+  certificationLevel: string | null;
+  emergencyContact: Record<string, unknown> | null;
+}
+
+// Finds or creates the customer's account by email.
+export function createCustomer(data: CustomerData) {
+  return apiFetch<Customer>("/customers", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateCustomer(id: string, data: CustomerData) {
+  return apiFetch<Customer>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
 export function getCustomerDiveHistory(id: string) {
@@ -360,8 +441,52 @@ export interface IncidentData {
   reportedToAuthorities?: boolean;
 }
 
+export interface DiveSite extends DiveSiteOption {
+  nameEs: string;
+  nameDe: string;
+  nameFr: string;
+  descriptionEn: string;
+  descriptionEs: string;
+  descriptionDe: string;
+  descriptionFr: string;
+  latitude: string; // Decimal, sent as a string
+  longitude: string;
+  depthMin: number;
+  depthMax: number;
+  requiredCertLevel: number;
+  difficultyLevel: number;
+  typicalVisibility: number | null;
+  typicalCurrent: string | null;
+  waterTempRange: unknown;
+  marineLife: unknown;
+  pointsOfInterest: unknown;
+  bestSeason: unknown;
+  facilities: unknown;
+  travelTimeMinutes: number;
+  maxDiversPerTrip: number;
+  accessibility: string | null;
+}
+
+export type DiveSiteData = Omit<DiveSite, "id" | "latitude" | "longitude"> & { latitude: number; longitude: number };
+
 export function getDiveSites() {
-  return apiFetch<DiveSiteOption[]>("/dive-sites");
+  return apiFetch<DiveSite[]>("/dive-sites");
+}
+
+export function getDiveSite(id: string) {
+  return apiFetch<DiveSite>(`/dive-sites/${id}`);
+}
+
+export function createDiveSite(data: DiveSiteData) {
+  return apiFetch<DiveSite>("/dive-sites", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateDiveSite(id: string, data: DiveSiteData) {
+  return apiFetch<DiveSite>(`/dive-sites/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteDiveSite(id: string) {
+  return apiFetch<DiveSite>(`/dive-sites/${id}`, { method: "DELETE" });
 }
 
 export function getDiveLogs(filters: { date?: string; siteId?: string; guideId?: string } = {}) {
@@ -605,4 +730,37 @@ export function removeStaff(tripId: string, staffId: string) {
 // The booking must match the trip's date, time slot and (if any) boat.
 export function linkBooking(tripId: string, bookingId: string) {
   return apiFetch<TripDetail>(`/trips/${tripId}/bookings/${bookingId}`, { method: "POST" });
+}
+
+export interface CenterSettings {
+  name: string;
+  legalName: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  updatedAt: string | null; // null until first saved
+}
+
+export function getSettings() {
+  return apiFetch<CenterSettings>("/settings");
+}
+
+// Replaces every field; empty optional fields are cleared.
+export function updateSettings(data: Omit<CenterSettings, "updatedAt">) {
+  return apiFetch<CenterSettings>("/settings", { method: "PUT", body: JSON.stringify(data) });
+}
+
+// The server's price list, the one invoices are built from. Net prices.
+export interface Pricing {
+  currency: string;
+  taxName: string;
+  taxRate: number;
+  activities: { activityType: string; name: string; price: number | null }[];
+  equipment: { key: string; name: string; price: number }[];
+  fullEquipmentPackage: number;
+}
+
+export function getPricing() {
+  return apiFetch<Pricing>("/settings/pricing");
 }

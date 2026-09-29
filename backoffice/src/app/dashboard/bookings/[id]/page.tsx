@@ -2,21 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusActions } from "@/components/bookings/status-actions";
 import { StatusBadge } from "@/components/bookings/status-badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, getBooking } from "@/lib/api";
-import { ACTIVITY_LABELS, formatBookingDate, parseGuestNotes, SLOT_LABELS } from "@/lib/bookings";
+import { ACTIVITY_LABELS, equipmentLabel, formatBookingDate, parseGuestNotes, SLOT_LABELS } from "@/lib/bookings";
 
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const EQUIPMENT_LABELS: Record<string, string> = {
-  wetsuit: "Wetsuit",
-  bcd: "BCD",
-  regulator: "Regulator",
-  maskFins: "Mask + Fins",
-  computer: "Dive Computer",
-};
 
 const CERT_LABELS: Record<string, string> = {
   none: "None",
@@ -26,13 +19,6 @@ const CERT_LABELS: Record<string, string> = {
   divemaster: "Divemaster",
   instructor: "Instructor",
 };
-
-// "wetsuit:M" -> "Wetsuit (M)", "regulator" -> "Regulator".
-function equipmentLabel(item: string) {
-  const [key, size] = item.split(":");
-  const name = EQUIPMENT_LABELS[key] ?? key;
-  return size ? `${name} (${size})` : name;
-}
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -74,6 +60,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         <div className="flex items-start gap-3">
           <StatusBadge status={booking.status} />
           <StatusActions bookingId={booking.id} status={booking.status} />
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href={`/dashboard/bookings/${booking.id}/edit`} prefetch={false} />}
+          >
+            Edit
+          </Button>
         </div>
       </div>
 
@@ -124,6 +117,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     ? new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(guest.totalPrice)
                     : "—"}
                 </Row>
+                {guest.staffNotes && (
+                  <Row label="Staff notes">
+                    <span className="whitespace-pre-wrap">{guest.staffNotes}</span>
+                  </Row>
+                )}
               </dl>
             ) : booking.notes ? (
               <p className="whitespace-pre-wrap text-sm text-zinc-900">{booking.notes}</p>

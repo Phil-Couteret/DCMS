@@ -39,7 +39,12 @@ export default async function CustomersPage({
 
   return (
     <main className="space-y-6 p-6 md:p-8">
-      <h1 className="text-2xl font-semibold text-zinc-900">Customers</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-zinc-900">Customers</h1>
+        <Button nativeButton={false} render={<Link href="/dashboard/customers/new" prefetch={false} />}>
+          New Customer
+        </Button>
+      </div>
 
       <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-[repeat(2,minmax(0,16rem))_auto]">
         <label className="block text-sm font-medium text-zinc-700">

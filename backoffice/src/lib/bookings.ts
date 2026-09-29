@@ -68,10 +68,12 @@ export interface GuestNotes {
   certificationLevel: string | null;
   selectedEquipment: string[];
   totalPrice: number | null;
+  staffNotes: string | null;
 }
 
-// Guest bookings store their extras as JSON in notes. Anything else is plain
-// text written by staff, returned as null so the caller shows it as is.
+// Guest bookings, and staff bookings with rental equipment, store their extras
+// as JSON in notes; billing reads selectedEquipment from there. Anything else
+// is plain text written by staff, returned as null so the caller shows it as is.
 export function parseGuestNotes(notes: string | null): GuestNotes | null {
   if (!notes) return null;
   try {
@@ -83,8 +85,44 @@ export function parseGuestNotes(notes: string | null): GuestNotes | null {
         ? data.selectedEquipment.filter((x): x is string => typeof x === "string")
         : [],
       totalPrice: typeof data.totalPrice === "number" ? data.totalPrice : null,
+      staffNotes: typeof data.staffNotes === "string" && data.staffNotes ? data.staffNotes : null,
     };
   } catch {
     return null;
   }
 }
+
+// The notes to store for a booking edited by staff. Plain text while there is
+// no equipment and nothing from a guest booking to keep; JSON otherwise, with
+// the guest's certification level and quoted price carried over.
+export function buildNotes(previous: string | null, equipment: string[], text: string) {
+  const guest = parseGuestNotes(previous);
+  const staffNotes = text.trim();
+  if (!guest && equipment.length === 0) return staffNotes || null;
+  return JSON.stringify({
+    certificationLevel: guest?.certificationLevel ?? null,
+    selectedEquipment: equipment,
+    totalPrice: guest?.totalPrice ?? null,
+    ...(staffNotes && { staffNotes }),
+  });
+}
+
+// Rental items as the public booking form and the billing price list know
+// them. Sized items are stored as "key:size".
+export const EQUIPMENT_ITEMS: { key: string; label: string; sizes: string[] | null }[] = [
+  { key: "wetsuit", label: "Wetsuit", sizes: ["XS", "S", "M", "L", "XL"] },
+  { key: "bcd", label: "BCD", sizes: ["S", "M", "L", "XL"] },
+  { key: "regulator", label: "Regulator", sizes: null },
+  { key: "maskFins", label: "Mask + Fins", sizes: Array.from({ length: 11 }, (_, i) => String(36 + i)) },
+  { key: "computer", label: "Dive Computer", sizes: null },
+];
+
+// "wetsuit:M" -> "Wetsuit (M)", "regulator" -> "Regulator".
+export function equipmentLabel(item: string) {
+  const [key, size] = item.split(":");
+  const name = EQUIPMENT_ITEMS.find((e) => e.key === key)?.label ?? key;
+  return size ? `${name} (${size})` : name;
+}
+
+export const SOURCES = ["DIRECT", "WALK_IN", "PARTNER"] as const;
+export const SOURCE_LABELS: Record<string, string> = { DIRECT: "Direct", WALK_IN: "Walk-in", PARTNER: "Partner" };

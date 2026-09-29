@@ -32,21 +32,21 @@ export class CreateBoatDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(999.99)
-  length?: number;
+  length?: number | null;
 
   @IsOptional()
   @IsString()
-  engine?: string;
+  engine?: string | null;
 
   @IsOptional()
   @IsDateString()
-  insuranceExpiry?: string;
+  insuranceExpiry?: string | null;
 
   @IsOptional()
   @IsDateString()
-  lastServiceDate?: string;
+  lastServiceDate?: string | null;
 
   @IsOptional()
   @IsDateString()
-  nextServiceDate?: string;
+  nextServiceDate?: string | null;
 }

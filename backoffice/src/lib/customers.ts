@@ -32,3 +32,15 @@ export const CERT_LABELS: Record<string, string> = {
   divemaster: "Divemaster",
   instructor: "Instructor",
 };
+
+// Picker entry for a customer: shown label and the text the search matches.
+export function customerOption(c: { id: string; firstName: string; lastName: string; email: string; phone: string | null }) {
+  const name = `${c.firstName} ${c.lastName}`;
+  return {
+    id: c.id,
+    label: `${name} · ${c.email}`,
+    search: [name, c.email, c.phone ?? ""].join(" ").toLowerCase(),
+  };
+}
+
+export const CERT_AGENCIES = ["PADI", "SSI", "CMAS", "NAUI", "BSAC", "VDST", "Other"];

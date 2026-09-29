@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { RoutedDialog, RoutedSheet } from "@/components/schedule/routed-panel";
+import { RoutedDialog, RoutedSheet } from "@/components/routed-panel";
 import { NewTripForm } from "@/components/schedule/trip-forms";
 import { DaySummary, DayView, MonthView, TripDetailBody, WeekView } from "@/components/schedule/views";
 import { Button } from "@/components/ui/button";

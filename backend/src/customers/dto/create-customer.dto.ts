@@ -1,5 +1,6 @@
 import {
   IsDateString,
+  IsEmail,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -7,13 +8,22 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { Language } from '../../generated/prisma/enums.js';
 
 export class CreateCustomerDto {
+  // Give either userId (an existing account) or email. With email, the account
+  // is found or created: staff create customers who have never signed up.
+  @IsOptional()
   @IsUUID()
-  userId: string;
+  userId?: string;
+
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -25,7 +35,7 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsString()
-  phone?: string;
+  phone?: string | null;
 
   @IsString()
   @IsNotEmpty()
@@ -37,11 +47,22 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsDateString()
-  birthdate?: string;
+  birthdate?: string | null; // null clears it on update
 
   @IsOptional()
   @IsObject()
-  emergencyContact?: Record<string, unknown>;
+  emergencyContact?: Record<string, unknown> | null;
+
+  // null clears them on update.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  certificationAgency?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  certificationLevel?: string | null;
 
   @IsOptional()
   @IsInt()

@@ -91,9 +91,18 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             Customer since {dateTime.format(new Date(customer.createdAt))}
           </p>
         </div>
-        <Button variant="outline" disabled title="Editing is not available yet">
-          Edit
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href={`/dashboard/bookings/new?customer=${customer.id}`} prefetch={false} />}
+          >
+            New Booking
+          </Button>
+          <Button nativeButton={false} render={<Link href={`/dashboard/customers/${customer.id}/edit`} prefetch={false} />}>
+            Edit
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -105,6 +114,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             <dl className="divide-y divide-zinc-100">
               <Row label="First name">{customer.firstName}</Row>
               <Row label="Last name">{customer.lastName}</Row>
+              <Row label="Email">
+                <a href={`mailto:${customer.email}`} className="hover:underline">
+                  {customer.email}
+                </a>
+              </Row>
               <Row label="Phone">{customer.phone ?? "Not given"}</Row>
               <Row label="Country">{countryLabel(customer.country)}</Row>
               <Row label="Language">{LANGUAGE_LABELS[customer.language] ?? customer.language}</Row>
@@ -123,11 +137,19 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
 
         <Card>
           <CardHeader>
-            <CardTitle>Certifications</CardTitle>
-            <CardDescription>No certification records are stored for customers yet.</CardDescription>
+            <CardTitle>Certification</CardTitle>
+            <CardDescription>Recorded by staff from the diver&apos;s card.</CardDescription>
           </CardHeader>
-          <CardContent>
-            {cert ? (
+          <CardContent className="space-y-3">
+            {customer.certificationLevel ? (
+              <p className="text-sm text-zinc-900">
+                <span className="font-medium">{CERT_LABELS[customer.certificationLevel] ?? customer.certificationLevel}</span>
+                {customer.certificationAgency && <span className="text-zinc-500"> · {customer.certificationAgency}</span>}
+              </p>
+            ) : (
+              <p className="text-sm text-zinc-500">Not recorded yet.</p>
+            )}
+            {cert && cert.level !== customer.certificationLevel ? (
               <div className="rounded-lg bg-amber-50 p-4 ring-1 ring-amber-200">
                 <p className="text-sm font-medium text-amber-900">
                   {CERT_LABELS[cert.level] ?? cert.level}
@@ -140,9 +162,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                   Not verified: check the certification card before the dive.
                 </p>
               </div>
-            ) : (
-              <p className="text-sm text-zinc-500">No certification level declared.</p>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       </div>

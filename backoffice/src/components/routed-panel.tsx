@@ -11,6 +11,7 @@ interface PanelProps {
   closeHref: string;
   title: string;
   description?: string;
+  wide?: boolean; // dialogs only: room for two-column forms
   children: React.ReactNode;
 }
 
@@ -29,11 +30,11 @@ export function RoutedSheet({ closeHref, title, description, children }: PanelPr
   );
 }
 
-export function RoutedDialog({ closeHref, title, description, children }: PanelProps) {
+export function RoutedDialog({ closeHref, title, description, wide, children }: PanelProps) {
   const router = useRouter();
   return (
     <Dialog open onOpenChange={(open) => !open && router.push(closeHref, { scroll: false })}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className={`max-h-[90vh] overflow-y-auto ${wide ? "sm:max-w-3xl" : "sm:max-w-lg"}`}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

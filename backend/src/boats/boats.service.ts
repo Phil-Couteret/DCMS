@@ -48,7 +48,8 @@ const DATE_FIELDS = ['insuranceExpiry', 'lastServiceDate', 'nextServiceDate'] as
 function toData(dto: UpdateBoatDto): Prisma.BoatUpdateInput {
   const data: Prisma.BoatUpdateInput = { ...dto };
   for (const field of DATE_FIELDS) {
-    if (dto[field] !== undefined) data[field] = new Date(dto[field]);
+    // null clears the date.
+    if (dto[field] !== undefined) data[field] = dto[field] === null ? null : new Date(dto[field]);
   }
   return data;
 }
