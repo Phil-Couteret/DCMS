@@ -27,7 +27,17 @@ function ErrorText({ state, className = "" }: { state: TripFormState; className?
   );
 }
 
-export function TripStatusActions({ tripId, status }: { tripId: string; status: TripStatus }) {
+// startIssues: what stops the trip from starting. When given and non-empty,
+// "Start trip" is shown disabled; the API still enforces it.
+export function TripStatusActions({
+  tripId,
+  status,
+  startIssues,
+}: {
+  tripId: string;
+  status: TripStatus;
+  startIssues?: string[];
+}) {
   const [state, action, pending] = useActionState<TripFormState, FormData>(changeTripStatus, null);
   const transitions = TRIP_TRANSITIONS[status];
   if (transitions.length === 0) return null;
@@ -35,19 +45,28 @@ export function TripStatusActions({ tripId, status }: { tripId: string; status: 
     <form action={action} className="space-y-1">
       <input type="hidden" name="tripId" value={tripId} />
       <div className="flex flex-wrap gap-2">
-        {transitions.map((t) => (
-          <Button
-            key={t.to}
-            type="submit"
-            name="status"
-            value={t.to}
-            size="sm"
-            variant={t.to === "CANCELLED" ? "outline" : "default"}
-            disabled={pending}
-          >
-            {t.label}
-          </Button>
-        ))}
+        {transitions.map((t) => {
+          const notReady = t.to === "ACTIVE" && (startIssues?.length ?? 0) > 0;
+          return (
+            <Button
+              key={t.to}
+              type="submit"
+              name="status"
+              value={t.to}
+              size="sm"
+              variant={t.to === "CANCELLED" ? "outline" : "default"}
+              disabled={pending || notReady}
+              title={notReady ? `Not ready: ${startIssues!.join("; ")}` : undefined}
+              className={
+                notReady
+                  ? "disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 disabled:opacity-100"
+                  : undefined
+              }
+            >
+              {t.label}
+            </Button>
+          );
+        })}
       </div>
       <ErrorText state={state} />
     </form>

@@ -131,7 +131,7 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
             </span>
             <TripStatusBadge status={trip.status} />
           </div>
-          <TripStatusActions tripId={trip.id} status={trip.status} />
+          <TripStatusActions tripId={trip.id} status={trip.status} startIssues={trip.issues} />
         </div>
       </header>
 
