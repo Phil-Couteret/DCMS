@@ -48,14 +48,43 @@ export interface Customer {
   birthdate: string | null;
   emergencyContact: unknown;
   email: string; // the customer's account email
-  certificationAgency: string | null;
-  certificationLevel: string | null;
-  certificationNumber: string | null;
-  certificationExpiry: string | null;
   gender: string | null;
   notes: string | null; // staff notes
   loyaltyPoints: number;
   totalDives: number;
+  customerType: CustomerType;
+  centerSkillLevel: SkillLevel | null;
+  isApproved: boolean; // may book online
+  medicalCertNumber: string | null;
+  medicalCertExpiry: string | null;
+  medicalCertVerifiedAt: string | null;
+  insuranceProvider: string | null;
+  insurancePolicyNumber: string | null;
+  insuranceExpiry: string | null;
+  insuranceVerifiedAt: string | null;
+  ownEquipment: boolean; // a full set of their own; the tank is always the center's
+  tankSize: string | null;
+  bcdSize: string | null;
+  wetsuitSize: string | null;
+  finsSize: string | null;
+  bootsSize: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CustomerType = "TOURIST" | "LOCAL" | "RECURRENT";
+export type SkillLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+
+export interface CustomerCertification {
+  id: string;
+  customerId: string;
+  agency: string;
+  level: string;
+  cardNumber: string | null;
+  issueDate: string | null;
+  expiryDate: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null; // staff email
   createdAt: string;
   updatedAt: string;
 }
@@ -270,15 +299,29 @@ export interface CustomerData {
   country: string;
   language: Language;
   birthdate: string | null;
-  certificationAgency: string | null;
-  certificationLevel: string | null;
-  // Left out, these keep their values (or the defaults, on create).
-  certificationNumber?: string | null;
-  certificationExpiry?: string | null;
+  // Left out, these keep their values (or the defaults, on create). Changing
+  // the medical or insurance details clears their verification unless the
+  // same request sets it.
   gender?: string | null;
   notes?: string | null;
   loyaltyPoints?: number;
   totalDives?: number;
+  customerType?: CustomerType;
+  centerSkillLevel?: SkillLevel | null;
+  isApproved?: boolean;
+  medicalCertNumber?: string | null;
+  medicalCertExpiry?: string | null;
+  medicalCertVerifiedAt?: string | null;
+  insuranceProvider?: string | null;
+  insurancePolicyNumber?: string | null;
+  insuranceExpiry?: string | null;
+  insuranceVerifiedAt?: string | null;
+  ownEquipment?: boolean;
+  tankSize?: string | null;
+  bcdSize?: string | null;
+  wetsuitSize?: string | null;
+  finsSize?: string | null;
+  bootsSize?: string | null;
   emergencyContact: Record<string, unknown> | null;
 }
 
@@ -287,12 +330,47 @@ export function createCustomer(data: CustomerData) {
   return apiFetch<Customer>("/customers", { method: "POST", body: JSON.stringify(data) });
 }
 
-export function updateCustomer(id: string, data: CustomerData) {
+export function updateCustomer(id: string, data: Partial<CustomerData>) {
   return apiFetch<Customer>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
 export function getCustomerDiveHistory(id: string) {
   return apiFetch<DiveHistoryEntry[]>(`/customers/${id}/dive-history`);
+}
+
+export function getCustomerCertifications(customerId: string) {
+  return apiFetch<CustomerCertification[]>(`/customers/${customerId}/certifications`);
+}
+
+export interface CertificationData {
+  agency: string;
+  level: string;
+  cardNumber: string | null;
+  issueDate: string | null;
+  expiryDate: string | null;
+}
+
+export function createCustomerCertification(customerId: string, data: CertificationData) {
+  return apiFetch<CustomerCertification>(`/customers/${customerId}/certifications`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// verified: true records the signed-in staff member; false clears it.
+export function updateCustomerCertification(
+  customerId: string,
+  certId: string,
+  data: Partial<CertificationData> & { verified?: boolean },
+) {
+  return apiFetch<CustomerCertification>(`/customers/${customerId}/certifications/${certId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteCustomerCertification(customerId: string, certId: string) {
+  return apiFetch<CustomerCertification>(`/customers/${customerId}/certifications/${certId}`, { method: "DELETE" });
 }
 
 export type EquipmentStatus = "AVAILABLE" | "RENTED" | "MAINTENANCE" | "DECOMMISSIONED";

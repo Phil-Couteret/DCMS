@@ -4,14 +4,23 @@ import Link from "next/link";
 import { useState } from "react";
 import { saveCustomer, type CustomerFormState } from "@/app/dashboard/customers/actions";
 import { Button } from "@/components/ui/button";
-import type { Language } from "@/lib/api";
-import { CERT_AGENCIES, CERT_LABELS, GENDER_LABELS, LANGUAGES } from "@/lib/customers";
+import type { CustomerType, Language, SkillLevel } from "@/lib/api";
+import {
+  CUSTOMER_TYPE_LABELS,
+  GEAR_SIZES,
+  GENDER_LABELS,
+  LANGUAGES,
+  RENTAL_SIZE_FIELDS,
+  SKILL_LEVEL_LABELS,
+  TANK_SIZES,
+} from "@/lib/customers";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:bg-zinc-50 disabled:text-zinc-400";
 const label = "block text-sm font-medium text-zinc-700";
 const section = "space-y-4 rounded-xl bg-white p-5 ring-1 ring-zinc-200";
+const check = "flex items-start gap-2 text-sm text-zinc-700";
 
 export interface CustomerFormValues {
   firstName: string;
@@ -22,16 +31,41 @@ export interface CustomerFormValues {
   language: Language;
   birthdate: string;
   gender: string;
-  certificationAgency: string;
-  certificationLevel: string;
-  certificationNumber: string;
-  certificationExpiry: string;
+  customerType: CustomerType;
+  centerSkillLevel: SkillLevel | "";
+  isApproved: boolean;
   totalDives: string;
   loyaltyPoints: string;
   notes: string;
+  medicalCertNumber: string;
+  medicalCertExpiry: string;
+  insuranceProvider: string;
+  insurancePolicyNumber: string;
+  insuranceExpiry: string;
+  ownEquipment: boolean;
+  tankSize: string;
+  bcdSize: string;
+  wetsuitSize: string;
+  finsSize: string;
+  bootsSize: string;
   emergencyName: string;
   emergencyPhone: string;
   emergencyRelationship: string;
+}
+
+// A size select that keeps a value outside the offered list.
+function SizeSelect({ name, value, options, disabled }: { name: string; value: string; options: string[]; disabled?: boolean }) {
+  return (
+    <select name={name} defaultValue={value} disabled={disabled} className={control}>
+      <option value="">Not recorded</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+    </select>
+  );
 }
 
 export function CustomerForm({
@@ -46,13 +80,16 @@ export function CustomerForm({
   maxBirthdate: string;
 }) {
   const [state, onSubmit, pending] = useFormAction<CustomerFormState>(saveCustomer, null);
-  const [level, setLevel] = useState(initial.certificationLevel);
-  const certified = level !== "" && level !== "none";
+  const [ownEquipment, setOwnEquipment] = useState(initial.ownEquipment);
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       {customerId && <input type="hidden" name="customerId" value={customerId} />}
       <input type="hidden" name="gender_initial" value={initial.gender} />
+      {RENTAL_SIZE_FIELDS.map((f) => (
+        <input key={f.key} type="hidden" name={`${f.key}_initial`} value={initial[f.key]} />
+      ))}
+      <input type="hidden" name="tankSize_initial" value={initial.tankSize} />
 
       <section className={section}>
         <h2 className="font-semibold text-zinc-900">Details</h2>
@@ -116,19 +153,12 @@ export function CustomerForm({
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Certification</h2>
-        <p className="text-xs text-zinc-500">Record what the diver&apos;s card shows, once staff have seen it.</p>
+        <h2 className="font-semibold text-zinc-900">Classification</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Level
-            <select
-              name="certificationLevel"
-              value={level}
-              onChange={(e) => setLevel(e.target.value)}
-              className={control}
-            >
-              <option value="">Not recorded</option>
-              {Object.entries(CERT_LABELS).map(([value, text]) => (
+            Customer type
+            <select name="customerType" defaultValue={initial.customerType} className={control}>
+              {Object.entries(CUSTOMER_TYPE_LABELS).map(([value, text]) => (
                 <option key={value} value={value}>
                   {text}
                 </option>
@@ -136,41 +166,16 @@ export function CustomerForm({
             </select>
           </label>
           <label className={label}>
-            Agency
-            <select
-              name="certificationAgency"
-              defaultValue={initial.certificationAgency}
-              required={certified}
-              disabled={!certified}
-              className={control}
-            >
-              <option value="">{certified ? "Choose…" : "—"}</option>
-              {CERT_AGENCIES.map((a) => (
-                <option key={a} value={a}>
-                  {a}
+            Center skill level
+            <select name="centerSkillLevel" defaultValue={initial.centerSkillLevel} className={control}>
+              <option value="">Not assessed</option>
+              {Object.entries(SKILL_LEVEL_LABELS).map(([value, text]) => (
+                <option key={value} value={value}>
+                  {text}
                 </option>
               ))}
             </select>
-          </label>
-          <label className={label}>
-            Card number (optional)
-            <input
-              name="certificationNumber"
-              maxLength={60}
-              defaultValue={initial.certificationNumber}
-              disabled={!certified}
-              className={control}
-            />
-          </label>
-          <label className={label}>
-            Card expiry (optional)
-            <input
-              type="date"
-              name="certificationExpiry"
-              defaultValue={initial.certificationExpiry}
-              disabled={!certified}
-              className={control}
-            />
+            <span className="mt-1 block text-xs font-normal text-zinc-500">Staff&apos;s assessment in the water.</span>
           </label>
           <label className={label}>
             Dives logged
@@ -184,7 +189,88 @@ export function CustomerForm({
               className={control}
             />
           </label>
+          <label className={`${check} sm:self-center`}>
+            <input type="checkbox" name="isApproved" defaultChecked={initial.isApproved} className="mt-0.5 size-4" />
+            <span>
+              Approved for booking
+              <span className="block text-xs text-zinc-500">Unapproved customers cannot book online.</span>
+            </span>
+          </label>
         </div>
+        <p className="text-xs text-zinc-500">Certifications are recorded on the customer&apos;s profile page.</p>
+      </section>
+
+      <section className={section}>
+        <h2 className="font-semibold text-zinc-900">Medical certificate (optional)</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className={label}>
+            Certificate number
+            <input name="medicalCertNumber" maxLength={60} defaultValue={initial.medicalCertNumber} className={control} />
+          </label>
+          <label className={label}>
+            Expiry date
+            <input type="date" name="medicalCertExpiry" defaultValue={initial.medicalCertExpiry} className={control} />
+          </label>
+        </div>
+      </section>
+
+      <section className={section}>
+        <h2 className="font-semibold text-zinc-900">Diving insurance (optional)</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <label className={label}>
+            Provider
+            <input
+              name="insuranceProvider"
+              maxLength={100}
+              placeholder="e.g. DAN Europe"
+              defaultValue={initial.insuranceProvider}
+              className={control}
+            />
+          </label>
+          <label className={label}>
+            Policy number
+            <input name="insurancePolicyNumber" maxLength={60} defaultValue={initial.insurancePolicyNumber} className={control} />
+          </label>
+          <label className={label}>
+            Expiry date
+            <input type="date" name="insuranceExpiry" defaultValue={initial.insuranceExpiry} className={control} />
+          </label>
+        </div>
+        {customerId && (
+          <p className="text-xs text-zinc-500">
+            Changing the medical certificate or insurance details clears their verification.
+          </p>
+        )}
+      </section>
+
+      <section className={section}>
+        <h2 className="font-semibold text-zinc-900">Equipment preferences</h2>
+        <label className={check}>
+          <input
+            type="checkbox"
+            name="ownEquipment"
+            checked={ownEquipment}
+            onChange={(e) => setOwnEquipment(e.target.checked)}
+            className="mt-0.5 size-4"
+          />
+          <span>
+            Brings a complete set of their own equipment
+            <span className="block text-xs text-zinc-500">The tank is always provided by the center.</span>
+          </span>
+        </label>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <label className={label}>
+            Tank
+            <SizeSelect name="tankSize" value={initial.tankSize} options={TANK_SIZES} />
+          </label>
+          {RENTAL_SIZE_FIELDS.map((f) => (
+            <label key={f.key} className={label}>
+              {f.label}
+              <SizeSelect name={f.key} value={initial[f.key]} options={GEAR_SIZES} disabled={ownEquipment} />
+            </label>
+          ))}
+        </div>
+        {ownEquipment && <p className="text-xs text-zinc-500">Rental sizes are kept but not needed while this is ticked.</p>}
       </section>
 
       <section className={section}>

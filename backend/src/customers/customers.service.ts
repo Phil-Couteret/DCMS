@@ -96,7 +96,11 @@ export class CustomersService {
   async update(id: string, dto: UpdateCustomerDto) {
     const current = await this.prisma.customer.findUnique({
       where: { id },
-      select: { userId: true, user: { select: { email: true, role: true } } },
+      select: {
+        userId: true,
+        user: { select: { email: true, role: true } },
+        ...VERIFIED_DETAILS_SELECT,
+      },
     });
     if (!current) throw new NotFoundException(`Customer ${id} not found`);
     const { email, ...fields } = dto;
@@ -113,7 +117,11 @@ export class CustomersService {
           if (taken) throw new ConflictException('Another account already uses this email');
           await tx.user.update({ where: { id: current.userId }, data: { email: newEmail } });
         }
-        return tx.customer.update({ where: { id }, data: toData(fields), include: WITH_EMAIL });
+        return tx.customer.update({
+          where: { id },
+          data: { ...toData(fields), ...staleVerifications(fields, current) },
+          include: WITH_EMAIL,
+        });
       });
       return withEmail(customer);
     } catch (e) {
@@ -151,19 +159,56 @@ async function accountFor(tx: Tx, email: string) {
   return created.id;
 }
 
+// Date fields arrive as ISO strings; null clears one.
+const DATE_FIELDS = [
+  'birthdate',
+  'medicalCertExpiry',
+  'medicalCertVerifiedAt',
+  'insuranceExpiry',
+  'insuranceVerifiedAt',
+] as const;
+
 function toData(dto: Omit<UpdateCustomerDto, 'email'>): Prisma.CustomerUncheckedUpdateInput {
-  const { birthdate, certificationExpiry, emergencyContact, ...rest } = dto;
-  return {
-    ...rest,
-    // null clears any of these fields.
-    ...(birthdate !== undefined && { birthdate: birthdate === null ? null : new Date(birthdate) }),
-    ...(certificationExpiry !== undefined && {
-      certificationExpiry: certificationExpiry === null ? null : new Date(certificationExpiry),
-    }),
-    ...(emergencyContact !== undefined && {
-      emergencyContact: emergencyContact === null ? Prisma.DbNull : (emergencyContact as Prisma.InputJsonValue),
-    }),
-  };
+  const { emergencyContact, ...rest } = dto;
+  const data: Record<string, unknown> = { ...rest };
+  for (const field of DATE_FIELDS) {
+    const value = dto[field];
+    if (value !== undefined) data[field] = value === null ? null : new Date(value);
+  }
+  if (emergencyContact !== undefined) {
+    data.emergencyContact = emergencyContact === null ? Prisma.DbNull : (emergencyContact as Prisma.InputJsonValue);
+  }
+  return data as Prisma.CustomerUncheckedUpdateInput;
+}
+
+// A verification covers the details staff checked: when any of them changes,
+// it is cleared, unless the same request sets it.
+const VERIFIED_DETAILS = {
+  medicalCertVerifiedAt: ['medicalCertNumber', 'medicalCertExpiry'],
+  insuranceVerifiedAt: ['insuranceProvider', 'insurancePolicyNumber', 'insuranceExpiry'],
+} as const;
+
+type VerifiedDetail = (typeof VERIFIED_DETAILS)[keyof typeof VERIFIED_DETAILS][number];
+
+const VERIFIED_DETAILS_SELECT = Object.fromEntries(
+  Object.values(VERIFIED_DETAILS).flat().map((f) => [f, true]),
+) as Record<VerifiedDetail, true>;
+
+function staleVerifications(
+  dto: Omit<UpdateCustomerDto, 'email'>,
+  current: Record<VerifiedDetail, string | Date | null>,
+) {
+  const same = (a: string | null, b: string | Date | null) =>
+    a === null ? b === null : b instanceof Date ? new Date(a).getTime() === b.getTime() : a === b;
+  const cleared: Partial<Record<keyof typeof VERIFIED_DETAILS, null>> = {};
+  for (const [verifiedAt, details] of Object.entries(VERIFIED_DETAILS) as [
+    keyof typeof VERIFIED_DETAILS,
+    readonly VerifiedDetail[],
+  ][]) {
+    if (dto[verifiedAt] !== undefined) continue;
+    if (details.some((f) => dto[f] !== undefined && !same(dto[f] ?? null, current[f]))) cleared[verifiedAt] = null;
+  }
+  return cleared;
 }
 
 function mapError(e: unknown) {

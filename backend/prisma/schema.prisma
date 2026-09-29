@@ -15,6 +15,20 @@ enum Role {
   ADMIN
 }
 
+enum CustomerType {
+  TOURIST
+  LOCAL
+  RECURRENT
+}
+
+// Staff's operational assessment of the diver, independent of certification.
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
 enum Language {
   ES
   EN
@@ -35,36 +49,68 @@ model User {
 }
 
 model Customer {
-  id                  String               @id @default(uuid())
-  userId              String               @unique
-  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName           String
-  lastName            String
-  phone               String?
-  country             String
-  language            Language             @default(EN)
-  birthdate           DateTime?
-  emergencyContact    Json?
-  // What staff recorded after seeing the card, e.g. PADI / Advanced.
-  certificationAgency String?
-  certificationLevel  String?
-  certificationNumber String?
-  certificationExpiry DateTime?
-  gender              String?
-  notes               String?              @db.Text
-  loyaltyPoints       Int                  @default(0)
-  totalDives          Int                  @default(0)
-  bookings            Booking[]
-  diveLogEntries      DiveLogParticipant[]
-  invoices            Invoice[]
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  id                    String                  @id @default(uuid())
+  userId                String                  @unique
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName             String
+  lastName              String
+  phone                 String?
+  country               String
+  language              Language                @default(EN)
+  birthdate             DateTime?
+  emergencyContact      Json?
+  gender                String?
+  notes                 String?                 @db.Text
+  loyaltyPoints         Int                     @default(0)
+  totalDives            Int                     @default(0)
+  customerType          CustomerType            @default(TOURIST)
+  centerSkillLevel      SkillLevel?
+  isApproved            Boolean                 @default(true)
+  // Verification is cleared when the number or expiry changes.
+  medicalCertNumber     String?
+  medicalCertExpiry     DateTime?
+  medicalCertVerifiedAt DateTime?
+  insuranceProvider     String?
+  insurancePolicyNumber String?
+  insuranceExpiry       DateTime?
+  insuranceVerifiedAt   DateTime?
+  // ownEquipment: brings a full set; the tank is always the center's.
+  ownEquipment          Boolean                 @default(false)
+  tankSize              String?
+  bcdSize               String?
+  wetsuitSize           String?
+  finsSize              String?
+  bootsSize             String?
+  certifications        CustomerCertification[]
+  bookings              Booking[]
+  diveLogEntries        DiveLogParticipant[]
+  invoices              Invoice[]
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 
   @@index([country])
 }
 
 // The dive center's own details, shown on invoices and in the backoffice.
 // A single row, id "center".
+// A diving certification staff recorded from the diver's card.
+model CustomerCertification {
+  id         String    @id @default(uuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  agency     String
+  level      String
+  cardNumber String?
+  issueDate  DateTime?
+  expiryDate DateTime?
+  verifiedAt DateTime?
+  verifiedBy String? // email of the staff member who verified it
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([customerId])
+}
+
 model CenterSettings {
   id        String   @id @default("center")
   name      String

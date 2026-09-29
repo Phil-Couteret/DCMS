@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -11,7 +12,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { Language } from '../../generated/prisma/enums.js';
+import { CustomerType, Language, SkillLevel } from '../../generated/prisma/enums.js';
 
 export class CreateCustomerDto {
   // Give either userId (an existing account) or email. With email, the account
@@ -53,26 +54,6 @@ export class CreateCustomerDto {
   @IsObject()
   emergencyContact?: Record<string, unknown> | null;
 
-  // null clears them on update.
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  certificationAgency?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  certificationLevel?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  certificationNumber?: string | null;
-
-  @IsOptional()
-  @IsDateString()
-  certificationExpiry?: string | null;
-
   @IsOptional()
   @IsString()
   @MaxLength(30)
@@ -93,4 +74,84 @@ export class CreateCustomerDto {
   @IsInt()
   @Min(0)
   totalDives?: number;
+
+  @IsOptional()
+  @IsEnum(CustomerType)
+  customerType?: CustomerType;
+
+  // null clears it on update.
+  @IsOptional()
+  @IsEnum(SkillLevel)
+  centerSkillLevel?: SkillLevel | null;
+
+  // Whether the customer may book online.
+  @IsOptional()
+  @IsBoolean()
+  isApproved?: boolean;
+
+  // Medical certificate and insurance: null clears a field. Changing a number,
+  // provider or expiry clears the verification unless it is set in the same
+  // request.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  medicalCertNumber?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  medicalCertExpiry?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  medicalCertVerifiedAt?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  insuranceProvider?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  insurancePolicyNumber?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  insuranceExpiry?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  insuranceVerifiedAt?: string | null;
+
+  // Equipment: ownEquipment means a full set of their own; the tank is always
+  // the center's. Sizes are free text (the backoffice offers XS-XXL, and
+  // 10L/12L/15L/Nitrox for tanks); null clears one.
+  @IsOptional()
+  @IsBoolean()
+  ownEquipment?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  tankSize?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  bcdSize?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  wetsuitSize?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  finsSize?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  bootsSize?: string | null;
 }

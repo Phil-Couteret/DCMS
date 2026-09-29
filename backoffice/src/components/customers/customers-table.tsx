@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { setApproval } from "@/app/dashboard/customers/actions";
+import { ActionButton } from "@/components/customers/profile-actions";
 import type { Customer } from "@/lib/api";
-import { countryLabel, LANGUAGE_LABELS } from "@/lib/customers";
+import { countryLabel, CUSTOMER_TYPE_LABELS, LANGUAGE_LABELS, SKILL_LEVEL_LABELS } from "@/lib/customers";
 
 // Name search runs in the browser over the customers already loaded.
 export function CustomersTable({ customers, filtered }: { customers: Customer[]; filtered: boolean }) {
@@ -43,6 +45,8 @@ export function CustomersTable({ customers, filtered }: { customers: Customer[];
                 <TableHead>Name</TableHead>
                 <TableHead>Country</TableHead>
                 <TableHead>Language</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Skill Level</TableHead>
                 <TableHead className="text-right">Total Dives</TableHead>
                 <TableHead className="text-right">Loyalty Points</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -56,17 +60,36 @@ export function CustomersTable({ customers, filtered }: { customers: Customer[];
                   </TableCell>
                   <TableCell>{countryLabel(c.country)}</TableCell>
                   <TableCell>{LANGUAGE_LABELS[c.language] ?? c.language}</TableCell>
+                  <TableCell>{CUSTOMER_TYPE_LABELS[c.customerType] ?? c.customerType}</TableCell>
+                  <TableCell>
+                    {c.centerSkillLevel ? (
+                      SKILL_LEVEL_LABELS[c.centerSkillLevel]
+                    ) : (
+                      <span className="text-zinc-400">Not assessed</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{c.totalDives}</TableCell>
                   <TableCell className="text-right tabular-nums">{c.loyaltyPoints}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      nativeButton={false}
-                      render={<Link href={`/dashboard/customers/${c.id}`} prefetch={false} />}
-                    >
-                      View
-                    </Button>
+                  <TableCell>
+                    <div className="flex items-start justify-end gap-1">
+                      <ActionButton
+                        action={setApproval}
+                        fields={{ customerId: c.id, approve: String(!c.isApproved) }}
+                        pendingLabel="Saving…"
+                        variant={c.isApproved ? "ghost" : "default"}
+                        confirm={c.isApproved ? `Revoke ${c.firstName} ${c.lastName}'s approval to book online?` : undefined}
+                      >
+                        {c.isApproved ? "Revoke" : "Approve"}
+                      </ActionButton>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={<Link href={`/dashboard/customers/${c.id}`} prefetch={false} />}
+                      >
+                        View
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

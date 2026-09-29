@@ -121,8 +121,6 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
         country: country.toUpperCase(),
         language,
         birthdate: null,
-        certificationAgency: null,
-        certificationLevel: null,
         emergencyContact: null,
       });
       customerId = customer.id;

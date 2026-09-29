@@ -1,4 +1,4 @@
-import type { Language } from "@/lib/api";
+import type { CustomerType, Language, SkillLevel } from "@/lib/api";
 
 export const LANGUAGES: { code: Language; label: string }[] = [
   { code: "EN", label: "English" },
@@ -51,3 +51,34 @@ export const GENDER_LABELS: Record<string, string> = {
   female: "Female",
   other: "Other",
 };
+
+export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
+  TOURIST: "Tourist",
+  LOCAL: "Local",
+  RECURRENT: "Recurrent",
+};
+
+// Staff's operational assessment, independent of certification.
+export const SKILL_LEVEL_LABELS: Record<SkillLevel, string> = {
+  BEGINNER: "Beginner",
+  INTERMEDIATE: "Intermediate",
+  ADVANCED: "Advanced",
+  EXPERT: "Expert",
+};
+
+// Sizes are free text in the API; these are what the form offers.
+export const TANK_SIZES = ["10L", "12L", "15L", "Nitrox 12L", "Nitrox 15L"];
+export const GEAR_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+
+// Rental items with a size, in the order staff prepare them.
+export const RENTAL_SIZE_FIELDS = [
+  { key: "bcdSize", label: "BCD" },
+  { key: "wetsuitSize", label: "Wetsuit" },
+  { key: "finsSize", label: "Fins" },
+  { key: "bootsSize", label: "Boots" },
+] as const;
+
+// Whether an ISO date is before today at the center.
+export function isPast(iso: string | null, today: string) {
+  return iso !== null && iso.slice(0, 10) < today;
+}
