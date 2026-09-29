@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "CenterSettings" ADD COLUMN     "taxName" TEXT NOT NULL DEFAULT 'IGIC',
+ADD COLUMN     "taxRate" DECIMAL(5,2) NOT NULL DEFAULT 7.00;
+

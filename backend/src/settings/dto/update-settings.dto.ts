@@ -1,6 +1,18 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength, ValidateIf } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
-// Replaces the whole record: optional fields left out or null are cleared.
+// Replaces the whole record: optional fields left out or null are cleared,
+// except taxRate and taxName, which keep their values when left out.
 export class UpdateSettingsDto {
   @IsString()
   @IsNotEmpty()
@@ -31,4 +43,17 @@ export class UpdateSettingsDto {
   @IsUrl({ require_protocol: true })
   @MaxLength(300)
   website?: string | null;
+
+  // A percentage, e.g. 7 for 7%.
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  taxRate?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  taxName?: string;
 }

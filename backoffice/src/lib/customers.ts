@@ -44,3 +44,10 @@ export function customerOption(c: { id: string; firstName: string; lastName: str
 }
 
 export const CERT_AGENCIES = ["PADI", "SSI", "CMAS", "NAUI", "BSAC", "VDST", "Other"];
+
+// Customer.gender is free text; the old system stored these values.
+export const GENDER_LABELS: Record<string, string> = {
+  male: "Male",
+  female: "Female",
+  other: "Other",
+};

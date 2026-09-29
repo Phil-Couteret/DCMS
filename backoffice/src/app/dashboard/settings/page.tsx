@@ -232,12 +232,12 @@ async function PricingTab() {
   } catch (e) {
     return <LoadError what="Pricing" reason={e} />;
   }
-  const rate = `${(pricing.taxRate * 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}%`;
+  const rate = `${pricing.taxRate.toLocaleString("en-GB", { maximumFractionDigits: 2 })}%`;
   return (
     <div className="space-y-6">
       <p className="rounded-lg bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-zinc-200">
-        The prices invoices are built from, net of {pricing.taxName} ({rate}, added on invoices). Read-only: they are set
-        on the server, together with the public site&apos;s catalogue.
+        The prices invoices are built from, net of {pricing.taxName} ({rate}, added on invoices; set in the General
+        tab). Read-only: they are set on the server, together with the public site&apos;s catalogue.
       </p>
       <Panel title="Activities" description="Per participant.">
         <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
@@ -255,7 +255,7 @@ async function PricingTab() {
                   <TableCell className="font-medium">{a.name}</TableCell>
                   <TableCell className="text-right tabular-nums">{a.price === null ? "Not set" : eur.format(a.price)}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {a.price === null ? "—" : eur.format(Math.round(a.price * (1 + pricing.taxRate) * 100) / 100)}
+                    {a.price === null ? "—" : eur.format(Math.round(a.price * (100 + pricing.taxRate)) / 100)}
                   </TableCell>
                 </TableRow>
               ))}

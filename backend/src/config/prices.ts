@@ -1,8 +1,9 @@
 import { ActivityType } from '../generated/prisma/enums.js';
 
-// Net prices in EUR, excluding IGIC. They must match the public site's
-// catalogue (frontend/src/lib/booking-catalog.ts) exactly: invoices are built
-// from these, never from a price a browser sent.
+// Net prices in EUR, excluding tax (IGIC; its rate is in the center
+// settings). They must match the public site's catalogue
+// (frontend/src/lib/booking-catalog.ts) exactly: invoices are built from
+// these, never from a price a browser sent.
 //
 // DM_CERT has no public price yet, so bookings for it cannot be invoiced
 // automatically. Add it here once it is set.
@@ -39,6 +40,3 @@ export type EquipmentKey = keyof typeof EQUIPMENT_PRICES;
 // All five items hired together cost this instead of 45.
 export const FULL_PACKAGE_PRICE = 35;
 
-// IGIC, the Canary Islands indirect tax, general rate. Prices above are net.
-// To be confirmed with the accountant.
-export const IGIC_RATE = 0.07;

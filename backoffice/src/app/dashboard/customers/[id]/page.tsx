@@ -7,7 +7,8 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, getBookings, getCustomer, getCustomerDiveHistory, type Booking } from "@/lib/api";
 import { ACTIVITY_LABELS, formatBookingDate, parseGuestNotes } from "@/lib/bookings";
-import { CERT_LABELS, countryLabel, LANGUAGE_LABELS } from "@/lib/customers";
+import { centerNow } from "@/lib/center-time";
+import { CERT_LABELS, countryLabel, GENDER_LABELS, LANGUAGE_LABELS } from "@/lib/customers";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +23,33 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-// emergencyContact is free-form JSON: show an object as label/value pairs and
-// anything else as text.
+// emergencyContact is free-form JSON. The name, phone and relationship the
+// form edits come first; other keys follow as label/value pairs, and anything
+// that is not an object is shown as text.
 function EmergencyContact({ value }: { value: unknown }) {
   if (value === null || value === undefined) return <>Not given</>;
   if (typeof value === "object" && !Array.isArray(value)) {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return <>Not given</>;
+    const { name, phone, relationship, ...others } = value as Record<string, unknown>;
+    const str = (v: unknown) => (typeof v === "string" && v !== "" ? v : null);
+    const entries = Object.entries(others);
+    if (!str(name) && !str(phone) && !str(relationship) && entries.length === 0) return <>Not given</>;
     return (
       <ul className="space-y-0.5">
+        {(str(name) || str(relationship)) && (
+          <li>
+            {str(name) ?? "Name not given"}
+            {str(relationship) && <span className="text-zinc-500"> ({str(relationship)})</span>}
+          </li>
+        )}
+        <li>
+          {str(phone) ? (
+            <a href={`tel:${str(phone)}`} className="hover:underline">
+              {str(phone)}
+            </a>
+          ) : (
+            <span className="text-zinc-500">No phone given</span>
+          )}
+        </li>
         {entries.map(([k, v]) => (
           <li key={k}>
             <span className="text-zinc-500">{k}:</span> {typeof v === "string" ? v : JSON.stringify(v)}
@@ -75,6 +94,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
     .slice(0, 10);
   const cert = selfDeclaredCert(bookings);
+  const certExpired =
+    customer.certificationExpiry !== null && customer.certificationExpiry.slice(0, 10) < centerNow().isoDate;
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -120,15 +141,18 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                 </a>
               </Row>
               <Row label="Phone">{customer.phone ?? "Not given"}</Row>
-              <Row label="Country">{countryLabel(customer.country)}</Row>
+              <Row label="Nationality">{countryLabel(customer.country)}</Row>
               <Row label="Language">{LANGUAGE_LABELS[customer.language] ?? customer.language}</Row>
               <Row label="Birthdate">
                 {customer.birthdate ? formatBookingDate(customer.birthdate, "long") : "Not given"}
               </Row>
+              <Row label="Gender">
+                {customer.gender ? (GENDER_LABELS[customer.gender] ?? customer.gender) : "Not specified"}
+              </Row>
               <Row label="Emergency contact">
                 <EmergencyContact value={customer.emergencyContact} />
               </Row>
-              <Row label="Total dives">{customer.totalDives}</Row>
+              <Row label="Dives logged">{customer.totalDives}</Row>
               <Row label="Loyalty points">{customer.loyaltyPoints}</Row>
               <Row label="Last updated">{dateTime.format(new Date(customer.updatedAt))}</Row>
             </dl>
@@ -149,6 +173,25 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             ) : (
               <p className="text-sm text-zinc-500">Not recorded yet.</p>
             )}
+            {(customer.certificationNumber || customer.certificationExpiry) && (
+              <dl className="divide-y divide-zinc-100">
+                {customer.certificationNumber && (
+                  <Row label="Card number">
+                    <span className="font-mono">{customer.certificationNumber}</span>
+                  </Row>
+                )}
+                {customer.certificationExpiry && (
+                  <Row label="Card expiry">
+                    {formatBookingDate(customer.certificationExpiry)}
+                    {certExpired && (
+                      <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-red-700 ring-1 ring-red-200">
+                        Expired
+                      </span>
+                    )}
+                  </Row>
+                )}
+              </dl>
+            )}
             {cert && cert.level !== customer.certificationLevel ? (
               <div className="rounded-lg bg-amber-50 p-4 ring-1 ring-amber-200">
                 <p className="text-sm font-medium text-amber-900">
@@ -166,6 +209,20 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notes</CardTitle>
+          <CardDescription>For staff only.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {customer.notes ? (
+            <p className="whitespace-pre-line text-sm text-zinc-900">{customer.notes}</p>
+          ) : (
+            <p className="text-sm text-zinc-500">No notes.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Separator />
 

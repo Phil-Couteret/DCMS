@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ApiError, createCustomer, getCustomer, updateCustomer, type Language } from "@/lib/api";
-import { CERT_AGENCIES, CERT_LABELS, LANGUAGES } from "@/lib/customers";
+import { CERT_AGENCIES, CERT_LABELS, GENDER_LABELS, LANGUAGES } from "@/lib/customers";
 
 export type CustomerFormState = { error?: string } | null;
 
@@ -11,6 +11,13 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function text(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
+}
+
+// A whole number of at least 0, or null when the field is not one.
+function count(formData: FormData, name: string) {
+  const raw = text(formData, name);
+  const n = raw === "" ? NaN : Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
 // Creates or updates a customer, then opens their profile.
@@ -24,6 +31,10 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
   const birthdate = text(formData, "birthdate");
   const level = text(formData, "certificationLevel");
   const agency = text(formData, "certificationAgency");
+  const certExpiry = text(formData, "certificationExpiry");
+  const gender = text(formData, "gender");
+  const totalDives = count(formData, "totalDives");
+  const loyaltyPoints = count(formData, "loyaltyPoints");
 
   if (!firstName || !lastName) return { error: "Enter a first and last name" };
   if (!email) return { error: "Enter an email address" };
@@ -33,6 +44,12 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
   if (level && !(level in CERT_LABELS)) return { error: "Choose a certification level" };
   const certified = level !== "" && level !== "none";
   if (certified && !CERT_AGENCIES.includes(agency)) return { error: "Choose the certifying agency" };
+  if (certExpiry && !ISO_DATE.test(certExpiry)) return { error: "Enter a valid card expiry date" };
+  if (gender && !(gender in GENDER_LABELS) && gender !== text(formData, "gender_initial")) {
+    return { error: "Choose a gender" };
+  }
+  if (totalDives === null) return { error: "Dives logged must be a whole number, 0 or more" };
+  if (loyaltyPoints === null) return { error: "Loyalty points must be a whole number, 0 or more" };
 
   // Keys other than name, phone and relationship are kept as they are.
   let emergencyContact: Record<string, unknown> = {};
@@ -62,6 +79,12 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
     birthdate: birthdate || null,
     certificationLevel: level || null,
     certificationAgency: certified ? agency : null,
+    certificationNumber: (certified && text(formData, "certificationNumber")) || null,
+    certificationExpiry: (certified && certExpiry) || null,
+    gender: gender || null,
+    notes: text(formData, "notes") || null,
+    totalDives,
+    loyaltyPoints,
     emergencyContact: Object.keys(emergencyContact).length > 0 ? emergencyContact : null,
   };
 

@@ -50,6 +50,10 @@ export interface Customer {
   email: string; // the customer's account email
   certificationAgency: string | null;
   certificationLevel: string | null;
+  certificationNumber: string | null;
+  certificationExpiry: string | null;
+  gender: string | null;
+  notes: string | null; // staff notes
   loyaltyPoints: number;
   totalDives: number;
   createdAt: string;
@@ -268,6 +272,13 @@ export interface CustomerData {
   birthdate: string | null;
   certificationAgency: string | null;
   certificationLevel: string | null;
+  // Left out, these keep their values (or the defaults, on create).
+  certificationNumber?: string | null;
+  certificationExpiry?: string | null;
+  gender?: string | null;
+  notes?: string | null;
+  loyaltyPoints?: number;
+  totalDives?: number;
   emergencyContact: Record<string, unknown> | null;
 }
 
@@ -739,15 +750,19 @@ export interface CenterSettings {
   phone: string | null;
   email: string | null;
   website: string | null;
+  taxRate: string; // a percentage, as a decimal string, e.g. "7"
+  taxName: string;
   updatedAt: string | null; // null until first saved
 }
+
+export type SettingsData = Omit<CenterSettings, "updatedAt" | "taxRate"> & { taxRate: number };
 
 export function getSettings() {
   return apiFetch<CenterSettings>("/settings");
 }
 
 // Replaces every field; empty optional fields are cleared.
-export function updateSettings(data: Omit<CenterSettings, "updatedAt">) {
+export function updateSettings(data: SettingsData) {
   return apiFetch<CenterSettings>("/settings", { method: "PUT", body: JSON.stringify(data) });
 }
 
@@ -755,7 +770,7 @@ export function updateSettings(data: Omit<CenterSettings, "updatedAt">) {
 export interface Pricing {
   currency: string;
   taxName: string;
-  taxRate: number;
+  taxRate: number; // a percentage, e.g. 7
   activities: { activityType: string; name: string; price: number | null }[];
   equipment: { key: string; name: string; price: number }[];
   fullEquipmentPackage: number;

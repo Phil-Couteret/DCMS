@@ -152,11 +152,14 @@ async function accountFor(tx: Tx, email: string) {
 }
 
 function toData(dto: Omit<UpdateCustomerDto, 'email'>): Prisma.CustomerUncheckedUpdateInput {
-  const { birthdate, emergencyContact, ...rest } = dto;
+  const { birthdate, certificationExpiry, emergencyContact, ...rest } = dto;
   return {
     ...rest,
-    // null clears either field.
+    // null clears any of these fields.
     ...(birthdate !== undefined && { birthdate: birthdate === null ? null : new Date(birthdate) }),
+    ...(certificationExpiry !== undefined && {
+      certificationExpiry: certificationExpiry === null ? null : new Date(certificationExpiry),
+    }),
     ...(emergencyContact !== undefined && {
       emergencyContact: emergencyContact === null ? Prisma.DbNull : (emergencyContact as Prisma.InputJsonValue),
     }),

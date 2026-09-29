@@ -65,6 +65,26 @@ export class CreateCustomerDto {
   certificationLevel?: string | null;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  certificationNumber?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  certificationExpiry?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  gender?: string | null;
+
+  // Staff notes, not shown to the customer.
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  notes?: string | null;
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   loyaltyPoints?: number;

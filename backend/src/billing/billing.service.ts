@@ -10,7 +10,6 @@ import {
   ACTIVITY_PRICES,
   EQUIPMENT_PRICES,
   FULL_PACKAGE_PRICE,
-  IGIC_RATE,
   type EquipmentKey,
 } from '../config/prices.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -21,6 +20,7 @@ import {
   PaymentStatus,
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { AddPaymentDto } from './dto/add-payment.dto.js';
 import { AddRefundDto } from './dto/add-refund.dto.js';
 import { CreateInvoiceDto } from './dto/create-invoice.dto.js';
@@ -48,7 +48,10 @@ type PaymentWithRefunds = { status: PaymentStatus; amount: Decimal; refunds: { a
 
 @Injectable()
 export class BillingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   findAll(filters: { status?: InvoiceStatus; customerId?: string } = {}) {
     return this.prisma.invoice.findMany({
@@ -74,8 +77,8 @@ export class BillingService {
 
   // Builds the invoice from the booking and the server-side price list: one
   // line for the activity (price x participants), one per equipment item from
-  // a guest booking's notes (the full package when all five are chosen), IGIC
-  // on the subtotal, due on the dive date. A price in the notes is ignored:
+  // a guest booking's notes (the full package when all five are chosen), the
+  // tax from the settings (IGIC by default) on the subtotal, due on the dive date. A price in the notes is ignored:
   // the guest's browser calculated it.
   async createFromBooking(bookingId: string) {
     const booking = await this.prisma.booking.findUnique({
@@ -116,7 +119,8 @@ export class BillingService {
       ...equipmentLines(booking.notes),
     ];
     const subtotal = sum(items.map((i) => i.total));
-    const tax = subtotal.times(IGIC_RATE).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    const { taxRate } = await this.settings.tax();
+    const tax = subtotal.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
 
     return this.create({
       bookingId,

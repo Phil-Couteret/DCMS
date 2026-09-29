@@ -74,6 +74,31 @@ export function GeneralForm({ settings }: { settings: CenterSettings }) {
           />
         </label>
       </div>
+      <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">Tax</legend>
+        <p className="text-xs text-zinc-500">
+          Added to net prices on new invoices. Invoices already issued keep the tax they were created with.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className={label}>
+            Tax name
+            <input name="taxName" required maxLength={20} defaultValue={settings.taxName} className={control} />
+          </label>
+          <label className={label}>
+            Tax rate (%)
+            <input
+              type="number"
+              name="taxRate"
+              required
+              min={0}
+              max={100}
+              step={0.01}
+              defaultValue={Number(settings.taxRate)}
+              className={control}
+            />
+          </label>
+        </div>
+      </fieldset>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save"}

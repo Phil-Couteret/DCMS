@@ -35,7 +35,14 @@ function int(formData: FormData, name: string) {
 
 export async function saveGeneral(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
   const name = text(formData, "name");
+  const taxName = text(formData, "taxName");
+  const taxRateRaw = text(formData, "taxRate");
+  const taxRate = Number(taxRateRaw);
   if (!name) return { error: "Enter the center's name" };
+  if (!taxName) return { error: "Enter the tax name" };
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(taxRateRaw) || taxRate > 100) {
+    return { error: "Tax rate must be a percentage between 0 and 100, with at most 2 decimals" };
+  }
   try {
     await updateSettings({
       name,
@@ -44,6 +51,8 @@ export async function saveGeneral(_prev: SettingsFormState, formData: FormData):
       phone: text(formData, "phone") || null,
       email: text(formData, "email") || null,
       website: text(formData, "website") || null,
+      taxName,
+      taxRate,
     });
   } catch (e) {
     return fail(e, "Settings could not be saved");

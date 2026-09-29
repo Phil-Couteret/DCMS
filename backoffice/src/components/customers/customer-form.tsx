@@ -5,7 +5,7 @@ import { useState } from "react";
 import { saveCustomer, type CustomerFormState } from "@/app/dashboard/customers/actions";
 import { Button } from "@/components/ui/button";
 import type { Language } from "@/lib/api";
-import { CERT_AGENCIES, CERT_LABELS, LANGUAGES } from "@/lib/customers";
+import { CERT_AGENCIES, CERT_LABELS, GENDER_LABELS, LANGUAGES } from "@/lib/customers";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -21,8 +21,14 @@ export interface CustomerFormValues {
   country: string;
   language: Language;
   birthdate: string;
+  gender: string;
   certificationAgency: string;
   certificationLevel: string;
+  certificationNumber: string;
+  certificationExpiry: string;
+  totalDives: string;
+  loyaltyPoints: string;
+  notes: string;
   emergencyName: string;
   emergencyPhone: string;
   emergencyRelationship: string;
@@ -46,6 +52,7 @@ export function CustomerForm({
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       {customerId && <input type="hidden" name="customerId" value={customerId} />}
+      <input type="hidden" name="gender_initial" value={initial.gender} />
 
       <section className={section}>
         <h2 className="font-semibold text-zinc-900">Details</h2>
@@ -67,7 +74,7 @@ export function CustomerForm({
             <input type="tel" name="phone" maxLength={40} defaultValue={initial.phone} className={control} />
           </label>
           <label className={label}>
-            Country code
+            Nationality (country code)
             <input
               name="country"
               required
@@ -90,6 +97,20 @@ export function CustomerForm({
           <label className={label}>
             Birthdate (optional)
             <input type="date" name="birthdate" max={maxBirthdate} defaultValue={initial.birthdate} className={control} />
+          </label>
+          <label className={label}>
+            Gender (optional)
+            <select name="gender" defaultValue={initial.gender} className={control}>
+              <option value="">Not specified</option>
+              {Object.entries(GENDER_LABELS).map(([value, text]) => (
+                <option key={value} value={value}>
+                  {text}
+                </option>
+              ))}
+              {initial.gender && !(initial.gender in GENDER_LABELS) && (
+                <option value={initial.gender}>{initial.gender}</option>
+              )}
+            </select>
           </label>
         </div>
       </section>
@@ -131,6 +152,38 @@ export function CustomerForm({
               ))}
             </select>
           </label>
+          <label className={label}>
+            Card number (optional)
+            <input
+              name="certificationNumber"
+              maxLength={60}
+              defaultValue={initial.certificationNumber}
+              disabled={!certified}
+              className={control}
+            />
+          </label>
+          <label className={label}>
+            Card expiry (optional)
+            <input
+              type="date"
+              name="certificationExpiry"
+              defaultValue={initial.certificationExpiry}
+              disabled={!certified}
+              className={control}
+            />
+          </label>
+          <label className={label}>
+            Dives logged
+            <input
+              type="number"
+              name="totalDives"
+              required
+              min={0}
+              step={1}
+              defaultValue={initial.totalDives}
+              className={control}
+            />
+          </label>
         </div>
       </section>
 
@@ -152,6 +205,35 @@ export function CustomerForm({
               maxLength={60}
               placeholder="e.g. Partner"
               defaultValue={initial.emergencyRelationship}
+              className={control}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className={section}>
+        <h2 className="font-semibold text-zinc-900">Loyalty and notes</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className={label}>
+            Loyalty points
+            <input
+              type="number"
+              name="loyaltyPoints"
+              required
+              min={0}
+              step={1}
+              defaultValue={initial.loyaltyPoints}
+              className={control}
+            />
+          </label>
+          <label className={`${label} sm:col-span-2`}>
+            Notes (optional)
+            <textarea
+              name="notes"
+              rows={4}
+              maxLength={2000}
+              placeholder="For staff only, e.g. medical remarks, preferences"
+              defaultValue={initial.notes}
               className={control}
             />
           </label>
