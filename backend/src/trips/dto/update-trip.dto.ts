@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { TripStatus } from '../../generated/prisma/enums.js';
 
 // Date, time slot and boat identify the trip and are not editable: cancel it
@@ -19,4 +19,18 @@ export class UpdateTripDto {
   @IsOptional()
   @IsString()
   notes?: string | null;
+
+  // Post-dive report. Times are HH:mm, center local time; null clears one.
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: '$property must be a time as HH:mm' })
+  entryTime?: string | null;
+
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: '$property must be a time as HH:mm' })
+  exitTime?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  reportNotes?: string | null;
 }

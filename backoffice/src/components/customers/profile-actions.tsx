@@ -1,59 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { addCertification, type CustomerActionState } from "@/app/dashboard/customers/actions";
 import { Button } from "@/components/ui/button";
 import { CERT_AGENCIES, CERT_LABELS } from "@/lib/customers";
 import { useFormAction } from "@/lib/use-form-action";
 
+export { ActionButton } from "@/components/action-button";
+
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
 const label = "block text-sm font-medium text-zinc-700";
-
-type Action = (state: CustomerActionState, formData: FormData) => Promise<CustomerActionState>;
-
-// A one-click action (approve, verify, remove…) posting a few hidden fields,
-// with an optional confirmation.
-export function ActionButton({
-  action,
-  fields,
-  children,
-  pendingLabel,
-  confirm,
-  variant = "outline",
-  className,
-}: {
-  action: Action;
-  fields: Record<string, string>;
-  children: React.ReactNode;
-  pendingLabel: string;
-  confirm?: string;
-  variant?: "default" | "outline" | "ghost";
-  className?: string;
-}) {
-  const [state, formAction, pending] = useActionState<CustomerActionState, FormData>(action, null);
-  return (
-    <form
-      action={formAction}
-      onSubmit={(e) => {
-        if (confirm && !window.confirm(confirm)) e.preventDefault();
-      }}
-      className="inline-flex flex-col items-end gap-1"
-    >
-      {Object.entries(fields).map(([name, value]) => (
-        <input key={name} type="hidden" name={name} value={value} />
-      ))}
-      <Button type="submit" size="sm" variant={variant} disabled={pending} className={className}>
-        {pending ? pendingLabel : children}
-      </Button>
-      {state?.error && (
-        <p role="alert" className="max-w-56 text-right text-xs text-destructive">
-          {state.error}
-        </p>
-      )}
-    </form>
-  );
-}
 
 export function AddCertificationForm({ customerId }: { customerId: string }) {
   const [state, onSubmit, pending] = useFormAction<CustomerActionState>(addCertification, null);

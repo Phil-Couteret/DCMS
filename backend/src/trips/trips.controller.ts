@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
 import { CreateTripDto } from './dto/create-trip.dto.js';
+import { LinkBookingDto } from './dto/link-booking.dto.js';
 import { ListTripsQueryDto } from './dto/list-trips-query.dto.js';
 import { UpdateTripDto } from './dto/update-trip.dto.js';
 import { TripsService } from './trips.service.js';
@@ -64,7 +65,16 @@ export class TripsController {
   linkBooking(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Body() dto: LinkBookingDto,
   ) {
-    return this.trips.linkBooking(id, bookingId);
+    return this.trips.linkBooking(id, bookingId, dto);
+  }
+
+  @Delete(':id/bookings/:bookingId')
+  unlinkBooking(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+  ) {
+    return this.trips.unlinkBooking(id, bookingId);
   }
 }

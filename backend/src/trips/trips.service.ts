@@ -14,15 +14,9 @@ import {
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
+import { ROLE_STAFF_TYPES, SEAT_HOLDING, tripCapacity, tripIssues } from './trip-rules.js';
 import { CreateTripDto } from './dto/create-trip.dto.js';
 import { UpdateTripDto } from './dto/update-trip.dto.js';
-
-// Statuses that hold a place on the trip. CANCELLED and NO_SHOW free theirs.
-const SEAT_HOLDING: BookingStatus[] = [
-  BookingStatus.PENDING,
-  BookingStatus.CONFIRMED,
-  BookingStatus.COMPLETED,
-];
 
 // Trips that can no longer take staff or bookings.
 const CLOSED: TripStatus[] = [TripStatus.COMPLETED, TripStatus.CANCELLED];
@@ -70,10 +64,11 @@ export class TripsService {
     });
   }
 
+  // With what still stops the trip from leaving, and its seats.
   async findOne(id: string) {
     const trip = await this.prisma.trip.findUnique({ where: { id }, include: DETAIL_INCLUDE });
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
-    return trip;
+    return { ...trip, issues: tripIssues(trip), capacity: tripCapacity(trip) };
   }
 
   async create(dto: CreateTripDto) {
@@ -102,12 +97,29 @@ export class TripsService {
     }
   }
 
+  // Moving to ACTIVE needs a trip ready to leave (see tripIssues). Moving to
+  // COMPLETED records when, and takes the planned site as the actual one
+  // unless one is set.
   async update(id: string, dto: UpdateTripDto) {
     await this.findOne(id);
     try {
       await this.prisma.$transaction(async (tx) => {
+        await lockTrip(tx, id);
         await assertReferences(tx, { siteIds: [dto.plannedSiteId, dto.actualSiteId] });
-        await tx.trip.update({ where: { id }, data: dto });
+        const current = await tx.trip.findUniqueOrThrow({ where: { id }, include: DETAIL_INCLUDE });
+        const data: Prisma.TripUncheckedUpdateInput = { ...dto };
+        if (dto.status === TripStatus.ACTIVE && current.status !== TripStatus.ACTIVE) {
+          const issues = tripIssues({
+            ...current,
+            plannedSiteId: dto.plannedSiteId !== undefined ? dto.plannedSiteId : current.plannedSiteId,
+          });
+          if (issues.length > 0) throw new ConflictException(`Trip is not ready: ${issues.join('; ')}`);
+        }
+        if (dto.status === TripStatus.COMPLETED && current.status !== TripStatus.COMPLETED) {
+          data.completedAt = new Date();
+          if (dto.actualSiteId === undefined && !current.actualSiteId) data.actualSiteId = current.plannedSiteId;
+        }
+        await tx.trip.update({ where: { id }, data });
       });
       return this.findOne(id);
     } catch (e) {
@@ -144,11 +156,17 @@ export class TripsService {
 
         const staff = await tx.staff.findUnique({
           where: { id: dto.staffId },
-          select: { status: true },
+          select: { status: true, type: true },
         });
         if (!staff) throw new BadRequestException('staffId does not match an existing staff member');
         if (staff.status !== StaffStatus.ACTIVE) {
           throw new BadRequestException('Staff member is not active');
+        }
+        if (!ROLE_STAFF_TYPES[dto.role].includes(staff.type)) {
+          throw new BadRequestException(
+            `A ${staff.type.toLowerCase()} cannot be ${dto.role.toLowerCase().replace('_', ' ')}; ` +
+              `allowed: ${ROLE_STAFF_TYPES[dto.role].map((t) => t.toLowerCase()).join(', ')}`,
+          );
         }
 
         if (dto.role === TripStaffRole.CAPTAIN) {
@@ -174,6 +192,19 @@ export class TripsService {
           );
         }
 
+        // Crew take seats on the boat too.
+        if (trip.boatId) {
+          const detail = await tx.trip.findUniqueOrThrow({ where: { id }, include: DETAIL_INCLUDE });
+          const { divers, crew } = tripCapacity(detail);
+          const already = detail.staff.some((s) => s.staffId === dto.staffId);
+          if (!already && detail.boat && divers + crew + 1 > detail.boat.capacity) {
+            throw new ConflictException(
+              `No seat left on ${detail.boat.name} for more crew: ${divers} divers and ${crew} crew ` +
+                `for ${detail.boat.capacity} places`,
+            );
+          }
+        }
+
         await tx.tripStaff.create({ data: { tripId: id, staffId: dto.staffId, role: dto.role } });
       });
       return this.findOne(id);
@@ -190,8 +221,10 @@ export class TripsService {
   }
 
   // Moves the booking here if it is on another trip. The booking must be for
-  // the trip's date and time slot, and on its boat when the trip has one.
-  async linkBooking(id: string, bookingId: string) {
+  // the trip's date and time slot, and on its boat when the trip has one;
+  // with reassignBoat, a booking on another boat is moved to the trip's boat
+  // (its seat is checked there as when booking).
+  async linkBooking(id: string, bookingId: string, opts: { reassignBoat?: boolean } = {}) {
     await this.prisma.$transaction(async (tx) => {
       const trip = await lockTrip(tx, id);
       assertOpen(trip);
@@ -215,7 +248,8 @@ export class TripsService {
       if (booking.date.getTime() !== trip.date.getTime() || booking.timeSlot !== trip.timeSlot) {
         throw new BadRequestException("Booking date and time slot do not match the trip's");
       }
-      if (trip.boatId && booking.boatId !== trip.boatId) {
+      const moveBoat = Boolean(trip.boatId && booking.boatId !== trip.boatId);
+      if (moveBoat && !opts.reassignBoat) {
         throw new BadRequestException("Booking is on a different boat from the trip's");
       }
 
@@ -231,9 +265,58 @@ export class TripsService {
         );
       }
 
-      await tx.booking.update({ where: { id: bookingId }, data: { tripId: id } });
+      if (moveBoat) await assertBoatSeat(tx, trip.boatId!, trip, bookingId, booking.participantCount);
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { tripId: id, ...(moveBoat && { boatId: trip.boatId! }) },
+      });
     });
     return this.findOne(id);
+  }
+
+  // Takes the booking off the trip; it keeps its boat seat and can be added
+  // to another trip.
+  async unlinkBooking(id: string, bookingId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const trip = await lockTrip(tx, id);
+      assertOpen(trip);
+      const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { tripId: true } });
+      if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+      if (booking.tripId !== id) throw new NotFoundException(`Booking ${bookingId} is not on trip ${id}`);
+      await tx.booking.update({ where: { id: bookingId }, data: { tripId: null } });
+    });
+    return this.findOne(id);
+  }
+}
+
+// The same seat check as when booking: the boat is locked and its seats for
+// the slot counted, without this booking.
+async function assertBoatSeat(
+  tx: Tx,
+  boatId: string,
+  slot: { date: Date; timeSlot: TimeSlot },
+  bookingId: string,
+  participantCount: number,
+) {
+  const rows = await tx.$queryRaw<{ capacity: number; name: string }[]>`
+    SELECT capacity, name FROM "Boat" WHERE id = ${boatId} FOR UPDATE`;
+  if (rows.length === 0) throw new BadRequestException('The trip\'s boat no longer exists');
+  const taken = await tx.booking.aggregate({
+    _sum: { participantCount: true },
+    where: {
+      boatId,
+      date: slot.date,
+      timeSlot: slot.timeSlot,
+      status: { in: SEAT_HOLDING },
+      id: { not: bookingId },
+    },
+  });
+  const booked = taken._sum.participantCount ?? 0;
+  if (booked + participantCount > rows[0].capacity) {
+    throw new ConflictException(
+      `${rows[0].name} is fully booked for this slot: ${booked} of ${rows[0].capacity} seats taken, ` +
+        `${participantCount} requested`,
+    );
   }
 }
 

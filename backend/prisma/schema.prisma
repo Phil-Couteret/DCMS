@@ -351,6 +351,11 @@ model Trip {
   status        TripStatus  @default(PLANNED)
   maxDivers     Int         @default(10)
   notes         String?
+  // Post-dive report, in center local time (HH:mm).
+  entryTime     String?     @db.VarChar(5)
+  exitTime      String?     @db.VarChar(5)
+  reportNotes   String?     @db.Text
+  completedAt   DateTime?
   bookings      Booking[]
   staff         TripStaff[]
   createdAt     DateTime    @default(now())

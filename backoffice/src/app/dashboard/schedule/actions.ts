@@ -27,8 +27,10 @@ function fail(e: unknown, fallback: string): TripFormState {
   return { error: e instanceof ApiError ? e.message : fallback };
 }
 
+// Trips also show on the dive prep screen.
 function refresh() {
   revalidatePath("/dashboard/schedule");
+  revalidatePath("/dashboard/dive-prep");
 }
 
 export async function createTripAction(_prev: TripFormState, formData: FormData): Promise<TripFormState> {

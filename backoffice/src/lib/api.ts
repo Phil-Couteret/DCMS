@@ -752,6 +752,11 @@ interface TripBase {
   status: TripStatus;
   maxDivers: number;
   notes: string | null;
+  // Post-dive report; times are HH:mm, center local time.
+  entryTime: string | null;
+  exitTime: string | null;
+  reportNotes: string | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
   plannedSite: DiveSiteOption | null;
@@ -765,11 +770,22 @@ export interface TripListItem extends TripBase {
   _count: { bookings: number };
 }
 
+// Divers holding a place, crew, and how many more divers fit (on a boat the
+// crew takes seats too).
+export interface TripCapacity {
+  divers: number;
+  crew: number;
+  limit: number;
+  available: number;
+}
+
 export interface TripDetail extends TripBase {
   boat: { id: string; name: string; capacity: number } | null;
   bookings: (Omit<Booking, "customer" | "boat" | "site"> & {
     customer: { id: string; firstName: string; lastName: string };
   })[];
+  issues: string[]; // what stops the trip from starting
+  capacity: TripCapacity;
 }
 
 export interface CreateTripData {
@@ -786,6 +802,9 @@ export interface UpdateTripData {
   plannedSiteId?: string | null;
   actualSiteId?: string | null;
   notes?: string | null;
+  entryTime?: string | null;
+  exitTime?: string | null;
+  reportNotes?: string | null;
 }
 
 // Both ends are inclusive calendar days (YYYY-MM-DD).
@@ -816,9 +835,115 @@ export function removeStaff(tripId: string, staffId: string) {
   return apiFetch<TripDetail>(`/trips/${tripId}/staff/${staffId}`, { method: "DELETE" });
 }
 
-// The booking must match the trip's date, time slot and (if any) boat.
-export function linkBooking(tripId: string, bookingId: string) {
-  return apiFetch<TripDetail>(`/trips/${tripId}/bookings/${bookingId}`, { method: "POST" });
+// The booking must match the trip's date and time slot, and its boat when it
+// has one; with reassignBoat a booking on another boat is moved to it.
+export function linkBooking(tripId: string, bookingId: string, opts: { reassignBoat?: boolean } = {}) {
+  return apiFetch<TripDetail>(`/trips/${tripId}/bookings/${bookingId}`, {
+    method: "POST",
+    body: JSON.stringify(opts),
+  });
+}
+
+export function unlinkBooking(tripId: string, bookingId: string) {
+  return apiFetch<TripDetail>(`/trips/${tripId}/bookings/${bookingId}`, { method: "DELETE" });
+}
+
+// A diver as the preparation screen shows them.
+export interface PrepBooking {
+  id: string;
+  tripId: string | null;
+  boatId: string;
+  activityType: string;
+  participantCount: number;
+  status: BookingStatus;
+  createdAt: string;
+  warnings: string[];
+  customer: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    gender: string | null;
+    country: string;
+    centerSkillLevel: SkillLevel | null;
+    isApproved: boolean;
+    medicalCertExpiry: string | null;
+    insuranceExpiry: string | null;
+    ownEquipment: boolean;
+    tankSize: string | null;
+    bcdSize: string | null;
+    wetsuitSize: string | null;
+    finsSize: string | null;
+    bootsSize: string | null;
+    certifications: { agency: string; level: string; expiryDate: string | null }[];
+  };
+}
+
+export interface PrepSite {
+  id: string;
+  nameEn: string;
+  difficultyLevel: number;
+}
+
+export interface PrepTrip extends Omit<TripDetail, "bookings"> {
+  bookings: PrepBooking[];
+  suggestedSites: PrepSite[];
+}
+
+export interface DivePrep {
+  date: string;
+  timeSlot: TimeSlot;
+  trips: PrepTrip[];
+  unassigned: PrepBooking[]; // confirmed bookings on no trip
+  pendingCount: number; // pending bookings on no trip, not listed
+  boatsWithoutTrip: { id: string; name: string; capacity: number }[];
+  hasShoreTrip: boolean;
+  // Active staff, with the trip they are on in this slot.
+  staff: { id: string; firstName: string; lastName: string; type: StaffType; tripId: string | null; role: TripRole | null }[];
+  sites: PrepSite[];
+}
+
+export function getDivePrep(date: string, timeSlot: TimeSlot) {
+  return apiFetch<DivePrep>(`/dive-prep?${new URLSearchParams({ date, timeSlot })}`);
+}
+
+export interface AutoAssignResult {
+  assigned: number;
+  skipped: { bookingId: string; customer: string; reason: string }[];
+}
+
+export function autoAssignDivePrep(date: string, timeSlot: TimeSlot) {
+  return apiFetch<AutoAssignResult>("/dive-prep/auto-assign", {
+    method: "POST",
+    body: JSON.stringify({ date, timeSlot }),
+  });
+}
+
+export interface ComplianceTrip {
+  id: string;
+  timeSlot: TimeSlot;
+  boat: { id: string; name: string; capacity: number } | null;
+  plannedSite: DiveSiteOption | null;
+  actualSite: DiveSiteOption | null;
+  entryTime: string | null;
+  exitTime: string | null;
+  reportNotes: string | null;
+  completedAt: string | null;
+  captain: { id: string; firstName: string; lastName: string } | null;
+  guides: { id: string; firstName: string; lastName: string; role: TripRole }[];
+  divers: {
+    bookingId: string;
+    customerId: string;
+    name: string;
+    gender: string | null;
+    nationality: string;
+    certification: { agency: string; level: string } | null;
+    companions: number; // others on the booking, not named
+  }[];
+  totals: { divers: number; male: number; female: number; unspecified: number };
+}
+
+export function getComplianceReport(date: string) {
+  return apiFetch<{ date: string; trips: ComplianceTrip[] }>(`/dive-prep/compliance?${new URLSearchParams({ date })}`);
 }
 
 export interface CenterSettings {

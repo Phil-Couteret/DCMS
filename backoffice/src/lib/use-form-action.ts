@@ -14,7 +14,9 @@ export function useFormAction<State>(
   const [state, dispatch, pending] = useActionState<State, FormData>(action, initial);
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    // The clicked button's name and value are sent too, as with a native submit.
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(e.currentTarget, submitter);
     startTransition(() => dispatch(formData));
   };
   return [state, onSubmit, pending] as const;
