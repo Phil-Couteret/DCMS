@@ -24,6 +24,7 @@ const INVOICE_REF = {
     invoiceNumber: true,
     customer: { select: { firstName: true, lastName: true } },
     booking: { select: { activityType: true } },
+    stayId: true,
   },
 } satisfies Prisma.InvoiceDefaultArgs;
 
@@ -40,9 +41,18 @@ function invoiceFields(invoice: InvoiceRef) {
     invoiceId: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
     customerName: `${invoice.customer.firstName} ${invoice.customer.lastName}`,
-    activityType: invoice.booking.activityType,
+    activityType: activityOf(invoice),
   };
 }
+
+// A stay invoice covers several activities, so its payments count as "STAY".
+type IncomeActivity = ActivityType | 'STAY';
+
+function activityOf(invoice: InvoiceRef): IncomeActivity {
+  return invoice.booking?.activityType ?? 'STAY';
+}
+
+const INCOME_ACTIVITY_NAMES: Record<IncomeActivity, string> = { ...ACTIVITY_NAMES, STAY: 'Stay (several activities)' };
 
 export function assertIsoDate(value: string | undefined, name = 'date') {
   if (!value || !ISO_DATE.test(value) || Number.isNaN(Date.parse(value))) {
@@ -83,13 +93,13 @@ export class FinancialService {
     ]);
 
     const byMethod = new Map<PaymentMethod, Decimal>(Object.values(PaymentMethod).map((m) => [m, new D(0)]));
-    const byActivity = new Map<ActivityType, Decimal>();
-    const add = (method: PaymentMethod, activity: ActivityType, amount: Decimal) => {
+    const byActivity = new Map<IncomeActivity, Decimal>();
+    const add = (method: PaymentMethod, activity: IncomeActivity, amount: Decimal) => {
       byMethod.set(method, byMethod.get(method)!.plus(amount));
       byActivity.set(activity, (byActivity.get(activity) ?? new D(0)).plus(amount));
     };
-    for (const p of payments) add(p.method, p.invoice.booking.activityType, new D(p.amount));
-    for (const r of refunds) add(r.payment.method, r.payment.invoice.booking.activityType, new D(r.amount).negated());
+    for (const p of payments) add(p.method, activityOf(p.invoice), new D(p.amount));
+    for (const r of refunds) add(r.payment.method, activityOf(r.payment.invoice), new D(r.amount).negated());
 
     const paymentsNet = sum(payments.map((p) => p.amount)).minus(sum(refunds.map((r) => r.amount)));
     const manualTotal = sum(income.map((i) => i.amount));
@@ -116,7 +126,7 @@ export class FinancialService {
       })),
       byActivity: [...byActivity].map(([activityType, amount]) => ({
         activityType,
-        label: ACTIVITY_NAMES[activityType],
+        label: INCOME_ACTIVITY_NAMES[activityType],
         amount: money(amount),
       })),
       byMethod: Object.fromEntries([...byMethod].map(([m, amount]) => [m, money(amount)])) as Record<PaymentMethod, string>,

@@ -90,9 +90,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               {invoice.customer.firstName} {invoice.customer.lastName}
             </Link>{" "}
             · Issued {formatDay(invoice.createdAt)} · Due {formatDay(invoice.dueDate)} ·{" "}
-            <Link href={`/dashboard/bookings/${invoice.bookingId}`} prefetch={false} className="hover:underline">
-              Booking
-            </Link>
+            {invoice.bookingId ? (
+              <Link href={`/dashboard/bookings/${invoice.bookingId}`} prefetch={false} className="hover:underline">
+                Booking
+              </Link>
+            ) : (
+              "Stay bill"
+            )}
           </p>
         </div>
         <div className="flex items-start gap-2">

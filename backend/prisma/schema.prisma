@@ -85,6 +85,7 @@ model Customer {
   bookings              Booking[]
   diveLogEntries        DiveLogParticipant[]
   invoices              Invoice[]
+  stays                 Stay[]
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
 
@@ -314,6 +315,9 @@ model Booking {
   notes            String?
   diveLog          DiveLog?
   invoice          Invoice?
+  // Set when the booking is billed as part of a stay.
+  stayId           String?
+  stay             Stay?         @relation(fields: [stayId], references: [id], onDelete: SetNull)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -322,6 +326,7 @@ model Booking {
   @@index([status])
   @@index([date, timeSlot])
   @@index([tripId])
+  @@index([stayId])
 }
 
 enum TripStatus {
@@ -473,8 +478,12 @@ enum PaymentStatus {
 model Invoice {
   id            String        @id @default(uuid())
   invoiceNumber String        @unique
-  bookingId     String        @unique
-  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  // Exactly one of bookingId and stayId is set (a CHECK constraint in the
+  // database): an invoice bills one booking, or a whole stay.
+  bookingId     String?       @unique
+  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  stayId        String?
+  stay          Stay?         @relation(fields: [stayId], references: [id], onDelete: Restrict)
   customerId    String
   customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   subtotal      Decimal       @db.Decimal(10, 2)
@@ -488,6 +497,8 @@ model Invoice {
   payments      Payment[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  @@index([stayId])
 }
 
 model InvoiceItem {
@@ -586,4 +597,58 @@ model ClosedDay {
   summary  Json
   closedBy String
   closedAt DateTime @default(now())
+}
+
+// A customer's visit: their bookings over up to 30 days, billed together on
+// one invoice with volume pricing for fun dives. The bookings in an open stay
+// are worked out from the dates (StaysService); this row holds the extra costs
+// and, once billed, which bookings the invoice covered. A customer has at most
+// one OPEN stay (StaysService takes a per-customer lock).
+enum StayStatus {
+  OPEN
+  BILLED
+}
+
+enum StayCostCategory {
+  INSURANCE
+  EQUIPMENT
+  CLOTHES
+  GOODIES
+  BEVERAGES
+  OTHER
+}
+
+model Stay {
+  id         String     @id @default(uuid())
+  customerId String
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status     StayStatus @default(OPEN)
+  billedAt   DateTime?
+  bookings   Booking[]
+  costs      StayCost[]
+  invoices   Invoice[] // a cancelled invoice reopens the stay; billing again adds one
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([customerId, status])
+}
+
+// Sold during a stay and billed with it: insurance, merchandise, drinks.
+// Prices are net; the invoice adds tax.
+model StayCost {
+  id          String           @id @default(uuid())
+  stayId      String
+  stay        Stay             @relation(fields: [stayId], references: [id], onDelete: Cascade)
+  date        DateTime         @db.Date
+  category    StayCostCategory
+  description String
+  quantity    Int
+  unitPrice   Decimal          @db.Decimal(10, 2)
+  total       Decimal          @db.Decimal(10, 2)
+  notes       String?
+  createdBy   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([stayId])
 }

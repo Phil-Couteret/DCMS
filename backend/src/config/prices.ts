@@ -1,4 +1,4 @@
-import { ActivityType } from '../generated/prisma/enums.js';
+import { ActivityType, CustomerType } from '../generated/prisma/enums.js';
 
 // Net prices in EUR, excluding tax (IGIC; its rate is in the center
 // settings). They must match the public site's catalogue
@@ -40,3 +40,28 @@ export type EquipmentKey = keyof typeof EQUIPMENT_PRICES;
 // All five items hired together cost this instead of 45.
 export const FULL_PACKAGE_PRICE = 35;
 
+
+// Fun dives billed together in a stay are priced by how many the customer
+// dives in it, as in the previous system: every dive of the stay gets the same
+// rate. Net prices, like the rest. Bookings invoiced one at a time and the
+// public site keep FUN_DIVE's catalogue price.
+export const STAY_DIVE_TIERS = [
+  { minDives: 13, price: 38 },
+  { minDives: 9, price: 40 },
+  { minDives: 6, price: 42 },
+  { minDives: 3, price: 44 },
+  { minDives: 0, price: 46 },
+] as const;
+
+// Locals and recurrent customers pay a flat rate per dive whatever the volume.
+export const STAY_DIVE_FLAT_PRICES: Partial<Record<CustomerType, number>> = {
+  [CustomerType.LOCAL]: 35,
+  [CustomerType.RECURRENT]: 32,
+};
+
+export function stayDivePrice(customerType: CustomerType, totalDives: number) {
+  return (
+    STAY_DIVE_FLAT_PRICES[customerType] ??
+    STAY_DIVE_TIERS.find((t) => totalDives >= t.minDives)!.price
+  );
+}

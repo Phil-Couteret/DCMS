@@ -7,5 +7,6 @@ import { SettingsModule } from '../settings/settings.module.js';
   imports: [SettingsModule],
   controllers: [BillingController],
   providers: [BillingService],
+  exports: [BillingService],
 })
 export class BillingModule {}

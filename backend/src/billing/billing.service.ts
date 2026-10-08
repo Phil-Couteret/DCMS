@@ -18,6 +18,7 @@ import {
   InvoiceStatus,
   PaymentMethod,
   PaymentStatus,
+  StayStatus,
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -31,7 +32,7 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 const D = Prisma.Decimal;
 type Decimal = Prisma.Decimal;
 type Money = Decimal | number | string;
-type Tx = Prisma.TransactionClient;
+export type Tx = Prisma.TransactionClient;
 
 const LIST_INCLUDE = {
   customer: { select: { id: true, firstName: true, lastName: true } },
@@ -91,11 +92,15 @@ export class BillingService {
         status: true,
         notes: true,
         invoice: { select: { id: true, invoiceNumber: true } },
+        stayId: true,
       },
     });
     if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
     if (booking.invoice) {
       throw new ConflictException(`This booking already has invoice ${booking.invoice.invoiceNumber}`);
+    }
+    if (booking.stayId) {
+      throw new ConflictException('This booking is billed with its stay; see Stays');
     }
     if (booking.status === BookingStatus.CANCELLED) {
       throw new ConflictException('Cancelled bookings cannot be invoiced');
@@ -174,9 +179,12 @@ export class BillingService {
           items ?? currentItems,
         );
         if (fields.bookingId || fields.customerId) {
+          if (current.stayId) {
+            throw new ConflictException("A stay invoice's booking and customer cannot be changed");
+          }
           await assertBookingCustomer(
             tx,
-            fields.bookingId ?? current.bookingId,
+            fields.bookingId ?? current.bookingId!,
             fields.customerId ?? current.customerId,
           );
         }
@@ -259,6 +267,31 @@ export class BillingService {
     }
   }
 
+  // A stay's invoice, inside the stays service's transaction (which holds the
+  // customer's stay lock). Tax from the settings on the subtotal, due today.
+  async createStayInvoice(tx: Tx, data: { stayId: string; customerId: string; items: InvoiceItemDto[] }) {
+    const subtotal = sum(data.items.map((i) => i.total));
+    const { taxRate } = await this.settings.tax();
+    const tax = subtotal.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    const total = subtotal.plus(tax);
+    assertAmounts(subtotal, tax, 0, total, data.items);
+    const invoiceNumber = await nextInvoiceNumber(tx, new Date().getUTCFullYear());
+    return tx.invoice.create({
+      data: {
+        invoiceNumber,
+        stayId: data.stayId,
+        customerId: data.customerId,
+        subtotal,
+        tax,
+        discount: 0,
+        total,
+        dueDate: new Date(),
+        items: { create: data.items.map(itemData) },
+      },
+      select: { id: true, invoiceNumber: true },
+    });
+  }
+
   async cancel(id: string) {
     await this.prisma.$transaction(async (tx) => {
       const invoice = await lockInvoice(tx, id);
@@ -270,9 +303,33 @@ export class BillingService {
         throw new ConflictException('Invoices with succeeded payments cannot be cancelled');
       }
       await tx.invoice.update({ where: { id }, data: { status: InvoiceStatus.CANCELLED } });
+      // The stay is open again, with the same bookings and costs, to be
+      // corrected and billed on a new invoice.
+      if (invoice.stayId) await reopenStay(tx, invoice.stayId, invoice.customerId);
     });
     return this.findOne(id);
   }
+}
+
+// A customer has at most one open stay: one opened since this stay was billed
+// is merged into it.
+async function reopenStay(tx: Tx, stayId: string, customerId: string) {
+  await lockCustomerStays(tx, customerId);
+  const other = await tx.stay.findFirst({
+    where: { customerId, status: StayStatus.OPEN, id: { not: stayId } },
+    select: { id: true },
+  });
+  if (other) {
+    await tx.stayCost.updateMany({ where: { stayId: other.id }, data: { stayId } });
+    await tx.booking.updateMany({ where: { stayId: other.id }, data: { stayId } });
+    await tx.stay.delete({ where: { id: other.id } });
+  }
+  await tx.stay.update({ where: { id: stayId }, data: { status: StayStatus.OPEN, billedAt: null } });
+}
+
+// Serialises changes to one customer's stays (opening, billing, reopening).
+export async function lockCustomerStays(tx: Tx, customerId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('stay'), hashtext(${customerId}))`;
 }
 
 // Locks the invoice row so payments, refunds and edits on the same invoice are
@@ -365,7 +422,7 @@ async function assertBookingCustomer(tx: Tx, bookingId: string, customerId: stri
 // Equipment from a guest booking's notes: {"selectedEquipment": ["wetsuit:M", ...]}.
 // Staff-written notes are plain text and carry no equipment. One set per
 // booking, as the booking form collects it.
-function equipmentLines(notes: string | null): InvoiceItemDto[] {
+export function equipmentLines(notes: string | null): InvoiceItemDto[] {
   let selected: string[] = [];
   try {
     const parsed = notes ? (JSON.parse(notes) as { selectedEquipment?: unknown }) : null;

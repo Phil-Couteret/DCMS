@@ -616,7 +616,9 @@ export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED";
 export interface InvoiceListItem {
   id: string;
   invoiceNumber: string;
-  bookingId: string;
+  // An invoice bills one booking or a whole stay: exactly one is set.
+  bookingId: string | null;
+  stayId: string | null;
   customerId: string;
   subtotal: string;
   tax: string;
@@ -1134,4 +1136,83 @@ export function getTaxDeclaration(year: number, quarter: number) {
   return apiFetch<TaxDeclaration>(
     `/financial/tax-declaration?${new URLSearchParams({ year: String(year), quarter: String(quarter) })}`,
   );
+}
+
+// Stays: a customer's bookings over up to 30 days, billed on one invoice.
+
+export type StayCostCategory = "INSURANCE" | "EQUIPMENT" | "CLOTHES" | "GOODIES" | "BEVERAGES" | "OTHER";
+
+export interface StayCost {
+  id: string;
+  stayId: string;
+  date: string; // midnight UTC of the day
+  category: StayCostCategory;
+  description: string;
+  quantity: number;
+  unitPrice: string; // net
+  total: string;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StayBooking {
+  id: string;
+  date: string; // YYYY-MM-DD
+  timeSlot: TimeSlot;
+  activityType: string;
+  activityName: string;
+  participantCount: number;
+  status: BookingStatus;
+  boatName: string;
+  partner: boolean; // the activity is the partner's to pay
+  unitPrice: string | null; // null: no price set for this activity
+  activityTotal: string;
+  equipment: { description: string; total: string }[];
+  total: string;
+}
+
+export interface Stay {
+  stayId: string | null; // null until a cost is added or it is billed
+  customer: { id: string; firstName: string; lastName: string; email: string; customerType: CustomerType };
+  startDate: string | null; // null when it only has extra costs
+  endDate: string | null;
+  totalDives: number; // fun dives, per diver
+  pricePerDive: string;
+  unpriced: string[];
+  bookings: StayBooking[];
+  costs: StayCost[];
+  totals: { bookings: string; costs: string; subtotal: string; tax: string; total: string };
+}
+
+export interface StayCostData {
+  date: string;
+  category: StayCostCategory;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
+  notes?: string;
+}
+
+export function getStays() {
+  return apiFetch<Stay[]>("/stays");
+}
+
+export function addStayCost(customerId: string, data: StayCostData) {
+  return apiFetch<StayCost>(`/stays/customer/${customerId}/costs`, { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateStayCost(id: string, data: StayCostData) {
+  return apiFetch<StayCost>(`/stays/costs/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteStayCost(id: string) {
+  return apiFetch<StayCost>(`/stays/costs/${id}`, { method: "DELETE" });
+}
+
+export function billStay(customerId: string) {
+  return apiFetch<{ stayId: string; invoiceId: string; invoiceNumber: string }>(`/stays/customer/${customerId}/bill`, {
+    method: "POST",
+  });
 }

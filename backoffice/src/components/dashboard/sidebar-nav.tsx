@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/dashboard/schedule", label: "Schedule" },
   { href: "/dashboard/dive-prep", label: "Dive Prep" },
   { href: "/dashboard/bookings", label: "Bookings" },
+  { href: "/dashboard/stays", label: "Stays" },
   { href: "/dashboard/billing", label: "Billing" },
   { href: "/dashboard/financial", label: "Financial" },
   { href: "/dashboard/customers", label: "Customers" },

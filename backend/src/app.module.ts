@@ -15,6 +15,7 @@ import { FinancialModule } from './financial/financial.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { StaffModule } from './staff/staff.module.js';
+import { StaysModule } from './stays/stays.module.js';
 import { TripsModule } from './trips/trips.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module.js';
     DiveLogsModule,
     BillingModule,
     FinancialModule,
+    StaysModule,
     TripsModule,
     SettingsModule,
   ],
