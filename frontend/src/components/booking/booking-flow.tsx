@@ -21,11 +21,11 @@ import { useBookingStore, type EquipmentSelection } from '@/store/booking-store'
 const STEP_KEYS = ['activity', 'datetime', 'details', 'equipment', 'review'] as const;
 
 const primaryButton =
-  'rounded-full bg-blue-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50';
+  'rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-50';
 const secondaryButton =
   'rounded-full px-6 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100';
 const field =
-  'mt-1 block w-full rounded-lg border-0 bg-white px-3 py-2 text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-blue-700';
+  'mt-1 block w-full rounded-lg border-0 bg-white px-3 py-2 text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-brand-light';
 
 // Amounts in the center's currency, cents only when there are any: €45, €47.50.
 function useMoney() {
@@ -55,12 +55,12 @@ function Progress({ step }: { step: number }) {
             <li key={key} aria-current={state === 'current' ? 'step' : undefined}>
               <div
                 className={`h-1.5 rounded-full ${
-                  state === 'todo' ? 'bg-slate-200' : 'bg-blue-900'
+                  state === 'todo' ? 'bg-slate-200' : 'bg-brand'
                 }`}
               />
               <span
                 className={`mt-2 hidden text-xs sm:block ${
-                  state === 'current' ? 'font-semibold text-blue-900' : 'text-slate-500'
+                  state === 'current' ? 'font-semibold text-brand' : 'text-slate-500'
                 }`}
               >
                 {t(`steps.${key}`)}
@@ -98,13 +98,13 @@ function StepActivity() {
               type="button"
               onClick={() => selectActivity(a.type)}
               aria-pressed={activityType === a.type}
-              className={`flex h-full w-full flex-col rounded-xl p-5 text-left ring-1 transition hover:ring-blue-700 ${
-                activityType === a.type ? 'bg-sky-50 ring-2 ring-blue-900' : 'bg-white ring-slate-200'
+              className={`flex h-full w-full flex-col rounded-xl p-5 text-left ring-1 transition hover:ring-brand-light ${
+                activityType === a.type ? 'bg-sky-50 ring-2 ring-brand' : 'bg-white ring-slate-200'
               }`}
             >
               <span className="text-lg font-semibold text-slate-900">{tItems(a.key)}</span>
               <span className="mt-1 text-sm text-slate-600">{t(`activityDescriptions.${a.key}`)}</span>
-              <span className="mt-4 text-2xl font-bold text-blue-900">{money(activityPrice(prices, a)!)}</span>
+              <span className="mt-4 text-2xl font-bold text-brand">{money(activityPrice(prices, a)!)}</span>
             </button>
           </li>
         ))}
@@ -155,7 +155,7 @@ function StepDateTime() {
               aria-pressed={timeSlot === s.value}
               className={`rounded-lg px-5 py-3 text-sm font-medium ring-1 transition ${
                 timeSlot === s.value
-                  ? 'bg-blue-900 text-white ring-blue-900'
+                  ? 'bg-brand text-white ring-brand'
                   : 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-100'
               }`}
             >
@@ -288,7 +288,7 @@ function PriceLines({ activityPrice, equipment }: { activityPrice: number; equip
       </div>
       <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
         <dt className="font-semibold text-slate-900">{t('total')}</dt>
-        <dd className="font-bold text-blue-900" data-testid="total">
+        <dd className="font-bold text-brand" data-testid="total">
           {money(activityPrice + kit)}
         </dd>
       </div>
@@ -390,7 +390,7 @@ function StepEquipment() {
   );
 }
 
-function StepReview({ onDone }: { onDone: (reference: string) => void }) {
+function StepReview({ tenantSlug, onDone }: { tenantSlug: string; onDone: (reference: string) => void }) {
   const t = useTranslations('booking');
   const tItems = useTranslations('pricing.items');
   const locale = useLocale();
@@ -410,7 +410,7 @@ function StepReview({ onDone }: { onDone: (reference: string) => void }) {
 
   const confirm = async () => {
     setStatus('sending');
-    const result = await createGuestBooking({
+    const result = await createGuestBooking(tenantSlug, {
       firstName: state.customer.firstName,
       lastName: state.customer.lastName,
       email: state.customer.email,
@@ -504,7 +504,7 @@ function Confirmation({ reference, onRestart }: { reference: string; onRestart: 
     <section className="mt-8 rounded-xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
       <h2 className="text-2xl font-bold text-slate-900">{t('success.title')}</h2>
       <p className="mt-4 text-sm text-slate-600">{t('success.reference')}</p>
-      <p className="mt-1 break-all font-mono text-lg font-semibold text-blue-900" data-testid="reference">
+      <p className="mt-1 break-all font-mono text-lg font-semibold text-brand" data-testid="reference">
         {reference}
       </p>
       <p className="mt-6 text-slate-700">{t('success.note')}</p>
@@ -517,7 +517,8 @@ function Confirmation({ reference, onRestart }: { reference: string; onRestart: 
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function BookingFlow({ prices }: { prices: Prices }) {
+// tenantSlug: the center whose site this is; the booking is sent to it.
+export function BookingFlow({ prices, tenantSlug }: { prices: Prices; tenantSlug: string }) {
   const t = useTranslations('booking');
   const step = useBookingStore((s) => s.step);
   const reset = useBookingStore((s) => s.reset);
@@ -553,7 +554,7 @@ export function BookingFlow({ prices }: { prices: Prices }) {
             {step === 2 && <StepDateTime />}
             {step === 3 && <StepCustomer />}
             {step === 4 && <StepEquipment />}
-            {step === 5 && <StepReview onDone={onDone} />}
+            {step === 5 && <StepReview tenantSlug={tenantSlug} onDone={onDone} />}
           </>
         )}
       </div>

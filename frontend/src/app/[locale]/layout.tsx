@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
+import { brandVariables } from "@/lib/brand";
+import { getCenter } from "@/lib/server-api";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -17,11 +19,16 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-export const metadata: Metadata = {
-  title: "Dive Center — Canary Islands",
-  description:
-    "Year-round diving in the Canary Islands. Book snorkeling, discover scuba, and certified dive courses.",
-};
+// The center whose site this is (from the host), named in every page title.
+export async function generateMetadata(): Promise<Metadata> {
+  const center = await getCenter().catch(() => null);
+  const name = center?.name || "Dive Center";
+  return {
+    title: { default: name, template: `%s · ${name}` },
+    description: `${name}: book snorkeling, discover scuba, fun dives and certified dive courses.`,
+    ...(center?.logoUrl && { icons: { icon: center.logoUrl } }),
+  };
+}
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -37,11 +44,14 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
+  // Its colours (the default blues when unset or unreachable).
+  const center = await getCenter().catch(() => null);
 
   return (
     <html lang={locale}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={brandVariables(center?.primaryColor ?? null, center?.accentColor ?? null)}
       >
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

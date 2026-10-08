@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { CertFilter } from '@/components/cert-filter';
 import { Navbar } from '@/components/navbar';
 import { Link } from '@/i18n/navigation';
-import { getDiveSites } from '@/lib/api';
+import { getDiveSites } from '@/lib/server-api';
 import type { DiveSite } from '@/types/dive-site';
 
 const CERT_BADGE = [
@@ -51,7 +51,7 @@ export default async function SitesPage({
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <Navbar className="bg-blue-950" />
+      <Navbar className="bg-brand-dark" />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           {t('title')}
@@ -132,7 +132,7 @@ export default async function SitesPage({
 
                   <Link
                     href={`/booking?site=${site.id}`}
-                    className="mt-6 inline-flex items-center justify-center rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 sm:mt-auto sm:self-start"
+                    className="mt-6 inline-flex items-center justify-center rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-light sm:mt-auto sm:self-start"
                   >
                     {t('bookButton')}
                   </Link>

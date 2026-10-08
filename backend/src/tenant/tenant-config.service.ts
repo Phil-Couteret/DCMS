@@ -28,7 +28,7 @@ export class TenantConfig {
   ) {}
 
   async get(): Promise<CenterConfig> {
-    const tenantId = await this.tenants.resolve();
+    const tenantId = this.tenants.resolve();
     const hit = this.cache.get(tenantId);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
     const row = await this.prisma.centerSettings.findUnique({

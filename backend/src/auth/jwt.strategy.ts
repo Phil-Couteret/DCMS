@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { markPlatform, tenantStore } from '../tenant/tenant-context.js';
+import { tenantStore } from '../tenant/tenant-context.js';
 import { TenantsService } from '../tenant/tenants.service.js';
 
 export interface JwtPayload {
@@ -58,7 +58,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (tenantStore()?.headerTenantId) {
         throw new ForbiddenException('Enter the center from the superadmin console first');
       }
-      markPlatform();
     } else if (!tenantId && payload.role !== 'CUSTOMER') {
       const memberships = await this.prisma.membership.findMany({
         where: { userId: payload.sub, isActive: true },

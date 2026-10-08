@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { currentTenantId, isPlatform, setTenantId, TenantRequiredError, tenantStore } from './tenant-context.js';
+import { currentTenantId, setTenantId, TenantRequiredError, tenantStore } from './tenant-context.js';
 
 const CACHE_MS = 30_000;
 
@@ -9,7 +9,7 @@ const CACHE_MS = 30_000;
 @Injectable()
 export class TenantsService {
   private active = new Map<string, { ok: boolean; at: number }>();
-  private single: { id: string | null; at: number } | null = null;
+  private slugs = new Map<string, { id: string | null; at: number }>();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -22,14 +22,24 @@ export class TenantsService {
     return ok;
   }
 
-  // The only active tenant, or null when there are several (or none).
-  // Transitional: lets requests without a tenant keep working while the
-  // platform has one tenant. Removed when the host names the tenant (step 4).
-  async singleActiveTenant(): Promise<string | null> {
-    if (this.single && Date.now() - this.single.at < CACHE_MS) return this.single.id;
-    const rows = await this.prisma.tenant.findMany({ where: { isActive: true }, select: { id: true }, take: 2 });
-    this.single = { id: rows.length === 1 ? rows[0].id : null, at: Date.now() };
-    return this.single.id;
+  // The active tenant with this id or slug; 404 for an unknown or inactive
+  // one, so a public site for it shows "not found". Slugs are cached like
+  // activation (30 seconds).
+  async idOf(ref: { id: string } | { slug: string }): Promise<string> {
+    let id: string | undefined;
+    if ('id' in ref) {
+      id = ref.id;
+    } else {
+      const hit = this.slugs.get(ref.slug);
+      if (hit && Date.now() - hit.at < CACHE_MS) id = hit.id ?? undefined;
+      else {
+        const row = await this.prisma.tenant.findUnique({ where: { slug: ref.slug }, select: { id: true } });
+        this.slugs.set(ref.slug, { id: row?.id ?? null, at: Date.now() });
+        id = row?.id;
+      }
+    }
+    if (!id || !(await this.isActive(id))) throw new NotFoundException('Unknown tenant');
+    return id;
   }
 
   // The tenant named by a verified token. A header naming another tenant is
@@ -43,29 +53,25 @@ export class TenantsService {
     setTenantId(tenantId);
   }
 
-  // The tenant named by the X-Tenant-ID header (public routes).
-  async useHeaderTenant(tenantId: string) {
-    if (!(await this.isActive(tenantId))) throw new NotFoundException('Unknown tenant');
+  // The tenant a public request names (TenantMiddleware): already checked
+  // to exist and be active.
+  useHeaderTenant(tenantId: string) {
     const store = tenantStore();
     if (store) store.headerTenantId = tenantId;
     setTenantId(tenantId);
   }
 
-  // The request's tenant, applying the transitional single-tenant fallback
-  // (as the Prisma extension does for queries) for code that needs the id
-  // before running any query. Throws (400) when there is none.
-  async resolve(): Promise<string> {
+  // The request's tenant; throws (400) when it names none.
+  resolve(): string {
     const current = currentTenantId();
-    if (current) return current;
-    const only = isPlatform() ? null : await this.singleActiveTenant();
-    if (!only) throw new TenantRequiredError();
-    setTenantId(only);
-    return only;
+    if (!current) throw new TenantRequiredError();
+    return current;
   }
 
   forget(tenantId?: string) {
     if (tenantId) this.active.delete(tenantId);
     else this.active.clear();
-    this.single = null;
+    // A slug may have been renamed or reused.
+    this.slugs.clear();
   }
 }

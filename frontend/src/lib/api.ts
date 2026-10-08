@@ -1,46 +1,5 @@
-import type { Prices } from '@/lib/booking-catalog';
-import type { DiveSite } from '@/types/dive-site';
-
+// Browser-side API calls. Server-side ones are in server-api.ts.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-async function get<T>(path: string, locale: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { Accept: 'application/json', 'Accept-Language': locale },
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new ApiError(res.status, `GET ${path} failed with ${res.status}`);
-  return res.json() as Promise<T>;
-}
-
-export function getDiveSites(
-  locale: string,
-  filters: { requiredCertLevel?: number; difficultyLevel?: number } = {},
-): Promise<DiveSite[]> {
-  const params = new URLSearchParams();
-  if (filters.requiredCertLevel !== undefined) {
-    params.set('requiredCertLevel', String(filters.requiredCertLevel));
-  }
-  if (filters.difficultyLevel !== undefined) {
-    params.set('difficultyLevel', String(filters.difficultyLevel));
-  }
-  const query = params.size > 0 ? `?${params}` : '';
-  return get<DiveSite[]>(`/dive-sites${query}`, locale);
-}
-
-// The current price list, net of tax. Not cached: a price changed in the
-// backoffice shows at once.
-export function getPrices(locale: string): Promise<Prices> {
-  return get<Prices>('/pricing', locale);
-}
 
 export interface GuestBookingRequest {
   firstName: string;
@@ -63,12 +22,14 @@ export type GuestBookingResult =
   | { ok: true; bookingId: string; reference: string }
   | { ok: false; status: number };
 
-// Runs in the browser. Network failures come back as status 0.
-export async function createGuestBooking(body: GuestBookingRequest): Promise<GuestBookingResult> {
+// Runs in the browser, for the center whose site this is (tenantSlug, from
+// the server; the API also checks it against the page's origin). Network
+// failures come back as status 0.
+export async function createGuestBooking(tenantSlug: string, body: GuestBookingRequest): Promise<GuestBookingResult> {
   try {
     const res = await fetch(`${API_URL}/bookings/guest`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Tenant-Slug': tenantSlug },
       body: JSON.stringify(body),
     });
     if (!res.ok) return { ok: false, status: res.status };

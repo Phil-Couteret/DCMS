@@ -48,7 +48,7 @@ export function CertFilter({
               disabled={pending}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                 active
-                  ? 'bg-blue-900 text-white'
+                  ? 'bg-brand text-white'
                   : 'bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100'
               }`}
             >

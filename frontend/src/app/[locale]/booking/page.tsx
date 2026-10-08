@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { BookingFlow } from "@/components/booking/booking-flow";
 import { Navbar } from "@/components/navbar";
-import { getPrices } from "@/lib/api";
+import { getPrices, tenantSlug } from "@/lib/server-api";
 import type { Prices } from "@/lib/booking-catalog";
 
 // Prices are read on every request, so a change in the backoffice shows at once.
@@ -25,9 +25,9 @@ export default async function BookingPage({
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <Navbar className="bg-blue-950" />
+      <Navbar className="bg-brand-dark" />
       {prices ? (
-        <BookingFlow prices={prices} />
+        <BookingFlow prices={prices} tenantSlug={await tenantSlug()} />
       ) : (
         <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
           <p role="alert" className="rounded-lg bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">

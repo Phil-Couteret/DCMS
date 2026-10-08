@@ -180,6 +180,17 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Unlocks:** each center gets its own public site and booking flow. This is the first step a customer can see.
 
+**Status (2026-10-09): done.** What was built:
+
+- **Backend:** `TenantMiddleware` takes the tenant from `X-Tenant-ID`, `X-Tenant-Slug`, or a tenant subdomain in the request's `Origin` or `Host` (`{slug}.<domain>` for each domain in `TENANT_DOMAINS`). Several sources must agree (400 otherwise); an unknown or inactive tenant is 404. A token's tenant still wins, and a request naming another tenant by any of these gets 403. The transitional single-tenant fallback (step 1) is removed: a public request that names no tenant gets 400, and a customer sign-in needs one. Rate limits (guest bookings, partner sign-in) are counted per tenant and IP (`TenantThrottlerGuard`). CORS accepts every tenant subdomain over https. Tests: `test/tenant-host.e2e-spec.ts`.
+- **Public site** (`frontend/`): the proxy maps the host to a slug (`{slug}.<TENANT_DOMAIN>`) and answers 404 for a host that names no active center. Server-side calls send `X-Tenant-Slug`; the browser's guest booking sends it too (and its origin names the same center). The layout, navbar and home page show the center's name and logo, the page titles its name, and its primary and accent colours drive the site's blues (Tailwind `brand` and `accent`, from CSS variables; unset colours keep the original look). `DEFAULT_TENANT_SLUG` serves one center on hosts that are not subdomains, for development only.
+- **Backoffice:** on `{slug}.<TENANT_DOMAIN>` sign-in is for that center (staff and partners); a session for another center (or the console) is redirected to its own address. `<TENANT_DOMAIN>` itself is the platform address (any session, the superadmin console). "Switch center" on a center address opens the other center's address. Session cookies are host-only (no cookie domain is set).
+
+**Not yet / deployment notes:**
+- Behind a reverse proxy, the API must trust it (`trust proxy`) for rate limits to see client IPs; today it counts the proxy's.
+- Wildcard DNS and certificates (step 7).
+- Customer accounts are still global (decision 1.2 asks for per-tenant customer logins).
+
 ### Step 5: Platform administration and onboarding (L)
 
 **Build**

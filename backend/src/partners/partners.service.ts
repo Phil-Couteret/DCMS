@@ -204,14 +204,14 @@ export class PartnersService {
     return { partner: safe, center: await this.center(), accessToken };
   }
 
-  // The center a partner works with: its name, and the time zone and
-  // currency the portal displays in.
+  // The center a partner works with: its name and slug (its address), and
+  // the time zone and currency the portal displays in.
   async center() {
     const [{ timeZone, currency }, row] = await Promise.all([
       this.config.get(),
-      this.prisma.centerSettings.findFirst({ select: { name: true } }),
+      this.prisma.centerSettings.findFirst({ select: { name: true, tenant: { select: { slug: true } } } }),
     ]);
-    return { name: row?.name ?? '', timeZone, currency };
+    return { name: row?.name ?? '', slug: row?.tenant.slug ?? null, timeZone, currency };
   }
 
   // --- Partner invoices ---

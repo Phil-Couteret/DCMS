@@ -1,5 +1,5 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js';
-import { currentTenantId, isPlatform, isUnscoped, setTenantId, TenantRequiredError } from '../tenant/tenant-context.js';
+import { currentTenantId, isUnscoped, TenantRequiredError } from '../tenant/tenant-context.js';
 
 // Models shared by all tenants: never filtered. Queries that reach tenant
 // data through them (e.g. a user's customer profiles) must filter by
@@ -56,16 +56,6 @@ export function tenantExtension(client: PrismaClient) {
       new Map(m.fields.filter((f) => f.kind === 'object').map((f) => [f.name, f.type])),
     ]),
   );
-
-  // Transitional fallback (see tenant-context.ts): the only active tenant.
-  let single: { id: string | null; at: number } | null = null;
-  async function onlyTenant() {
-    if (!single || Date.now() - single.at > 30_000) {
-      const rows = await client.tenant.findMany({ where: { isActive: true }, select: { id: true }, take: 2 });
-      single = { id: rows.length === 1 ? rows[0].id : null, at: Date.now() };
-    }
-    return single.id;
-  }
 
   function checkTenant(value: unknown, tenantId: string, model: string) {
     if (value !== undefined && value !== tenantId) {
@@ -132,18 +122,8 @@ export function tenantExtension(client: PrismaClient) {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
           if (!scoped.has(model) || isUnscoped()) return query(args);
-          let tenantId = currentTenantId();
-          if (!tenantId) {
-            if (isPlatform()) throw new TenantRequiredError();
-            const only = await onlyTenant();
-            if (!only) throw new TenantRequiredError();
-            tenantId = only;
-            try {
-              setTenantId(only);
-            } catch {
-              // Outside a request (no context to remember it in): fine.
-            }
-          }
+          const tenantId = currentTenantId();
+          if (!tenantId) throw new TenantRequiredError();
           const a = { ...(args as Data) };
           if (WHERE_OPS.has(operation)) a.where = scopeWhere(model, a.where as Data | undefined, tenantId);
           switch (operation) {

@@ -6,25 +6,22 @@ import { BadRequestException } from '@nestjs/common';
 //
 // Who sets it, in order of authority:
 // 1. A verified token (JwtStrategy, PartnerJwtStrategy): the token's tenant.
-// 2. The X-Tenant-ID header (TenantMiddleware), for public routes. With a
-//    token, a header naming another tenant is rejected (403).
-// 3. Transitional, until tenants are resolved from the host (plan step 4):
-//    when the platform has exactly one active tenant, that tenant.
+// 2. What the request names (TenantMiddleware), for public routes: the
+//    X-Tenant-ID or X-Tenant-Slug header, or a tenant subdomain in its Origin
+//    or Host. With a token, naming another tenant is rejected (403).
+// A request that names no tenant gets none, and any tenant query fails (400).
 interface TenantStore {
   tenantId?: string;
   headerTenantId?: string;
   // Set only by runUnscoped, for the few lookups that must span tenants.
   unscoped?: boolean;
-  // A superadmin's platform token (no tenant): the single-tenant fallback
-  // does not apply, so tenant data is reachable only by entering a tenant.
-  platform?: boolean;
 }
 
 const storage = new AsyncLocalStorage<TenantStore>();
 
 export class TenantRequiredError extends BadRequestException {
   constructor() {
-    super('This request needs a tenant: send the X-Tenant-ID header');
+    super("This request needs a tenant: use the center's own address, or send X-Tenant-Slug");
   }
 }
 
@@ -67,15 +64,6 @@ export function setTenantId(tenantId: string) {
   const store = storage.getStore();
   if (!store) throw new Error('setTenantId outside a request context');
   store.tenantId = tenantId;
-}
-
-export function markPlatform() {
-  const store = storage.getStore();
-  if (store) store.platform = true;
-}
-
-export function isPlatform() {
-  return storage.getStore()?.platform === true;
 }
 
 export function isUnscoped() {

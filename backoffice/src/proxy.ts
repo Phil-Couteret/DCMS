@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth, PARTNER_ROLE, STAFF_ROLES, SUPERADMIN_ROLE } from "@/auth";
+import { backofficeOrigin, hostKind, requestHost } from "@/lib/tenant-host";
 
 // Next.js 16 renamed the middleware file convention to proxy. Staff pages need
 // a staff session for a center, the superadmin console (/superadmin) a
@@ -11,6 +12,16 @@ export default auth((req) => {
   const role = user?.role;
   const partner = role === PARTNER_ROLE;
   const to = (target: string) => NextResponse.redirect(new URL(target, req.nextUrl));
+
+  // On a center's own address ({slug}.<TENANT_DOMAIN>) a session must be for
+  // that center. One for another center, or for the superadmin console, is
+  // sent to its own address, where (cookies being host-only) the visitor
+  // signs in again. The platform address and other hosts accept any session.
+  const host = hostKind(requestHost(req.headers));
+  if (req.auth && host.kind === "center" && (user?.tenantSlug ?? null) !== host.slug) {
+    const origin = backofficeOrigin(req.headers, req.nextUrl.protocol, user?.tenantSlug ?? null);
+    return NextResponse.redirect(`${origin}${path}${req.nextUrl.search}`);
+  }
 
   if (path === "/partner" || path.startsWith("/partner/")) {
     if (path === "/partner/login") return req.auth ? to(partner ? "/partner" : "/dashboard") : undefined;

@@ -21,7 +21,7 @@ function SwitcherLinks({ current, query }: { current: string; query: string }) {
           aria-current={l === current ? 'true' : undefined}
           className={`rounded px-2 py-1 text-xs font-semibold uppercase transition-colors ${
             l === current
-              ? 'bg-white text-blue-900'
+              ? 'bg-white text-brand'
               : 'text-white/80 hover:bg-white/15 hover:text-white'
           }`}
         >

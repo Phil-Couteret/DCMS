@@ -1,7 +1,7 @@
 import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { Navbar } from "@/components/navbar";
 import { Link } from "@/i18n/navigation";
-import { getPrices } from "@/lib/api";
+import { getPrices } from "@/lib/server-api";
 import { activityPrice, EQUIPMENT, pricedActivities, type Prices } from "@/lib/booking-catalog";
 
 // Dive packages: a fixed price for so many fun dives. The saving is against
@@ -35,7 +35,7 @@ export default async function PricingPage({
   if (!prices) {
     return (
       <main className="min-h-screen bg-slate-50">
-        <Navbar className="bg-blue-950" />
+        <Navbar className="bg-brand-dark" />
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t("title")}</h1>
           <p role="alert" className="mt-10 rounded-lg bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">
@@ -62,7 +62,7 @@ export default async function PricingPage({
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <Navbar className="bg-blue-950" />
+      <Navbar className="bg-brand-dark" />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           {t("title")}
@@ -79,10 +79,10 @@ export default async function PricingPage({
                 className="flex flex-col rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
               >
                 <h3 className="text-lg font-semibold text-slate-900">{t(`items.${a.key}`)}</h3>
-                <p className="mt-2 text-3xl font-bold text-blue-900">{money(activityPrice(prices, a)!)}</p>
+                <p className="mt-2 text-3xl font-bold text-brand">{money(activityPrice(prices, a)!)}</p>
                 <Link
                   href="/booking"
-                  className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+                  className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-light"
                 >
                   {t("bookNow")}
                 </Link>
@@ -148,13 +148,13 @@ export default async function PricingPage({
                       {t("save", { amount: money(p.save) })}
                     </span>
                   </div>
-                  <p className="mt-2 text-3xl font-bold text-blue-900">{money(p.price)}</p>
+                  <p className="mt-2 text-3xl font-bold text-brand">{money(p.price)}</p>
                   <p className="mt-1 text-sm text-slate-600">
                     {t("perDive", { amount: money(p.price / p.dives) })}
                   </p>
                   <Link
                     href="/booking"
-                    className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+                    className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-light"
                   >
                     {t("bookNow")}
                   </Link>

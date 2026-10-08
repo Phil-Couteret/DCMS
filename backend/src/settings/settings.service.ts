@@ -38,7 +38,7 @@ export class SettingsService {
 
   // One row per tenant.
   async get() {
-    const tenantId = await this.tenants.resolve();
+    const tenantId = this.tenants.resolve();
     const row = await this.prisma.centerSettings.findUnique({ where: { tenantId } });
     return (
       row ?? {

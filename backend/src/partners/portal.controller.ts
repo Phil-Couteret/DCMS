@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
+import { TenantThrottlerGuard } from '../tenant/tenant-throttler.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PartnerLoginDto } from './dto/partner-login.dto.js';
 import { PartnerBookingDto, PartnerCustomerDto } from './dto/portal.dto.js';
@@ -9,7 +10,7 @@ import { PartnersService } from './partners.service.js';
 import { PortalService } from './portal.service.js';
 
 @Controller('partner-auth')
-@UseGuards(ThrottlerGuard)
+@UseGuards(TenantThrottlerGuard)
 export class PartnerAuthController {
   constructor(private readonly partners: PartnersService) {}
 

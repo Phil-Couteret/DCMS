@@ -11,7 +11,6 @@ import { Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { recordPlatformAction } from '../superadmin/audit.js';
 import { currentTenantId } from '../tenant/tenant-context.js';
-import { TenantsService } from '../tenant/tenants.service.js';
 import { UsersService } from '../users/users.service.js';
 import { isStaffRole } from './staff-auth.guard.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -41,7 +40,6 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
-    private readonly tenants: TenantsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -192,9 +190,10 @@ export class AuthService {
     return (await this.prisma.membership.count({ where: { userId: user.id } })) > 0;
   }
 
-  // Customers: the tenant of the site they sign in on.
+  // Customers: the tenant of the site they sign in on (its host, or the
+  // X-Tenant-Slug the site sends).
   private async customerTenant() {
-    const tenantId = currentTenantId() ?? (await this.tenants.singleActiveTenant());
+    const tenantId = currentTenantId();
     if (!tenantId) throw new UnauthorizedException('Sign in from your center\'s site');
     return tenantId;
   }

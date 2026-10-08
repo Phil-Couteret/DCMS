@@ -1,7 +1,9 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { headers } from "next/headers";
 import { apiPost, auth, signIn, SUPERADMIN_ROLE, type CenterChoice, type LoginReply } from "@/auth";
+import { hostSlug, requestHost } from "@/lib/tenant-host";
 
 // Signing in to a center, choosing one ("Which center?") and switching
 // center all end the same way: the API issues a token for one center (or the
@@ -29,11 +31,18 @@ async function useToken(accessToken: string, role: string): Promise<CenterChoice
 }
 
 export async function beginLogin(_prev: CenterChoiceState, formData: FormData): Promise<CenterChoiceState> {
-  const reply = await apiPost<LoginReply>("/auth/login", {
-    email: String(formData.get("email") ?? ""),
-    password: String(formData.get("password") ?? ""),
-  });
-  if (!reply.ok) return { error: reply.status === 0 ? reply.message : "Invalid credentials" };
+  // On a center's own address, the sign-in is for that center.
+  const reply = await apiPost<LoginReply>(
+    "/auth/login",
+    { email: String(formData.get("email") ?? ""), password: String(formData.get("password") ?? "") },
+    undefined,
+    hostSlug(requestHost(await headers())),
+  );
+  if (!reply.ok) {
+    // 403: the right password, but no access to the center of this address.
+    if (reply.status === 403) return { error: "This account has no access to this center." };
+    return { error: reply.status === 0 ? reply.message : "Invalid credentials" };
+  }
   if ("requiresTenantSelection" in reply.data) {
     const { selectionToken, tenants, platform } = reply.data;
     return { choose: { selectionToken, tenants, platform } };

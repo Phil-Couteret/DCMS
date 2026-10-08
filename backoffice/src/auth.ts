@@ -1,5 +1,6 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { hostSlug, requestHost } from "@/lib/tenant-host";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -31,7 +32,7 @@ interface MeResponse {
 
 interface PartnerLoginResponse {
   partner: { id: string; name: string; contactEmail: string };
-  center: CenterLocale & { name: string };
+  center: CenterLocale & { name: string; slug: string | null };
   accessToken: string;
 }
 
@@ -71,12 +72,15 @@ export function canUseBackoffice(role: string | undefined) {
   return STAFF_ROLES.includes(role ?? "") || role === SUPERADMIN_ROLE;
 }
 
-export async function apiPost<T>(path: string, body: unknown, accessToken?: string) {
+// tenantSlug: the center the request is for (the backoffice's address),
+// sent as X-Tenant-Slug.
+export async function apiPost<T>(path: string, body: unknown, accessToken?: string, tenantSlug?: string | null) {
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
     },
     body: JSON.stringify(body),
     cache: "no-store",
@@ -122,6 +126,8 @@ async function sessionUser(accessToken: string) {
   };
 }
 
+// The session cookie is host-only (no cookie domain is ever set): a session
+// on one center's address ({slug}.<TENANT_DOMAIN>) is never sent to another.
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   session: { strategy: "jwt", maxAge: ONE_DAY },
   // Auth.js v5 rejects every request under `next start` unless the host is
@@ -137,13 +143,16 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       },
       // Runs on the server: the browser never talks to the API for login.
       // The login page uses the "token" provider instead (see
-      // app/login/actions.ts), which can also ask "which center?"; this one
-      // signs in only accounts with a single choice.
-      async authorize(credentials) {
-        const reply = await apiPost<LoginReply>("/auth/login", {
-          email: credentials.email,
-          password: credentials.password,
-        });
+      // lib/centers.ts), which can also ask "which center?"; this one signs
+      // in only accounts with a single choice, or for the center of the
+      // address it is used on.
+      async authorize(credentials, request) {
+        const reply = await apiPost<LoginReply>(
+          "/auth/login",
+          { email: credentials.email, password: credentials.password },
+          undefined,
+          hostSlug(requestHost(request.headers)),
+        );
         if (!reply.ok) throw new CredentialsSignin();
         if ("requiresTenantSelection" in reply.data) throw new SelectCenterSignin();
         return sessionUser(reply.data.accessToken);
@@ -170,12 +179,16 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         identifier: { type: "text" },
         apiSecret: { type: "password" },
       },
-      async authorize(credentials) {
+      // A contact email is unique only within a center: the center comes from
+      // the address (or DEFAULT_TENANT_SLUG, in development). An API key names
+      // its center by itself.
+      async authorize(credentials, request) {
         const identifier = String(credentials.identifier ?? "").trim();
         const body = identifier.includes("@") ? { email: identifier } : { apiKey: identifier };
+        const slug = hostSlug(requestHost(request.headers)) ?? (process.env.DEFAULT_TENANT_SLUG || null);
         const res = await fetch(`${API_URL}/partner-auth/login`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(slug ? { "X-Tenant-Slug": slug } : {}) },
           body: JSON.stringify({ ...body, apiSecret: credentials.apiSecret }),
           cache: "no-store",
         }).catch(() => null);
@@ -189,6 +202,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           role: PARTNER_ROLE,
           accessToken,
           tenantName: center.name,
+          tenantSlug: center.slug,
           timeZone: center.timeZone,
           currency: center.currency,
         };

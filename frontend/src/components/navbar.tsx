@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { getCenter } from "@/lib/server-api";
 
 const NAV_ITEMS = [
   { key: "home", href: "/" },
@@ -26,12 +27,21 @@ export async function Navbar({ className = "" }: { className?: string }) {
   ));
 
   const languageSwitcher = <LanguageSwitcher current={locale} />;
+  // The center's name and logo; a plain name if its details cannot be read.
+  const center = await getCenter().catch(() => null);
+  const name = center?.name || "Dive Center";
 
   return (
     <header className={`w-full ${className}`}>
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="text-lg font-bold tracking-tight text-white">
-          DCMS
+        <Link href="/" className="flex items-center gap-3 text-lg font-bold tracking-tight text-white">
+          {center?.logoUrl && (
+            // A URL from the center's settings, on any host: not next/image,
+            // which needs every image host configured in advance.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={center.logoUrl} alt="" className="h-9 w-auto max-w-32 rounded bg-white/90 object-contain p-0.5" />
+          )}
+          <span>{name}</span>
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
@@ -46,7 +56,7 @@ export async function Navbar({ className = "" }: { className?: string }) {
               <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </summary>
-          <div className="absolute right-0 z-10 mt-2 flex w-56 flex-col gap-4 rounded-lg bg-blue-950/95 p-4 shadow-xl ring-1 ring-white/10">
+          <div className="absolute right-0 z-10 mt-2 flex w-56 flex-col gap-4 rounded-lg bg-brand-dark/95 p-4 shadow-xl ring-1 ring-white/10">
             {navLinks}
             {languageSwitcher}
           </div>
