@@ -12,6 +12,7 @@ import {
   TripStaffRole,
   TripStatus,
 } from '../generated/prisma/enums.js';
+import { tripAtLocation } from './location-filter.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
@@ -52,14 +53,14 @@ type Tx = Prisma.TransactionClient;
 export class TripsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(range: { from?: string; to?: string } = {}) {
+  findAll(range: { from?: string; to?: string; locationId?: string } = {}) {
     const from = range.from !== undefined ? startOfUtcDay(range.from) : undefined;
     const to = range.to !== undefined ? startOfUtcDay(range.to) : undefined;
     if (from && to && from > to) {
       throw new BadRequestException('from must not be after to');
     }
     return this.prisma.trip.findMany({
-      where: { date: { ...(from && { gte: from }), ...(to && { lte: to }) } },
+      where: { date: { ...(from && { gte: from }), ...(to && { lte: to }) }, ...tripAtLocation(range.locationId) },
       include: LIST_INCLUDE,
       orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }, { createdAt: 'asc' }],
     });

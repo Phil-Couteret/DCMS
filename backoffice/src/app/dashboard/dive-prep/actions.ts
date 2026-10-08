@@ -71,7 +71,7 @@ export async function autoAssign(_prev: ActionState, formData: FormData): Promis
   if (!ISO_DATE.test(date) || !TRIP_SLOTS.includes(timeSlot)) return { error: "Unknown date or time slot" };
   let result;
   try {
-    result = await autoAssignDivePrep(date, timeSlot);
+    result = await autoAssignDivePrep(date, timeSlot, field(formData, "location") || undefined);
   } catch (e) {
     return fail(e, "Auto-assign failed");
   }

@@ -1,3 +1,4 @@
+import { LocationFilter } from "@/components/location-filter";
 import Link from "next/link";
 import { RoutedDialog, RoutedSheet } from "@/components/routed-panel";
 import { NewTripForm } from "@/components/schedule/trip-forms";
@@ -7,6 +8,7 @@ import {
   getBoats,
   getBookings,
   getDiveSites,
+  getLocations,
   getStaff,
   getTrip,
   getTrips,
@@ -81,26 +83,29 @@ export default async function SchedulePage({
   const day = isoOrUndefined(one(params.day));
   const tripId = UUID.test(one(params.trip) ?? "") ? one(params.trip) : undefined;
   const newTripDate = isoOrUndefined(one(params.new));
+  // Only one location's trips, boats and sites; kept in every link.
+  const location = UUID.test(one(params.location) ?? "") ? one(params.location) : undefined;
 
-  const base = { view, date: anchor };
+  const base = { view, date: anchor, location };
   const href = {
     day: (iso: string) =>
       // In the month view a day opens its panel; elsewhere it opens the day view.
-      view === "month" ? scheduleHref({ ...base, day: iso }) : scheduleHref({ view: "day", date: iso }),
+      view === "month" ? scheduleHref({ ...base, day: iso }) : scheduleHref({ view: "day", date: iso, location }),
     trip: (id: string) => scheduleHref({ ...base, trip: id }),
   };
   const closeHref = scheduleHref(base);
   const { from, to } = viewRange(view, anchor);
 
   const [tripsResult, panelResult, formResult] = await Promise.allSettled([
-    getTrips(from, to).then(async (trips) => ({
+    getTrips(from, to, location).then(async (trips) => ({
       trips,
       // The day view shows full detail, which the list does not carry.
       details: view === "day" ? await Promise.all(trips.map((t) => getTrip(t.id))) : [],
     })),
     tripId ? loadTripPanel(tripId) : Promise.resolve(null),
-    newTripDate ? Promise.all([getBoats(), getDiveSites()]) : Promise.resolve(null),
+    newTripDate ? Promise.all([getBoats(location), getDiveSites(location)]) : Promise.resolve(null),
   ]);
+  const locations = await getLocations(true).catch(() => []);
 
   const dayTrips =
     day && view === "month" && tripsResult.status === "fulfilled"
@@ -120,6 +125,7 @@ export default async function SchedulePage({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 ring-1 ring-zinc-200">
+        {locations.length > 0 && <LocationFilter locations={locations} value={location} />}
         <div className="flex gap-1" role="group" aria-label="View">
           {SCHEDULE_VIEWS.map((v) => (
             <Button
@@ -127,20 +133,20 @@ export default async function SchedulePage({
               size="sm"
               variant={v === view ? "default" : "outline"}
               nativeButton={false}
-              render={<Link href={scheduleHref({ view: v, date: anchor })} prefetch={false} aria-current={v === view ? "page" : undefined} />}
+              render={<Link href={scheduleHref({ view: v, date: anchor, location })} prefetch={false} aria-current={v === view ? "page" : undefined} />}
             >
               {VIEW_LABELS[v]}
             </Button>
           ))}
         </div>
         <div className="flex gap-1">
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, -1) })} prefetch={false} aria-label="Previous" />}>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, -1), location })} prefetch={false} aria-label="Previous" />}>
             ‹
           </Button>
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: today })} prefetch={false} />}>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: today, location })} prefetch={false} />}>
             Today
           </Button>
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, 1) })} prefetch={false} aria-label="Next" />}>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, 1), location })} prefetch={false} aria-label="Next" />}>
             ›
           </Button>
         </div>
@@ -179,7 +185,7 @@ export default async function SchedulePage({
             <Button size="sm" nativeButton={false} render={<Link href={scheduleHref({ ...base, new: day })} prefetch={false} scroll={false} />}>
               New trip on this day
             </Button>
-            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view: "day", date: day })} prefetch={false} />}>
+            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view: "day", date: day, location })} prefetch={false} />}>
               Open day view
             </Button>
           </div>

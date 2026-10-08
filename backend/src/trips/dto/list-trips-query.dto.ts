@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional } from 'class-validator';
+import { IsDateString, IsOptional, IsUUID } from 'class-validator';
 
 // Both ends are inclusive calendar days.
 export class ListTripsQueryDto {
@@ -9,4 +9,9 @@ export class ListTripsQueryDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+
+  // Only trips at this location (see tripAtLocation).
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
 }

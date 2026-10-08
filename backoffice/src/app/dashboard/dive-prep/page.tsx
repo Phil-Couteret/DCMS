@@ -16,11 +16,13 @@ import {
   getComplianceReport,
   getDivePrep,
   getDiveSites,
+  getLocations,
   getTrips,
   type DivePrep,
   type PrepBooking,
   type PrepTrip,
   type TimeSlot,
+  type LocationRef,
 } from "@/lib/api";
 import { ACTIVITY_LABELS } from "@/lib/bookings";
 import { centerNow } from "@/lib/center-time";
@@ -38,6 +40,7 @@ import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const control =
@@ -80,10 +83,35 @@ function DiverLine({ b }: { b: PrepBooking }) {
   );
 }
 
-function PrepControls({ tab, date, slot }: { tab: PrepTab; date: string; slot: TimeSlot }) {
+function PrepControls({
+  tab,
+  date,
+  slot,
+  location,
+  locations,
+}: {
+  tab: PrepTab;
+  date: string;
+  slot: TimeSlot;
+  location?: string;
+  locations: LocationRef[];
+}) {
   return (
     <form method="get" className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-zinc-200">
       {tab !== "prep" && <input type="hidden" name="tab" value={tab} />}
+      {locations.length > 0 && (
+        <label className="block text-sm font-medium text-zinc-700">
+          Location
+          <select name="location" defaultValue={location ?? ""} className={control}>
+            <option value="">All locations</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="block text-sm font-medium text-zinc-700">
         Date
         <input type="date" name="date" defaultValue={date} className={control} />
@@ -237,10 +265,10 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
   );
 }
 
-async function PreparationTab({ date, slot }: { date: string; slot: TimeSlot }) {
+async function PreparationTab({ date, slot, location }: { date: string; slot: TimeSlot; location?: string }) {
   let prep: DivePrep;
   try {
-    prep = await getDivePrep(date, slot);
+    prep = await getDivePrep(date, slot, location);
   } catch (e) {
     return <LoadError what="The preparation" reason={e} />;
   }
@@ -248,7 +276,7 @@ async function PreparationTab({ date, slot }: { date: string; slot: TimeSlot }) 
   const assigned = prep.trips.reduce((n, t) => n + t.capacity.divers, 0);
   const waiting = prep.unassigned.reduce((n, b) => n + b.participantCount, 0);
   const room = openTrips.reduce((n, t) => n + Math.max(0, t.capacity.available), 0);
-  const slotFields = { date, timeSlot: slot };
+  const slotFields = { date, timeSlot: slot, ...(location && { location }) };
 
   return (
     <div className="space-y-6">
@@ -338,10 +366,10 @@ async function PreparationTab({ date, slot }: { date: string; slot: TimeSlot }) 
   );
 }
 
-async function ReportTab({ date }: { date: string }) {
+async function ReportTab({ date, location }: { date: string; location?: string }) {
   let trips, sites;
   try {
-    [trips, sites] = await Promise.all([getTrips(date, date), getDiveSites()]);
+    [trips, sites] = await Promise.all([getTrips(date, date, location), getDiveSites(location)]);
   } catch (e) {
     return <LoadError what="The trips" reason={e} />;
   }
@@ -377,7 +405,7 @@ async function ReportTab({ date }: { date: string }) {
             {t.status === "PLANNED" ? (
               <p className="text-sm text-zinc-500">
                 Not started yet.{" "}
-                <Link href={prepHref({ date, slot: t.timeSlot })} prefetch={false} className="underline">
+                <Link href={prepHref({ date, slot: t.timeSlot, location })} prefetch={false} className="underline">
                   Prepare and start it
                 </Link>{" "}
                 before reporting.
@@ -492,6 +520,9 @@ export default async function DivePrepPage({
   const rawDate = one(params.date);
   const date = rawDate && ISO_DATE.test(rawDate) ? rawDate : centerNow(timeZone).isoDate;
   const slot = TRIP_SLOTS.find((s) => s === one(params.slot)) ?? "MORNING";
+  // Only one location's trips, bookings, boats and sites; kept in every link.
+  const location = UUID.test(one(params.location) ?? "") ? one(params.location) : undefined;
+  const locations = await getLocations(true).catch(() => []);
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -503,7 +534,7 @@ export default async function DivePrepPage({
         {PREP_TABS.map((t) => (
           <Link
             key={t.key}
-            href={prepHref({ tab: t.key, date, slot })}
+            href={prepHref({ tab: t.key, date, slot, location })}
             prefetch={false}
             aria-current={t.key === tab ? "page" : undefined}
             className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
@@ -515,10 +546,10 @@ export default async function DivePrepPage({
         ))}
       </nav>
       <div className="print:hidden">
-        <PrepControls tab={tab} date={date} slot={slot} />
+        <PrepControls tab={tab} date={date} slot={slot} location={location} locations={locations} />
       </div>
-      {tab === "prep" && <PreparationTab date={date} slot={slot} />}
-      {tab === "report" && <ReportTab date={date} />}
+      {tab === "prep" && <PreparationTab date={date} slot={slot} location={location} />}
+      {tab === "report" && <ReportTab date={date} location={location} />}
       {tab === "compliance" && <ComplianceTab date={date} />}
     </main>
   );

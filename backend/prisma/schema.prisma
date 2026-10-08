@@ -113,6 +113,10 @@ model Location {
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  // What operates from here. Deleting the location unassigns them.
+  boats       Boat[]
+  diveSites   DiveSite[]
+  bookings    Booking[]
 
   @@index([tenantId])
 }
@@ -342,6 +346,9 @@ model Boat {
   id                 String    @id @default(uuid())
   tenantId           String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  // The location it operates from; null: not assigned.
+  locationId         String?
+  location           Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   name               String
   capacity           Int
   status             String    @default("active")
@@ -357,12 +364,16 @@ model Boat {
   updatedAt          DateTime  @updatedAt
 
   @@index([tenantId])
+  @@index([locationId])
 }
 
 model DiveSite {
   id                String    @id @default(uuid())
   tenantId          String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  // The location its trips leave from; null: not assigned.
+  locationId        String?
+  location          Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   nameEs            String
   nameEn            String
   nameDe            String
@@ -399,6 +410,7 @@ model DiveSite {
   updatedAt         DateTime  @updatedAt
 
   @@index([tenantId])
+  @@index([locationId])
 }
 
 enum EquipmentStatus {
@@ -535,6 +547,10 @@ model Booking {
   id               String          @id @default(uuid())
   tenantId         String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  // Where the booking takes place. Set from its boat when not given
+  // (trigger booking_location, migration add_location_to_resources).
+  locationId       String?
+  location         Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   customerId       String
   customer         Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
   boatId           String
@@ -573,6 +589,7 @@ model Booking {
   @@index([partnerId])
   @@index([partnerInvoiceId])
   @@index([tenantId])
+  @@index([locationId])
 }
 
 enum TripStatus {

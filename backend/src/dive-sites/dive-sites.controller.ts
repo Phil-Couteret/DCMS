@@ -29,8 +29,9 @@ export class DiveSitesController {
     requiredCertLevel?: number,
     @Query('difficultyLevel', new ParseIntPipe({ optional: true }))
     difficultyLevel?: number,
+    @Query('locationId') locationId?: string,
   ) {
-    return this.diveSites.findAll({ requiredCertLevel, difficultyLevel });
+    return this.diveSites.findAll({ requiredCertLevel, difficultyLevel, locationId });
   }
 
   @Get(':id')

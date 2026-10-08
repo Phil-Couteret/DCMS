@@ -7,6 +7,12 @@ import {
   ApiError,
   createBoat,
   createDiveSite,
+  createLocation,
+  deleteLocation,
+  setResourceLocation,
+  updateLocation,
+  type LocationData,
+  type LocationType,
   createUser,
   deleteBoat,
   deleteDiveSite,
@@ -139,6 +145,7 @@ export async function saveBoat(_prev: SettingsFormState, formData: FormData): Pr
     insuranceExpiry: text(formData, "insuranceExpiry") || null,
     lastServiceDate: text(formData, "lastServiceDate") || null,
     nextServiceDate: text(formData, "nextServiceDate") || null,
+    locationId: text(formData, "locationId") || null,
   };
   // Creates send only the fields that are set.
   const payload = id ? data : (Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null)) as BoatData);
@@ -210,6 +217,7 @@ export async function saveSite(_prev: SettingsFormState, formData: FormData): Pr
     text(formData, `${field}${lang}`) || (field === "name" ? nameEn : descriptionEn);
 
   const data: Partial<DiveSiteData> = {
+    locationId: text(formData, "locationId") || null,
     nameEn,
     nameEs: translated("name", "Es"),
     nameDe: translated("name", "De"),
@@ -365,6 +373,68 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
     await updatePricing({ activities, equipment, funDiveTiers });
   } catch (e) {
     return fail(e, "The prices could not be saved");
+  }
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+// --- Locations ---
+
+const LOCATION_TYPE_VALUES: LocationType[] = ["DIVING", "BIKE", "SURF", "KITE"];
+
+export async function saveLocation(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const id = text(formData, "locationId");
+  const name = text(formData, "name");
+  const type = text(formData, "type") as LocationType;
+  if (!name) return { error: "Location name is required" };
+  if (!LOCATION_TYPE_VALUES.includes(type)) return { error: "Choose an activity type" };
+  const website = text(formData, "website");
+  if (website && !/^https?:\/\//.test(website)) return { error: "The website must start with http:// or https://" };
+  const data: LocationData = {
+    name,
+    type,
+    address: {
+      street: text(formData, "street"),
+      city: text(formData, "city"),
+      postalCode: text(formData, "postalCode"),
+      country: text(formData, "country"),
+    },
+    contactInfo: {
+      phone: text(formData, "phone"),
+      mobile: text(formData, "mobile"),
+      email: text(formData, "email"),
+      website,
+    },
+    isActive: formData.get("isActive") === "on",
+  };
+  try {
+    if (id) await updateLocation(id, data);
+    else await createLocation(data);
+  } catch (e) {
+    return fail(e, "The location could not be saved");
+  }
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?tab=locations");
+}
+
+export async function removeLocation(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  try {
+    await deleteLocation(text(formData, "id"));
+  } catch (e) {
+    return fail(e, "The location could not be deleted");
+  }
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+// The location selector on each boat and dive site row.
+export async function assignLocation(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const kind = text(formData, "kind");
+  if (kind !== "boat" && kind !== "site") return { error: "Unknown item" };
+  try {
+    await setResourceLocation(kind, text(formData, "id"), text(formData, "locationId") || null);
+  } catch (e) {
+    return fail(e, "The location could not be changed");
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };

@@ -149,6 +149,7 @@ export interface ScheduleQuery {
   day?: string;
   trip?: string;
   new?: string; // the day the create form opens on
+  location?: string; // only this location's trips, boats and sites
 }
 
 // Every panel lives in the URL so the server renders it and Back closes it.
@@ -157,5 +158,6 @@ export function scheduleHref(q: ScheduleQuery) {
   if (q.day) params.set("day", q.day);
   if (q.trip) params.set("trip", q.trip);
   if (q.new) params.set("new", q.new);
+  if (q.location) params.set("location", q.location);
   return `/dashboard/schedule?${params}`;
 }

@@ -13,6 +13,7 @@ export const SITE_CERT_LEVELS = ["Open Water", "Advanced", "Rescue", "Divemaster
 
 export const SETTINGS_TABS = [
   { key: "general", label: "General" },
+  { key: "locations", label: "Locations", adminOnly: true },
   { key: "boats", label: "Boats" },
   { key: "sites", label: "Dive Sites" },
   { key: "staff", label: "Staff" },

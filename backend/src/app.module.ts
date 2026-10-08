@@ -13,6 +13,7 @@ import { DiveLogsModule } from './dive-logs/dive-logs.module.js';
 import { DiveSitesModule } from './dive-sites/dive-sites.module.js';
 import { EquipmentModule } from './equipment/equipment.module.js';
 import { FinancialModule } from './financial/financial.module.js';
+import { LocationsModule } from './locations/locations.module.js';
 import { PartnersModule } from './partners/partners.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SettingsModule } from './settings/settings.module.js';
@@ -48,6 +49,7 @@ import { UsersModule } from './users/users.module.js';
     TripsModule,
     SettingsModule,
     SuperadminModule,
+    LocationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

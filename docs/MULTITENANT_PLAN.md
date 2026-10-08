@@ -152,7 +152,7 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Unlocks:** a second center can be configured and invoice correctly. Centers outside the Canary Islands (mainland Spain, France) get correct dates.
 
-**Status (2026-10-09): done, except the locations UI.** What was built (migration `tenant_configuration`):
+**Status (2026-10-09): done.** What was built (migration `tenant_configuration`):
 
 - **`CenterSettings` per tenant** gains `timeZone` (IANA), `currency` (ISO 4217), `defaultLanguage`, `logoUrl` (https), `primaryColor` and `accentColor` (#rrggbb), and `invoicePrefix` / `partnerInvoicePrefix`. Every tenant has a row (the migration added the missing ones). Staff edit the contact details and tax; the regional, branding and numbering fields need an admin (enforced by the API). `GET /center` (public, like `/pricing`) serves the name, contact details, branding and regional settings, never the tax or numbering.
 - **Time zone everywhere:** the backend's center days (closing a day, "today" for partners and stays, invoice years, the financial reports' day boundaries) and the backoffice's dates, datetime inputs and labels use the tenant's zone. `TenantConfig` reads it, cached 30 s per tenant and cleared on save. The backoffice session carries the zone and currency, re-read every 5 minutes and at once after a save. The 72-hour breach deadline is in absolute hours and needed no change.
@@ -162,7 +162,9 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 - **Numbering:** `NumberSequence(tenantId, series, year, last)` replaces the `MAX()` scans. One atomic upsert per number inside the creating transaction: no duplicates, and a rollback returns the number, so each series has no gaps. Invoice and partner invoice numbers use the tenant's prefixes and the year at the center; dive logs keep `YYYY-NNN` by dive date. The migration seeded the counters from the numbers already given.
 - **Tests:** `test/tenant-config.e2e-spec.ts` (defaults, public endpoints, permissions, validation, concurrent and rolled-back numbering, time zone).
 
-**Not yet:** the **locations UI** (list, create, edit, and attaching boats and sites to a location), which needs `locationId` on boats, dive sites and bookings. Also not yet: the public site's tenant name and branding, which come with step 4, when the site knows its tenant from the host.
+**Locations (2026-10-09, migration `add_location_to_resources`):** boats, dive sites and bookings have an optional `locationId` (`onDelete: SetNull`), checked by the same-tenant triggers. A booking takes its boat's location (trigger `booking_location`, so staff, guest and partner bookings all get it). Existing boats and sites of a tenant with a single location were assigned to it. `/locations` API (staff read, admins manage), with boat and dive site counts. Backoffice: Settings → Locations (admins), a location selector on each boat and dive site (row and form), and a location filter on the Schedule and Dive Prep (trips by boat location, or planned site for shore dives; bookings, boats and sites; auto-assign stays within the location). Tests: `test/locations.e2e-spec.ts`.
+
+**Not yet:** the public site's tenant name and branding, which come with step 4, when the site knows its tenant from the host.
 
 ### Step 4: Tenant from the host (M)
 

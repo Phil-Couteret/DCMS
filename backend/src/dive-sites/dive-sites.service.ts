@@ -5,9 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import { assertLocation } from '../locations/assert-location.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateDiveSiteDto } from './dto/create-dive-site.dto.js';
 import { UpdateDiveSiteDto } from './dto/update-dive-site.dto.js';
+
+// Each site comes with its location's name.
+const LOCATION = { location: { select: { id: true, name: true } } } as const;
 
 @Injectable()
 export class DiveSitesService {
@@ -15,9 +19,11 @@ export class DiveSitesService {
 
   // Both filters are ceilings: a diver certified at level 2 sees every site
   // requiring level 2 or less, and difficulty 3 returns sites rated 1 to 3.
-  findAll(filters: { requiredCertLevel?: number; difficultyLevel?: number } = {}) {
+  // locationId "none": sites not assigned to a location.
+  findAll(filters: { requiredCertLevel?: number; difficultyLevel?: number; locationId?: string } = {}) {
     return this.prisma.diveSite.findMany({
       where: {
+        ...(filters.locationId && { locationId: filters.locationId === 'none' ? null : filters.locationId }),
         ...(filters.requiredCertLevel !== undefined && {
           requiredCertLevel: { lte: filters.requiredCertLevel },
         }),
@@ -25,29 +31,34 @@ export class DiveSitesService {
           difficultyLevel: { lte: filters.difficultyLevel },
         }),
       },
+      include: LOCATION,
       orderBy: { nameEn: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const site = await this.prisma.diveSite.findUnique({ where: { id } });
+    const site = await this.prisma.diveSite.findUnique({ where: { id }, include: LOCATION });
     if (!site) throw new NotFoundException(`Dive site ${id} not found`);
     return site;
   }
 
-  create(dto: CreateDiveSiteDto) {
+  async create(dto: CreateDiveSiteDto) {
     assertDepthRange(dto.depthMin, dto.depthMax);
+    await assertLocation(this.prisma, dto.locationId);
     return this.prisma.diveSite.create({
       data: dto as Prisma.DiveSiteCreateInput,
+      include: LOCATION,
     });
   }
 
   async update(id: string, dto: UpdateDiveSiteDto) {
     const current = await this.findOne(id);
     assertDepthRange(dto.depthMin ?? current.depthMin, dto.depthMax ?? current.depthMax);
+    await assertLocation(this.prisma, dto.locationId);
     return this.prisma.diveSite.update({
       where: { id },
       data: dto as Prisma.DiveSiteUpdateInput,
+      include: LOCATION,
     });
   }
 

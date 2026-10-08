@@ -5,6 +5,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
+  ValidateIf,
   Max,
   Min,
 } from 'class-validator';
@@ -49,4 +51,10 @@ export class CreateBoatDto {
   @IsOptional()
   @IsDateString()
   nextServiceDate?: string | null;
+
+  // One of the tenant's locations; null unassigns.
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsUUID()
+  locationId?: string | null;
 }

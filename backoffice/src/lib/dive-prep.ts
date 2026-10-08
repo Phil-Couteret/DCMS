@@ -25,10 +25,11 @@ export const SKILL_PILL: Record<string, string> = {
   EXPERT: "bg-violet-50 text-violet-800 ring-violet-200",
 };
 
-export function prepHref(q: { tab?: PrepTab; date: string; slot?: TimeSlot }) {
+export function prepHref(q: { tab?: PrepTab; date: string; slot?: TimeSlot; location?: string }) {
   const params = new URLSearchParams({ date: q.date });
   if (q.tab && q.tab !== "prep") params.set("tab", q.tab);
   if (q.slot && q.slot !== "MORNING") params.set("slot", q.slot);
+  if (q.location) params.set("location", q.location);
   return `/dashboard/dive-prep?${params}`;
 }
 

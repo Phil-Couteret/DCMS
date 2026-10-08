@@ -5,6 +5,8 @@ import {
   BoatForm,
   DeleteButton,
   GeneralForm,
+  LocationForm,
+  LocationSelect,
   PricingForm,
   SiteForm,
   UserForm,
@@ -12,8 +14,10 @@ import {
 } from "@/components/settings/settings-forms";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getBoats, getDiveSites, getPricing, getSettings, getStaff, getUsers } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { getBoats, getDiveSites, getLocations, getPricing, getSettings, getStaff, getUsers, type LocationRef } from "@/lib/api";
 import { formatBookingDate } from "@/lib/bookings";
+import { LOCATION_TYPE_LABELS, shortAddress } from "@/lib/locations";
 import { BOAT_STATUS_LABELS, SETTINGS_TABS, SITE_CERT_LEVELS, USER_ROLE_LABELS, type SettingsTab } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -74,8 +78,9 @@ async function GeneralTab({ isAdmin }: { isAdmin: boolean }) {
 
 async function BoatsTab({ open }: { open?: string }) {
   let boats;
+  let locations: LocationRef[];
   try {
-    boats = await getBoats();
+    [boats, locations] = await Promise.all([getBoats(), getLocations(true)]);
   } catch (e) {
     return <LoadError what="Boats" reason={e} />;
   }
@@ -100,6 +105,7 @@ async function BoatsTab({ open }: { open?: string }) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Registration</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead className="text-right">Capacity</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Insurance expiry</TableHead>
@@ -112,6 +118,9 @@ async function BoatsTab({ open }: { open?: string }) {
                 <TableRow key={b.id}>
                   <TableCell className="font-medium">{b.name}</TableCell>
                   <TableCell>{b.registrationNumber}</TableCell>
+                  <TableCell>
+                    <LocationSelect kind="boat" id={b.id} name={b.name} current={b.location} locations={locations} />
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{b.capacity}</TableCell>
                   <TableCell>{BOAT_STATUS_LABELS[b.status] ?? b.status}</TableCell>
                   <TableCell>{b.insuranceExpiry ? formatBookingDate(b.insuranceExpiry) : "—"}</TableCell>
@@ -137,7 +146,7 @@ async function BoatsTab({ open }: { open?: string }) {
       )}
       {open && (open === "new" || editing) && (
         <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit ${editing.name}` : "Add boat"}>
-          <BoatForm boat={editing ?? null} cancelHref={closeHref} />
+          <BoatForm boat={editing ?? null} cancelHref={closeHref} locations={locations} />
         </RoutedDialog>
       )}
     </Panel>
@@ -146,8 +155,9 @@ async function BoatsTab({ open }: { open?: string }) {
 
 async function SitesTab({ open }: { open?: string }) {
   let sites;
+  let locations: LocationRef[];
   try {
-    sites = await getDiveSites();
+    [sites, locations] = await Promise.all([getDiveSites(), getLocations(true)]);
   } catch (e) {
     return <LoadError what="Dive sites" reason={e} />;
   }
@@ -171,6 +181,7 @@ async function SitesTab({ open }: { open?: string }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Depth</TableHead>
                 <TableHead>Certification</TableHead>
                 <TableHead>Difficulty</TableHead>
@@ -183,6 +194,9 @@ async function SitesTab({ open }: { open?: string }) {
               {sites.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.nameEn}</TableCell>
+                  <TableCell>
+                    <LocationSelect kind="site" id={s.id} name={s.nameEn} current={s.location} locations={locations} />
+                  </TableCell>
                   <TableCell className="tabular-nums">
                     {s.depthMin}–{s.depthMax} m
                   </TableCell>
@@ -211,7 +225,86 @@ async function SitesTab({ open }: { open?: string }) {
       )}
       {open && (open === "new" || editing) && (
         <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit ${editing.nameEn}` : "Add dive site"}>
-          <SiteForm site={editing ?? null} cancelHref={closeHref} />
+          <SiteForm site={editing ?? null} cancelHref={closeHref} locations={locations} />
+        </RoutedDialog>
+      )}
+    </Panel>
+  );
+}
+
+async function LocationsTab({ open }: { open?: string }) {
+  let locations;
+  try {
+    locations = await getLocations();
+  } catch (e) {
+    return <LoadError what="Locations" reason={e} />;
+  }
+  const editing = open && open !== "new" ? locations.find((l) => l.id === open) : undefined;
+  const closeHref = tabHref("locations");
+  return (
+    <Panel
+      title="Locations"
+      description="The places the center operates from. Boats, dive sites and bookings are assigned to one; the schedule and dive prep can be filtered by it."
+      action={
+        <Button nativeButton={false} render={<Link href={tabHref("locations", { location: "new" })} prefetch={false} scroll={false} />}>
+          Add location
+        </Button>
+      }
+    >
+      {locations.length === 0 ? (
+        <p className="text-sm text-zinc-500">No locations configured. Click &quot;Add location&quot; to create the first one.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Activity type</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Boats</TableHead>
+                <TableHead className="text-right">Dive sites</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {locations.map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell className="font-medium">{l.name}</TableCell>
+                  <TableCell>{LOCATION_TYPE_LABELS[l.type] ?? l.type}</TableCell>
+                  <TableCell>{shortAddress(l.address) ?? <span className="text-zinc-400">Not set</span>}</TableCell>
+                  <TableCell>
+                    {l.isActive ? <Badge variant="secondary">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{l.boatCount}</TableCell>
+                  <TableCell className="text-right tabular-nums">{l.diveSiteCount}</TableCell>
+                  <TableCell>
+                    <div className="flex items-start justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={<Link href={tabHref("locations", { location: l.id })} prefetch={false} scroll={false} />}
+                      >
+                        Edit
+                      </Button>
+                      <DeleteButton
+                        kind="location"
+                        id={l.id}
+                        name={l.name}
+                        confirmText={`Delete ${l.name}? Its ${l.boatCount} boat(s) and ${l.diveSiteCount} dive site(s), and its bookings, are kept but no longer assigned to a location. This cannot be undone.`}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      {open && (open === "new" || editing) && (
+        <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit ${editing.name}` : "Add location"}>
+          <LocationForm location={editing ?? null} cancelHref={closeHref} />
         </RoutedDialog>
       )}
     </Panel>
@@ -381,6 +474,7 @@ export default async function SettingsPage({
         ))}
       </nav>
       {tab === "general" && <GeneralTab isAdmin={isAdmin} />}
+      {tab === "locations" && <LocationsTab open={target(one(params.location))} />}
       {tab === "boats" && <BoatsTab open={target(one(params.boat))} />}
       {tab === "sites" && <SitesTab open={target(one(params.site))} />}
       {tab === "staff" && <StaffTab />}

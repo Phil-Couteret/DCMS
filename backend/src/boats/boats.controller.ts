@@ -22,8 +22,8 @@ export class BoatsController {
   constructor(private readonly boats: BoatsService) {}
 
   @Get()
-  findAll(@Query('status') status?: string) {
-    return this.boats.findAll({ status });
+  findAll(@Query('status') status?: string, @Query('locationId') locationId?: string) {
+    return this.boats.findAll({ status, locationId });
   }
 
   @Get(':id')

@@ -8,6 +8,7 @@ import {
   TimeSlot,
   TripStatus,
 } from '../generated/prisma/enums.js';
+import { tripAtLocation } from './location-filter.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SEAT_HOLDING, tripCapacity, tripIssues } from './trip-rules.js';
 import { TripsService } from './trips.service.js';
@@ -110,23 +111,26 @@ export class DivePrepService {
     private readonly trips: TripsService,
   ) {}
 
-  // Everything the preparation screen needs for one date and time slot.
-  async slot(dateIso: string, timeSlot: TimeSlot) {
+  // Everything the preparation screen needs for one date and time slot,
+  // optionally for one location: its trips, bookings, boats and sites. Staff
+  // are not tied to a location and are always all listed.
+  async slot(dateIso: string, timeSlot: TimeSlot, locationId?: string) {
     const date = startOfUtcDay(dateIso);
+    const atLocation = locationId ? { locationId } : {};
     const [trips, unassigned, pending, boats, staff, sites] = await Promise.all([
       this.prisma.trip.findMany({
-        where: { date, timeSlot, status: { not: TripStatus.CANCELLED } },
+        where: { date, timeSlot, status: { not: TripStatus.CANCELLED }, ...tripAtLocation(locationId) },
         include: PREP_TRIP,
         orderBy: [{ boat: { name: 'asc' } }, { createdAt: 'asc' }],
       }),
       this.prisma.booking.findMany({
-        where: { date, timeSlot, tripId: null, status: BookingStatus.CONFIRMED },
+        where: { date, timeSlot, tripId: null, status: BookingStatus.CONFIRMED, ...atLocation },
         select: PREP_BOOKING,
         orderBy: { createdAt: 'asc' },
       }),
-      this.prisma.booking.count({ where: { date, timeSlot, tripId: null, status: BookingStatus.PENDING } }),
+      this.prisma.booking.count({ where: { date, timeSlot, tripId: null, status: BookingStatus.PENDING, ...atLocation } }),
       this.prisma.boat.findMany({
-        where: { status: 'active' },
+        where: { status: 'active', ...atLocation },
         select: { id: true, name: true, capacity: true },
         orderBy: { name: 'asc' },
       }),
@@ -145,6 +149,7 @@ export class DivePrepService {
         orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
       }),
       this.prisma.diveSite.findMany({
+        where: atLocation,
         select: { id: true, nameEn: true, difficultyLevel: true, requiredCertLevel: true },
         orderBy: { nameEn: 'asc' },
       }),
@@ -181,16 +186,17 @@ export class DivePrepService {
   // trips: all on one trip if one has room for everyone, otherwise diver by
   // diver, beginners first, preferring a trip whose divers are all of the
   // same skill level (or that is empty). Bookings are moved to the trip's
-  // boat. Bookings that fit nowhere are reported, not forced.
-  async autoAssign(dateIso: string, timeSlot: TimeSlot) {
+  // boat. Bookings that fit nowhere are reported, not forced. With a
+  // location, only that location's bookings and trips.
+  async autoAssign(dateIso: string, timeSlot: TimeSlot, locationId?: string) {
     const date = startOfUtcDay(dateIso);
     const trips = await this.prisma.trip.findMany({
-      where: { date, timeSlot, status: TripStatus.PLANNED },
+      where: { date, timeSlot, status: TripStatus.PLANNED, ...tripAtLocation(locationId) },
       include: PREP_TRIP,
       orderBy: [{ boat: { name: 'asc' } }, { createdAt: 'asc' }],
     });
     const candidates = await this.prisma.booking.findMany({
-      where: { date, timeSlot, tripId: null, status: BookingStatus.CONFIRMED },
+      where: { date, timeSlot, tripId: null, status: BookingStatus.CONFIRMED, ...(locationId && { locationId }) },
       select: PREP_BOOKING,
       orderBy: { createdAt: 'asc' },
     });

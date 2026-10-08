@@ -5,6 +5,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
+  ValidateIf,
   Max,
   Min,
 } from 'class-validator';
@@ -63,4 +65,10 @@ export class CreateDiveSiteDto {
   @Min(0)
   @Max(9.99)
   averageRating?: number;
+
+  // One of the tenant's locations; null unassigns.
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsUUID()
+  locationId?: string | null;
 }

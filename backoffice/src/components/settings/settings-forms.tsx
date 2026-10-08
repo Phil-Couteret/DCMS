@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   removeBoat,
+  removeLocation,
+  saveLocation,
+  assignLocation,
   removeSite,
   removeUser,
   resetUserPassword,
@@ -17,7 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { LANGUAGE_LABELS, LANGUAGES } from "@/lib/customers";
 import { money } from "@/lib/billing";
-import type { Boat, CenterSettings, DiveSite, FunDiveTier, Pricing, User } from "@/lib/api";
+import type { Boat, CenterSettings, DiveSite, FunDiveTier, Location, LocationRef, Pricing, User } from "@/lib/api";
+import { LOCATION_TYPE_LABELS, LOCATION_TYPES, locationOptions } from "@/lib/locations";
 import {
   ACTIVITY_PRICE_LABELS,
   BOAT_STATUS_LABELS,
@@ -258,16 +262,26 @@ function CenterAdminFields({
   );
 }
 
-const REMOVE = { boat: removeBoat, site: removeSite, user: removeUser };
+const REMOVE = { boat: removeBoat, site: removeSite, user: removeUser, location: removeLocation };
 
 // A delete button with a confirmation, for a boat, a dive site or a user.
-export function DeleteButton({ kind, id, name }: { kind: keyof typeof REMOVE; id: string; name: string }) {
+export function DeleteButton({
+  kind,
+  id,
+  name,
+  confirmText,
+}: {
+  kind: keyof typeof REMOVE;
+  id: string;
+  name: string;
+  confirmText?: string;
+}) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(REMOVE[kind], null);
   return (
     <form
       action={action}
       onSubmit={(e) => {
-        if (!window.confirm(`Delete ${name}? This cannot be undone.`)) e.preventDefault();
+        if (!window.confirm(confirmText ?? `Delete ${name}? This cannot be undone.`)) e.preventDefault();
       }}
       className="flex flex-col items-end gap-1"
     >
@@ -298,7 +312,15 @@ function FormActions({ pending, state, cancelHref, create }: { pending: boolean;
   );
 }
 
-export function BoatForm({ boat, cancelHref }: { boat: Boat | null; cancelHref: string }) {
+export function BoatForm({
+  boat,
+  cancelHref,
+  locations,
+}: {
+  boat: Boat | null;
+  cancelHref: string;
+  locations: LocationRef[];
+}) {
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveBoat, null);
   // An unknown stored status stays selectable so saving does not change it.
   const statuses = boat && !BOAT_STATUSES.includes(boat.status) ? [...BOAT_STATUSES, boat.status] : BOAT_STATUSES;
@@ -318,6 +340,17 @@ export function BoatForm({ boat, cancelHref }: { boat: Boat | null; cancelHref: 
         <label className={label}>
           Capacity (divers)
           <input type="number" name="capacity" required min={1} step={1} defaultValue={boat?.capacity ?? 10} className={control} />
+        </label>
+        <label className={label}>
+          Location
+          <select name="locationId" defaultValue={boat?.locationId ?? ""} className={control}>
+            <option value="">Not assigned</option>
+            {locationOptions(locations, boat?.location ?? null).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className={label}>
           Status
@@ -370,7 +403,15 @@ const TRANSLATIONS = [
   { suffix: "Fr", name: "French" },
 ] as const;
 
-export function SiteForm({ site, cancelHref }: { site: DiveSite | null; cancelHref: string }) {
+export function SiteForm({
+  site,
+  cancelHref,
+  locations,
+}: {
+  site: DiveSite | null;
+  cancelHref: string;
+  locations: LocationRef[];
+}) {
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveSite, null);
   const lists = {
     marineLife: stringsOnly(site?.marineLife).join(", "),
@@ -392,6 +433,18 @@ export function SiteForm({ site, cancelHref }: { site: DiveSite | null; cancelHr
           Name (English)
           <input name="nameEn" required maxLength={120} defaultValue={site?.nameEn} className={control} />
         </label>
+        <label className={label}>
+          Location
+          <select name="locationId" defaultValue={site?.locationId ?? ""} className={control}>
+            <option value="">Not assigned</option>
+            {locationOptions(locations, site?.location ?? null).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <div className="grid grid-cols-2 gap-4">
           <label className={label}>
             Latitude
@@ -853,6 +906,129 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
           </Button>
           <Status state={state} saved="Prices saved. They apply from the next invoice." />
         </div>
+      )}
+    </form>
+  );
+}
+
+// Create (location null) or edit a location: its activity type, address and
+// contact details. Inactive locations are left out of selection lists.
+export function LocationForm({ location, cancelHref }: { location: Location | null; cancelHref: string }) {
+  const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveLocation, null);
+  const a = location?.address ?? {};
+  const c = location?.contactInfo ?? {};
+  return (
+    <form onSubmit={onSubmit} className="space-y-5">
+      {location && <input type="hidden" name="locationId" value={location.id} />}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className={label}>
+          Location name
+          <input name="name" required maxLength={120} defaultValue={location?.name ?? ""} className={control} />
+          <span className="mt-1 block text-xs font-normal text-zinc-500">For example Caleta de Fuste, Las Playitas.</span>
+        </label>
+        <label className={label}>
+          Activity type
+          <select name="type" defaultValue={location?.type ?? "DIVING"} className={control}>
+            {LOCATION_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {LOCATION_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-semibold text-zinc-900">Address</legend>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className={`${label} sm:col-span-2`}>
+            Street
+            <input name="street" maxLength={200} defaultValue={a.street ?? ""} className={control} />
+          </label>
+          <label className={label}>
+            City
+            <input name="city" maxLength={100} defaultValue={a.city ?? ""} className={control} />
+          </label>
+          <label className={label}>
+            Postal code
+            <input name="postalCode" maxLength={20} defaultValue={a.postalCode ?? ""} className={control} />
+          </label>
+          <label className={label}>
+            Country
+            <input name="country" maxLength={100} defaultValue={a.country ?? ""} className={control} />
+          </label>
+        </div>
+      </fieldset>
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-semibold text-zinc-900">Contact</legend>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className={label}>
+            Phone
+            <input type="tel" name="phone" maxLength={40} defaultValue={c.phone ?? ""} className={control} />
+          </label>
+          <label className={label}>
+            Mobile
+            <input type="tel" name="mobile" maxLength={40} defaultValue={c.mobile ?? ""} className={control} />
+          </label>
+          <label className={label}>
+            Email
+            <input type="email" name="email" maxLength={254} defaultValue={c.email ?? ""} className={control} />
+          </label>
+          <label className={label}>
+            Website
+            <input type="url" name="website" maxLength={300} placeholder="https://" defaultValue={c.website ?? ""} className={control} />
+          </label>
+        </div>
+      </fieldset>
+      <label className="flex items-start gap-2 text-sm font-medium text-zinc-700">
+        <input type="checkbox" name="isActive" defaultChecked={location?.isActive ?? true} className="mt-0.5" />
+        <span>
+          Active location
+          <span className="block text-xs font-normal text-zinc-500">Inactive locations are hidden from selection lists.</span>
+        </span>
+      </label>
+      <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!location} />
+    </form>
+  );
+}
+
+// The location selector on a boat's or dive site's row: saves on change.
+export function LocationSelect({
+  kind,
+  id,
+  name,
+  current,
+  locations,
+}: {
+  kind: "boat" | "site";
+  id: string;
+  name: string;
+  current: LocationRef | null;
+  locations: LocationRef[];
+}) {
+  const [state, action, pending] = useActionState<SettingsFormState, FormData>(assignLocation, null);
+  return (
+    <form action={action} className="flex flex-col gap-1">
+      <input type="hidden" name="kind" value={kind} />
+      <input type="hidden" name="id" value={id} />
+      <select
+        name="locationId"
+        aria-label={`Location of ${name}`}
+        defaultValue={current?.id ?? ""}
+        disabled={pending}
+        onChange={(e) => e.currentTarget.form?.requestSubmit()}
+        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 outline-none focus:border-zinc-900 disabled:opacity-60"
+      >
+        <option value="">Not assigned</option>
+        {locationOptions(locations, current).map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.name}
+          </option>
+        ))}
+      </select>
+      {state?.error && (
+        <p role="alert" className="max-w-48 text-xs text-destructive">
+          {state.error}
+        </p>
       )}
     </form>
   );

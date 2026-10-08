@@ -1,33 +1,44 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import { assertLocation } from '../locations/assert-location.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateBoatDto } from './dto/create-boat.dto.js';
 import { UpdateBoatDto } from './dto/update-boat.dto.js';
+
+// Each boat comes with its location's name.
+const LOCATION = { location: { select: { id: true, name: true } } } as const;
 
 @Injectable()
 export class BoatsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(filters: { status?: string } = {}) {
+  // locationId "none": boats not assigned to a location.
+  findAll(filters: { status?: string; locationId?: string } = {}) {
     return this.prisma.boat.findMany({
-      where: filters.status ? { status: filters.status } : {},
+      where: {
+        ...(filters.status && { status: filters.status }),
+        ...(filters.locationId && { locationId: filters.locationId === 'none' ? null : filters.locationId }),
+      },
+      include: LOCATION,
       orderBy: { name: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const boat = await this.prisma.boat.findUnique({ where: { id } });
+    const boat = await this.prisma.boat.findUnique({ where: { id }, include: LOCATION });
     if (!boat) throw new NotFoundException(`Boat ${id} not found`);
     return boat;
   }
 
-  create(dto: CreateBoatDto) {
-    return this.prisma.boat.create({ data: toData(dto) as Prisma.BoatCreateInput });
+  async create(dto: CreateBoatDto) {
+    await assertLocation(this.prisma, dto.locationId);
+    return this.prisma.boat.create({ data: toData(dto) as Prisma.BoatCreateInput, include: LOCATION });
   }
 
   async update(id: string, dto: UpdateBoatDto) {
     await this.findOne(id);
-    return this.prisma.boat.update({ where: { id }, data: toData(dto) });
+    await assertLocation(this.prisma, dto.locationId);
+    return this.prisma.boat.update({ where: { id }, data: toData(dto), include: LOCATION });
   }
 
   async remove(id: string) {

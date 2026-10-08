@@ -114,6 +114,8 @@ export interface Boat {
   insuranceExpiry: string | null;
   lastServiceDate: string | null;
   nextServiceDate: string | null;
+  locationId: string | null;
+  location: LocationRef | null;
 }
 
 export type StaffType = "GUIDE" | "TRAINER" | "CAPTAIN" | "ADMIN";
@@ -202,8 +204,76 @@ export function updateBookingStatus(id: string, status: BookingStatus) {
   });
 }
 
-export function getBoats() {
-  return apiFetch<Boat[]>("/boats");
+// locationId: only that location's boats ("none": the unassigned ones).
+export function getBoats(locationId?: string) {
+  return apiFetch<Boat[]>(`/boats${locationId ? `?${new URLSearchParams({ locationId })}` : ""}`);
+}
+
+// Assigns a boat or dive site to a location (null: unassigned).
+export function setResourceLocation(kind: "boat" | "site", id: string, locationId: string | null) {
+  const path = kind === "boat" ? `/boats/${id}` : `/dive-sites/${id}`;
+  return apiFetch<Boat | DiveSite>(path, { method: "PATCH", body: JSON.stringify({ locationId }) });
+}
+
+export type LocationType = "DIVING" | "BIKE" | "SURF" | "KITE";
+
+export interface LocationRef {
+  id: string;
+  name: string;
+}
+
+export interface LocationAddress {
+  street?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface LocationContact {
+  phone?: string;
+  mobile?: string;
+  email?: string;
+  website?: string;
+}
+
+// A site the center operates from, with how many boats and dive sites are
+// assigned to it.
+export interface Location {
+  id: string;
+  name: string;
+  type: LocationType;
+  address: LocationAddress | null;
+  contactInfo: LocationContact | null;
+  isActive: boolean; // inactive ones are left out of selection lists
+  boatCount: number;
+  diveSiteCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LocationData {
+  name: string;
+  type: LocationType;
+  address: LocationAddress;
+  contactInfo: LocationContact;
+  isActive: boolean;
+}
+
+// active: only the locations offered in selection lists.
+export function getLocations(active?: boolean) {
+  return apiFetch<Location[]>(`/locations${active ? "?active=true" : ""}`);
+}
+
+export function createLocation(data: LocationData) {
+  return apiFetch<Location>("/locations", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateLocation(id: string, data: LocationData) {
+  return apiFetch<Location>(`/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteLocation(id: string) {
+  return apiFetch<Location>(`/locations/${id}`, { method: "DELETE" });
 }
 
 export function getBoat(id: string) {
@@ -221,6 +291,7 @@ export interface BoatData {
   insuranceExpiry?: string | null;
   lastServiceDate?: string | null;
   nextServiceDate?: string | null;
+  locationId?: string | null; // null: not assigned
 }
 
 export function createBoat(data: BoatData) {
@@ -604,12 +675,15 @@ export interface DiveSite extends DiveSiteOption {
   travelTimeMinutes: number;
   maxDiversPerTrip: number;
   accessibility: string | null;
+  locationId: string | null;
+  location: LocationRef | null;
 }
 
-export type DiveSiteData = Omit<DiveSite, "id" | "latitude" | "longitude"> & { latitude: number; longitude: number };
+export type DiveSiteData = Omit<DiveSite, "id" | "latitude" | "longitude" | "location"> & { latitude: number; longitude: number };
 
-export function getDiveSites() {
-  return apiFetch<DiveSite[]>("/dive-sites");
+// locationId: only that location's sites ("none": the unassigned ones).
+export function getDiveSites(locationId?: string) {
+  return apiFetch<DiveSite[]>(`/dive-sites${locationId ? `?${new URLSearchParams({ locationId })}` : ""}`);
 }
 
 export function getDiveSite(id: string) {
@@ -860,8 +934,8 @@ export interface UpdateTripData {
 }
 
 // Both ends are inclusive calendar days (YYYY-MM-DD).
-export function getTrips(from: string, to: string) {
-  return apiFetch<TripListItem[]>(`/trips?${new URLSearchParams({ from, to })}`);
+export function getTrips(from: string, to: string, locationId?: string) {
+  return apiFetch<TripListItem[]>(`/trips?${new URLSearchParams({ from, to, ...(locationId && { locationId }) })}`);
 }
 
 export function getTrip(id: string) {
@@ -954,8 +1028,8 @@ export interface DivePrep {
   sites: PrepSite[];
 }
 
-export function getDivePrep(date: string, timeSlot: TimeSlot) {
-  return apiFetch<DivePrep>(`/dive-prep?${new URLSearchParams({ date, timeSlot })}`);
+export function getDivePrep(date: string, timeSlot: TimeSlot, locationId?: string) {
+  return apiFetch<DivePrep>(`/dive-prep?${new URLSearchParams({ date, timeSlot, ...(locationId && { locationId }) })}`);
 }
 
 export interface AutoAssignResult {
@@ -963,10 +1037,11 @@ export interface AutoAssignResult {
   skipped: { bookingId: string; customer: string; reason: string }[];
 }
 
-export function autoAssignDivePrep(date: string, timeSlot: TimeSlot) {
+// locationId: only that location's bookings and trips.
+export function autoAssignDivePrep(date: string, timeSlot: TimeSlot, locationId?: string) {
   return apiFetch<AutoAssignResult>("/dive-prep/auto-assign", {
     method: "POST",
-    body: JSON.stringify({ date, timeSlot }),
+    body: JSON.stringify({ date, timeSlot, ...(locationId && { locationId }) }),
   });
 }
 
