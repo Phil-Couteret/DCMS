@@ -1,19 +1,25 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { markPlatform, tenantStore } from '../tenant/tenant-context.js';
 import { TenantsService } from '../tenant/tenants.service.js';
 
 export interface JwtPayload {
   sub: string;
   email: string;
+  // The role in the token's tenant: ADMIN or INSTRUCTOR (the membership's),
+  // CUSTOMER, or SUPERADMIN on a platform token.
   role: string;
-  // 'partner' on partner portal tokens, which only PartnerJwtGuard accepts.
+  // 'partner' on partner portal tokens (PartnerJwtGuard only), 'tenant-selection'
+  // on the short-lived token of a login that must choose a center.
   type?: string;
-  // The tenant the token was issued for. Tokens issued before multi-tenancy
-  // have none; see JwtStrategy.
-  tenantId?: string;
+  // The tenant the token was issued for; null on a superadmin's platform
+  // token. Tokens issued before multi-tenancy have none; see JwtStrategy.
+  tenantId?: string | null;
+  tenantSlug?: string | null;
+  isSuperadmin?: boolean;
 }
 
 export interface UserPrincipal {
@@ -21,6 +27,7 @@ export interface UserPrincipal {
   email: string;
   role: string;
   tenantId: string | null;
+  isSuperadmin: boolean;
 }
 
 @Injectable()
@@ -41,13 +48,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // one is refused). A token from before multi-tenancy gets its account's
   // only membership; with none or several it must sign in again.
   async validate(payload: JwtPayload): Promise<UserPrincipal> {
-    // Partner tokens are signed with the same secret but are not user tokens:
-    // they must never open staff or customer routes.
-    if (payload.type === 'partner') throw new UnauthorizedException();
+    // Partner and tenant-selection tokens are signed with the same secret but
+    // are not user tokens: they must never open staff or customer routes.
+    if (payload.type !== undefined) throw new UnauthorizedException();
+    const isSuperadmin = payload.isSuperadmin === true;
     let tenantId = payload.tenantId ?? null;
-    if (!tenantId && payload.role !== 'CUSTOMER') {
+    if (payload.tenantId === null && isSuperadmin) {
+      // Platform token: no tenant, and none may be named by header.
+      if (tenantStore()?.headerTenantId) {
+        throw new ForbiddenException('Enter the center from the superadmin console first');
+      }
+      markPlatform();
+    } else if (!tenantId && payload.role !== 'CUSTOMER') {
       const memberships = await this.prisma.membership.findMany({
-        where: { userId: payload.sub },
+        where: { userId: payload.sub, isActive: true },
         select: { tenantId: true },
         take: 2,
       });
@@ -55,6 +69,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId = memberships[0].tenantId;
     }
     if (tenantId) await this.tenants.useTokenTenant(tenantId);
-    return { id: payload.sub, email: payload.email, role: payload.role, tenantId };
+    return { id: payload.sub, email: payload.email, role: payload.role, tenantId, isSuperadmin };
   }
 }

@@ -15,6 +15,9 @@ interface TenantStore {
   headerTenantId?: string;
   // Set only by runUnscoped, for the few lookups that must span tenants.
   unscoped?: boolean;
+  // A superadmin's platform token (no tenant): the single-tenant fallback
+  // does not apply, so tenant data is reachable only by entering a tenant.
+  platform?: boolean;
 }
 
 const storage = new AsyncLocalStorage<TenantStore>();
@@ -64,6 +67,15 @@ export function setTenantId(tenantId: string) {
   const store = storage.getStore();
   if (!store) throw new Error('setTenantId outside a request context');
   store.tenantId = tenantId;
+}
+
+export function markPlatform() {
+  const store = storage.getStore();
+  if (store) store.platform = true;
+}
+
+export function isPlatform() {
+  return storage.getStore()?.platform === true;
 }
 
 export function isUnscoped() {

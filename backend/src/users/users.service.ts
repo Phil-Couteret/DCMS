@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import bcrypt from 'bcrypt';
 import { Prisma } from '../generated/prisma/client.js';
-import { Role } from '../generated/prisma/enums.js';
+import { MembershipRole, Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usedByOtherTenants } from '../tenant/shared-accounts.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
@@ -26,18 +26,33 @@ function listSelect(tenantId: string) {
     id: true,
     email: true,
     name: true,
-    role: true,
     createdAt: true,
     updatedAt: true,
     staffProfiles: { where: { tenantId }, select: { id: true } },
     customers: { where: { tenantId }, select: { id: true } },
+    memberships: { where: { tenantId }, select: { role: true, isActive: true } },
   } satisfies Prisma.UserSelect;
 }
 
 type ListedUser = Prisma.UserGetPayload<{ select: ReturnType<typeof listSelect> }>;
 
-function toView({ staffProfiles, customers, ...user }: ListedUser) {
-  return { ...user, staffId: staffProfiles[0]?.id ?? null, customerId: customers[0]?.id ?? null };
+// role is the account's role in this tenant: its membership's for staff,
+// CUSTOMER for the others. isActive is false for a deactivated membership.
+function toView({ staffProfiles, customers, memberships, ...user }: ListedUser) {
+  const membership = memberships.at(0);
+  return {
+    ...user,
+    role: membership?.role ?? Role.CUSTOMER,
+    isActive: membership?.isActive ?? true,
+    staffId: staffProfiles[0]?.id ?? null,
+    customerId: customers[0]?.id ?? null,
+  };
+}
+
+const ROLE_ORDER: string[] = [Role.ADMIN, Role.INSTRUCTOR, Role.CUSTOMER];
+
+function isMembershipRole(role: Role): role is MembershipRole {
+  return role === Role.ADMIN || role === Role.INSTRUCTOR;
 }
 
 // Accounts linked to the tenant: staff and admins through a membership,
@@ -66,7 +81,7 @@ export class UsersService {
   findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, name: true, role: true, createdAt: true },
+      select: { id: true, email: true, name: true, role: true, isSuperadmin: true, createdAt: true },
     });
   }
 
@@ -83,11 +98,14 @@ export class UsersService {
     }
     const tenantId = this.tenant.tenantId;
     const users = await this.prisma.user.findMany({
-      where: { AND: [inTenant(tenantId), filters.role ? { role: filters.role as Role } : {}] },
+      where: inTenant(tenantId),
       select: listSelect(tenantId),
-      orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+      orderBy: { createdAt: 'asc' },
     });
-    return users.map(toView);
+    return users
+      .map(toView)
+      .filter((u) => !filters.role || u.role === filters.role)
+      .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
   }
 
   // Only accounts linked to the current tenant; any other is "not found".
@@ -98,11 +116,26 @@ export class UsersService {
     return toView(user);
   }
 
-  // A new account with access to the current tenant.
+  // A new account with access to the current tenant. A staff account that
+  // already exists (the person works at another center) is given access
+  // here instead: its name and password stay as they are.
   async createAccount(dto: CreateUserDto) {
     const email = dto.email.trim().toLowerCase();
-    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const tenantId = this.tenant.tenantId;
+    const staff = isMembershipRole(dto.role);
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, role: true, isSuperadmin: true, memberships: { where: { tenantId }, select: { id: true } } },
+    });
+    if (existing) {
+      const staffAccount = existing.role !== Role.CUSTOMER || existing.isSuperadmin;
+      if (!staff || !staffAccount || existing.memberships.length > 0) {
+        throw new ConflictException('A user with this email already exists');
+      }
+      await this.prisma.membership.create({ data: { userId: existing.id, tenantId, role: dto.role as MembershipRole } });
+      return { ...(await this.findOne(existing.id)), existingAccount: true };
+    }
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     try {
       const user = await this.prisma.user.create({
         data: {
@@ -110,11 +143,11 @@ export class UsersService {
           passwordHash,
           name: dto.name?.trim() || null,
           role: dto.role,
-          memberships: { create: { tenantId } },
+          ...(staff ? { memberships: { create: { tenantId, role: dto.role as MembershipRole } } } : {}),
         },
         select: listSelect(tenantId),
       });
-      return toView(user);
+      return { ...toView(user), existingAccount: false };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new ConflictException('A user with this email already exists');
@@ -124,27 +157,53 @@ export class UsersService {
   }
 
   // An account another center also uses is that person's, not this center's
-  // to change. (Per-tenant roles come with memberships in step 2.)
+  // to change. Its role and access here (the membership) are this center's.
+  // A superadmin's account belongs to the platform: a center admin taking
+  // it over (its password) would take over every center.
   private async assertOnlyHere(userId: string, what: string) {
+    if (await this.isSuperadmin(userId)) {
+      throw new BadRequestException(`This is a platform administrator account; its ${what} cannot be changed here`);
+    }
     if (await usedByOtherTenants(this.prisma, userId, this.tenant.tenantId)) {
       throw new BadRequestException(`This account is also used by another center; its ${what} cannot be changed here`);
     }
   }
 
   // actorId is the admin making the change. Admins cannot change their own
-  // role, so there is always at least one admin left: the one acting.
+  // role or deactivate themselves, so there is always at least one active
+  // admin left: the one acting. Staff roles and activation are per tenant
+  // (the membership); turning a customer into staff or back changes the
+  // account itself, so only for accounts no other center uses.
   async update(id: string, dto: UpdateUserDto, actorId: string) {
     const current = await this.findOne(id);
-    if (dto.role !== undefined && dto.role !== current.role && id === actorId) {
-      throw new BadRequestException('You cannot change your own role');
-    }
-    const data: Prisma.UserUpdateInput = {};
-    if (dto.name !== undefined) data.name = dto.name?.trim() || null;
-    if (dto.role !== undefined) data.role = dto.role;
-    const changes = (data.name !== undefined && data.name !== current.name) || (data.role !== undefined && data.role !== current.role);
-    if (changes) await this.assertOnlyHere(id, 'name and role');
-    const user = await this.prisma.user.update({ where: { id }, data, select: listSelect(this.tenant.tenantId) });
-    return toView(user);
+    const tenantId = this.tenant.tenantId;
+    const roleChange = dto.role !== undefined && dto.role !== current.role;
+    const activeChange = dto.isActive !== undefined && dto.isActive !== current.isActive;
+    if (id === actorId && roleChange) throw new BadRequestException('You cannot change your own role');
+    if (id === actorId && activeChange) throw new BadRequestException('You cannot deactivate your own access');
+    const nameChange = dto.name !== undefined && (dto.name?.trim() || null) !== current.name;
+    if (nameChange) await this.assertOnlyHere(id, 'name');
+    const wasStaff = current.role !== Role.CUSTOMER;
+    const toStaff = roleChange && isMembershipRole(dto.role!);
+    if (roleChange && wasStaff !== toStaff) await this.assertOnlyHere(id, 'account type');
+    if (activeChange && !wasStaff && !toStaff) throw new BadRequestException('Only staff access can be deactivated');
+
+    await this.prisma.$transaction(async (tx) => {
+      if (nameChange) await tx.user.update({ where: { id }, data: { name: dto.name?.trim() || null } });
+      if (roleChange && wasStaff !== toStaff) await tx.user.update({ where: { id }, data: { role: dto.role } });
+      if (roleChange && !toStaff) {
+        await tx.membership.deleteMany({ where: { userId: id, tenantId } });
+      } else if (toStaff || (wasStaff && activeChange)) {
+        const role = (toStaff ? dto.role : current.role) as MembershipRole;
+        const isActive = dto.isActive ?? current.isActive;
+        await tx.membership.upsert({
+          where: { userId_tenantId: { userId: id, tenantId } },
+          create: { userId: id, tenantId, role, isActive },
+          update: { role, isActive },
+        });
+      }
+    });
+    return this.findOne(id);
   }
 
   // Deleting a user cascades to its staff or customer profiles, and through
@@ -159,7 +218,7 @@ export class UsersService {
       throw new ConflictException(`This user has ${profile} and cannot be deleted`);
     }
     const tenantId = this.tenant.tenantId;
-    if (await usedByOtherTenants(this.prisma, id, tenantId)) {
+    if ((await this.isSuperadmin(id)) || (await usedByOtherTenants(this.prisma, id, tenantId))) {
       await this.prisma.membership.deleteMany({ where: { userId: id, tenantId } });
       return user;
     }
@@ -177,6 +236,11 @@ export class UsersService {
     }
     if (count === 0) throw new ConflictException('This user now has a profile and cannot be deleted');
     return user;
+  }
+
+  private async isSuperadmin(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isSuperadmin: true } });
+    return user?.isSuperadmin === true;
   }
 
   async setPassword(id: string, password: string) {

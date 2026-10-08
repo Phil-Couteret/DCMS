@@ -62,3 +62,14 @@ export function SettingsNavLink() {
 export function BreachesNavLink() {
   return <NavLink href="/dashboard/breaches" label="Data Breaches" />;
 }
+
+// "Switch center" for accounts with several centers, and the console for
+// superadmins.
+export function CenterNavLinks({ canSwitch, superadmin }: { canSwitch: boolean; superadmin: boolean }) {
+  return (
+    <>
+      {canSwitch && <NavLink href="/select-center" label="Switch center" />}
+      {superadmin && <NavLink href="/superadmin" label="Superadmin console" />}
+    </>
+  );
+}

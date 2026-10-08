@@ -4,8 +4,10 @@ import { AuthService } from './auth.service.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
+import { SelectTenantDto, SwitchTenantDto } from './dto/select-tenant.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import type { UserPrincipal } from './jwt.strategy.js';
 
 @Controller('auth')
 export class AuthController {
@@ -25,10 +27,32 @@ export class AuthController {
     return this.auth.login(dto);
   }
 
+  // Second step of a login with several centers: the selectionToken from
+  // the login reply and the chosen tenant (null: the superadmin console).
+  @Post('select-tenant')
+  @HttpCode(200)
+  selectTenant(@Body() dto: SelectTenantDto) {
+    return this.auth.selectTenant(dto.selectionToken, dto.tenantId);
+  }
+
+  // "Switch center": a new token for another of the account's centers.
+  @Post('switch-tenant')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  switchTenant(@CurrentUser() user: UserPrincipal, @Body() dto: SwitchTenantDto) {
+    return this.auth.switchTenant(user.id, dto.tenantId);
+  }
+
+  @Get('tenants')
+  @UseGuards(JwtAuthGuard)
+  tenants(@CurrentUser() user: UserPrincipal) {
+    return this.auth.availableTenants(user.id);
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  me(@CurrentUser() user: { id: string }) {
-    return this.users.findById(user.id);
+  me(@CurrentUser() user: UserPrincipal) {
+    return this.auth.me(user);
   }
 
   // Any signed-in user (staff or customer) changing their own password.

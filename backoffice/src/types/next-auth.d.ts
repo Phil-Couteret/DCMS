@@ -1,18 +1,29 @@
 import type { DefaultSession } from "next-auth";
 
+// tenantId/tenantSlug/tenantName: the center the session is for, null in the
+// superadmin console (role SUPERADMIN) and for partner sessions.
+interface CenterFields {
+  tenantId?: string | null;
+  tenantSlug?: string | null;
+  tenantName?: string | null;
+  isSuperadmin?: boolean;
+  // The account has another center, or the console, to switch to.
+  canSwitchCenter?: boolean;
+}
+
 declare module "next-auth" {
-  interface User {
+  interface User extends CenterFields {
     role: string;
     accessToken: string;
   }
   interface Session {
     accessToken: string;
-    user: { id: string; role: string } & DefaultSession["user"];
+    user: { id: string; role: string } & Required<CenterFields> & DefaultSession["user"];
   }
 }
 
 declare module "@auth/core/jwt" {
-  interface JWT {
+  interface JWT extends CenterFields {
     role: string;
     accessToken: string;
   }

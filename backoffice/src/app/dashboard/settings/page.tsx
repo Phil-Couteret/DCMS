@@ -285,7 +285,10 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
                     {self && <span className="ml-1.5 text-xs font-normal text-zinc-500">(you)</span>}
                   </TableCell>
                   <TableCell>{u.email}</TableCell>
-                  <TableCell>{USER_ROLE_LABELS[u.role] ?? u.role}</TableCell>
+                  <TableCell>
+                    {USER_ROLE_LABELS[u.role] ?? u.role}
+                    {!u.isActive && <span className="ml-1.5 text-xs text-red-700">(no access)</span>}
+                  </TableCell>
                   <TableCell>{linked ?? "—"}</TableCell>
                   <TableCell>{formatBookingDate(u.createdAt)}</TableCell>
                   <TableCell>

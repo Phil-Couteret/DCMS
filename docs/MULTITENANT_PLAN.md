@@ -125,6 +125,18 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Unlocks:** real staff at a second center. Superadmin operations. Partner portal per center.
 
+**Status (2026-10-08): done.** What was built, and where it differs from the plan above:
+
+- **Schema** (migration `multitenancy_accounts`): `Membership` gains `role` (`MembershipRole`: `ADMIN`, `INSTRUCTOR`), `isActive` and `updatedAt`; existing memberships took their account's role. Superadmin is a boolean, `User.isSuperadmin`, rather than a `SUPERADMIN` value of `User.role`; `User.role` still tells customer accounts from staff accounts, but staff permissions come from the membership. The earliest existing admin became superadmin, and a trigger makes the first account of an empty database one. `PlatformAuditLog` (global) records tenant creation and changes, and every entry by a superadmin into a tenant they are not a member of.
+- **Login:** one choice gives a token at once; several give `{ requiresTenantSelection, tenants, platform, selectionToken }` (a 5-minute token usable only at `POST /auth/select-tenant`). `POST /auth/switch-tenant` and `GET /auth/tenants` for signed-in accounts. A superadmin's login offers their own centers plus the platform console (`tenantId: null`, role `SUPERADMIN`); other tenants are entered from the console, as their admin. A platform token reaches no tenant data, not even with `X-Tenant-ID`, and the single-tenant fallback does not apply to it.
+- **The JWT** carries `tenantId`, `tenantSlug`, the role in that tenant and `isSuperadmin`. `StaffAuthGuard` reads the role from the active membership on every request.
+- **`/superadmin`** API (SuperadminGuard, re-checked against the database): list, create, update and (de)activate tenants, per-tenant stats (bookings, customers, invoiced and collected revenue), audit log.
+- **Backoffice:** "Which center?" on the login page, "Switch center" (`/select-center`), the session holds the tenant, and the superadmin console at `/superadmin` (center list with counts, create, activate/deactivate, open a center, stats and edit page, recent platform activity). Settings → Users shows the role in this center and can suspend an account's access here; adding an email that already has a staff account elsewhere gives it access instead of failing.
+- **Center admins cannot change a superadmin's account** (password, name, account type, deletion only removes the membership).
+- **Tests:** `test/accounts.e2e-spec.ts` (15 checks) next to the isolation suite.
+
+**Not yet:** customer accounts unique per tenant (decision 1.2; customer logins are still global accounts), the invite-by-email onboarding of step 5 (a new tenant is empty: the superadmin opens it and adds its first admin), and partner logins naming a tenant (partners already belong to one, step 1).
+
 ### Step 3: Per-tenant configuration (L)
 
 **Build**

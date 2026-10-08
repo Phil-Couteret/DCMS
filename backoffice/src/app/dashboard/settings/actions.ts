@@ -247,7 +247,9 @@ export async function saveUser(_prev: SettingsFormState, formData: FormData): Pr
   if (!USER_ROLES.includes(role)) return { error: "Choose a role" };
   try {
     if (id) {
-      await updateUser(id, { name, role });
+      // Only sent for staff, when the checkbox is shown (not for yourself).
+      const isActive = formData.has("activeShown") && role !== "CUSTOMER" ? formData.get("isActive") === "on" : undefined;
+      await updateUser(id, { name, role, isActive });
     } else {
       const email = text(formData, "email");
       // Passwords are not trimmed: spaces are allowed in them.

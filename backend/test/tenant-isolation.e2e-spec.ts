@@ -95,7 +95,7 @@ beforeAll(async () => {
   const b = await prisma.tenant.create({ data: { name: `Isolation test ${run}`, slug: `iso-${run}` } });
   tenantB = b.id;
   const userB = await prisma.user.create({
-    data: { email: `iso-${run}@example.test`, passwordHash: 'x', role: 'ADMIN', memberships: { create: { tenantId: tenantB } } },
+    data: { email: `iso-${run}@example.test`, passwordHash: 'x', role: 'ADMIN', memberships: { create: { tenantId: tenantB, role: 'ADMIN' } } },
   });
   adminB = userB.id;
   tokenB = await jwt.signAsync({ sub: userB.id, email: userB.email, role: 'ADMIN', tenantId: tenantB });
@@ -321,8 +321,12 @@ describe('tenant isolation', () => {
 
   it("tenant B's staff guard refuses an account that is not a member", async () => {
     const jwt = app.get(JwtService);
-    const memberA = await prisma.membership.findFirstOrThrow({ where: { tenantId: tenantA }, include: { user: true } });
-    // A real account of tenant A with a token claiming tenant B.
+    const memberA = await prisma.membership.findFirstOrThrow({
+      where: { tenantId: tenantA, user: { isSuperadmin: false } },
+      include: { user: true },
+    });
+    // A real account of tenant A (not a superadmin, who may enter any
+    // tenant) with a token claiming tenant B.
     const forged = await jwt.signAsync({ sub: memberA.userId, email: memberA.user.email, role: memberA.user.role, tenantId: tenantB });
     expect((await call('GET', '/boats', forged)).status).toBe(403);
   });
@@ -349,7 +353,7 @@ describe('tenant isolation', () => {
     expect(missing).toEqual([]);
     const tenantTables = await prisma.$queryRaw<{ table_name: string }[]>`
       SELECT table_name FROM information_schema.columns
-      WHERE table_schema = 'public' AND column_name = 'tenantId' AND table_name <> 'Membership'`;
+      WHERE table_schema = 'public' AND column_name = 'tenantId' AND table_name NOT IN ('Membership', 'PlatformAuditLog')`;
     const withTrigger = new Set(triggers.map((t) => t.tbl));
     expect(tenantTables.map((t) => t.table_name).filter((t) => !withTrigger.has(t))).toEqual([]);
   });

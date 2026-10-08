@@ -89,6 +89,7 @@ model Tenant {
   dataBreaches           DataBreach[]
   locations              Location[]
   memberships            Membership[]
+  platformAudit          PlatformAuditLog[]
 }
 
 enum LocationType {
@@ -115,33 +116,64 @@ model Location {
   @@index([tenantId])
 }
 
-// Gives a staff or admin account access to a tenant. Per-tenant roles,
-// location access and the "which center?" login come in step 2.
+// A tenant's staff role for an account (global User). Roles are per center:
+// the same person can be an admin at one and an instructor at another.
+enum MembershipRole {
+  ADMIN
+  INSTRUCTOR
+}
+
+// Gives a staff or admin account access to a tenant, with its role there.
+// An inactive membership keeps the record but grants no access.
 model Membership {
-  id        String   @id @default(uuid())
+  id        String         @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role      MembershipRole @default(INSTRUCTOR)
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@unique([userId, tenantId])
   @@index([tenantId])
 }
 
+// Platform-level actions: tenants created or changed by a superadmin, and
+// every time a superadmin enters a tenant they are not a member of.
+model PlatformAuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
 model User {
-  id            String       @id @default(uuid())
-  email         String       @unique
+  id            String             @id @default(uuid())
+  email         String             @unique
   passwordHash  String
   name          String?
-  role          Role         @default(CUSTOMER)
+  role          Role               @default(CUSTOMER)
+  // Platform operator: manages tenants and may enter any of them (audited).
+  // The very first account created becomes one (trigger, migration
+  // multitenancy_accounts).
+  isSuperadmin  Boolean            @default(false)
   // One account per person. Its customer and staff profiles are per tenant.
   customers     Customer[]
   staffProfiles Staff[]
   memberships   Membership[]
   dataBreaches  DataBreach[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  platformAudit PlatformAuditLog[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 }
 
 model Customer {

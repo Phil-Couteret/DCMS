@@ -1,10 +1,10 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js';
-import { currentTenantId, isUnscoped, setTenantId, TenantRequiredError } from '../tenant/tenant-context.js';
+import { currentTenantId, isPlatform, isUnscoped, setTenantId, TenantRequiredError } from '../tenant/tenant-context.js';
 
 // Models shared by all tenants: never filtered. Queries that reach tenant
 // data through them (e.g. a user's customer profiles) must filter by
 // tenantId themselves.
-export const GLOBAL_MODELS = new Set(['User', 'Tenant', 'Membership']);
+export const GLOBAL_MODELS = new Set(['User', 'Tenant', 'Membership', 'PlatformAuditLog']);
 
 const WHERE_OPS = new Set([
   'findUnique',
@@ -134,6 +134,7 @@ export function tenantExtension(client: PrismaClient) {
           if (!scoped.has(model) || isUnscoped()) return query(args);
           let tenantId = currentTenantId();
           if (!tenantId) {
+            if (isPlatform()) throw new TenantRequiredError();
             const only = await onlyTenant();
             if (!only) throw new TenantRequiredError();
             tenantId = only;

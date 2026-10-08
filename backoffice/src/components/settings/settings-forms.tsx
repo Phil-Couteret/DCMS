@@ -429,7 +429,12 @@ export function UserForm({ user, isSelf, cancelHref }: { user: User | null; isSe
           {user ? (
             <input value={user.email} readOnly disabled className={`${control} bg-zinc-50 text-zinc-500`} />
           ) : (
-            <input type="email" name="email" required maxLength={254} autoComplete="off" className={control} />
+            <>
+              <input type="email" name="email" required maxLength={254} autoComplete="off" className={control} />
+              <span className="mt-1 block text-xs font-normal text-zinc-500">
+                Someone who already works at another center gets access here with their existing account and password.
+              </span>
+            </>
           )}
         </label>
         <label className={label}>
@@ -444,11 +449,23 @@ export function UserForm({ user, isSelf, cancelHref }: { user: User | null; isSe
           <span className="mt-1 block text-xs font-normal text-zinc-500">
             {isSelf
               ? "You cannot change your own role."
-              : "Admins can also manage users. Customers cannot sign in to the backoffice."}
+              : "The role in this center. Admins can also manage users. Customers cannot sign in to the backoffice."}
           </span>
         </label>
         {/* A disabled select is not submitted; the action still needs a valid role to check. */}
         {isSelf && <input type="hidden" name="role" value={user!.role} />}
+        {user && !isSelf && user.role !== "CUSTOMER" && (
+          <label className="flex items-start gap-2 self-center text-sm font-medium text-zinc-700">
+            <input type="hidden" name="activeShown" value="1" />
+            <input type="checkbox" name="isActive" defaultChecked={user.isActive} className="mt-0.5" />
+            <span>
+              Access to this center
+              <span className="block text-xs font-normal text-zinc-500">
+                Unticked, the account cannot sign in here; its other centers are not affected.
+              </span>
+            </span>
+          </label>
+        )}
         {!user && <PasswordFields />}
       </div>
       <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!user} />

@@ -18,6 +18,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { StaysModule } from './stays/stays.module.js';
+import { SuperadminModule } from './superadmin/superadmin.module.js';
 import { TenantModule } from './tenant/tenant.module.js';
 import { TripsModule } from './trips/trips.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -46,6 +47,7 @@ import { UsersModule } from './users/users.module.js';
     PartnersModule,
     TripsModule,
     SettingsModule,
+    SuperadminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -156,7 +156,7 @@ export interface StaffDetail extends Staff {
   availability: StaffAvailability[];
 }
 
-async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const session = await auth();
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -241,7 +241,8 @@ export interface User {
   id: string;
   email: string;
   name: string | null;
-  role: UserRole;
+  role: UserRole; // the role in this center
+  isActive: boolean; // false: staff access to this center suspended
   createdAt: string;
   updatedAt: string;
   staffId: string | null;
@@ -256,7 +257,7 @@ export function createUser(data: { email: string; password: string; name: string
   return apiFetch<User>("/users", { method: "POST", body: JSON.stringify(data) });
 }
 
-export function updateUser(id: string, data: { name: string | null; role?: UserRole }) {
+export function updateUser(id: string, data: { name: string | null; role?: UserRole; isActive?: boolean }) {
   return apiFetch<User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
