@@ -7,6 +7,7 @@ import {
 import { Prisma } from '../generated/prisma/client.js';
 import { StaffStatus, StaffType } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContext } from '../tenant/tenant-context.service.js';
 import { CreateQualificationDto } from './dto/create-qualification.dto.js';
 import { CreateStaffDto } from './dto/create-staff.dto.js';
 import { SetAvailabilityDto } from './dto/set-availability.dto.js';
@@ -27,7 +28,10 @@ const PUBLIC_FIELDS = {
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantContext,
+  ) {}
 
   findAll(filters: { type?: StaffType; status?: StaffStatus } = {}, includePhone = false) {
     return this.prisma.staff.findMany({
@@ -54,10 +58,18 @@ export class StaffService {
     return staff;
   }
 
+  // A staff profile also gives the account access to this tenant.
   async create(dto: CreateStaffDto) {
+    const tenantId = this.tenant.tenantId;
     try {
-      return await this.prisma.staff.create({
-        data: { ...dto, hireDate: new Date(dto.hireDate) },
+      return await this.prisma.$transaction(async (tx) => {
+        const staff = await tx.staff.create({ data: { ...dto, hireDate: new Date(dto.hireDate) } });
+        await tx.membership.upsert({
+          where: { userId_tenantId: { userId: dto.userId, tenantId } },
+          create: { userId: dto.userId, tenantId },
+          update: {},
+        });
+        return staff;
       });
     } catch (e) {
       throw mapError(e);

@@ -10,11 +10,11 @@ export function isStaffRole(role: unknown) {
   return STAFF_ROLES.includes(role as Role);
 }
 
-// A valid user token (JwtAuthGuard) whose account is staff now. The role is
-// read from the database on every request, not trusted from the token, so a
-// demoted or deleted account loses access at once rather than when its
-// token expires. Customer tokens get 403; partner tokens are already refused
-// by the JWT strategy (401).
+// A valid user token (JwtAuthGuard) whose account is staff now and still a
+// member of the token's tenant. Both are read from the database on every
+// request, not trusted from the token, so a demoted, removed or deleted
+// account loses access at once rather than when its token expires. Customer
+// tokens get 403; partner tokens are already refused by the JWT strategy (401).
 @Injectable()
 export class StaffAuthGuard extends AuthGuard('jwt') {
   constructor(private readonly prisma: PrismaService) {
@@ -23,9 +23,14 @@ export class StaffAuthGuard extends AuthGuard('jwt') {
 
   async canActivate(context: ExecutionContext) {
     if (!(await super.canActivate(context))) return false;
-    const request = context.switchToHttp().getRequest<{ user: { id: string; role: string } }>();
-    const user = await this.prisma.user.findUnique({ where: { id: request.user.id }, select: { role: true } });
+    const request = context.switchToHttp().getRequest<{ user: { id: string; role: string; tenantId: string | null } }>();
+    const tenantId = request.user.tenantId;
+    const user = await this.prisma.user.findUnique({
+      where: { id: request.user.id },
+      select: { role: true, memberships: { where: { tenantId: tenantId ?? '' }, select: { id: true } } },
+    });
     if (!user || !isStaffRole(user.role)) throw new ForbiddenException('Staff access only');
+    if (!tenantId || user.memberships.length === 0) throw new ForbiddenException('No access to this center');
     request.user.role = user.role;
     return true;
   }

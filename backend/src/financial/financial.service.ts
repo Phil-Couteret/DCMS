@@ -4,6 +4,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ActivityType, InvoiceStatus, PaymentMethod, PaymentStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { TenantContext } from '../tenant/tenant-context.service.js';
 import { addDays, centerMidnight, centerToday, dateOnly, quarterDates } from './center-day.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
 import { CreateIncomeDto } from './dto/create-income.dto.js';
@@ -66,6 +67,7 @@ export class FinancialService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly tenant: TenantContext,
   ) {}
 
   // Everything the center took in and spent on one day (center time).
@@ -88,7 +90,7 @@ export class FinancialService {
       }),
       this.prisma.manualIncome.findMany({ where: { date: day }, orderBy: { createdAt: 'asc' } }),
       this.prisma.expense.findMany({ where: { date: day }, orderBy: { createdAt: 'asc' } }),
-      this.prisma.closedDay.findUnique({ where: { date: day }, select: { closedAt: true, closedBy: true } }),
+      this.prisma.closedDay.findFirst({ where: { date: day }, select: { closedAt: true, closedBy: true } }),
       this.settings.tax(),
     ]);
 
@@ -150,7 +152,7 @@ export class FinancialService {
     const { closed: _, ...summary } = await this.daily(date);
     const data = { summary: summary as unknown as Prisma.InputJsonValue, closedBy, closedAt: new Date() };
     return this.prisma.closedDay.upsert({
-      where: { date: dateOnly(date) },
+      where: { tenantId_date: { tenantId: this.tenant.tenantId, date: dateOnly(date) } },
       create: { date: dateOnly(date), ...data },
       update: data,
     });
@@ -165,7 +167,7 @@ export class FinancialService {
   }
 
   async closedDay(date: string) {
-    const row = await this.prisma.closedDay.findUnique({ where: { date: dateOnly(date) } });
+    const row = await this.prisma.closedDay.findFirst({ where: { date: dateOnly(date) } });
     if (!row) throw new NotFoundException(`${date} has not been closed`);
     return row;
   }

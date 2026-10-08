@@ -36,22 +36,119 @@ enum Language {
   FR
 }
 
+enum TenantPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// A dive center (company) using the platform. Every business record belongs
+// to exactly one tenant; users are global and reach tenants through
+// memberships (staff) or a customer profile (customers).
+model Tenant {
+  id                     String                  @id @default(uuid())
+  name                   String
+  slug                   String                  @unique // {slug}.dcms.<domain>
+  plan                   TenantPlan              @default(FREE)
+  isActive               Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  customers              Customer[]
+  customerCertifications CustomerCertification[]
+  centerSettings         CenterSettings?
+  activityPrices         ActivityPrice[]
+  equipmentPrices        EquipmentPrice[]
+  funDiveTiers           FunDiveTier[]
+  boats                  Boat[]
+  diveSites              DiveSite[]
+  equipment              Equipment[]
+  staff                  Staff[]
+  staffQualifications    StaffQualification[]
+  staffAvailability      StaffAvailability[]
+  bookings               Booking[]
+  trips                  Trip[]
+  tripStaff              TripStaff[]
+  diveLogs               DiveLog[]
+  diveLogParticipants    DiveLogParticipant[]
+  diveLogSignatures      DiveLogSignature[]
+  incidents              Incident[]
+  invoices               Invoice[]
+  invoiceItems           InvoiceItem[]
+  payments               Payment[]
+  refunds                Refund[]
+  maintenanceLogs        MaintenanceLog[]
+  expenses               Expense[]
+  manualIncomes          ManualIncome[]
+  closedDays             ClosedDay[]
+  stays                  Stay[]
+  stayCosts              StayCost[]
+  partners               Partner[]
+  partnerInvoices        PartnerInvoice[]
+  partnerInvoiceLines    PartnerInvoiceLine[]
+  dataBreaches           DataBreach[]
+  locations              Location[]
+  memberships            Membership[]
+}
+
+enum LocationType {
+  DIVING
+  BIKE
+  SURF
+  KITE
+}
+
+// A site a tenant operates from. Boats, sites and bookings are attached to
+// locations in step 3 (MULTITENANT_PLAN.md).
+model Location {
+  id          String       @id @default(uuid())
+  tenantId    String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name        String
+  type        LocationType @default(DIVING)
+  address     Json?
+  contactInfo Json?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId])
+}
+
+// Gives a staff or admin account access to a tenant. Per-tenant roles,
+// location access and the "which center?" login come in step 2.
+model Membership {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  passwordHash String
-  name         String?
-  role         Role      @default(CUSTOMER)
-  customer     Customer?
-  staff        Staff?
-  dataBreaches DataBreach[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String       @id @default(uuid())
+  email         String       @unique
+  passwordHash  String
+  name          String?
+  role          Role         @default(CUSTOMER)
+  // One account per person. Its customer and staff profiles are per tenant.
+  customers     Customer[]
+  staffProfiles Staff[]
+  memberships   Membership[]
+  dataBreaches  DataBreach[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model Customer {
   id                    String                  @id @default(uuid())
-  userId                String                  @unique
+  tenantId              String                  @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userId                String
   user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstName             String
   lastName              String
@@ -93,14 +190,15 @@ model Customer {
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
 
+  @@unique([tenantId, userId])
   @@index([country])
 }
 
-// The dive center's own details, shown on invoices and in the backoffice.
-// A single row, id "center".
 // A diving certification staff recorded from the diver's card.
 model CustomerCertification {
   id         String    @id @default(uuid())
+  tenantId   String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customerId String
   customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   agency     String
@@ -114,10 +212,14 @@ model CustomerCertification {
   updatedAt  DateTime  @updatedAt
 
   @@index([customerId])
+  @@index([tenantId])
 }
 
+// The dive center's own details, shown on invoices and in the backoffice.
 model CenterSettings {
-  id        String   @id @default("center")
+  // One row per tenant.
+  tenantId  String   @id @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name      String
   legalName String?
   address   String?
@@ -134,31 +236,45 @@ model CenterSettings {
 // public site read it. An activity without a row has no price and cannot be
 // invoiced.
 model ActivityPrice {
-  activityType ActivityType @id
+  tenantId     String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  activityType ActivityType
   price        Decimal      @db.Decimal(8, 2)
   updatedAt    DateTime     @updatedAt
+
+  @@id([tenantId, activityType])
 }
 
 // Rental items by key (wetsuit, bcd, regulator, maskFins, diveComputer) and
 // fullPackage, the price of all five hired together.
 model EquipmentPrice {
-  key       String   @id
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  key       String
   price     Decimal  @db.Decimal(8, 2)
   updatedAt DateTime @updatedAt
+
+  @@id([tenantId, key])
 }
 
 // Per-dive rate for fun dives billed together in a stay, from minDives fun
 // dives in the stay on, by customer type. The lowest tier starts at 1.
 model FunDiveTier {
-  minDives  Int      @id
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  minDives  Int
   tourist   Decimal  @db.Decimal(8, 2)
   local     Decimal  @db.Decimal(8, 2)
   recurrent Decimal  @db.Decimal(8, 2)
   updatedAt DateTime @updatedAt
+
+  @@id([tenantId, minDives])
 }
 
 model Boat {
   id                 String    @id @default(uuid())
+  tenantId           String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name               String
   capacity           Int
   status             String    @default("active")
@@ -172,10 +288,14 @@ model Boat {
   trips              Trip[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId])
 }
 
 model DiveSite {
   id                String    @id @default(uuid())
+  tenantId          String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   nameEs            String
   nameEn            String
   nameDe            String
@@ -210,6 +330,8 @@ model DiveSite {
   actualTrips       Trip[]    @relation("TripActualSite")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  @@index([tenantId])
 }
 
 enum EquipmentStatus {
@@ -228,11 +350,13 @@ enum EquipmentCondition {
 
 model Equipment {
   id              String             @id @default(uuid())
+  tenantId        String             @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   type            String
   brand           String
   model           String?
   size            String?
-  serialNumber    String?            @unique
+  serialNumber    String?
   status          EquipmentStatus    @default(AVAILABLE)
   condition       EquipmentCondition @default(EXCELLENT)
   purchaseDate    DateTime
@@ -242,6 +366,8 @@ model Equipment {
   maintenanceLogs MaintenanceLog[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+
+  @@unique([tenantId, serialNumber])
 }
 
 enum StaffType {
@@ -258,7 +384,9 @@ enum StaffStatus {
 
 model Staff {
   id             String               @id @default(uuid())
-  userId         String               @unique
+  tenantId       String               @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userId         String
   user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstName      String
   lastName       String
@@ -272,10 +400,14 @@ model Staff {
   trips          TripStaff[]
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
+
+  @@unique([tenantId, userId])
 }
 
 model StaffQualification {
   id         String    @id @default(uuid())
+  tenantId   String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   staffId    String
   staff      Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
   type       String
@@ -284,10 +416,14 @@ model StaffQualification {
   issueDate  DateTime
   expiryDate DateTime?
   createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
 }
 
 model StaffAvailability {
   id        String   @id @default(uuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   staffId   String
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
   date      DateTime
@@ -295,6 +431,7 @@ model StaffAvailability {
   reason    String?
 
   @@unique([staffId, date])
+  @@index([tenantId])
 }
 
 enum ActivityType {
@@ -328,35 +465,37 @@ enum BookingSource {
 }
 
 model Booking {
-  id               String        @id @default(uuid())
+  id               String          @id @default(uuid())
+  tenantId         String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customerId       String
-  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customer         Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
   boatId           String
-  boat             Boat          @relation(fields: [boatId], references: [id], onDelete: Restrict)
+  boat             Boat            @relation(fields: [boatId], references: [id], onDelete: Restrict)
   siteId           String?
-  site             DiveSite?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  site             DiveSite?       @relation(fields: [siteId], references: [id], onDelete: SetNull)
   tripId           String?
-  trip             Trip?         @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  trip             Trip?           @relation(fields: [tripId], references: [id], onDelete: SetNull)
   activityType     ActivityType
   date             DateTime
   timeSlot         TimeSlot
-  status           BookingStatus @default(PENDING)
+  status           BookingStatus   @default(PENDING)
   participantCount Int
-  bookingSource    BookingSource @default(DIRECT)
+  bookingSource    BookingSource   @default(DIRECT)
   notes            String?
   diveLog          DiveLog?
   invoice          Invoice?
   // Set when the booking is billed as part of a stay.
   stayId           String?
-  stay             Stay?         @relation(fields: [stayId], references: [id], onDelete: SetNull)
+  stay             Stay?           @relation(fields: [stayId], references: [id], onDelete: SetNull)
   // The partner (agency) that sold it: they pay the activity, less commission.
   partnerId        String?
-  partner          Partner?      @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  partner          Partner?        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   // Set while the booking is on a partner invoice that is not cancelled.
   partnerInvoiceId String?
   partnerInvoice   PartnerInvoice? @relation(fields: [partnerInvoiceId], references: [id], onDelete: SetNull)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([boatId, date])
   @@index([customerId])
@@ -366,6 +505,7 @@ model Booking {
   @@index([stayId])
   @@index([partnerId])
   @@index([partnerInvoiceId])
+  @@index([tenantId])
 }
 
 enum TripStatus {
@@ -384,6 +524,8 @@ enum TripStaffRole {
 // One outing: a boat (or, with no boat, a shore dive) on a date and time slot.
 model Trip {
   id            String      @id @default(uuid())
+  tenantId      String      @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   date          DateTime
   timeSlot      TimeSlot
   boatId        String?
@@ -407,12 +549,14 @@ model Trip {
 
   // PostgreSQL treats NULLs as distinct, so this does not stop two shore
   // trips (boatId null) in the same slot. TripsService checks that case.
-  @@unique([date, timeSlot, boatId])
+  @@unique([tenantId, date, timeSlot, boatId])
   @@index([date])
 }
 
 model TripStaff {
   id          String        @id @default(uuid())
+  tenantId    String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   tripId      String
   trip        Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
   staffId     String
@@ -422,6 +566,7 @@ model TripStaff {
 
   @@unique([tripId, staffId])
   @@index([staffId])
+  @@index([tenantId])
 }
 
 enum IncidentSeverity {
@@ -433,7 +578,9 @@ enum IncidentSeverity {
 
 model DiveLog {
   id                String               @id @default(uuid())
-  logNumber         String               @unique
+  tenantId          String               @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant            Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  logNumber         String
   bookingId         String               @unique
   booking           Booking              @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   siteId            String
@@ -458,10 +605,14 @@ model DiveLog {
   incident          Incident?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
+
+  @@unique([tenantId, logNumber])
 }
 
 model DiveLogParticipant {
   id         String   @id @default(uuid())
+  tenantId   String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   diveLogId  String
   diveLog    DiveLog  @relation(fields: [diveLogId], references: [id], onDelete: Cascade)
   customerId String
@@ -469,10 +620,13 @@ model DiveLogParticipant {
   role       String   @default("diver")
 
   @@unique([diveLogId, customerId])
+  @@index([tenantId])
 }
 
 model DiveLogSignature {
   id            String   @id @default(uuid())
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   diveLogId     String
   diveLog       DiveLog  @relation(fields: [diveLogId], references: [id], onDelete: Cascade)
   signerType    String
@@ -480,10 +634,14 @@ model DiveLogSignature {
   signerName    String
   signatureData String   @db.Text
   signedAt      DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model Incident {
   id                    String           @id @default(uuid())
+  tenantId              String           @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant                Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   diveLogId             String           @unique
   diveLog               DiveLog          @relation(fields: [diveLogId], references: [id], onDelete: Cascade)
   type                  String
@@ -492,6 +650,8 @@ model Incident {
   actionsTaken          String           @db.Text
   reportedToAuthorities Boolean          @default(false)
   createdAt             DateTime         @default(now())
+
+  @@index([tenantId])
 }
 
 enum InvoiceStatus {
@@ -516,7 +676,9 @@ enum PaymentStatus {
 
 model Invoice {
   id            String        @id @default(uuid())
-  invoiceNumber String        @unique
+  tenantId      String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invoiceNumber String
   // Exactly one of bookingId and stayId is set (a CHECK constraint in the
   // database): an invoice bills one booking, or a whole stay.
   bookingId     String?       @unique
@@ -537,11 +699,14 @@ model Invoice {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  @@unique([tenantId, invoiceNumber])
   @@index([stayId])
 }
 
 model InvoiceItem {
   id          String  @id @default(uuid())
+  tenantId    String  @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   invoiceId   String
   invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   description String
@@ -549,10 +714,14 @@ model InvoiceItem {
   unitPrice   Decimal @db.Decimal(10, 2)
   total       Decimal @db.Decimal(10, 2)
   type        String
+
+  @@index([tenantId])
 }
 
 model Payment {
   id              String        @id @default(uuid())
+  tenantId        String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   invoiceId       String
   invoice         Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   amount          Decimal       @db.Decimal(10, 2)
@@ -563,20 +732,28 @@ model Payment {
   paidAt          DateTime?
   refunds         Refund[]
   createdAt       DateTime      @default(now())
+
+  @@index([tenantId])
 }
 
 model Refund {
   id             String   @id @default(uuid())
+  tenantId       String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   paymentId      String
   payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   amount         Decimal  @db.Decimal(10, 2)
   reason         String
   stripeRefundId String?  @unique
   processedAt    DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model MaintenanceLog {
   id          String    @id @default(uuid())
+  tenantId    String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   equipmentId String
   equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
   date        DateTime
@@ -587,6 +764,7 @@ model MaintenanceLog {
   createdAt   DateTime  @default(now())
 
   @@index([equipmentId, date])
+  @@index([tenantId])
 }
 
 // Financial page: day-to-day money that does not go through invoices.
@@ -604,6 +782,8 @@ enum ExpenseCategory {
 // quarterly declaration.
 model Expense {
   id          String          @id @default(uuid())
+  tenantId    String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   date        DateTime        @db.Date
   category    ExpenseCategory
   description String
@@ -614,11 +794,14 @@ model Expense {
   createdAt   DateTime        @default(now())
 
   @@index([date])
+  @@index([tenantId])
 }
 
 // Income that is not an invoice payment, e.g. an equipment sale.
 model ManualIncome {
   id          String   @id @default(uuid())
+  tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   date        DateTime @db.Date
   description String
   amount      Decimal  @db.Decimal(10, 2)
@@ -627,15 +810,20 @@ model ManualIncome {
   createdAt   DateTime @default(now())
 
   @@index([date])
+  @@index([tenantId])
 }
 
 // A day's figures frozen when staff close the day. Closing again replaces them.
 model ClosedDay {
   id       String   @id @default(uuid())
-  date     DateTime @unique @db.Date
+  tenantId String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  date     DateTime @db.Date
   summary  Json
   closedBy String
   closedAt DateTime @default(now())
+
+  @@unique([tenantId, date])
 }
 
 // A customer's visit: their bookings over up to 30 days, billed together on
@@ -659,6 +847,8 @@ enum StayCostCategory {
 
 model Stay {
   id         String     @id @default(uuid())
+  tenantId   String     @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customerId String
   customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
   status     StayStatus @default(OPEN)
@@ -670,12 +860,15 @@ model Stay {
   updatedAt  DateTime   @updatedAt
 
   @@index([customerId, status])
+  @@index([tenantId])
 }
 
 // Sold during a stay and billed with it: insurance, merchandise, drinks.
 // Prices are net; the invoice adds tax.
 model StayCost {
   id          String           @id @default(uuid())
+  tenantId    String           @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   stayId      String
   stay        Stay             @relation(fields: [stayId], references: [id], onDelete: Cascade)
   date        DateTime         @db.Date
@@ -690,6 +883,7 @@ model StayCost {
   updatedAt   DateTime         @updatedAt
 
   @@index([stayId])
+  @@index([tenantId])
 }
 
 // An agency or reseller that sells the center's activities to its own
@@ -697,9 +891,11 @@ model StayCost {
 // key and the API secret, which is stored hashed and shown only once.
 model Partner {
   id             String           @id @default(uuid())
+  tenantId       String           @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name           String
   companyName    String
-  contactEmail   String           @unique
+  contactEmail   String
   contactPhone   String?
   // Percentage of the booking value the partner keeps, e.g. 15.00.
   commissionRate Decimal          @db.Decimal(5, 2)
@@ -712,6 +908,8 @@ model Partner {
   invoices       PartnerInvoice[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+
+  @@unique([tenantId, contactEmail])
 }
 
 enum PartnerInvoiceStatus {
@@ -726,7 +924,9 @@ enum PartnerInvoiceStatus {
 // rates used are copied at creation so the invoice never changes afterwards.
 model PartnerInvoice {
   id             String               @id @default(uuid())
-  invoiceNumber  String               @unique // PINV-YYYY-0001
+  tenantId       String               @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invoiceNumber  String // PINV-YYYY-0001, numbered per tenant
   partnerId      String
   partner        Partner              @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   periodFrom     DateTime             @db.Date
@@ -750,12 +950,15 @@ model PartnerInvoice {
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
+  @@unique([tenantId, invoiceNumber])
   @@index([partnerId])
 }
 
 // One booking on a partner invoice, as it was valued then.
 model PartnerInvoiceLine {
   id               String         @id @default(uuid())
+  tenantId         String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   partnerInvoiceId String
   partnerInvoice   PartnerInvoice @relation(fields: [partnerInvoiceId], references: [id], onDelete: Cascade)
   bookingId        String // kept as text: the line stays if the booking is deleted
@@ -766,6 +969,7 @@ model PartnerInvoiceLine {
   total            Decimal        @db.Decimal(10, 2)
 
   @@index([partnerInvoiceId])
+  @@index([tenantId])
 }
 
 enum BreachSeverity {
@@ -789,6 +993,8 @@ enum BreachStatus {
 // after that, and not reported, is overdue.
 model DataBreach {
   id                  String         @id @default(uuid())
+  tenantId            String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   title               String
   detectedAt          DateTime
   severity            BreachSeverity
@@ -809,4 +1015,5 @@ model DataBreach {
 
   @@index([status])
   @@index([detectedAt])
+  @@index([tenantId])
 }

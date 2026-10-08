@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { requireTenantId } from '../tenant/tenant-context.js';
 import { AddParticipantDto } from './dto/add-participant.dto.js';
 import { AddSignatureDto } from './dto/add-signature.dto.js';
 import { CreateDiveLogDto } from './dto/create-dive-log.dto.js';
@@ -140,10 +141,11 @@ export class DiveLogsService {
 // three digits when needed. The per-year advisory lock serialises concurrent
 // creates so two logs cannot be given the same number.
 async function nextLogNumber(tx: Tx, year: number) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('dive_log_number'), ${year}::int)`;
+  const tenantId = requireTenantId();
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`dive_log_number:${tenantId}`}), ${year}::int)`;
   const [{ max }] = await tx.$queryRaw<{ max: number | null }[]>`
     SELECT MAX(CAST(split_part("logNumber", '-', 2) AS int)) AS max
-    FROM "DiveLog" WHERE "logNumber" LIKE ${`${year}-%`}`;
+    FROM "DiveLog" WHERE "tenantId" = ${tenantId} AND "logNumber" LIKE ${`${year}-%`}`;
   return `${year}-${String((max ?? 0) + 1).padStart(3, '0')}`;
 }
 

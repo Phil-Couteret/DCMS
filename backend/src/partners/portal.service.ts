@@ -87,8 +87,7 @@ export class PortalService {
   async createCustomer(partnerId: string, dto: PartnerCustomerDto) {
     const email = dto.email.toLowerCase();
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.user.findUnique({ where: { email }, select: { customer: { select: { id: true } } } });
-      if (existing?.customer) {
+      if (await customerByEmail(tx, email)) {
         throw new ConflictException(
           'The center already has a customer with this email. Create a booking with their details to book for them.',
         );
@@ -179,8 +178,8 @@ export class PortalService {
   // has them, never updated from here.
   private async findOrCreateCustomer(tx: Tx, partnerId: string, dto: PartnerCustomerDto) {
     const email = dto.email.toLowerCase();
-    const existing = await tx.user.findUnique({ where: { email }, select: { customer: { select: { id: true } } } });
-    if (existing?.customer) return existing.customer.id;
+    const existing = await customerByEmail(tx, email);
+    if (existing) return existing.id;
     return (await this.newCustomer(tx, partnerId, dto)).id;
   }
 
@@ -204,4 +203,11 @@ export class PortalService {
       select: CUSTOMER_SELECT,
     });
   }
+}
+
+// The tenant's customer whose account has this email, if any. Users are
+// global; the customer lookup is filtered by the current tenant.
+async function customerByEmail(tx: Tx, email: string) {
+  const user = await tx.user.findUnique({ where: { email }, select: { id: true } });
+  return user ? tx.customer.findFirst({ where: { userId: user.id }, select: { id: true } }) : null;
 }

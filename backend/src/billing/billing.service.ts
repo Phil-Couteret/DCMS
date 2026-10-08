@@ -17,6 +17,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { requireTenantId } from '../tenant/tenant-context.js';
 import { AddPaymentDto } from './dto/add-payment.dto.js';
 import { AddRefundDto } from './dto/add-refund.dto.js';
 import { CreateInvoiceDto } from './dto/create-invoice.dto.js';
@@ -331,6 +332,7 @@ async function reopenStay(tx: Tx, stayId: string, customerId: string) {
 }
 
 // Serialises changes to one customer's stays (opening, billing, reopening).
+// Customer ids are unique across tenants, so the key needs no tenant.
 export async function lockCustomerStays(tx: Tx, customerId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('stay'), hashtext(${customerId}))`;
 }
@@ -339,19 +341,22 @@ export async function lockCustomerStays(tx: Tx, customerId: string) {
 // applied one after the other; two payments at once cannot both pass the
 // outstanding-balance check.
 async function lockInvoice(tx: Tx, id: string) {
-  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Invoice" WHERE id = ${id} FOR UPDATE`;
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Invoice" WHERE id = ${id} AND "tenantId" = ${requireTenantId()} FOR UPDATE`;
   if (rows.length === 0) throw new NotFoundException(`Invoice ${id} not found`);
   return tx.invoice.findUniqueOrThrow({ where: { id } });
 }
 
-// Numbers run INV-YYYY-0001 per calendar year of creation. The per-year lock
+// Numbers run INV-YYYY-0001 per tenant and calendar year of creation: each
+// center is its own issuer with its own series. The per-tenant, per-year lock
 // serialises concurrent creates, and the number is taken inside the same
 // transaction as the insert, so a failed create leaves no gap.
 async function nextInvoiceNumber(tx: Tx, year: number) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('invoice_number'), ${year}::int)`;
+  const tenantId = requireTenantId();
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`invoice_number:${tenantId}`}), ${year}::int)`;
   const [{ max }] = await tx.$queryRaw<{ max: number | null }[]>`
     SELECT MAX(CAST(split_part("invoiceNumber", '-', 3) AS int)) AS max
-    FROM "Invoice" WHERE "invoiceNumber" LIKE ${`INV-${year}-%`}`;
+    FROM "Invoice" WHERE "tenantId" = ${tenantId} AND "invoiceNumber" LIKE ${`INV-${year}-%`}`;
   return `INV-${year}-${String((max ?? 0) + 1).padStart(4, '0')}`;
 }
 

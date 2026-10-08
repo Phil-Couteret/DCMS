@@ -4,8 +4,9 @@
 // Run from the backend directory (it reads the backend .env):
 //   cd /data/dcms/app/backend && node scripts/seed-sample-data.mjs
 //
-// Records go through the API (API_URL, default http://localhost:4000). The only
-// direct SQL is giving staff accounts the INSTRUCTOR role, which no endpoint does.
+// Records go through the API (API_URL, default http://localhost:4000), into the
+// tenant SEED_TENANT (a slug, default "default"). The only direct SQL is giving
+// staff accounts the INSTRUCTOR role, which no endpoint does.
 // New accounts get the password SEED_PASSWORD (default DeepBlue2025!).
 
 import 'dotenv/config';
@@ -14,6 +15,7 @@ import pg from 'pg';
 
 const API = process.env.API_URL ?? 'http://localhost:4000';
 const PASSWORD = process.env.SEED_PASSWORD ?? 'DeepBlue2025!';
+const TENANT = process.env.SEED_TENANT ?? 'default';
 
 // Not in the original data: the schema requires a registration number.
 const BOATS = ['White Magic', 'Grey Magic', 'Black Magic', 'Blue Magic'].map((name) => ({
@@ -105,15 +107,28 @@ const CUSTOMERS = [
 const db = new pg.Client({ connectionString: process.env.DATABASE_URL.split('?')[0] });
 await db.connect();
 
-// Authenticate as an existing admin (no password needed: sign with JWT_SECRET).
-const admin = (await db.query(`SELECT id, email, role FROM "User" WHERE role = 'ADMIN' LIMIT 1`)).rows[0];
-if (!admin) throw new Error('No ADMIN user in the database');
-const token = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role }, process.env.JWT_SECRET, { expiresIn: '10m' });
+const tenant = (await db.query(`SELECT id FROM "Tenant" WHERE slug = $1`, [TENANT])).rows[0];
+if (!tenant) throw new Error(`No tenant with slug ${TENANT}`);
+
+// Authenticate as an admin of that tenant (no password needed: sign with JWT_SECRET).
+const admin = (
+  await db.query(
+    `SELECT u.id, u.email, u.role FROM "User" u JOIN "Membership" m ON m."userId" = u.id
+     WHERE u.role = 'ADMIN' AND m."tenantId" = $1 LIMIT 1`,
+    [tenant.id],
+  )
+).rows[0];
+if (!admin) throw new Error(`No ADMIN member of tenant ${TENANT}`);
+const token = jwt.sign(
+  { sub: admin.id, email: admin.email, role: admin.role, tenantId: tenant.id },
+  process.env.JWT_SECRET,
+  { expiresIn: '10m' },
+);
 
 async function api(method, path, body) {
   const res = await fetch(`${API}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Tenant-ID': tenant.id },
     body: body && JSON.stringify(body),
   });
   const data = await res.json().catch(() => null);

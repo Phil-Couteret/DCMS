@@ -8,6 +8,8 @@ import {
 import { Prisma } from '../generated/prisma/client.js';
 import { Language, Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { usedByOtherTenants } from '../tenant/shared-accounts.js';
+import { TenantContext } from '../tenant/tenant-context.service.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 
@@ -22,7 +24,10 @@ type Tx = Prisma.TransactionClient;
 
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantContext,
+  ) {}
 
   async findAll(filters: { country?: string; language?: Language } = {}) {
     const customers = await this.prisma.customer.findMany({
@@ -113,6 +118,11 @@ export class CustomersService {
           if (current.user.role !== Role.CUSTOMER) {
             throw new BadRequestException("This customer's email is also a staff login and cannot be changed here");
           }
+          if (await usedByOtherTenants(tx, current.userId, this.tenant.tenantId)) {
+            throw new BadRequestException(
+              "This customer's account is also used by another center; its email can only be changed by them",
+            );
+          }
           const taken = await tx.user.findUnique({ where: { email: newEmail }, select: { id: true } });
           if (taken) throw new ConflictException('Another account already uses this email');
           await tx.user.update({ where: { id: current.userId }, data: { email: newEmail } });
@@ -146,11 +156,11 @@ export class CustomersService {
 // or a new CUSTOMER account that cannot be signed in to (as for guest
 // bookings: a random UUID never matches a bcrypt hash).
 async function accountFor(tx: Tx, email: string) {
-  const user = await tx.user.findUnique({
-    where: { email },
-    select: { id: true, customer: { select: { id: true } } },
-  });
-  if (user?.customer) throw new ConflictException('A customer with this email already exists');
+  const user = await tx.user.findUnique({ where: { email }, select: { id: true } });
+  // This tenant's profile only: a profile at another center is separate.
+  if (user && (await tx.customer.findFirst({ where: { userId: user.id }, select: { id: true } }))) {
+    throw new ConflictException('A customer with this email already exists');
+  }
   if (user) return user.id;
   const created = await tx.user.create({
     data: { email, passwordHash: randomUUID(), role: Role.CUSTOMER },

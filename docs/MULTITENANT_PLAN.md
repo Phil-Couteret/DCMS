@@ -89,6 +89,23 @@ Complexity: **S** = about a day, **M** = a few days, **L** = one to two weeks, *
 
 **Unlocks:** every later step. After it, a second tenant can exist in the database without leaking, even before any UI knows about tenants.
 
+**Status (2026-10-08): done**, with these decisions confirmed by Philippe: global accounts with memberships, customers separate per tenant, `{slug}.dcms.<domain>` URLs, locations in this pass. What was built:
+
+- **Schema:** `Tenant` (with `plan`), `Location` and a minimal `Membership`, plus `tenantId` on all 33 tenant-scoped models. Migration `add_multitenancy` moves every existing row to the tenant `default` ("Default Center"); new tenants and locations are inserted inside the migration itself, so there is no window where a row has no tenant.
+- **Uniqueness per tenant:** invoice, partner invoice and dive log numbers, equipment serials, partner contact email, closed days, trips, and the (tenant, user) pair for customer and staff profiles. `CenterSettings` and the three price tables are keyed by tenant.
+- **Same-tenant triggers** (`enforce_tenant()`): the database refuses any row that references another tenant's row, and any change of a row's `tenantId`. `tenantId` defaults to the session setting `app.tenant_id` (unset outside the migration, so an insert without a tenant fails; step 6's row-level security will set it).
+- **Request context:** `TenantMiddleware` (the `X-Tenant-ID` header), the JWT and partner strategies (the token's tenant wins; a header naming another tenant gets 403), and `TenantContext` for services.
+- **Automatic filtering:** a Prisma extension (`src/prisma/tenant-extension.ts`) adds the tenant to every query and every created row, nested creates included, and fails rather than run unscoped. The 13 raw SQL statements filter by tenant, and their numbering and lock keys include it.
+- **Release gate:** `test/tenant-isolation.e2e-spec.ts` (44 checks).
+
+Pulled forward from step 2: the `Membership` table (staff need one to get a tenant in their token), tenant-scoped `/users`, and a guard on accounts shared with another tenant (their email, password, name and role can't be changed from one center).
+
+**Transitional, to remove in step 4:** a request with no token and no `X-Tenant-ID` header uses the only active tenant, if there is exactly one. Once a second tenant is active, such requests get 400.
+
+**Not yet:**
+- **Default settings and prices for a new tenant** (step 5 onboarding). Until then, pricing and invoicing fail for a tenant with no price rows.
+- **Attaching boats, sites and bookings to locations** (step 3).
+
 ### Step 2: Accounts, memberships and the token (L)
 
 **Build**

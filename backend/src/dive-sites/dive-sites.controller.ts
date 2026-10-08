@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
+import { OptionalJwtAuthGuard } from '../staff/optional-jwt-auth.guard.js';
 import { DiveSitesService } from './dive-sites.service.js';
 import { CreateDiveSiteDto } from './dto/create-dive-site.dto.js';
 import { UpdateDiveSiteDto } from './dto/update-dive-site.dto.js';
@@ -20,7 +21,9 @@ import { UpdateDiveSiteDto } from './dto/update-dive-site.dto.js';
 export class DiveSitesController {
   constructor(private readonly diveSites: DiveSitesService) {}
 
+  // Public. A staff token names the tenant; without one, X-Tenant-ID does.
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   findAll(
     @Query('requiredCertLevel', new ParseIntPipe({ optional: true }))
     requiredCertLevel?: number,
@@ -31,6 +34,7 @@ export class DiveSitesController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.diveSites.findOne(id);
   }

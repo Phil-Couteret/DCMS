@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingSource, BookingStatus, Role, TimeSlot } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { requireTenantId } from '../tenant/tenant-context.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { GuestBookingDto } from './dto/guest-booking.dto.js';
 import { UpdateBookingDto } from './dto/update-booking.dto.js';
@@ -132,7 +133,8 @@ export class BookingsService {
       // public, and anyone who knows an email address must not be able to
       // rewrite that customer's name or phone.
       const customer =
-        (await tx.customer.findUnique({ where: { userId: user.id }, select: { id: true } })) ??
+        // This tenant's profile for the account; another tenant's is separate.
+        (await tx.customer.findFirst({ where: { userId: user.id }, select: { id: true } })) ??
         (await tx.customer.create({
           data: {
             userId: user.id,
@@ -202,7 +204,7 @@ async function assertReferences(tx: Tx, refs: { customerId?: string; siteId?: st
 // other rather than both passing the capacity check and overbooking.
 async function lockBoat(tx: Tx, boatId: string) {
   const rows = await tx.$queryRaw<{ capacity: number }[]>`
-    SELECT capacity FROM "Boat" WHERE id = ${boatId} FOR UPDATE`;
+    SELECT capacity FROM "Boat" WHERE id = ${boatId} AND "tenantId" = ${requireTenantId()} FOR UPDATE`;
   if (rows.length === 0) throw new BadRequestException('boatId does not match an existing boat');
   return rows[0].capacity;
 }

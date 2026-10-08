@@ -13,6 +13,7 @@ import {
   TripStatus,
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { requireTenantId } from '../tenant/tenant-context.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
 import { ROLE_STAFF_TYPES, SEAT_HOLDING, tripCapacity, tripIssues } from './trip-rules.js';
 import { CreateTripDto } from './dto/create-trip.dto.js';
@@ -299,7 +300,7 @@ async function assertBoatSeat(
   participantCount: number,
 ) {
   const rows = await tx.$queryRaw<{ capacity: number; name: string }[]>`
-    SELECT capacity, name FROM "Boat" WHERE id = ${boatId} FOR UPDATE`;
+    SELECT capacity, name FROM "Boat" WHERE id = ${boatId} AND "tenantId" = ${requireTenantId()} FOR UPDATE`;
   if (rows.length === 0) throw new BadRequestException('The trip\'s boat no longer exists');
   const taken = await tx.booking.aggregate({
     _sum: { participantCount: true },
@@ -333,7 +334,7 @@ async function lockTrip(tx: Tx, id: string) {
       maxDivers: number;
     }[]
   >`SELECT id, date, "timeSlot", "boatId", status, "maxDivers"
-    FROM "Trip" WHERE id = ${id} FOR UPDATE`;
+    FROM "Trip" WHERE id = ${id} AND "tenantId" = ${requireTenantId()} FOR UPDATE`;
   if (rows.length === 0) throw new NotFoundException(`Trip ${id} not found`);
   return rows[0];
 }
@@ -341,7 +342,8 @@ async function lockTrip(tx: Tx, id: string) {
 // Transaction-scoped lock on one date + time slot + boat (or shore), held
 // until commit, so two creates for the same slot cannot both pass the check.
 async function lockSlot(tx: Tx, date: Date, timeSlot: TimeSlot, boatId: string | null) {
-  const key = `trip:${date.toISOString()}:${timeSlot}:${boatId ?? 'shore'}`;
+  // Shore trips have no boat, so the tenant keeps each center's shore slots apart.
+  const key = `trip:${requireTenantId()}:${date.toISOString()}:${timeSlot}:${boatId ?? 'shore'}`;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
 }
 

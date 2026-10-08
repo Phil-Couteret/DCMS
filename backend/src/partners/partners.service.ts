@@ -15,6 +15,8 @@ import { BookingStatus, PartnerInvoiceStatus } from '../generated/prisma/enums.j
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { requireTenantId, runUnscoped } from '../tenant/tenant-context.js';
+import { TenantsService } from '../tenant/tenants.service.js';
 import { DUMMY_HASH, newCredentials } from './credentials.js';
 import { CreatePartnerDto } from './dto/create-partner.dto.js';
 import { PartnerLoginDto } from './dto/partner-login.dto.js';
@@ -98,6 +100,7 @@ export class PartnersService {
     private readonly settings: SettingsService,
     private readonly pricing: PricingService,
     private readonly jwt: JwtService,
+    private readonly tenants: TenantsService,
   ) {}
 
   // --- Partner accounts ---
@@ -178,16 +181,21 @@ export class PartnersService {
 
   async login(dto: PartnerLoginDto) {
     if (!dto.email === !dto.apiKey) throw new BadRequestException('Give either email or apiKey');
-    const partner = await this.prisma.partner.findUnique({
-      where: dto.email ? { contactEmail: dto.email.toLowerCase() } : { apiKey: dto.apiKey },
-    });
+    // An API key is unique across the platform and names its tenant; an
+    // email is unique only within a tenant, so it is looked up in the
+    // request's tenant.
+    const partner = dto.apiKey
+      ? await runUnscoped(() => this.prisma.partner.findUnique({ where: { apiKey: dto.apiKey } }))
+      : await this.prisma.partner.findFirst({ where: { contactEmail: dto.email!.toLowerCase() } });
     const ok = await bcrypt.compare(dto.apiSecret, partner?.apiSecretHash ?? DUMMY_HASH);
     if (!partner || !ok || !partner.isActive) throw new UnauthorizedException('Invalid credentials');
+    await this.tenants.useTokenTenant(partner.tenantId);
     const accessToken = await this.jwt.signAsync({
       sub: partner.id,
       email: partner.contactEmail,
       role: 'PARTNER',
       type: 'partner',
+      tenantId: partner.tenantId,
     });
     const { apiSecretHash: _, ...safe } = partner;
     return { partner: safe, accessToken };
@@ -372,12 +380,14 @@ function clean<T extends Partial<CreatePartnerDto>>(dto: T) {
   };
 }
 
-// PINV-YYYY-0001, per calendar year, numbered under a lock like customer invoices.
+// PINV-YYYY-0001, per tenant and calendar year, numbered under a lock like
+// customer invoices.
 async function nextPartnerInvoiceNumber(tx: Tx, year: number) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner_invoice_number'), ${year}::int)`;
+  const tenantId = requireTenantId();
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`partner_invoice_number:${tenantId}`}), ${year}::int)`;
   const [{ max }] = await tx.$queryRaw<{ max: number | null }[]>`
     SELECT MAX(CAST(split_part("invoiceNumber", '-', 3) AS int)) AS max
-    FROM "PartnerInvoice" WHERE "invoiceNumber" LIKE ${`PINV-${year}-%`}`;
+    FROM "PartnerInvoice" WHERE "tenantId" = ${tenantId} AND "invoiceNumber" LIKE ${`PINV-${year}-%`}`;
   return `PINV-${year}-${String((max ?? 0) + 1).padStart(4, '0')}`;
 }
 

@@ -9,6 +9,7 @@ import {
 } from '../config/catalogue.js';
 import { ActivityType } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContext } from '../tenant/tenant-context.service.js';
 import { UpdatePricingDto } from './dto/update-pricing.dto.js';
 
 const ACTIVITY_ENTRIES = Object.entries(ACTIVITY_KEYS) as [ActivityKey, ActivityType][];
@@ -18,7 +19,10 @@ const EQUIPMENT_KEYS = Object.keys(EQUIPMENT_ITEMS) as EquipmentKey[];
 // to the next invoice at once; invoices already issued keep their prices.
 @Injectable()
 export class PricingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantContext,
+  ) {}
 
   async current(): Promise<PriceList> {
     const [activities, equipment, tiers] = await this.prisma.$transaction([
@@ -73,6 +77,7 @@ export class PricingService {
     }
     const priced = ACTIVITY_ENTRIES.filter(([key]) => dto.activities[key] !== null);
     const equipment = [...EQUIPMENT_KEYS, FULL_PACKAGE_KEY] as (keyof typeof dto.equipment)[];
+    const tenantId = this.tenant.tenantId;
 
     await this.prisma.$transaction([
       this.prisma.activityPrice.deleteMany({
@@ -80,14 +85,14 @@ export class PricingService {
       }),
       ...priced.map(([key, activityType]) =>
         this.prisma.activityPrice.upsert({
-          where: { activityType },
+          where: { tenantId_activityType: { tenantId, activityType } },
           create: { activityType, price: dto.activities[key]! },
           update: { price: dto.activities[key]! },
         }),
       ),
       ...equipment.map((key) =>
         this.prisma.equipmentPrice.upsert({
-          where: { key },
+          where: { tenantId_key: { tenantId, key } },
           create: { key, price: dto.equipment[key] },
           update: { price: dto.equipment[key] },
         }),
@@ -95,7 +100,7 @@ export class PricingService {
       this.prisma.funDiveTier.deleteMany({ where: { minDives: { notIn: tiers.map((t) => t.minDives) } } }),
       ...tiers.map(({ minDives, tourist, local, recurrent }) =>
         this.prisma.funDiveTier.upsert({
-          where: { minDives },
+          where: { tenantId_minDives: { tenantId, minDives } },
           create: { minDives, tourist, local, recurrent },
           update: { tourist, local, recurrent },
         }),
