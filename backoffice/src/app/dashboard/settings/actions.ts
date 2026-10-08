@@ -6,15 +6,20 @@ import {
   ApiError,
   createBoat,
   createDiveSite,
+  createUser,
   deleteBoat,
   deleteDiveSite,
+  deleteUser,
+  setUserPassword,
   updateBoat,
   updateDiveSite,
   updateSettings,
+  updateUser,
   type BoatData,
   type DiveSiteData,
+  type UserRole,
 } from "@/lib/api";
-import { BOAT_STATUSES } from "@/lib/settings";
+import { BOAT_STATUSES, newPasswordError, USER_ROLES } from "@/lib/settings";
 
 export type SettingsFormState = { error?: string; ok?: boolean } | null;
 
@@ -222,5 +227,51 @@ export async function removeSite(_prev: SettingsFormState, formData: FormData): 
     return fail(e, "The dive site could not be deleted");
   }
   revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+export async function saveUser(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const id = text(formData, "userId");
+  const name = text(formData, "name") || null;
+  const role = text(formData, "role") as UserRole;
+  if (!USER_ROLES.includes(role)) return { error: "Choose a role" };
+  try {
+    if (id) {
+      await updateUser(id, { name, role });
+    } else {
+      const email = text(formData, "email");
+      // Passwords are not trimmed: spaces are allowed in them.
+      const password = String(formData.get("password") ?? "");
+      if (!email) return { error: "Enter the email address" };
+      const invalid = newPasswordError(password, String(formData.get("confirmPassword") ?? ""));
+      if (invalid) return { error: invalid };
+      await createUser({ email, password, name, role });
+    }
+  } catch (e) {
+    return fail(e, "The user could not be saved");
+  }
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?tab=users");
+}
+
+export async function removeUser(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  try {
+    await deleteUser(text(formData, "id"));
+  } catch (e) {
+    return fail(e, "The user could not be deleted");
+  }
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+export async function resetUserPassword(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const password = String(formData.get("password") ?? "");
+  const invalid = newPasswordError(password, String(formData.get("confirmPassword") ?? ""));
+  if (invalid) return { error: invalid };
+  try {
+    await setUserPassword(text(formData, "userId"), password);
+  } catch (e) {
+    return fail(e, "The password could not be changed");
+  }
   return { ok: true };
 }

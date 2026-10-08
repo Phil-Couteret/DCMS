@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import { RoutedDialog } from "@/components/routed-panel";
-import { BoatForm, DeleteButton, GeneralForm, SiteForm } from "@/components/settings/settings-forms";
+import { BoatForm, DeleteButton, GeneralForm, SiteForm, UserForm, UserPasswordForm } from "@/components/settings/settings-forms";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getBoats, getDiveSites, getPricing, getSettings, getStaff } from "@/lib/api";
+import { getBoats, getDiveSites, getPricing, getSettings, getStaff, getUsers } from "@/lib/api";
 import { formatBookingDate } from "@/lib/bookings";
-import { BOAT_STATUS_LABELS, SETTINGS_TABS, SITE_CERT_LEVELS, type SettingsTab } from "@/lib/settings";
+import { BOAT_STATUS_LABELS, SETTINGS_TABS, SITE_CERT_LEVELS, USER_ROLE_LABELS, type SettingsTab } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -294,19 +295,125 @@ async function PricingTab() {
   );
 }
 
+async function UsersTab({ open, password, selfId }: { open?: string; password?: string; selfId: string }) {
+  let users;
+  try {
+    users = await getUsers();
+  } catch (e) {
+    return <LoadError what="Users" reason={e} />;
+  }
+  const editing = open && open !== "new" ? users.find((u) => u.id === open) : undefined;
+  const resetting = password ? users.find((u) => u.id === password) : undefined;
+  const closeHref = tabHref("users");
+  return (
+    <Panel
+      title="Users"
+      description="Login accounts. Admins and instructors sign in here; customers on the public site. A user with a staff or customer profile cannot be deleted."
+      action={
+        <Button nativeButton={false} render={<Link href={tabHref("users", { user: "new" })} prefetch={false} scroll={false} />}>
+          Add user
+        </Button>
+      }
+    >
+      <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Profile</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((u) => {
+              const self = u.id === selfId;
+              const linked = u.staffId ? "Staff" : u.customerId ? "Customer" : null;
+              return (
+                <TableRow key={u.id}>
+                  <TableCell className="font-medium">
+                    {u.name ?? "—"}
+                    {self && <span className="ml-1.5 text-xs font-normal text-zinc-500">(you)</span>}
+                  </TableCell>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell>{USER_ROLE_LABELS[u.role] ?? u.role}</TableCell>
+                  <TableCell>{linked ?? "—"}</TableCell>
+                  <TableCell>{formatBookingDate(u.createdAt)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-start justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={<Link href={tabHref("users", { user: u.id })} prefetch={false} scroll={false} />}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={<Link href={tabHref("users", { password: u.id })} prefetch={false} scroll={false} />}
+                      >
+                        Password
+                      </Button>
+                      {self || linked ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled
+                          title={self ? "You cannot delete your own account" : `Has a ${linked!.toLowerCase()} profile`}
+                        >
+                          Delete
+                        </Button>
+                      ) : (
+                        <DeleteButton kind="user" id={u.id} name={u.name ?? u.email} />
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      {open && (open === "new" || editing) && (
+        <RoutedDialog closeHref={closeHref} title={editing ? `Edit ${editing.name ?? editing.email}` : "Add user"}>
+          <UserForm user={editing ?? null} isSelf={editing?.id === selfId} cancelHref={closeHref} />
+        </RoutedDialog>
+      )}
+      {resetting && (
+        <RoutedDialog
+          closeHref={closeHref}
+          title="Set password"
+          description={`A new password for ${resetting.email}. They are not told; give it to them yourself.`}
+        >
+          <UserPasswordForm user={resetting} cancelHref={closeHref} />
+        </RoutedDialog>
+      )}
+    </Panel>
+  );
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const tab = SETTINGS_TABS.find((t) => t.key === one(params.tab))?.key ?? "general";
+  const session = await auth();
+  const isAdmin = session?.user?.role === "ADMIN";
+  // Admin-only tabs are hidden from instructors; the API refuses them too.
+  const tabs = SETTINGS_TABS.filter((t) => !("adminOnly" in t) || isAdmin);
+  const tab = tabs.find((t) => t.key === one(params.tab))?.key ?? "general";
 
   return (
     <main className="space-y-6 p-6 md:p-8">
       <h1 className="text-2xl font-semibold text-zinc-900">Settings</h1>
       <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto border-b border-zinc-200">
-        {SETTINGS_TABS.map((t) => (
+        {tabs.map((t) => (
           <Link
             key={t.key}
             href={tabHref(t.key)}
@@ -325,6 +432,9 @@ export default async function SettingsPage({
       {tab === "sites" && <SitesTab open={target(one(params.site))} />}
       {tab === "staff" && <StaffTab />}
       {tab === "pricing" && <PricingTab />}
+      {tab === "users" && (
+        <UsersTab open={target(one(params.user))} password={target(one(params.password))} selfId={session!.user.id} />
+      )}
     </main>
   );
 }

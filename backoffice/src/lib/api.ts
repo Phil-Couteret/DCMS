@@ -233,6 +233,50 @@ export function deleteBoat(id: string) {
   return apiFetch<Boat>(`/boats/${id}`, { method: "DELETE" });
 }
 
+export type UserRole = "ADMIN" | "INSTRUCTOR" | "CUSTOMER";
+
+// A login account. staffId/customerId are its profiles; an account with one
+// cannot be deleted.
+export interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+  staffId: string | null;
+  customerId: string | null;
+}
+
+export function getUsers() {
+  return apiFetch<User[]>("/users");
+}
+
+export function createUser(data: { email: string; password: string; name: string | null; role: UserRole }) {
+  return apiFetch<User>("/users", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateUser(id: string, data: { name: string | null; role?: UserRole }) {
+  return apiFetch<User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteUser(id: string) {
+  return apiFetch<User>(`/users/${id}`, { method: "DELETE" });
+}
+
+// Admin only: sets any user's password without the old one.
+export function setUserPassword(id: string, password: string) {
+  return apiFetch<{ ok: true }>(`/users/${id}/change-password`, { method: "POST", body: JSON.stringify({ password }) });
+}
+
+// The signed-in user's own password.
+export function changeOwnPassword(currentPassword: string, newPassword: string) {
+  return apiFetch<{ ok: true }>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 export interface BookingData {
   customerId: string;
   boatId: string;

@@ -1,3 +1,4 @@
+import { ChangePasswordButton } from "@/components/dashboard/change-password-button";
 import { SettingsNavLink, SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
@@ -9,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarNav />
         <div className="flex gap-1 md:mt-auto md:flex-col">
           <SettingsNavLink />
+          <ChangePasswordButton />
           <SignOutButton />
         </div>
       </aside>

@@ -5,14 +5,27 @@ import { useActionState } from "react";
 import {
   removeBoat,
   removeSite,
+  removeUser,
+  resetUserPassword,
   saveBoat,
   saveGeneral,
   saveSite,
+  saveUser,
   type SettingsFormState,
 } from "@/app/dashboard/settings/actions";
 import { Button } from "@/components/ui/button";
-import type { Boat, CenterSettings, DiveSite } from "@/lib/api";
-import { BOAT_STATUS_LABELS, BOAT_STATUSES, SITE_CERT_LEVELS, stringsOnly, tempRange } from "@/lib/settings";
+import type { Boat, CenterSettings, DiveSite, User } from "@/lib/api";
+import {
+  BOAT_STATUS_LABELS,
+  BOAT_STATUSES,
+  PASSWORD_MAX,
+  PASSWORD_MIN,
+  SITE_CERT_LEVELS,
+  stringsOnly,
+  tempRange,
+  USER_ROLE_LABELS,
+  USER_ROLES,
+} from "@/lib/settings";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -109,12 +122,11 @@ export function GeneralForm({ settings }: { settings: CenterSettings }) {
   );
 }
 
-// A delete button with a confirmation, for a boat or a dive site.
-export function DeleteButton({ kind, id, name }: { kind: "boat" | "site"; id: string; name: string }) {
-  const [state, action, pending] = useActionState<SettingsFormState, FormData>(
-    kind === "boat" ? removeBoat : removeSite,
-    null,
-  );
+const REMOVE = { boat: removeBoat, site: removeSite, user: removeUser };
+
+// A delete button with a confirmation, for a boat, a dive site or a user.
+export function DeleteButton({ kind, id, name }: { kind: keyof typeof REMOVE; id: string; name: string }) {
+  const [state, action, pending] = useActionState<SettingsFormState, FormData>(REMOVE[kind], null);
   return (
     <form
       action={action}
@@ -357,6 +369,117 @@ export function SiteForm({ site, cancelHref }: { site: DiveSite | null; cancelHr
         ))}
       </div>
       <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!site} />
+    </form>
+  );
+}
+
+// New password and confirmation fields.
+function PasswordFields({ autoFocus }: { autoFocus?: boolean }) {
+  return (
+    <>
+      <label className={label}>
+        Password
+        <input
+          type="password"
+          name="password"
+          required
+          minLength={PASSWORD_MIN}
+          maxLength={PASSWORD_MAX}
+          autoComplete="new-password"
+          autoFocus={autoFocus}
+          className={control}
+        />
+        <span className="mt-1 block text-xs font-normal text-zinc-500">At least {PASSWORD_MIN} characters.</span>
+      </label>
+      <label className={label}>
+        Confirm password
+        <input
+          type="password"
+          name="confirmPassword"
+          required
+          minLength={PASSWORD_MIN}
+          maxLength={PASSWORD_MAX}
+          autoComplete="new-password"
+          className={control}
+        />
+      </label>
+    </>
+  );
+}
+
+// Create (user null) or edit a login account. The email cannot be changed;
+// the password is set on create and afterwards with UserPasswordForm. Your
+// own role is shown but cannot be changed.
+export function UserForm({ user, isSelf, cancelHref }: { user: User | null; isSelf: boolean; cancelHref: string }) {
+  const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveUser, null);
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      {user && <input type="hidden" name="userId" value={user.id} />}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className={label}>
+          Name
+          <input name="name" maxLength={120} defaultValue={user?.name ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Email
+          {user ? (
+            <input value={user.email} readOnly disabled className={`${control} bg-zinc-50 text-zinc-500`} />
+          ) : (
+            <input type="email" name="email" required maxLength={254} autoComplete="off" className={control} />
+          )}
+        </label>
+        <label className={label}>
+          Role
+          <select name="role" required defaultValue={user?.role ?? "INSTRUCTOR"} disabled={isSelf} className={control}>
+            {USER_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {USER_ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs font-normal text-zinc-500">
+            {isSelf
+              ? "You cannot change your own role."
+              : "Admins can also manage users. Customers cannot sign in to the backoffice."}
+          </span>
+        </label>
+        {/* A disabled select is not submitted; the action still needs a valid role to check. */}
+        {isSelf && <input type="hidden" name="role" value={user!.role} />}
+        {!user && <PasswordFields />}
+      </div>
+      <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!user} />
+    </form>
+  );
+}
+
+// An admin setting another user's (or their own) password, without the old one.
+export function UserPasswordForm({ user, cancelHref }: { user: User; cancelHref: string }) {
+  const [state, onSubmit, pending] = useFormAction<SettingsFormState>(resetUserPassword, null);
+  if (state?.ok) {
+    return (
+      <div className="space-y-4">
+        <p role="status" className="text-sm text-green-700">
+          The password for {user.email} has been changed.
+        </p>
+        <Button nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
+          Done
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <input type="hidden" name="userId" value={user.id} />
+      <PasswordFields autoFocus />
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Set password"}
+        </Button>
+        <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
+          Cancel
+        </Button>
+        <Status state={state} />
+      </div>
     </form>
   );
 }

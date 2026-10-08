@@ -17,9 +17,31 @@ export const SETTINGS_TABS = [
   { key: "sites", label: "Dive Sites" },
   { key: "staff", label: "Staff" },
   { key: "pricing", label: "Pricing" },
+  { key: "users", label: "Users", adminOnly: true },
 ] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]["key"];
+
+// User.role. Customers can only sign in on the public site.
+export const USER_ROLES = ["ADMIN", "INSTRUCTOR", "CUSTOMER"] as const;
+
+export const USER_ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Admin",
+  INSTRUCTOR: "Instructor",
+  CUSTOMER: "Customer",
+};
+
+// The API's rule (bcrypt reads at most 72 bytes).
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 72;
+
+// Checks a new password and its confirmation; null when both are fine.
+export function newPasswordError(password: string, confirm: string) {
+  if (password.length < PASSWORD_MIN) return `The password must be at least ${PASSWORD_MIN} characters`;
+  if (password.length > PASSWORD_MAX) return `The password must be at most ${PASSWORD_MAX} characters`;
+  if (password !== confirm) return "The passwords do not match";
+  return null;
+}
 
 // The string entries of a free-form JSON list.
 export function stringsOnly(value: unknown) {
