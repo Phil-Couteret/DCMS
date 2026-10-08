@@ -54,7 +54,8 @@
       "fullPackageNote": "Todo lo anterior",
       "fiveDives": "Bono de 5 inmersiones",
       "tenDives": "Bono de 10 inmersiones"
-    }
+    },
+    "unavailable": "Los precios no están disponibles en este momento. Inténtalo de nuevo más tarde."
   },
   "booking": {
     "title": "Reserva tu inmersión",

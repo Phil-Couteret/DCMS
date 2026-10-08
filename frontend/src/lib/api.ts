@@ -1,3 +1,4 @@
+import type { Prices } from '@/lib/booking-catalog';
 import type { DiveSite } from '@/types/dive-site';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -33,6 +34,12 @@ export function getDiveSites(
   }
   const query = params.size > 0 ? `?${params}` : '';
   return get<DiveSite[]>(`/dive-sites${query}`, locale);
+}
+
+// The current price list, net of tax. Not cached: a price changed in the
+// backoffice shows at once.
+export function getPrices(locale: string): Promise<Prices> {
+  return get<Prices>('/pricing', locale);
 }
 
 export interface GuestBookingRequest {

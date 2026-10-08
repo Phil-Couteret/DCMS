@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { RoutedDialog } from "@/components/routed-panel";
-import { BoatForm, DeleteButton, GeneralForm, SiteForm, UserForm, UserPasswordForm } from "@/components/settings/settings-forms";
+import {
+  BoatForm,
+  DeleteButton,
+  GeneralForm,
+  PricingForm,
+  SiteForm,
+  UserForm,
+  UserPasswordForm,
+} from "@/components/settings/settings-forms";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getBoats, getDiveSites, getPricing, getSettings, getStaff, getUsers } from "@/lib/api";
@@ -24,8 +32,6 @@ function target(value: string | undefined) {
 function tabHref(tab: SettingsTab, extra: Record<string, string> = {}) {
   return `/dashboard/settings?${new URLSearchParams({ tab, ...extra })}`;
 }
-
-const eur = new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" });
 
 function LoadError({ what, reason }: { what: string; reason: unknown }) {
   return (
@@ -226,73 +232,14 @@ async function StaffTab() {
   );
 }
 
-async function PricingTab() {
+async function PricingTab({ canEdit }: { canEdit: boolean }) {
   let pricing;
   try {
     pricing = await getPricing();
   } catch (e) {
     return <LoadError what="Pricing" reason={e} />;
   }
-  const rate = `${pricing.taxRate.toLocaleString("en-GB", { maximumFractionDigits: 2 })}%`;
-  return (
-    <div className="space-y-6">
-      <p className="rounded-lg bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-zinc-200">
-        The prices invoices are built from, net of {pricing.taxName} ({rate}, added on invoices; set in the General
-        tab). Read-only: they are set on the server, together with the public site&apos;s catalogue.
-      </p>
-      <Panel title="Activities" description="Per participant.">
-        <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Activity</TableHead>
-                <TableHead className="text-right">Net price</TableHead>
-                <TableHead className="text-right">With {pricing.taxName}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pricing.activities.map((a) => (
-                <TableRow key={a.activityType}>
-                  <TableCell className="font-medium">{a.name}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.price === null ? "Not set" : eur.format(a.price)}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {a.price === null ? "—" : eur.format(Math.round(a.price * (100 + pricing.taxRate)) / 100)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        {pricing.activities.some((a) => a.price === null) && (
-          <p className="text-xs text-zinc-500">Bookings for an activity without a price cannot be invoiced automatically.</p>
-        )}
-      </Panel>
-      <Panel title="Rental equipment" description="Per booking, one set.">
-        <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="text-right">Net price</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pricing.equipment.map((e) => (
-                <TableRow key={e.key}>
-                  <TableCell className="font-medium">{e.name}</TableCell>
-                  <TableCell className="text-right tabular-nums">{eur.format(e.price)}</TableCell>
-                </TableRow>
-              ))}
-              <TableRow>
-                <TableCell className="font-medium">Full package (all items above)</TableCell>
-                <TableCell className="text-right tabular-nums">{eur.format(pricing.fullEquipmentPackage)}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
-      </Panel>
-    </div>
-  );
+  return <PricingForm pricing={pricing} canEdit={canEdit} />;
 }
 
 async function UsersTab({ open, password, selfId }: { open?: string; password?: string; selfId: string }) {
@@ -431,7 +378,7 @@ export default async function SettingsPage({
       {tab === "boats" && <BoatsTab open={target(one(params.boat))} />}
       {tab === "sites" && <SitesTab open={target(one(params.site))} />}
       {tab === "staff" && <StaffTab />}
-      {tab === "pricing" && <PricingTab />}
+      {tab === "pricing" && <PricingTab canEdit={isAdmin} />}
       {tab === "users" && (
         <UsersTab open={target(one(params.user))} password={target(one(params.password))} selfId={session!.user.id} />
       )}

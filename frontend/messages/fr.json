@@ -54,7 +54,8 @@
       "fullPackageNote": "Tout le matériel ci-dessus",
       "fiveDives": "Forfait 5 plongées",
       "tenDives": "Forfait 10 plongées"
-    }
+    },
+    "unavailable": "Les tarifs sont indisponibles pour le moment. Veuillez réessayer plus tard."
   },
   "booking": {
     "title": "Réservez votre plongée",

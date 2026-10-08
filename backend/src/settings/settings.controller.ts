@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { AdminAuthGuard } from '../auth/admin-auth.guard.js';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
+import { UpdatePricingDto } from './dto/update-pricing.dto.js';
 import { UpdateSettingsDto } from './dto/update-settings.dto.js';
 import { SettingsService } from './settings.service.js';
 
@@ -21,5 +23,12 @@ export class SettingsController {
   @Get('pricing')
   pricing() {
     return this.settings.pricing();
+  }
+
+  // Replaces the whole price list. Admins only.
+  @Put('pricing')
+  @UseGuards(AdminAuthGuard)
+  updatePricing(@Body() dto: UpdatePricingDto) {
+    return this.settings.updatePricing(dto);
   }
 }

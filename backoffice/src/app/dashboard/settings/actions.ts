@@ -14,12 +14,22 @@ import {
   updateBoat,
   updateDiveSite,
   updateSettings,
+  updatePricing,
   updateUser,
+  type ActivityPriceKey,
   type BoatData,
+  type EquipmentPriceKey,
+  type FunDiveTier,
   type DiveSiteData,
   type UserRole,
 } from "@/lib/api";
-import { BOAT_STATUSES, newPasswordError, USER_ROLES } from "@/lib/settings";
+import {
+  ACTIVITY_PRICE_LABELS,
+  BOAT_STATUSES,
+  EQUIPMENT_PRICE_LABELS,
+  newPasswordError,
+  USER_ROLES,
+} from "@/lib/settings";
 
 export type SettingsFormState = { error?: string; ok?: boolean } | null;
 
@@ -273,5 +283,58 @@ export async function resetUserPassword(_prev: SettingsFormState, formData: Form
   } catch (e) {
     return fail(e, "The password could not be changed");
   }
+  return { ok: true };
+}
+
+const PRICE = /^\d{1,5}([.,]\d{1,2})?$/; // up to 99999.99; a comma works as the decimal point
+
+// A price field: a number, null when empty, or undefined when invalid.
+function price(raw: string) {
+  if (raw === "") return null;
+  return PRICE.test(raw) ? Number(raw.replace(",", ".")) : undefined;
+}
+
+// The whole price list; the API replaces it in one go.
+export async function savePricing(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const activities = {} as Record<ActivityPriceKey, number | null>;
+  for (const [key, label] of Object.entries(ACTIVITY_PRICE_LABELS) as [ActivityPriceKey, string][]) {
+    const value = price(text(formData, `activity_${key}`));
+    if (value === undefined) return { error: `${label}: enter a price such as 45 or 45.50, or leave it empty` };
+    activities[key] = value;
+  }
+
+  const equipment = {} as Record<EquipmentPriceKey, number>;
+  const equipmentLabels = { ...EQUIPMENT_PRICE_LABELS, fullPackage: "Full package" };
+  for (const [key, label] of Object.entries(equipmentLabels) as [EquipmentPriceKey, string][]) {
+    const value = price(text(formData, `equipment_${key}`));
+    if (value === undefined || value === null) return { error: `${label}: enter a price such as 8 or 8.50` };
+    equipment[key] = value;
+  }
+
+  const column = (name: string) => formData.getAll(name).map((v) => String(v).trim());
+  const [mins, tourist, local, recurrent] = ["tierMin", "tierTourist", "tierLocal", "tierRecurrent"].map(column);
+  if (mins.length === 0) return { error: "Keep at least one fun dive tier" };
+  const funDiveTiers: FunDiveTier[] = [];
+  for (let i = 0; i < mins.length; i++) {
+    const minDives = Number(mins[i]);
+    if (!/^\d{1,3}$/.test(mins[i]) || minDives < 1) return { error: `Tier ${i + 1}: "from dives" must be a whole number from 1` };
+    const rates = [tourist[i], local[i], recurrent[i]].map((r) => price(r ?? ""));
+    if (rates.some((r) => r === undefined || r === null)) {
+      return { error: `Tier from ${minDives} dives: enter all three rates` };
+    }
+    funDiveTiers.push({ minDives, tourist: rates[0]!, local: rates[1]!, recurrent: rates[2]! });
+  }
+  funDiveTiers.sort((a, b) => a.minDives - b.minDives);
+  if (funDiveTiers[0].minDives !== 1) return { error: "The first tier must start at 1 dive" };
+  if (new Set(funDiveTiers.map((t) => t.minDives)).size !== funDiveTiers.length) {
+    return { error: "Two tiers start at the same number of dives" };
+  }
+
+  try {
+    await updatePricing({ activities, equipment, funDiveTiers });
+  } catch (e) {
+    return fail(e, "The prices could not be saved");
+  }
+  revalidatePath("/dashboard/settings");
   return { ok: true };
 }

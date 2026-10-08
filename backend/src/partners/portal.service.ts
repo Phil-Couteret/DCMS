@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { firstBoatWithRoom } from '../bookings/bookings.service.js';
-import { ACTIVITY_NAMES } from '../config/prices.js';
+import { ACTIVITY_NAMES } from '../config/catalogue.js';
+import { PricingService } from '../settings/pricing.service.js';
 import { centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingSource, BookingStatus, PartnerInvoiceStatus, Role } from '../generated/prisma/enums.js';
@@ -43,6 +44,7 @@ export class PortalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly partners: PartnersService,
+    private readonly pricing: PricingService,
   ) {}
 
   async me(partnerId: string) {
@@ -96,6 +98,7 @@ export class PortalService {
   }
 
   async bookings(partnerId: string) {
+    const prices = await this.pricing.current();
     const rows = await this.prisma.booking.findMany({
       where: { partnerId },
       select: {
@@ -113,7 +116,7 @@ export class PortalService {
       orderBy: [{ date: 'desc' }, { timeSlot: 'asc' }],
     });
     return rows.map((b) => {
-      const { total } = valueBooking(b);
+      const { total } = valueBooking(b, prices);
       return {
         ...b,
         date: b.date.toISOString().slice(0, 10),

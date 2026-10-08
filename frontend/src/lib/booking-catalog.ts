@@ -1,11 +1,13 @@
-// Prices match the pricing page. Keys double as message keys under pricing.items.
+// Prices come from the API (GET /pricing, see getPrices), the same list
+// invoices are built from. Keys double as message keys under pricing.items;
+// priceKey is the activity's key in the price list.
 export const ACTIVITIES = [
-  { key: 'snorkeling', type: 'SNORKELING', price: 25 },
-  { key: 'discoverScuba', type: 'DISCOVER_SCUBA', price: 60 },
-  { key: 'funDive', type: 'FUN_DIVE', price: 45 },
-  { key: 'openWater', type: 'OW_CERT', price: 350 },
-  { key: 'advanced', type: 'AOW_CERT', price: 280 },
-  { key: 'rescue', type: 'RESCUE_CERT', price: 320 },
+  { key: 'snorkeling', type: 'SNORKELING', priceKey: 'snorkeling' },
+  { key: 'discoverScuba', type: 'DISCOVER_SCUBA', priceKey: 'discoverScuba' },
+  { key: 'funDive', type: 'FUN_DIVE', priceKey: 'funDive' },
+  { key: 'openWater', type: 'OW_CERT', priceKey: 'owCert' },
+  { key: 'advanced', type: 'AOW_CERT', priceKey: 'aowCert' },
+  { key: 'rescue', type: 'RESCUE_CERT', priceKey: 'rescueCert' },
 ] as const;
 
 export type Activity = (typeof ACTIVITIES)[number];
@@ -13,19 +15,38 @@ export type ActivityType = Activity['type'];
 
 const SHOE_SIZES = Array.from({ length: 11 }, (_, i) => String(36 + i));
 
+// key is how a booking stores the item ("computer"); priceKey is its key in
+// the price list.
 export const EQUIPMENT = [
-  { key: 'wetsuit', price: 8, sizes: ['XS', 'S', 'M', 'L', 'XL'], sizeLabel: 'size' },
-  { key: 'bcd', price: 10, sizes: ['S', 'M', 'L', 'XL'], sizeLabel: 'size' },
-  { key: 'regulator', price: 10, sizes: null, sizeLabel: null },
-  { key: 'maskFins', price: 5, sizes: SHOE_SIZES, sizeLabel: 'shoeSize' },
-  { key: 'computer', price: 12, sizes: null, sizeLabel: null },
+  { key: 'wetsuit', priceKey: 'wetsuit', sizes: ['XS', 'S', 'M', 'L', 'XL'], sizeLabel: 'size' },
+  { key: 'bcd', priceKey: 'bcd', sizes: ['S', 'M', 'L', 'XL'], sizeLabel: 'size' },
+  { key: 'regulator', priceKey: 'regulator', sizes: null, sizeLabel: null },
+  { key: 'maskFins', priceKey: 'maskFins', sizes: SHOE_SIZES, sizeLabel: 'shoeSize' },
+  { key: 'computer', priceKey: 'diveComputer', sizes: null, sizeLabel: null },
 ] as const;
 
 export type EquipmentKey = (typeof EQUIPMENT)[number]['key'];
 
-// All five hired together cost 35 instead of 45, whether chosen through the
-// Full Package box or ticked one by one.
-export const FULL_PACKAGE_PRICE = 35;
+// Net prices in EUR from GET /pricing. An activity priced null is not sold.
+// equipment.fullPackage is the price of all five items hired together,
+// whether chosen through the Full Package box or ticked one by one.
+export interface Prices {
+  activities: Record<Activity['priceKey'] | 'dmCert', number | null>;
+  equipment: Record<(typeof EQUIPMENT)[number]['priceKey'] | 'fullPackage', number>;
+}
+
+export function activityPrice(prices: Prices, activity: Activity) {
+  return prices.activities[activity.priceKey];
+}
+
+// The activities on sale: those with a price.
+export function pricedActivities(prices: Prices) {
+  return ACTIVITIES.filter((a) => activityPrice(prices, a) !== null);
+}
+
+export function equipmentPrice(prices: Prices, key: EquipmentKey) {
+  return prices.equipment[EQUIPMENT.find((e) => e.key === key)!.priceKey];
+}
 
 export const COUNTRIES = ['ES', 'DE', 'GB', 'FR', 'US', 'Other'] as const;
 
@@ -42,7 +63,7 @@ export function isFullPackage(selected: Partial<Record<EquipmentKey, string | tr
   return EQUIPMENT.every((e) => selected[e.key] !== undefined);
 }
 
-export function equipmentTotal(selected: Partial<Record<EquipmentKey, string | true>>) {
-  if (isFullPackage(selected)) return FULL_PACKAGE_PRICE;
-  return EQUIPMENT.reduce((sum, e) => sum + (selected[e.key] !== undefined ? e.price : 0), 0);
+export function equipmentTotal(selected: Partial<Record<EquipmentKey, string | true>>, prices: Prices) {
+  if (isFullPackage(selected)) return prices.equipment.fullPackage;
+  return EQUIPMENT.reduce((sum, e) => sum + (selected[e.key] !== undefined ? prices.equipment[e.priceKey] : 0), 0);
 }

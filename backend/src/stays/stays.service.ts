@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { BillingService, equipmentLines, lockCustomerStays, type Tx } from '../billing/billing.service.js';
 import { InvoiceItemDto } from '../billing/dto/invoice-item.dto.js';
-import { ACTIVITY_NAMES, ACTIVITY_PRICES, stayDivePrice } from '../config/prices.js';
+import { ACTIVITY_NAMES, stayDivePrice, type PriceList } from '../config/catalogue.js';
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
@@ -18,6 +18,7 @@ import {
   StayStatus,
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
 import { UpdateStayCostDto } from './dto/update-stay-cost.dto.js';
@@ -83,17 +84,22 @@ function shortDay(d: Date) {
 // of fun dives in it (per diver, so a booking for two counts once), other
 // activities at catalogue price, equipment as booked. Partner bookings count
 // toward the volume, but their activity is the partner's to pay.
-export function priceStay(customer: StayCustomer, bookings: StayBookingRow[], costs: StayCostRow[]) {
+export function priceStay(
+  customer: StayCustomer,
+  bookings: StayBookingRow[],
+  costs: StayCostRow[],
+  prices: PriceList,
+) {
   const totalDives = bookings.filter((b) => b.activityType === ActivityType.FUN_DIVE).length;
-  const pricePerDive = stayDivePrice(customer.customerType, totalDives);
+  const pricePerDive = stayDivePrice(prices, customer.customerType, totalDives);
   const unpriced = new Set<string>();
 
   const lines = bookings.map((b) => {
     const partner = b.partnerId !== null || b.bookingSource === BookingSource.PARTNER;
-    const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : ACTIVITY_PRICES[b.activityType];
-    if (unit === undefined && !partner) unpriced.add(ACTIVITY_NAMES[b.activityType]);
-    const activityTotal = partner || unit === undefined ? new D(0) : new D(unit).times(b.participantCount);
-    const equipment = equipmentLines(b.notes);
+    const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : prices.activities[b.activityType];
+    if (unit === null && !partner) unpriced.add(ACTIVITY_NAMES[b.activityType]);
+    const activityTotal = partner || unit === null ? new D(0) : new D(unit).times(b.participantCount);
+    const equipment = equipmentLines(b.notes, prices);
     const total = activityTotal.plus(sum(equipment.map((e) => e.total)));
     return { booking: b, partner, unit, activityTotal, equipment, total };
   });
@@ -108,21 +114,30 @@ export class StaysService {
     private readonly prisma: PrismaService,
     private readonly billing: BillingService,
     private readonly settings: SettingsService,
+    private readonly pricing: PricingService,
   ) {}
 
   // Every customer with an open stay: unbilled bookings from the last
   // STAY_DAYS days on, or extra costs recorded.
   async findAll() {
-    const [stays, { taxRate }] = await Promise.all([this.openStays(this.prisma), this.settings.tax()]);
+    const [stays, { taxRate }, prices] = await Promise.all([
+      this.openStays(this.prisma),
+      this.settings.tax(),
+      this.pricing.current(),
+    ]);
     return stays
-      .map((s) => this.present(s, taxRate))
+      .map((s) => this.present(s, taxRate, prices))
       .sort((a, b) => (a.startDate ?? '9999').localeCompare(b.startDate ?? '9999') || a.customer.lastName.localeCompare(b.customer.lastName));
   }
 
   async findOne(customerId: string) {
-    const [stay, { taxRate }] = await Promise.all([this.openStay(this.prisma, customerId), this.settings.tax()]);
+    const [stay, { taxRate }, prices] = await Promise.all([
+      this.openStay(this.prisma, customerId),
+      this.settings.tax(),
+      this.pricing.current(),
+    ]);
     if (!stay) throw new NotFoundException('This customer has no open stay');
-    return this.present(stay, taxRate);
+    return this.present(stay, taxRate, prices);
   }
 
   async addCost(customerId: string, dto: CreateStayCostDto, createdBy: string) {
@@ -181,10 +196,10 @@ export class StaysService {
       await lockCustomerStays(tx, customerId);
       const stay = await this.openStay(tx, customerId);
       if (!stay) throw new NotFoundException('This customer has no open stay');
-      const priced = priceStay(stay.customer, stay.bookings, stay.costs);
+      const priced = priceStay(stay.customer, stay.bookings, stay.costs, await this.pricing.current());
       if (priced.unpriced.length > 0) {
         throw new UnprocessableEntityException(
-          `No price is set for ${priced.unpriced.join(', ')}; add it to config/prices.ts`,
+          `No price is set for ${priced.unpriced.join(', ')}; set it in Settings → Pricing`,
         );
       }
       const items = invoiceItems(priced, stay.costs);
@@ -257,8 +272,8 @@ export class StaysService {
     });
   }
 
-  private present(stay: Awaited<ReturnType<StaysService['openStays']>>[number], taxRate: Decimal) {
-    const priced = priceStay(stay.customer, stay.bookings, stay.costs);
+  private present(stay: Awaited<ReturnType<StaysService['openStays']>>[number], taxRate: Decimal, prices: PriceList) {
+    const priced = priceStay(stay.customer, stay.bookings, stay.costs, prices);
     const subtotal = priced.bookingsTotal.plus(priced.costsTotal);
     const tax = subtotal.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
     const { user, ...customer } = stay.customer;
@@ -281,7 +296,7 @@ export class StaysService {
         boatName: l.booking.boat.name,
         partner: l.partner,
         partnerName: l.booking.partner?.name ?? null,
-        unitPrice: l.unit === undefined ? null : money(l.unit),
+        unitPrice: l.unit === null ? null : money(l.unit),
         activityTotal: money(l.activityTotal),
         equipment: l.equipment.map((e) => ({ description: e.description, total: money(e.total) })),
         total: money(l.total),

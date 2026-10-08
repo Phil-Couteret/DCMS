@@ -1,32 +1,18 @@
 import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { Navbar } from "@/components/navbar";
 import { Link } from "@/i18n/navigation";
+import { getPrices } from "@/lib/api";
+import { activityPrice, EQUIPMENT, pricedActivities, type Prices } from "@/lib/booking-catalog";
 
-const ACTIVITIES = [
-  { key: "snorkeling", price: 25 },
-  { key: "discoverScuba", price: 60 },
-  { key: "funDive", price: 45 },
-  { key: "openWater", price: 350 },
-  { key: "advanced", price: 280 },
-  { key: "rescue", price: 320 },
-] as const;
-
-const EQUIPMENT = [
-  { key: "wetsuit", price: 8 },
-  { key: "bcd", price: 10 },
-  { key: "regulator", price: 10 },
-  { key: "maskFins", price: 5 },
-  { key: "computer", price: 12 },
-] as const;
-
-// Every item above hired separately comes to 45; the package costs 35.
-const FULL_PACKAGE = { price: 35, save: 10 };
-
-// Fun dives at 45 each: 5 cost 225 and 10 cost 450.
+// Dive packages: a fixed price for so many fun dives. The saving is against
+// the fun dive's current price.
 const PACKAGES = [
-  { key: "fiveDives", dives: 5, price: 200, save: 25 },
-  { key: "tenDives", dives: 10, price: 380, save: 70 },
+  { key: "fiveDives", dives: 5, price: 200 },
+  { key: "tenDives", dives: 10, price: 380 },
 ] as const;
+
+// Prices are read on every request, so a change in the backoffice shows at once.
+export const dynamic = "force-dynamic";
 
 export default async function PricingPage({
   params,
@@ -37,10 +23,40 @@ export default async function PricingPage({
   setRequestLocale(locale);
   const t = await getTranslations("pricing");
   const format = await getFormatter();
+  // Cents only when there are any: €45, €47.50.
   const eur = (amount: number) =>
-    format.number(amount, { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+    format.number(amount, { style: "currency", currency: "EUR", minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 });
 
   const sectionTitle = "text-2xl font-bold tracking-tight text-slate-900";
+
+  let prices: Prices | null = null;
+  try {
+    prices = await getPrices(locale);
+  } catch (e) {
+    console.error("[pricing] could not load prices:", e);
+  }
+  if (!prices) {
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <Navbar className="bg-blue-950" />
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t("title")}</h1>
+          <p role="alert" className="mt-10 rounded-lg bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-200">
+            {t("unavailable")}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const fullPackage = prices.equipment.fullPackage;
+  const itemsTotal = EQUIPMENT.reduce((sum, e) => sum + prices.equipment[e.priceKey], 0);
+  const funDive = prices.activities.funDive;
+  // Only packages that cost less than their dives one by one.
+  const packages =
+    funDive === null
+      ? []
+      : PACKAGES.map((p) => ({ ...p, save: p.dives * funDive - p.price })).filter((p) => p.save > 0);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -55,13 +71,13 @@ export default async function PricingPage({
             {t("activities")}
           </h2>
           <ul className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {ACTIVITIES.map((a) => (
+            {pricedActivities(prices).map((a) => (
               <li
                 key={a.key}
                 className="flex flex-col rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
               >
                 <h3 className="text-lg font-semibold text-slate-900">{t(`items.${a.key}`)}</h3>
-                <p className="mt-2 text-3xl font-bold text-blue-900">{eur(a.price)}</p>
+                <p className="mt-2 text-3xl font-bold text-blue-900">{eur(activityPrice(prices, a)!)}</p>
                 <Link
                   href="/booking"
                   className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
@@ -91,7 +107,7 @@ export default async function PricingPage({
                     <th scope="row" className="px-4 py-3 font-normal text-slate-900">
                       {t(`items.${e.key}`)}
                     </th>
-                    <td className="px-4 py-3 text-right font-medium text-slate-900">{eur(e.price)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-900">{eur(prices.equipment[e.priceKey])}</td>
                   </tr>
                 ))}
                 <tr className="bg-sky-50">
@@ -100,10 +116,12 @@ export default async function PricingPage({
                     <span className="block text-xs text-slate-600">{t("items.fullPackageNote")}</span>
                   </th>
                   <td className="px-4 py-3 text-right">
-                    <span className="font-semibold text-slate-900">{eur(FULL_PACKAGE.price)}</span>
-                    <span className="block text-xs font-medium text-emerald-700">
-                      {t("save", { amount: eur(FULL_PACKAGE.save) })}
-                    </span>
+                    <span className="font-semibold text-slate-900">{eur(fullPackage)}</span>
+                    {itemsTotal > fullPackage && (
+                      <span className="block text-xs font-medium text-emerald-700">
+                        {t("save", { amount: eur(itemsTotal - fullPackage) })}
+                      </span>
+                    )}
                   </td>
                 </tr>
               </tbody>
@@ -111,36 +129,38 @@ export default async function PricingPage({
           </div>
         </section>
 
-        <section aria-labelledby="packages" className="mt-16">
-          <h2 id="packages" className={sectionTitle}>
-            {t("packages")}
-          </h2>
-          <ul className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 md:max-w-3xl">
-            {PACKAGES.map((p) => (
-              <li
-                key={p.key}
-                className="flex flex-col rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-slate-900">{t(`items.${p.key}`)}</h3>
-                  <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                    {t("save", { amount: eur(p.save) })}
-                  </span>
-                </div>
-                <p className="mt-2 text-3xl font-bold text-blue-900">{eur(p.price)}</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {t("perDive", { amount: eur(p.price / p.dives) })}
-                </p>
-                <Link
-                  href="/booking"
-                  className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+        {packages.length > 0 && (
+          <section aria-labelledby="packages" className="mt-16">
+            <h2 id="packages" className={sectionTitle}>
+              {t("packages")}
+            </h2>
+            <ul className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 md:max-w-3xl">
+              {packages.map((p) => (
+                <li
+                  key={p.key}
+                  className="flex flex-col rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
                 >
-                  {t("bookNow")}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-lg font-semibold text-slate-900">{t(`items.${p.key}`)}</h3>
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                      {t("save", { amount: eur(p.save) })}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-3xl font-bold text-blue-900">{eur(p.price)}</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {t("perDive", { amount: eur(p.price / p.dives) })}
+                  </p>
+                  <Link
+                    href="/booking"
+                    className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+                  >
+                    {t("bookNow")}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </main>
   );

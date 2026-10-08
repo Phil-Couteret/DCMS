@@ -1,13 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ACTIVITY_NAMES,
-  ACTIVITY_PRICES,
-  EQUIPMENT_PRICES,
-  FULL_PACKAGE_PRICE,
-} from '../config/prices.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UpdatePricingDto } from './dto/update-pricing.dto.js';
 import { UpdateSettingsDto } from './dto/update-settings.dto.js';
+import { PricingService } from './pricing.service.js';
 
 const ID = 'center';
 
@@ -17,7 +13,10 @@ const DEFAULT_TAX_NAME = 'IGIC';
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly prices: PricingService,
+  ) {}
 
   // Before the first save there is no row; empty values are returned instead.
   async get() {
@@ -62,22 +61,15 @@ export class SettingsService {
     return row ?? { taxRate: DEFAULT_TAX_RATE, taxName: DEFAULT_TAX_NAME };
   }
 
-  // The price list invoices are built from (config/prices.ts). Read-only:
-  // prices change in code, together with the public site's catalogue. The tax
-  // comes from the settings; taxRate is a percentage.
+  // The price list invoices are built from, with the tax that is added to
+  // it; taxRate is a percentage.
   async pricing() {
-    const { taxRate, taxName } = await this.tax();
-    return {
-      currency: 'EUR',
-      taxName,
-      taxRate: taxRate.toNumber(),
-      activities: Object.entries(ACTIVITY_NAMES).map(([activityType, name]) => ({
-        activityType,
-        name,
-        price: ACTIVITY_PRICES[activityType as keyof typeof ACTIVITY_PRICES] ?? null,
-      })),
-      equipment: Object.entries(EQUIPMENT_PRICES).map(([key, { name, price }]) => ({ key, name, price })),
-      fullEquipmentPackage: FULL_PACKAGE_PRICE,
-    };
+    const [{ taxRate, taxName }, prices] = await Promise.all([this.tax(), this.prices.view()]);
+    return { currency: 'EUR', taxName, taxRate: taxRate.toNumber(), ...prices };
+  }
+
+  async updatePricing(dto: UpdatePricingDto) {
+    await this.prices.update(dto);
+    return this.pricing();
   }
 }

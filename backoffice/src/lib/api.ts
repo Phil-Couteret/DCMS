@@ -1019,17 +1019,37 @@ export function updateSettings(data: SettingsData) {
 }
 
 // The server's price list, the one invoices are built from. Net prices.
-export interface Pricing {
+export type ActivityPriceKey = "snorkeling" | "discoverScuba" | "funDive" | "owCert" | "aowCert" | "rescueCert" | "dmCert";
+export type EquipmentPriceKey = "wetsuit" | "bcd" | "regulator" | "maskFins" | "diveComputer" | "fullPackage";
+
+// Per-dive rate for fun dives billed together in a stay, from minDives on.
+export interface FunDiveTier {
+  minDives: number;
+  tourist: number;
+  local: number;
+  recurrent: number;
+}
+
+// The price list, net of tax.
+export interface PriceList {
+  activities: Record<ActivityPriceKey, number | null>; // null: no price, cannot be invoiced
+  equipment: Record<EquipmentPriceKey, number>;
+  funDiveTiers: FunDiveTier[]; // ascending, the first at 1
+}
+
+export interface Pricing extends PriceList {
   currency: string;
   taxName: string;
   taxRate: number; // a percentage, e.g. 7
-  activities: { activityType: string; name: string; price: number | null }[];
-  equipment: { key: string; name: string; price: number }[];
-  fullEquipmentPackage: number;
 }
 
 export function getPricing() {
   return apiFetch<Pricing>("/settings/pricing");
+}
+
+// Admin only: replaces the whole price list.
+export function updatePricing(data: PriceList) {
+  return apiFetch<Pricing>("/settings/pricing", { method: "PUT", body: JSON.stringify(data) });
 }
 
 // Financial page.

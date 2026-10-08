@@ -4,14 +4,18 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { createGuestBooking } from '@/lib/api';
 import {
-  ACTIVITIES,
+  activityPrice,
   CERT_LEVELS,
   COUNTRIES,
   EQUIPMENT,
+  equipmentPrice,
   equipmentTotal,
   isFullPackage,
+  pricedActivities,
   type EquipmentKey,
+  type Prices,
 } from '@/lib/booking-catalog';
+import { PricesProvider, usePrices } from './prices-context';
 import { useBookingStore, type EquipmentSelection } from '@/store/booking-store';
 
 const STEP_KEYS = ['activity', 'datetime', 'details', 'equipment', 'review'] as const;
@@ -25,12 +29,16 @@ const field =
 
 function useEur() {
   const format = useFormatter();
+  // Cents only when there are any: €45, €47.50.
   return (amount: number) =>
-    format.number(amount, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+    format.number(amount, { style: 'currency', currency: 'EUR', minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 });
 }
 
-function selectedActivity(type: string | null) {
-  return ACTIVITIES.find((a) => a.type === type) ?? null;
+// The chosen activity with its price, or null if none is chosen or it is no
+// longer on sale (a choice kept from an earlier visit).
+function selectedActivity(type: string | null, prices: Prices) {
+  const activity = pricedActivities(prices).find((a) => a.type === type);
+  return activity ? { ...activity, price: activityPrice(prices, activity)! } : null;
 }
 
 function Progress({ step }: { step: number }) {
@@ -77,12 +85,13 @@ function StepActivity() {
   const t = useTranslations('booking');
   const tItems = useTranslations('pricing.items');
   const eur = useEur();
+  const prices = usePrices();
   const { activityType, selectActivity } = useBookingStore();
 
   return (
     <StepShell title={t('chooseActivity')}>
       <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {ACTIVITIES.map((a) => (
+        {pricedActivities(prices).map((a) => (
           <li key={a.type}>
             <button
               type="button"
@@ -94,7 +103,7 @@ function StepActivity() {
             >
               <span className="text-lg font-semibold text-slate-900">{tItems(a.key)}</span>
               <span className="mt-1 text-sm text-slate-600">{t(`activityDescriptions.${a.key}`)}</span>
-              <span className="mt-4 text-2xl font-bold text-blue-900">{eur(a.price)}</span>
+              <span className="mt-4 text-2xl font-bold text-blue-900">{eur(activityPrice(prices, a)!)}</span>
             </button>
           </li>
         ))}
@@ -260,7 +269,7 @@ function StepCustomer() {
 function PriceLines({ activityPrice, equipment }: { activityPrice: number; equipment: EquipmentSelection }) {
   const t = useTranslations('booking');
   const eur = useEur();
-  const kit = equipmentTotal(equipment);
+  const kit = equipmentTotal(equipment, usePrices());
   return (
     <dl className="space-y-2 text-sm">
       <div className="flex justify-between">
@@ -290,8 +299,9 @@ function StepEquipment() {
   const t = useTranslations('booking');
   const tItems = useTranslations('pricing.items');
   const eur = useEur();
+  const prices = usePrices();
   const { activityType, equipment, setEquipment, setStep } = useBookingStore();
-  const activity = selectedActivity(activityType);
+  const activity = selectedActivity(activityType, prices);
   const full = isFullPackage(equipment);
 
   const toggle = (key: EquipmentKey, on: boolean) => {
@@ -321,7 +331,7 @@ function StepEquipment() {
           className="h-5 w-5 rounded border-slate-300"
         />
         <span className="font-medium text-slate-900">{t('fullPackage')}</span>
-        <span className="ml-auto text-sm font-semibold text-slate-900">{eur(35)}</span>
+        <span className="ml-auto text-sm font-semibold text-slate-900">{eur(prices.equipment.fullPackage)}</span>
       </label>
 
       <ul className="mt-4 divide-y divide-slate-200">
@@ -355,7 +365,7 @@ function StepEquipment() {
                   </select>
                 </label>
               )}
-              <span className="ml-auto text-sm text-slate-600">+{eur(e.price)}</span>
+              <span className="ml-auto text-sm text-slate-600">+{eur(equipmentPrice(prices, e.key))}</span>
             </li>
           );
         })}
@@ -385,12 +395,13 @@ function StepReview({ onDone }: { onDone: (reference: string) => void }) {
   const locale = useLocale();
   const format = useFormatter();
   const state = useBookingStore();
-  const activity = selectedActivity(state.activityType);
+  const prices = usePrices();
+  const activity = selectedActivity(state.activityType, prices);
   const [status, setStatus] = useState<'idle' | 'sending' | 'noSlots' | 'rateLimited' | 'error'>('idle');
 
   if (!activity || !state.timeSlot) return null;
 
-  const kit = equipmentTotal(state.equipment);
+  const kit = equipmentTotal(state.equipment, prices);
   const selectedEquipment = EQUIPMENT.filter((e) => state.equipment[e.key] !== undefined).map((e) => {
     const v = state.equipment[e.key];
     return typeof v === 'string' ? `${e.key}:${v}` : e.key;
@@ -505,15 +516,15 @@ function Confirmation({ reference, onRestart }: { reference: string; onRestart: 
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function BookingFlow() {
+export function BookingFlow({ prices }: { prices: Prices }) {
   const t = useTranslations('booking');
   const step = useBookingStore((s) => s.step);
   const reset = useBookingStore((s) => s.reset);
   const setSiteId = useBookingStore((s) => s.setSiteId);
   const [reference, setReference] = useState<string | null>(null);
 
-  // Read on mount rather than through useSearchParams so the page stays
-  // statically rendered. Set every time, so a site from an earlier visit is
+  // Read on mount rather than through useSearchParams, which would need a
+  // Suspense boundary. Set every time, so a site from an earlier visit is
   // cleared when the page is opened without one. Anything that is not a UUID
   // is ignored rather than sent, since the API would reject it.
   useEffect(() => {
@@ -527,22 +538,24 @@ export function BookingFlow() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t('title')}</h1>
-      {reference ? (
-        <Confirmation reference={reference} onRestart={() => setReference(null)} />
-      ) : (
-        <>
-          <div className="mt-8">
-            <Progress step={step} />
-          </div>
-          {step === 1 && <StepActivity />}
-          {step === 2 && <StepDateTime />}
-          {step === 3 && <StepCustomer />}
-          {step === 4 && <StepEquipment />}
-          {step === 5 && <StepReview onDone={onDone} />}
-        </>
-      )}
-    </div>
+    <PricesProvider prices={prices}>
+      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t('title')}</h1>
+        {reference ? (
+          <Confirmation reference={reference} onRestart={() => setReference(null)} />
+        ) : (
+          <>
+            <div className="mt-8">
+              <Progress step={step} />
+            </div>
+            {step === 1 && <StepActivity />}
+            {step === 2 && <StepDateTime />}
+            {step === 3 && <StepCustomer />}
+            {step === 4 && <StepEquipment />}
+            {step === 5 && <StepReview onDone={onDone} />}
+          </>
+        )}
+      </div>
+    </PricesProvider>
   );
 }

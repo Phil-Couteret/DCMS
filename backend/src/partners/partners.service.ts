@@ -8,11 +8,12 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcrypt';
-import { ACTIVITY_NAMES, ACTIVITY_PRICES } from '../config/prices.js';
+import { ACTIVITY_NAMES, type PriceList } from '../config/catalogue.js';
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingStatus, PartnerInvoiceStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { DUMMY_HASH, newCredentials } from './credentials.js';
 import { CreatePartnerDto } from './dto/create-partner.dto.js';
@@ -69,12 +70,12 @@ function shortDay(d: Date) {
 
 // A booking's catalogue value: the activity price for each diver. Equipment
 // is the customer's to pay and is billed with their stay.
-export function valueBooking(b: ValuedBooking) {
-  const unit = ACTIVITY_PRICES[b.activityType];
+export function valueBooking(b: ValuedBooking, prices: PriceList) {
+  const unit = prices.activities[b.activityType];
   return {
     booking: b,
-    unitPrice: unit === undefined ? null : new D(unit),
-    total: unit === undefined ? null : new D(unit).times(b.participantCount),
+    unitPrice: unit === null ? null : new D(unit),
+    total: unit === null ? null : new D(unit).times(b.participantCount),
   };
 }
 
@@ -95,6 +96,7 @@ export class PartnersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly pricing: PricingService,
     private readonly jwt: JwtService,
   ) {}
 
@@ -197,7 +199,7 @@ export class PartnersService {
   async preview(partnerId: string, from: string, to: string) {
     assertRange(from, to);
     const partner = await this.findOne(partnerId);
-    const [bookings, waiting, { taxRate, taxName }] = await Promise.all([
+    const [bookings, waiting, { taxRate, taxName }, prices] = await Promise.all([
       this.invoiceable(this.prisma, partnerId, from, to),
       this.prisma.booking.count({
         where: {
@@ -208,8 +210,9 @@ export class PartnersService {
         },
       }),
       this.settings.tax(),
+      this.pricing.current(),
     ]);
-    const valued = bookings.map(valueBooking);
+    const valued = bookings.map((b) => valueBooking(b, prices));
     const unpriced = [...new Set(valued.filter((v) => v.total === null).map((v) => ACTIVITY_NAMES[v.booking.activityType]))];
     const amounts = partnerAmounts(sum(valued.map((v) => v.total ?? new D(0))), partner.commissionRate, taxRate);
     return {
@@ -237,18 +240,18 @@ export class PartnersService {
 
   async createInvoice(partnerId: string, from: string, to: string, createdBy: string) {
     assertRange(from, to);
-    const { taxRate, taxName } = await this.settings.tax();
+    const [{ taxRate, taxName }, prices] = await Promise.all([this.settings.tax(), this.pricing.current()]);
     const id = await this.prisma.$transaction(async (tx) => {
       // One invoice at a time per partner, so a booking cannot land on two.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner_invoice'), hashtext(${partnerId}))`;
       const partner = await tx.partner.findUnique({ where: { id: partnerId }, select: { commissionRate: true } });
       if (!partner) throw new NotFoundException(`Partner ${partnerId} not found`);
-      const valued = (await this.invoiceable(tx, partnerId, from, to)).map(valueBooking);
+      const valued = (await this.invoiceable(tx, partnerId, from, to)).map((b) => valueBooking(b, prices));
       if (valued.length === 0) throw new BadRequestException('No confirmed bookings to invoice in this period');
       const unpriced = valued.filter((v) => v.total === null);
       if (unpriced.length > 0) {
         const names = [...new Set(unpriced.map((v) => ACTIVITY_NAMES[v.booking.activityType]))].join(', ');
-        throw new UnprocessableEntityException(`No price is set for ${names}; add it to config/prices.ts`);
+        throw new UnprocessableEntityException(`No price is set for ${names}; set it in Settings → Pricing`);
       }
       const amounts = partnerAmounts(sum(valued.map((v) => v.total!)), partner.commissionRate, taxRate);
       const today = centerToday();

@@ -5,13 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import {
-  ACTIVITY_NAMES,
-  ACTIVITY_PRICES,
-  EQUIPMENT_PRICES,
-  FULL_PACKAGE_PRICE,
-  type EquipmentKey,
-} from '../config/prices.js';
+import { ACTIVITY_NAMES, EQUIPMENT_ITEMS, type EquipmentKey, type PriceList } from '../config/catalogue.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
   BookingStatus,
@@ -21,6 +15,7 @@ import {
   StayStatus,
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { AddPaymentDto } from './dto/add-payment.dto.js';
 import { AddRefundDto } from './dto/add-refund.dto.js';
@@ -52,6 +47,7 @@ export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly pricing: PricingService,
   ) {}
 
   findAll(filters: { status?: InvoiceStatus; customerId?: string } = {}) {
@@ -112,10 +108,11 @@ export class BillingService {
       throw new ConflictException('Cancelled bookings cannot be invoiced');
     }
 
-    const unitPrice = ACTIVITY_PRICES[booking.activityType];
-    if (unitPrice === undefined) {
+    const prices = await this.pricing.current();
+    const unitPrice = prices.activities[booking.activityType];
+    if (unitPrice === null) {
       throw new UnprocessableEntityException(
-        `No price is set for ${ACTIVITY_NAMES[booking.activityType]}; add it to config/prices.ts`,
+        `No price is set for ${ACTIVITY_NAMES[booking.activityType]}; set it in Settings → Pricing`,
       );
     }
 
@@ -127,7 +124,7 @@ export class BillingService {
         total: new D(unitPrice).times(booking.participantCount).toNumber(),
         type: 'activity',
       },
-      ...equipmentLines(booking.notes),
+      ...equipmentLines(booking.notes, prices),
     ];
     const subtotal = sum(items.map((i) => i.total));
     const { taxRate } = await this.settings.tax();
@@ -428,7 +425,7 @@ async function assertBookingCustomer(tx: Tx, bookingId: string, customerId: stri
 // Equipment from a guest booking's notes: {"selectedEquipment": ["wetsuit:M", ...]}.
 // Staff-written notes are plain text and carry no equipment. One set per
 // booking, as the booking form collects it.
-export function equipmentLines(notes: string | null): InvoiceItemDto[] {
+export function equipmentLines(notes: string | null, prices: PriceList): InvoiceItemDto[] {
   let selected: string[] = [];
   try {
     const parsed = notes ? (JSON.parse(notes) as { selectedEquipment?: unknown }) : null;
@@ -438,23 +435,25 @@ export function equipmentLines(notes: string | null): InvoiceItemDto[] {
   } catch {
     return [];
   }
+  const keys = Object.keys(EQUIPMENT_ITEMS) as EquipmentKey[];
+  const byNoteKey = new Map<string, EquipmentKey>(keys.map((k) => [EQUIPMENT_ITEMS[k].noteKey, k]));
   const chosen = new Map<EquipmentKey, string | undefined>();
   for (const entry of selected) {
-    const [key, size] = entry.split(':');
-    if (key in EQUIPMENT_PRICES) chosen.set(key as EquipmentKey, size);
+    const [noteKey, size] = entry.split(':');
+    const key = byNoteKey.get(noteKey);
+    if (key) chosen.set(key, size);
   }
-  const keys = Object.keys(EQUIPMENT_PRICES) as EquipmentKey[];
   if (keys.every((k) => chosen.has(k))) {
     const sizes = keys
       .filter((k) => chosen.get(k))
-      .map((k) => `${EQUIPMENT_PRICES[k].name} ${chosen.get(k)}`)
+      .map((k) => `${EQUIPMENT_ITEMS[k].name} ${chosen.get(k)}`)
       .join(', ');
     return [
       {
         description: `Full equipment package${sizes ? ` (${sizes})` : ''}`,
         quantity: 1,
-        unitPrice: FULL_PACKAGE_PRICE,
-        total: FULL_PACKAGE_PRICE,
+        unitPrice: prices.fullPackage,
+        total: prices.fullPackage,
         type: 'equipment',
       },
     ];
@@ -463,7 +462,8 @@ export function equipmentLines(notes: string | null): InvoiceItemDto[] {
     .filter((k) => chosen.has(k))
     .map((k) => {
       const size = chosen.get(k);
-      const { name, price } = EQUIPMENT_PRICES[k];
+      const { name } = EQUIPMENT_ITEMS[k];
+      const price = prices.equipment[k];
       return {
         description: size ? `${name} (${size})` : name,
         quantity: 1,

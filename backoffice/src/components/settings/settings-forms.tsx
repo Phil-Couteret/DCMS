@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   removeBoat,
   removeSite,
@@ -9,15 +9,19 @@ import {
   resetUserPassword,
   saveBoat,
   saveGeneral,
+  savePricing,
   saveSite,
   saveUser,
   type SettingsFormState,
 } from "@/app/dashboard/settings/actions";
 import { Button } from "@/components/ui/button";
-import type { Boat, CenterSettings, DiveSite, User } from "@/lib/api";
+import type { Boat, CenterSettings, DiveSite, FunDiveTier, Pricing, User } from "@/lib/api";
 import {
+  ACTIVITY_PRICE_LABELS,
   BOAT_STATUS_LABELS,
   BOAT_STATUSES,
+  EQUIPMENT_PRICE_LABELS,
+  MAX_PRICE,
   PASSWORD_MAX,
   PASSWORD_MIN,
   SITE_CERT_LEVELS,
@@ -480,6 +484,215 @@ export function UserPasswordForm({ user, cancelHref }: { user: User; cancelHref:
         </Button>
         <Status state={state} />
       </div>
+    </form>
+  );
+}
+
+const priceInput =
+  "block w-28 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:bg-zinc-50 disabled:text-zinc-500";
+const th = "px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500";
+const thRight = `${th} text-right`;
+const td = "px-3 py-2";
+
+// A euro amount field, net of tax.
+function PriceField({ name, value, label: aria, optional }: { name: string; value: number | null; label: string; optional?: boolean }) {
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <input
+        name={name}
+        aria-label={aria}
+        inputMode="decimal"
+        required={!optional}
+        pattern="\d{1,5}([.,]\d{1,2})?"
+        title={`A price from 0 to ${MAX_PRICE}, with at most 2 decimals`}
+        placeholder={optional ? "No price" : undefined}
+        defaultValue={value === null ? "" : String(value)}
+        className={priceInput}
+      />
+      <span className="text-sm text-zinc-500">€</span>
+    </div>
+  );
+}
+
+function Card({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3 rounded-xl bg-white p-5 ring-1 ring-zinc-200">
+      <div>
+        <h2 className="font-semibold text-zinc-900">{title}</h2>
+        <p className="mt-0.5 text-sm text-zinc-500">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+let nextTierId = 0;
+type TierRow = FunDiveTier & { id: number };
+
+// The whole price list, saved in one go. Instructors see it read-only.
+export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: boolean }) {
+  const [state, onSubmit, pending] = useFormAction<SettingsFormState>(savePricing, null);
+  const [tiers, setTiers] = useState<TierRow[]>(() => pricing.funDiveTiers.map((t) => ({ ...t, id: nextTierId++ })));
+  const tax = `${pricing.taxName} (${pricing.taxRate.toLocaleString("en-GB", { maximumFractionDigits: 2 })}%)`;
+  const itemsTotal = Object.keys(EQUIPMENT_PRICE_LABELS).reduce(
+    (sum, k) => sum + pricing.equipment[k as keyof typeof EQUIPMENT_PRICE_LABELS],
+    0,
+  );
+
+  const addTier = () => {
+    const last = tiers.reduce<TierRow | null>((a, t) => (!a || t.minDives > a.minDives ? t : a), null);
+    setTiers([
+      ...tiers,
+      last
+        ? { ...last, minDives: last.minDives + 1, id: nextTierId++ }
+        : { minDives: 1, tourist: 0, local: 0, recurrent: 0, id: nextTierId++ },
+    ]);
+  };
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-6">
+      <p className="rounded-lg bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-zinc-200">
+        Net prices in euros; {tax} is added on invoices (set in the General tab). A saved change applies to the next
+        invoice and to the public site at once. Invoices already issued keep their prices.
+        {!canEdit && " Only admins can change prices."}
+      </p>
+      <fieldset disabled={!canEdit || pending} className="space-y-6">
+        <Card title="Activities" description="Per participant. An activity left empty has no price: its bookings cannot be invoiced and the public site hides it.">
+          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50">
+                <tr>
+                  <th className={th}>Activity</th>
+                  <th className={thRight}>Net price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {(Object.entries(ACTIVITY_PRICE_LABELS) as [keyof typeof ACTIVITY_PRICE_LABELS, string][]).map(([key, name]) => (
+                  <tr key={key}>
+                    <td className={`${td} font-medium text-zinc-900`}>
+                      {name}
+                      {key === "funDive" && (
+                        <span className="block text-xs font-normal text-zinc-500">
+                          Booked and invoiced on its own. Fun dives billed with a stay use the tiers below.
+                        </span>
+                      )}
+                    </td>
+                    <td className={td}>
+                      <PriceField name={`activity_${key}`} value={pricing.activities[key]} label={`${name} price`} optional />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card title="Rental equipment" description="Per booking, one set.">
+          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50">
+                <tr>
+                  <th className={th}>Item</th>
+                  <th className={thRight}>Net price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {(Object.entries(EQUIPMENT_PRICE_LABELS) as [keyof typeof EQUIPMENT_PRICE_LABELS, string][]).map(([key, name]) => (
+                  <tr key={key}>
+                    <td className={`${td} font-medium text-zinc-900`}>{name}</td>
+                    <td className={td}>
+                      <PriceField name={`equipment_${key}`} value={pricing.equipment[key]} label={`${name} price`} />
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-sky-50/60">
+                  <td className={`${td} font-medium text-zinc-900`}>
+                    Full package
+                    <span className="block text-xs font-normal text-zinc-500">
+                      All five items together, instead of their sum (currently {itemsTotal.toLocaleString("en-GB")} €).
+                    </span>
+                  </td>
+                  <td className={td}>
+                    <PriceField name="equipment_fullPackage" value={pricing.equipment.fullPackage} label="Full package price" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card
+          title="Fun dive volume tiers"
+          description="When a stay is billed, every fun dive in it is charged the rate of the highest tier its number of fun dives reaches, by customer type. The first tier starts at 1 dive."
+        >
+          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50">
+                <tr>
+                  <th className={th}>From dives</th>
+                  <th className={thRight}>Tourist</th>
+                  <th className={thRight}>Local</th>
+                  <th className={thRight}>Recurrent</th>
+                  <th className={thRight}>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {tiers.map((t, i) => (
+                  <tr key={t.id}>
+                    <td className={td}>
+                      <input
+                        name="tierMin"
+                        aria-label={`Tier ${i + 1}: from dives`}
+                        type="number"
+                        required
+                        min={1}
+                        max={999}
+                        step={1}
+                        defaultValue={t.minDives}
+                        className={`${priceInput} w-20 text-left`}
+                      />
+                    </td>
+                    <td className={td}>
+                      <PriceField name="tierTourist" value={t.tourist} label={`Tier ${i + 1}: tourist rate`} />
+                    </td>
+                    <td className={td}>
+                      <PriceField name="tierLocal" value={t.local} label={`Tier ${i + 1}: local rate`} />
+                    </td>
+                    <td className={td}>
+                      <PriceField name="tierRecurrent" value={t.recurrent} label={`Tier ${i + 1}: recurrent rate`} />
+                    </td>
+                    <td className={`${td} text-right`}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        disabled={tiers.length <= 1}
+                        onClick={() => setTiers(tiers.filter((x) => x.id !== t.id))}
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={addTier}>
+            Add tier
+          </Button>
+        </Card>
+      </fieldset>
+      {canEdit && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={pending}>
+            {pending ? "Saving…" : "Save prices"}
+          </Button>
+          <Status state={state} saved="Prices saved. They apply from the next invoice." />
+        </div>
+      )}
     </form>
   );
 }

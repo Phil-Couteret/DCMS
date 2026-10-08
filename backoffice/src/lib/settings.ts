@@ -54,3 +54,25 @@ export function tempRange(value: unknown) {
   const { min, max } = value as Record<string, unknown>;
   return typeof min === "number" && typeof max === "number" ? { min, max } : null;
 }
+
+// Settings → Pricing, in display order.
+export const ACTIVITY_PRICE_LABELS = {
+  snorkeling: "Snorkeling",
+  discoverScuba: "Discover Scuba",
+  funDive: "Fun Dive",
+  owCert: "Open Water Course",
+  aowCert: "Advanced Course",
+  rescueCert: "Rescue Course",
+  dmCert: "Divemaster Course",
+} as const;
+
+// fullPackage is shown separately, after the items.
+export const EQUIPMENT_PRICE_LABELS = {
+  wetsuit: "Wetsuit",
+  bcd: "BCD",
+  regulator: "Regulator",
+  maskFins: "Mask + Fins",
+  diveComputer: "Dive Computer",
+} as const;
+
+export const MAX_PRICE = 99999.99;

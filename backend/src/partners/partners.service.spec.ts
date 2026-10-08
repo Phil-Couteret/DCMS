@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SEEDED_PRICES } from '../config/catalogue.fixture.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ActivityType } from '../generated/prisma/enums.js';
 import { partnerAmounts, valueBooking } from './partners.service.js';
@@ -16,13 +17,13 @@ const booking = (activityType: ActivityType, participantCount = 1) =>
 
 describe('valueBooking', () => {
   it('values a booking at catalogue price for each diver', () => {
-    const v = valueBooking(booking(ActivityType.FUN_DIVE, 3));
+    const v = valueBooking(booking(ActivityType.FUN_DIVE, 3), SEEDED_PRICES);
     expect(v.unitPrice?.toFixed(2)).toBe('45.00');
     expect(v.total?.toFixed(2)).toBe('135.00');
   });
 
   it('has no value for an activity without a price', () => {
-    expect(valueBooking(booking(ActivityType.DM_CERT)).total).toBeNull();
+    expect(valueBooking(booking(ActivityType.DM_CERT), SEEDED_PRICES).total).toBeNull();
   });
 });
 

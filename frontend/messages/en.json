@@ -54,7 +54,8 @@
       "fullPackageNote": "All of the above",
       "fiveDives": "5-Dive Pack",
       "tenDives": "10-Dive Pack"
-    }
+    },
+    "unavailable": "Prices are unavailable right now. Please try again later."
   },
   "booking": {
     "title": "Book Your Dive",

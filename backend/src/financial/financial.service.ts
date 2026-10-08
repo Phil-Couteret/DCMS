@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ACTIVITY_NAMES } from '../config/prices.js';
+import { ACTIVITY_NAMES } from '../config/catalogue.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ActivityType, InvoiceStatus, PaymentMethod, PaymentStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';

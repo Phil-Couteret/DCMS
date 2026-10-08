@@ -129,6 +129,33 @@ model CenterSettings {
   updatedAt DateTime @updatedAt
 }
 
+// The price list, net of tax. Edited in Settings → Pricing; invoices and the
+// public site read it. An activity without a row has no price and cannot be
+// invoiced.
+model ActivityPrice {
+  activityType ActivityType @id
+  price        Decimal      @db.Decimal(8, 2)
+  updatedAt    DateTime     @updatedAt
+}
+
+// Rental items by key (wetsuit, bcd, regulator, maskFins, diveComputer) and
+// fullPackage, the price of all five hired together.
+model EquipmentPrice {
+  key       String   @id
+  price     Decimal  @db.Decimal(8, 2)
+  updatedAt DateTime @updatedAt
+}
+
+// Per-dive rate for fun dives billed together in a stay, from minDives fun
+// dives in the stay on, by customer type. The lowest tier starts at 1.
+model FunDiveTier {
+  minDives  Int      @id
+  tourist   Decimal  @db.Decimal(8, 2)
+  local     Decimal  @db.Decimal(8, 2)
+  recurrent Decimal  @db.Decimal(8, 2)
+  updatedAt DateTime @updatedAt
+}
+
 model Boat {
   id                 String    @id @default(uuid())
   name               String

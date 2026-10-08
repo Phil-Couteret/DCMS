@@ -54,7 +54,8 @@
       "fullPackageNote": "Alles oben Genannte",
       "fiveDives": "5er-Tauchpaket",
       "tenDives": "10er-Tauchpaket"
-    }
+    },
+    "unavailable": "Die Preise sind gerade nicht verfügbar. Bitte versuche es später erneut."
   },
   "booking": {
     "title": "Tauchgang buchen",

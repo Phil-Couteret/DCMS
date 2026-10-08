@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { stayDivePrice } from '../config/prices.js';
+import { stayDivePrice } from '../config/catalogue.js';
+import { SEEDED_PRICES } from '../config/catalogue.fixture.js';
 import { ActivityType, BookingSource, CustomerType } from '../generated/prisma/enums.js';
 import { priceStay } from './stays.service.js';
 
@@ -48,26 +49,40 @@ describe('stayDivePrice', () => {
     [13, 38],
     [30, 38],
   ])('tourists pay the tier for %i dives: %i', (dives, price) => {
-    expect(stayDivePrice(CustomerType.TOURIST, dives)).toBe(price);
+    expect(stayDivePrice(SEEDED_PRICES, CustomerType.TOURIST, dives)).toBe(price);
+  });
+
+  it('reads the rates from the price list, by customer type', () => {
+    const prices = {
+      ...SEEDED_PRICES,
+      funDiveTiers: [
+        { minDives: 1, tourist: 50, local: 40, recurrent: 36 },
+        { minDives: 5, tourist: 45, local: 38, recurrent: 34 },
+      ],
+    };
+    expect(stayDivePrice(prices, CustomerType.TOURIST, 4)).toBe(50);
+    expect(stayDivePrice(prices, CustomerType.TOURIST, 5)).toBe(45);
+    expect(stayDivePrice(prices, CustomerType.LOCAL, 5)).toBe(38);
+    expect(stayDivePrice(prices, CustomerType.RECURRENT, 1)).toBe(36);
   });
 
   it('gives locals and recurrent customers a flat rate', () => {
-    expect(stayDivePrice(CustomerType.LOCAL, 1)).toBe(35);
-    expect(stayDivePrice(CustomerType.LOCAL, 20)).toBe(35);
-    expect(stayDivePrice(CustomerType.RECURRENT, 20)).toBe(32);
+    expect(stayDivePrice(SEEDED_PRICES, CustomerType.LOCAL, 1)).toBe(35);
+    expect(stayDivePrice(SEEDED_PRICES, CustomerType.LOCAL, 20)).toBe(35);
+    expect(stayDivePrice(SEEDED_PRICES, CustomerType.RECURRENT, 20)).toBe(32);
   });
 });
 
 describe('priceStay', () => {
   it('prices every fun dive at the rate for the whole stay', () => {
-    const priced = priceStay(customer(CustomerType.TOURIST), funDives(6), []);
+    const priced = priceStay(customer(CustomerType.TOURIST), funDives(6), [], SEEDED_PRICES);
     expect(priced.totalDives).toBe(6);
     expect(priced.pricePerDive).toBe(42);
     expect(priced.bookingsTotal.toFixed(2)).toBe('252.00');
   });
 
   it('counts a booking once toward the volume but charges each diver', () => {
-    const priced = priceStay(customer(CustomerType.TOURIST), funDives(3, { participantCount: 2 }), []);
+    const priced = priceStay(customer(CustomerType.TOURIST), funDives(3, { participantCount: 2 }), [], SEEDED_PRICES);
     expect(priced.totalDives).toBe(3);
     expect(priced.bookingsTotal.toFixed(2)).toBe('264.00'); // 3 × 2 × 44
   });
@@ -77,6 +92,7 @@ describe('priceStay', () => {
       customer(CustomerType.TOURIST),
       [...funDives(2), booking(ActivityType.SNORKELING), booking(ActivityType.DISCOVER_SCUBA)],
       [],
+      SEEDED_PRICES,
     );
     expect(priced.totalDives).toBe(2);
     expect(priced.bookingsTotal.toFixed(2)).toBe(String((2 * 46 + 25 + 60).toFixed(2)));
@@ -87,6 +103,7 @@ describe('priceStay', () => {
       customer(CustomerType.TOURIST),
       [...funDives(2), ...funDives(1, { bookingSource: BookingSource.PARTNER })],
       [],
+      SEEDED_PRICES,
     );
     expect(priced.totalDives).toBe(3);
     expect(priced.bookingsTotal.toFixed(2)).toBe('88.00'); // 2 × 44
@@ -96,13 +113,21 @@ describe('priceStay', () => {
     const notes = JSON.stringify({ selectedEquipment: ['wetsuit:M', 'regulator'] });
     const priced = priceStay(customer(CustomerType.LOCAL), funDives(1, { notes }), [
       { total: '12.50' } as never,
-    ]);
+    ], SEEDED_PRICES);
     expect(priced.bookingsTotal.toFixed(2)).toBe('53.00'); // 35 + 8 + 10
     expect(priced.costsTotal.toFixed(2)).toBe('12.50');
   });
 
+  it('maps the booking form\'s computer to the dive computer price, and prices the full package', () => {
+    const one = JSON.stringify({ selectedEquipment: ['computer'] });
+    const all = JSON.stringify({ selectedEquipment: ['wetsuit:M', 'bcd:L', 'regulator', 'maskFins:42', 'computer'] });
+    const prices = { ...SEEDED_PRICES, equipment: { ...SEEDED_PRICES.equipment, diveComputer: 15 }, fullPackage: 30 };
+    expect(priceStay(customer(CustomerType.LOCAL), funDives(1, { notes: one }), [], prices).bookingsTotal.toFixed(2)).toBe('50.00');
+    expect(priceStay(customer(CustomerType.LOCAL), funDives(1, { notes: all }), [], prices).bookingsTotal.toFixed(2)).toBe('65.00');
+  });
+
   it('reports activities with no price', () => {
-    const priced = priceStay(customer(CustomerType.TOURIST), [booking(ActivityType.DM_CERT)], []);
+    const priced = priceStay(customer(CustomerType.TOURIST), [booking(ActivityType.DM_CERT)], [], SEEDED_PRICES);
     expect(priced.unpriced).toEqual(['Divemaster Course']);
   });
 });
