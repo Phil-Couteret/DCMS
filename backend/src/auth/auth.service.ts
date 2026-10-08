@@ -42,7 +42,13 @@ export class AuthService {
     private readonly prisma: PrismaService,
   ) {}
 
+  // A customer signing up on a center's site. The center is checked before
+  // the account is created: on a new platform (no center yet) nobody can
+  // sign up, so the first account, which the database makes superadmin, is
+  // the one created at deployment (scripts/create-superadmin.mjs), never a
+  // stranger's.
   async register(dto: RegisterDto) {
+    const tenantId = await this.customerTenant();
     const email = dto.email.toLowerCase();
     if (await this.users.findByEmail(email)) {
       throw new ConflictException('Email already registered');
@@ -50,10 +56,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const created = await this.users.create({ email, passwordHash, name: dto.name });
     const user = await this.account(created.id);
-    // The very first account is the platform's superadmin (database trigger):
-    // it signs in like any other staff account, to the console.
     if (user.isSuperadmin) return this.staffLogin(user);
-    const tenantId = await this.customerTenant();
     return this.issue(user, { tenantId, role: Role.CUSTOMER });
   }
 

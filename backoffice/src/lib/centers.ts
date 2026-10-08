@@ -3,6 +3,7 @@
 import { AuthError } from "next-auth";
 import { headers } from "next/headers";
 import { apiPost, auth, signIn, SUPERADMIN_ROLE, type CenterChoice, type LoginReply } from "@/auth";
+import { forwardedFrom } from "@/lib/api-url";
 import { hostSlug, requestHost } from "@/lib/tenant-host";
 
 // Signing in to a center, choosing one ("Which center?") and switching
@@ -32,15 +33,18 @@ async function useToken(accessToken: string, role: string): Promise<CenterChoice
 
 export async function beginLogin(_prev: CenterChoiceState, formData: FormData): Promise<CenterChoiceState> {
   // On a center's own address, the sign-in is for that center.
+  const h = await headers();
   const reply = await apiPost<LoginReply>(
     "/auth/login",
     { email: String(formData.get("email") ?? ""), password: String(formData.get("password") ?? "") },
     undefined,
-    hostSlug(requestHost(await headers())),
+    hostSlug(requestHost(h)),
+    forwardedFrom(h),
   );
   if (!reply.ok) {
     // 403: the right password, but no access to the center of this address.
     if (reply.status === 403) return { error: "This account has no access to this center." };
+    if (reply.status === 429) return { error: "Too many sign-in attempts. Wait a few minutes and try again." };
     return { error: reply.status === 0 ? reply.message : "Invalid credentials" };
   }
   if ("requiresTenantSelection" in reply.data) {
@@ -53,10 +57,13 @@ export async function beginLogin(_prev: CenterChoiceState, formData: FormData): 
 // The center picked on the login page. An empty tenantId is the console.
 export async function chooseCenter(prev: CenterChoiceState, formData: FormData): Promise<CenterChoiceState> {
   const tenantId = String(formData.get("tenantId") ?? "") || null;
-  const reply = await apiPost<LoginReply>("/auth/select-tenant", {
-    selectionToken: String(formData.get("selectionToken") ?? ""),
-    tenantId,
-  });
+  const reply = await apiPost<LoginReply>(
+    "/auth/select-tenant",
+    { selectionToken: String(formData.get("selectionToken") ?? ""), tenantId },
+    undefined,
+    null,
+    forwardedFrom(await headers()),
+  );
   if (!reply.ok) return { ...prev, error: reply.message };
   if ("requiresTenantSelection" in reply.data) return { error: "Could not sign in" };
   return useToken(reply.data.accessToken, reply.data.user.role);

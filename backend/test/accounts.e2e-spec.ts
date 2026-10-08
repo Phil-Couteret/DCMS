@@ -41,8 +41,14 @@ async function call(method: string, path: string, token?: string, body?: unknown
 
 const claims = (token: string) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()) as Record<string, unknown>;
 
+// Sign-in is rate limited per client IP (10 per 15 minutes). The app trusts
+// X-Forwarded-For here, as it does behind nginx, and each sign-in comes from
+// its own address, so these tests are not counted together.
+let clientIp = 0;
+const nextClient = () => ({ 'X-Forwarded-For': `198.51.100.${++clientIp}` });
+
 async function login(who: string) {
-  return call('POST', '/auth/login', undefined, { email: email(who), password: PASSWORD });
+  return call('POST', '/auth/login', undefined, { email: email(who), password: PASSWORD }, nextClient());
 }
 
 async function tokenFor(who: string, tenantId: string | null) {
@@ -56,6 +62,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   app = moduleRef.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.getHttpAdapter().getInstance().set('trust proxy', true);
   await app.listen(0);
   base = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
   prisma = app.get(PrismaService);
@@ -174,6 +181,16 @@ describe('login and the token', () => {
     });
     expect((await call('GET', '/boats', data.accessToken)).status).toBe(403);
     expect((await login('suspended')).status).toBe(401);
+  });
+});
+
+describe('sign-in rate limit', () => {
+  it('refuses the 11th attempt from one address within 15 minutes, not other addresses', async () => {
+    const from = { 'X-Forwarded-For': '203.0.113.7' };
+    const body = { email: email('single'), password: 'wrong-password' };
+    for (let i = 0; i < 10; i++) expect((await call('POST', '/auth/login', undefined, body, from)).status).toBe(401);
+    expect((await call('POST', '/auth/login', undefined, body, from)).status).toBe(429);
+    expect((await call('POST', '/auth/login', undefined, body, { 'X-Forwarded-For': '203.0.113.8' })).status).toBe(401);
   });
 });
 

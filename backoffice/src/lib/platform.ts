@@ -3,37 +3,8 @@ import { apiFetch } from "@/lib/api";
 
 // The superadmin console's API (/superadmin) and the account's centers.
 
-export type TenantPlan = "FREE" | "STARTER" | "PRO" | "ENTERPRISE";
-export const TENANT_PLANS: TenantPlan[] = ["FREE", "STARTER", "PRO", "ENTERPRISE"];
-export const PLAN_LABELS: Record<TenantPlan, string> = {
-  FREE: "Free",
-  STARTER: "Starter",
-  PRO: "Pro",
-  ENTERPRISE: "Enterprise",
-};
-
-// Same rule as the API: a DNS label, lowercase.
-export const SLUG_PATTERN = "[a-z0-9](?:[a-z0-9\\-]{0,61}[a-z0-9])?";
-
-export interface Quotas {
-  locations: number;
-  diveSites: number;
-  boats: number;
-  users: number;
-  customers: number;
-  storageGb: number;
-  storagePricePerGbMonth: number;
-}
-
-export const QUOTA_LABELS: Record<keyof Quotas, string> = {
-  locations: "Locations",
-  diveSites: "Dive sites",
-  boats: "Boats",
-  users: "Users",
-  customers: "Customers",
-  storageGb: "Storage (GB)",
-  storagePricePerGbMonth: "Price per GB per month",
-};
+export { PLAN_LABELS, QUOTA_LABELS, SLUG_PATTERN, TENANT_PLANS, type Quotas, type TenantPlan } from "@/lib/platform-labels";
+import type { Quotas, TenantPlan } from "@/lib/platform-labels";
 
 export interface Usage {
   used: number;

@@ -3,7 +3,7 @@ import { centerLocale } from "@/lib/center";
 import { centerNow } from "@/lib/center-time";
 
 // Server-side only: auth() reads the session from the request cookies.
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, forwardedFor } from "@/lib/forwarded";
 
 export class ApiError extends Error {
   constructor(
@@ -167,6 +167,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       Accept: "application/json",
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+      ...(await forwardedFor()),
       ...init.headers,
     },
     cache: "no-store",

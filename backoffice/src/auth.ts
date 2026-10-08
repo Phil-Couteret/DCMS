@@ -2,7 +2,7 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { hostSlug, requestHost } from "@/lib/tenant-host";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, forwardedFrom } from "@/lib/api-url";
 
 // Matches the backend JWT, which expires after one day (JWT_EXPIRES_IN).
 const ONE_DAY = 24 * 60 * 60;
@@ -73,14 +73,22 @@ export function canUseBackoffice(role: string | undefined) {
 }
 
 // tenantSlug: the center the request is for (the backoffice's address),
-// sent as X-Tenant-Slug.
-export async function apiPost<T>(path: string, body: unknown, accessToken?: string, tenantSlug?: string | null) {
+// sent as X-Tenant-Slug. forwarded: the visitor's X-Forwarded-For (see
+// lib/api-url.ts), which callers pass on.
+export async function apiPost<T>(
+  path: string,
+  body: unknown,
+  accessToken?: string,
+  tenantSlug?: string | null,
+  forwarded: Record<string, string> = {},
+) {
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
+      ...forwarded,
     },
     body: JSON.stringify(body),
     cache: "no-store",
@@ -152,6 +160,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           { email: credentials.email, password: credentials.password },
           undefined,
           hostSlug(requestHost(request.headers)),
+          forwardedFrom(request.headers),
         );
         if (!reply.ok) throw new CredentialsSignin();
         if ("requiresTenantSelection" in reply.data) throw new SelectCenterSignin();
@@ -188,7 +197,11 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         const slug = hostSlug(requestHost(request.headers)) ?? (process.env.DEFAULT_TENANT_SLUG || null);
         const res = await fetch(`${API_URL}/partner-auth/login`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...(slug ? { "X-Tenant-Slug": slug } : {}) },
+          headers: {
+            "Content-Type": "application/json",
+            ...(slug ? { "X-Tenant-Slug": slug } : {}),
+            ...forwardedFrom(request.headers),
+          },
           body: JSON.stringify({ ...body, apiSecret: credentials.apiSecret }),
           cache: "no-store",
         }).catch(() => null);

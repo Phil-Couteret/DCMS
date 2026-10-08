@@ -1,11 +1,14 @@
+import { API_URL, forwardedFor } from "@/lib/forwarded";
 import type { InvitationPreview } from "@/lib/platform";
 
 // The public invitation API: no session, the token is the credential.
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 // null for an unknown link (or a deactivated center).
 export async function previewInvitation(token: string): Promise<InvitationPreview | null> {
-  const res = await fetch(`${API_URL}/invitations/${encodeURIComponent(token)}`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/invitations/${encodeURIComponent(token)}`, {
+    headers: await forwardedFor(),
+    cache: "no-store",
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`The invitation could not be read (${res.status})`);
   return res.json() as Promise<InvitationPreview>;
@@ -17,7 +20,7 @@ export async function acceptInvitation(
 ): Promise<{ ok: true; signInUrl: string } | { ok: false; error: string }> {
   const res = await fetch(`${API_URL}/invitations/${encodeURIComponent(token)}/accept`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await forwardedFor()) },
     body: JSON.stringify(body),
     cache: "no-store",
   }).catch(() => null);

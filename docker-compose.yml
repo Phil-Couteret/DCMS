@@ -1,53 +1,146 @@
-# DCMS - VPS-style stack for local testing (Mac/Linux)
-# Run: docker compose up -d
-# Admin UI: http://localhost:3000  |  API: http://localhost:3003  |  Swagger: http://localhost:3003/api
+# DCMS in production: PostgreSQL, the API, the public site, the backoffice,
+# and nginx in front (TLS, and routing by host name).
+#
+#   cp .env.production.example .env.production   # fill in every value
+#   docker compose --env-file .env.production up -d --build
+#
+# Then create the platform superadmin once (deploy/docker/README.md).
+#
+# Addresses (DNS: all to this machine):
+#   {slug}.${PUBLIC_DOMAIN}   each center's public site    → frontend
+#   {slug}.${ADMIN_DOMAIN}    each center's backoffice     → backoffice
+#   ${ADMIN_DOMAIN}           the platform (superadmin)    → backoffice
+#   ${API_DOMAIN}             the API                      → backend
+
+name: dcms
+
+x-restart: &restart
+  restart: unless-stopped
 
 services:
-  db:
-    image: postgres:15-alpine
+  postgres:
+    image: postgres:16-bookworm
+    <<: *restart
     environment:
-      POSTGRES_DB: dcms
-      POSTGRES_USER: dcms
-      POSTGRES_PASSWORD: dcms
+      POSTGRES_DB: divedb
+      # The superuser: only for the first start's role setup.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      # The tables' owner (migrations) and the API's own role (row-level
+      # security binds it; it cannot switch it off).
+      DIVEAPP_PASSWORD: ${DIVEAPP_PASSWORD:?set DIVEAPP_PASSWORD}
+      DCMS_APP_PASSWORD: ${DCMS_APP_PASSWORD:?set DCMS_APP_PASSWORD}
     volumes:
-      - dcms_pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dcms -d dcms"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d divedb"]
+      interval: 10s
       timeout: 5s
       retries: 10
+    networks: [internal]
+
+  # Applies the database migrations as the owner, then stops. The API starts
+  # only once it has succeeded.
+  migrate:
+    build:
+      context: ./backend
+      target: migrate
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://diveapp:${DIVEAPP_PASSWORD}@postgres:5432/divedb
+    # The migration history is the owner's alone (the API role gets every new
+    # table through default privileges, this one included).
+    command:
+      - sh
+      - -c
+      - npx prisma migrate deploy && echo 'REVOKE ALL ON "_prisma_migrations" FROM dcms_app;' | npx prisma db execute --stdin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [internal]
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      target: runtime
+    <<: *restart
     environment:
-      DATABASE_URL: postgresql://dcms:dcms@db:5432/dcms?schema=public
-      PORT: 3003
-      NODE_ENV: production
-      CORS_ORIGIN: http://localhost:3000
-      # Must be set in a .env file next to this compose file (repo root) -
-      # docker compose fails to start if JWT_SECRET is unset. Generate one with:
-      #   openssl rand -hex 32
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in a .env file at the repo root before running docker compose}
-    volumes:
-      # Optional demo seed data (backend/docker-entrypoint.sh loads
-      # database/seeds/002_sample_data.sql if present, after schema migration).
-      - ./database:/init:ro
+      PORT: "4000"
+      DATABASE_URL: postgresql://dcms_app:${DCMS_APP_PASSWORD}@postgres:5432/divedb
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      TENANT_DOMAINS: ${PUBLIC_DOMAIN},${ADMIN_DOMAIN}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      # Believe X-Forwarded-For from nginx and the two Next.js servers only
+      # (their fixed addresses below), so rate limits count per visitor. Not
+      # the whole network: Docker can present outside visitors as its
+      # gateway address (172.30.0.1), whose forged headers must not count.
+      TRUST_PROXY: 172.30.0.10, 172.30.0.11, 172.30.0.12
+      BACKOFFICE_URL: https://{slug}.${ADMIN_DOMAIN}
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "3003:3003"
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      args:
+        # The API as visitors' browsers reach it (fixed at build time).
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+    <<: *restart
+    environment:
+      API_URL: http://backend:4000
+      TENANT_DOMAIN: ${PUBLIC_DOMAIN}
+    depends_on: [backend]
+    networks:
+      internal:
+        ipv4_address: 172.30.0.11
+
+  backoffice:
+    build:
+      context: ./backoffice
+    <<: *restart
+    environment:
+      API_URL: http://backend:4000
+      TENANT_DOMAIN: ${ADMIN_DOMAIN}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+      # Each center has its own address: Auth.js builds its URLs from the
+      # request's host (nginx passes only the known ones), so no AUTH_URL.
+      AUTH_TRUST_HOST: "true"
+    depends_on: [backend]
+    networks:
+      internal:
+        ipv4_address: 172.30.0.12
+
+  nginx:
+    image: nginx:1.27-bookworm
+    <<: *restart
     ports:
-      - "3000:8080"
-    depends_on:
-      - backend
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
+    volumes:
+      - ./deploy/docker/nginx/templates:/etc/nginx/templates:ro
+      # fullchain.pem and privkey.pem, covering every address above
+      # (deploy/docker/README.md).
+      - ./deploy/docker/certs:/etc/nginx/certs:ro
+    depends_on: [frontend, backoffice, backend]
+    networks:
+      internal:
+        ipv4_address: 172.30.0.10
+
+networks:
+  internal:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
 
 volumes:
-  dcms_pgdata:
+  pgdata:

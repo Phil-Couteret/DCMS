@@ -8,7 +8,8 @@ import { ActionButton } from "@/components/action-button";
 import { Button } from "@/components/ui/button";
 import { switchCenter, type CenterChoiceState } from "@/lib/centers";
 import { LOCATION_TYPE_LABELS, LOCATION_TYPES } from "@/lib/locations";
-import { PLAN_LABELS, QUOTA_LABELS, SLUG_PATTERN, TENANT_PLANS, type Quotas, type SentInvitation, type Tenant } from "@/lib/platform";
+import { PLAN_LABELS, QUOTA_LABELS, SLUG_PATTERN, TENANT_PLANS, type Quotas } from "@/lib/platform-labels";
+import type { SentInvitation, Tenant } from "@/lib/platform";
 import { LANGUAGES } from "@/lib/customers";
 import { useFormAction } from "@/lib/use-form-action";
 
