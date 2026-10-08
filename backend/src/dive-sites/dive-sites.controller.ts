@@ -11,7 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { DiveSitesService } from './dive-sites.service.js';
 import { CreateDiveSiteDto } from './dto/create-dive-site.dto.js';
 import { UpdateDiveSiteDto } from './dto/update-dive-site.dto.js';
@@ -36,19 +36,19 @@ export class DiveSitesController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(StaffAuthGuard)
   create(@Body() dto: CreateDiveSiteDto) {
     return this.diveSites.create(dto);
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(StaffAuthGuard)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDiveSiteDto) {
     return this.diveSites.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(StaffAuthGuard)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.diveSites.remove(id);
   }

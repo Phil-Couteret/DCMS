@@ -6,7 +6,12 @@ import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [error, setError] = useState(false);
+  // "credentials" or "not_staff"; the proxy sends a non-staff session here
+  // with ?error=not_staff.
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("error") === "not_staff") setError("not_staff");
+  }, []);
   const [pending, setPending] = useState(false);
   // Until React hydrates, onSubmit is not attached and the browser would
   // submit the form natively. Keep the button disabled until then.
@@ -16,7 +21,7 @@ export default function LoginPage() {
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
-    setError(false);
+    setError(null);
     const form = new FormData(e.currentTarget);
     const result = await signIn("credentials", {
       email: form.get("email"),
@@ -24,7 +29,7 @@ export default function LoginPage() {
       redirect: false,
     });
     if (result?.error) {
-      setError(true);
+      setError(result.code === "not_staff" ? "not_staff" : "credentials");
       setPending(false);
       return;
     }
@@ -63,7 +68,9 @@ export default function LoginPage() {
 
           {error && (
             <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-              Invalid credentials
+              {error === "not_staff"
+                ? "This account is not a staff account. Customers use the public website."
+                : "Invalid credentials"}
             </p>
           )}
 

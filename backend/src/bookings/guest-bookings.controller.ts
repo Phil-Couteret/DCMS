@@ -5,7 +5,7 @@ import { GuestBookingDto } from './dto/guest-booking.dto.js';
 
 const ONE_HOUR = 60 * 60 * 1000;
 
-// Public: no JwtAuthGuard. Kept apart from BookingsController, whose routes
+// Public: no auth guard. Kept apart from BookingsController, whose routes
 // are all guarded at class level. Limited to 5 requests per IP per hour.
 @Controller('bookings/guest')
 @UseGuards(ThrottlerGuard)

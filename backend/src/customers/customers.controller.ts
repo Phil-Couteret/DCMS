@@ -11,14 +11,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { Language } from '../generated/prisma/enums.js';
 import { CustomersService } from './customers.service.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 
 @Controller('customers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 

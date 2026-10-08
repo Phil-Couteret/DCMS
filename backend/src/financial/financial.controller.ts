@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
 import { CreateIncomeDto } from './dto/create-income.dto.js';
 import { assertIsoDate, FinancialService } from './financial.service.js';
@@ -20,7 +20,7 @@ import { assertIsoDate, FinancialService } from './financial.service.js';
 type User = { email: string };
 
 @Controller('financial')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class FinancialController {
   constructor(private readonly financial: FinancialService) {}
 

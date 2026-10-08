@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { DivePrepService } from './dive-prep.service.js';
 import { DivePrepDateDto, DivePrepSlotDto } from './dto/dive-prep-query.dto.js';
 
 // Preparing a day's outings: who goes on which trip, with which crew, where,
 // and the post-dive record.
 @Controller('dive-prep')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class DivePrepController {
   constructor(private readonly prep: DivePrepService) {}
 

@@ -11,14 +11,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { EquipmentStatus } from '../generated/prisma/enums.js';
 import { CreateEquipmentDto } from './dto/create-equipment.dto.js';
 import { CreateMaintenanceLogDto } from './dto/create-maintenance-log.dto.js';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto.js';
 import { EquipmentService } from './equipment.service.js';
 
+// Staff only, reads included: boats and equipment are internal records.
 @Controller('equipment')
+@UseGuards(StaffAuthGuard)
 export class EquipmentController {
   constructor(private readonly equipment: EquipmentService) {}
 
@@ -38,13 +40,11 @@ export class EquipmentController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateEquipmentDto) {
     return this.equipment.create(dto);
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEquipmentDto) {
     return this.equipment.update(id, dto);
   }
@@ -52,19 +52,16 @@ export class EquipmentController {
   // Maintenance records hold technician names and costs, so both routes need a
   // login even though the equipment list itself is public.
   @Get(':id/maintenance')
-  @UseGuards(JwtAuthGuard)
   maintenanceLogs(@Param('id', ParseUUIDPipe) id: string) {
     return this.equipment.maintenanceLogs(id);
   }
 
   @Post(':id/maintenance')
-  @UseGuards(JwtAuthGuard)
   addMaintenance(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateMaintenanceLogDto) {
     return this.equipment.addMaintenance(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.equipment.remove(id);
   }

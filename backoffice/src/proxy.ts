@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, PARTNER_ROLE } from "@/auth";
+import { auth, PARTNER_ROLE, STAFF_ROLES } from "@/auth";
 
 // Next.js 16 renamed the middleware file convention to proxy. Staff pages need
 // a staff session and the partner portal (/partner) a partner session; each
@@ -19,8 +19,11 @@ export default auth((req) => {
 
   const isLogin = path === "/login";
   if (partner) return to("/partner");
-  if (!req.auth && !isLogin) return to("/login");
-  if (req.auth && isLogin) return to("/dashboard");
+  // Only staff get past the login page. A session with any other role (one
+  // from before this check existed) stays on it, free to sign in as staff.
+  const staff = STAFF_ROLES.includes(role ?? "");
+  if (isLogin) return staff ? to("/dashboard") : undefined;
+  if (!staff) return to(req.auth ? "/login?error=not_staff" : "/login");
 });
 
 export const config = {

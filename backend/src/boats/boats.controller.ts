@@ -10,12 +10,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { BoatsService } from './boats.service.js';
 import { CreateBoatDto } from './dto/create-boat.dto.js';
 import { UpdateBoatDto } from './dto/update-boat.dto.js';
 
+// Staff only, reads included: boats and equipment are internal records.
 @Controller('boats')
+@UseGuards(StaffAuthGuard)
 export class BoatsController {
   constructor(private readonly boats: BoatsService) {}
 
@@ -30,19 +32,16 @@ export class BoatsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateBoatDto) {
     return this.boats.create(dto);
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateBoatDto) {
     return this.boats.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.boats.remove(id);
   }

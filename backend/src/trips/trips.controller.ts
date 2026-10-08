@@ -10,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
 import { CreateTripDto } from './dto/create-trip.dto.js';
 import { LinkBookingDto } from './dto/link-booking.dto.js';
@@ -19,7 +19,7 @@ import { UpdateTripDto } from './dto/update-trip.dto.js';
 import { TripsService } from './trips.service.js';
 
 @Controller('trips')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class TripsController {
   constructor(private readonly trips: TripsService) {}
 

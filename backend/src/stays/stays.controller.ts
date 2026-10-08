@@ -1,13 +1,13 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
 import { UpdateStayCostDto } from './dto/update-stay-cost.dto.js';
 import { StaysService } from './stays.service.js';
 
 // A customer has at most one open stay, so stays are addressed by customer.
 @Controller('stays')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class StaysController {
   constructor(private readonly stays: StaysService) {}
 

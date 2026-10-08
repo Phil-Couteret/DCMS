@@ -11,7 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { BookingStatus } from '../generated/prisma/enums.js';
 import { BookingsService } from './bookings.service.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
@@ -19,7 +19,7 @@ import { UpdateBookingDto } from './dto/update-booking.dto.js';
 import { ParseDatePipe } from './parse-date.pipe.js';
 
 @Controller('bookings')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class BookingsController {
   constructor(private readonly bookings: BookingsService) {}
 

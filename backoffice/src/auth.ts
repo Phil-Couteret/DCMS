@@ -19,6 +19,14 @@ interface PartnerLoginResponse {
 // The role given to partner portal sessions. Staff roles come from the API.
 export const PARTNER_ROLE = "PARTNER";
 
+// Accounts that may use the backoffice. Customers sign in on the public site.
+export const STAFF_ROLES = ["ADMIN", "INSTRUCTOR"];
+
+// Shown on the login page instead of "Invalid credentials".
+class NotStaffSignin extends CredentialsSignin {
+  code = "not_staff";
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: ONE_DAY },
   // Auth.js v5 rejects every request under `next start` unless the host is
@@ -43,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!res?.ok) throw new CredentialsSignin();
 
         const { user, accessToken } = (await res.json()) as LoginResponse;
+        if (!STAFF_ROLES.includes(user.role)) throw new NotStaffSignin();
         return { id: user.id, email: user.email, name: user.name, role: user.role, accessToken };
       },
     }),

@@ -1,12 +1,12 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { CustomerCertificationsService } from './customer-certifications.service.js';
 import { CreateCertificationDto } from './dto/create-certification.dto.js';
 import { UpdateCertificationDto } from './dto/update-certification.dto.js';
 
 @Controller('customers/:id/certifications')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class CustomerCertificationsController {
   constructor(private readonly certifications: CustomerCertificationsService) {}
 

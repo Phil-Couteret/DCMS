@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { ParseDatePipe } from '../bookings/parse-date.pipe.js';
 import { DiveLogsService } from './dive-logs.service.js';
 import { AddParticipantDto } from './dto/add-participant.dto.js';
@@ -19,7 +19,7 @@ import { ReportIncidentDto } from './dto/report-incident.dto.js';
 import { UpdateDiveLogDto } from './dto/update-dive-log.dto.js';
 
 @Controller('dive-logs')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class DiveLogsController {
   constructor(private readonly diveLogs: DiveLogsService) {}
 

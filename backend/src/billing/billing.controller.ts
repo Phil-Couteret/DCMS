@@ -11,7 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { InvoiceStatus } from '../generated/prisma/enums.js';
 import { BillingService } from './billing.service.js';
 import { AddPaymentDto } from './dto/add-payment.dto.js';
@@ -20,7 +20,7 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 
 @Controller('billing')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class BillingController {
   constructor(private readonly billing: BillingService) {}
 

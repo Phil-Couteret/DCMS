@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { assertIsoDate } from '../financial/financial.service.js';
 import { PartnerInvoiceStatus } from '../generated/prisma/enums.js';
 import { CreatePartnerDto } from './dto/create-partner.dto.js';
@@ -22,7 +22,7 @@ import { PartnersService } from './partners.service.js';
 
 // Staff: partner accounts and what partners owe.
 @Controller('partners')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class PartnersController {
   constructor(private readonly partners: PartnersService) {}
 
@@ -73,7 +73,7 @@ export class PartnersController {
 }
 
 @Controller('partner-invoices')
-@UseGuards(JwtAuthGuard)
+@UseGuards(StaffAuthGuard)
 export class PartnerInvoicesController {
   constructor(private readonly partners: PartnersService) {}
 
