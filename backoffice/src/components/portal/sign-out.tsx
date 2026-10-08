@@ -1,0 +1,23 @@
+"use client";
+
+import { useState } from "react";
+import { signOut } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+
+export function PortalSignOutButton() {
+  const [pending, setPending] = useState(false);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="border-white/40 bg-transparent text-white hover:bg-white/20 hover:text-white"
+      disabled={pending}
+      onClick={() => {
+        setPending(true);
+        signOut({ redirectTo: "/partner/login" });
+      }}
+    >
+      {pending ? "Signing out…" : "Sign out"}
+    </Button>
+  );
+}

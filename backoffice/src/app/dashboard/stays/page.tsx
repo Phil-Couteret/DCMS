@@ -38,8 +38,10 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
   const disabledReason =
     stay.unpriced.length > 0
       ? `No price is set for ${stay.unpriced.join(", ")}`
-      : stay.bookings.length === 0 && stay.costs.length === 0
-        ? "Nothing to bill yet"
+      : Number(stay.totals.subtotal) === 0
+        ? stay.bookings.some((b) => b.partner)
+          ? "Paid by the partner: nothing for the customer to pay"
+          : "Nothing to bill yet"
         : undefined;
 
   return (
@@ -105,7 +107,9 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
                       </td>
                       <td className={td}>
                         {b.activityName}
-                        {b.partner && <span className="block text-xs font-medium text-purple-800">Paid by partner</span>}
+                        {b.partner && (
+                          <span className="block text-xs font-medium text-purple-800">Paid by {b.partnerName ?? "partner"}</span>
+                        )}
                         {b.equipment.map((e) => (
                           <span key={e.description} className="block text-xs text-zinc-500">
                             + {e.description} ({eur(e.total)})

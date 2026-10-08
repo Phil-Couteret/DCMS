@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/dashboard/stays", label: "Stays" },
   { href: "/dashboard/billing", label: "Billing" },
   { href: "/dashboard/financial", label: "Financial" },
+  { href: "/dashboard/partners", label: "Partners" },
   { href: "/dashboard/customers", label: "Customers" },
   { href: "/dashboard/dive-logs", label: "Dive Logs" },
   { href: "/dashboard/equipment", label: "Equipment" },

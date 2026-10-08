@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookingForm } from "@/components/bookings/booking-form";
-import { ApiError, getBoats, getBooking, getCustomers, getDiveSites } from "@/lib/api";
+import { ApiError, getBoats, getBooking, getCustomers, getDiveSites, getPartners } from "@/lib/api";
 import { parseGuestNotes } from "@/lib/bookings";
 import { customerOption } from "@/lib/customers";
 
@@ -20,7 +20,7 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
-  const [customers, boats, sites] = await Promise.all([getCustomers(), getBoats(), getDiveSites()]);
+  const [customers, boats, sites, partners] = await Promise.all([getCustomers(), getBoats(), getDiveSites(), getPartners()]);
   // The booking's own boat stays selectable even if it is no longer active.
   const boatOptions = boats.filter((b) => b.status === "active" || b.id === booking.boatId);
   const guest = parseGuestNotes(booking.notes);
@@ -48,6 +48,7 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
           siteId: booking.siteId ?? "",
           participantCount: booking.participantCount,
           bookingSource: booking.bookingSource,
+          partnerId: booking.partnerId ?? "",
           status: booking.status,
           equipment: guest?.selectedEquipment ?? [],
           notes: guest ? (guest.staffNotes ?? "") : (booking.notes ?? ""),
@@ -55,6 +56,7 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
         customers={customers.map(customerOption)}
         boats={boatOptions}
         sites={sites}
+        partners={partners.filter((p) => p.isActive || p.id === booking.partnerId)}
         cancelHref={detailHref}
       />
     </main>

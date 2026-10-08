@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BookingForm } from "@/components/bookings/booking-form";
-import { getBoats, getCustomers, getDiveSites } from "@/lib/api";
+import { getBoats, getCustomers, getDiveSites, getPartners } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
 import { customerOption } from "@/lib/customers";
 
@@ -17,7 +17,7 @@ export default async function NewBookingPage({
   // ?customer=<id> preselects the customer, e.g. from their profile.
   const customer = typeof params.customer === "string" && UUID.test(params.customer) ? params.customer : "";
 
-  const [customers, boats, sites] = await Promise.all([getCustomers(), getBoats(), getDiveSites()]);
+  const [customers, boats, sites, partners] = await Promise.all([getCustomers(), getBoats(), getDiveSites(), getPartners()]);
   const activeBoats = boats.filter((b) => b.status === "active");
 
   return (
@@ -45,6 +45,7 @@ export default async function NewBookingPage({
             siteId: "",
             participantCount: 1,
             bookingSource: "WALK_IN",
+            partnerId: "",
             status: "CONFIRMED",
             equipment: [],
             notes: "",
@@ -52,6 +53,7 @@ export default async function NewBookingPage({
           customers={customers.map(customerOption)}
           boats={activeBoats}
           sites={sites}
+          partners={partners.filter((p) => p.isActive)}
           cancelHref="/dashboard/bookings"
         />
       )}

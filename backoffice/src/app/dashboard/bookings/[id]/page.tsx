@@ -86,7 +86,17 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               <Row label="Participants">{booking.participantCount}</Row>
               <Row label="Boat">{booking.boat ? `${booking.boat.name} (capacity ${booking.boat.capacity})` : "—"}</Row>
               <Row label="Dive site">{booking.site?.nameEn ?? "Not assigned"}</Row>
-              <Row label="Source">{booking.bookingSource.replace("_", " ").toLowerCase()}</Row>
+              <Row label="Source">
+                {booking.bookingSource.replace("_", " ").toLowerCase()}
+                {booking.partner && (
+                  <>
+                    {" · "}
+                    <Link href={`/dashboard/partners/${booking.partner.id}`} prefetch={false} className="hover:underline">
+                      {booking.partner.name}
+                    </Link>
+                  </>
+                )}
+              </Row>
             </dl>
           </CardContent>
         </Card>

@@ -86,6 +86,9 @@ model Customer {
   diveLogEntries        DiveLogParticipant[]
   invoices              Invoice[]
   stays                 Stay[]
+  // The partner who registered this customer, if any.
+  partnerId             String?
+  partner               Partner?                @relation(fields: [partnerId], references: [id], onDelete: SetNull)
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
 
@@ -318,6 +321,12 @@ model Booking {
   // Set when the booking is billed as part of a stay.
   stayId           String?
   stay             Stay?         @relation(fields: [stayId], references: [id], onDelete: SetNull)
+  // The partner (agency) that sold it: they pay the activity, less commission.
+  partnerId        String?
+  partner          Partner?      @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  // Set while the booking is on a partner invoice that is not cancelled.
+  partnerInvoiceId String?
+  partnerInvoice   PartnerInvoice? @relation(fields: [partnerInvoiceId], references: [id], onDelete: SetNull)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -327,6 +336,8 @@ model Booking {
   @@index([date, timeSlot])
   @@index([tripId])
   @@index([stayId])
+  @@index([partnerId])
+  @@index([partnerInvoiceId])
 }
 
 enum TripStatus {
@@ -651,4 +662,80 @@ model StayCost {
   updatedAt   DateTime         @updatedAt
 
   @@index([stayId])
+}
+
+// An agency or reseller that sells the center's activities to its own
+// clients. It signs in to the partner portal with its contact email or API
+// key and the API secret, which is stored hashed and shown only once.
+model Partner {
+  id             String           @id @default(uuid())
+  name           String
+  companyName    String
+  contactEmail   String           @unique
+  contactPhone   String?
+  // Percentage of the booking value the partner keeps, e.g. 15.00.
+  commissionRate Decimal          @db.Decimal(5, 2)
+  isActive       Boolean          @default(true)
+  apiKey         String           @unique
+  apiSecretHash  String
+  notes          String?
+  bookings       Booking[]
+  customers      Customer[]
+  invoices       PartnerInvoice[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+enum PartnerInvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+// What a partner owes the center for its bookings in a period: their
+// catalogue value less the partner's commission, plus tax. Amounts and the
+// rates used are copied at creation so the invoice never changes afterwards.
+model PartnerInvoice {
+  id             String               @id @default(uuid())
+  invoiceNumber  String               @unique // PINV-YYYY-0001
+  partnerId      String
+  partner        Partner              @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  periodFrom     DateTime             @db.Date
+  periodTo       DateTime             @db.Date
+  dueDate        DateTime             @db.Date
+  commissionRate Decimal              @db.Decimal(5, 2)
+  gross          Decimal              @db.Decimal(10, 2) // catalogue value of the bookings
+  commission     Decimal              @db.Decimal(10, 2)
+  subtotal       Decimal              @db.Decimal(10, 2) // gross - commission
+  taxName        String
+  taxRate        Decimal              @db.Decimal(5, 2)
+  tax            Decimal              @db.Decimal(10, 2)
+  total          Decimal              @db.Decimal(10, 2)
+  paidAmount     Decimal              @default(0) @db.Decimal(10, 2)
+  status         PartnerInvoiceStatus @default(PENDING)
+  paidAt         DateTime?
+  notes          String?
+  createdBy      String?
+  lines          PartnerInvoiceLine[]
+  bookings       Booking[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([partnerId])
+}
+
+// One booking on a partner invoice, as it was valued then.
+model PartnerInvoiceLine {
+  id               String         @id @default(uuid())
+  partnerInvoiceId String
+  partnerInvoice   PartnerInvoice @relation(fields: [partnerInvoiceId], references: [id], onDelete: Cascade)
+  bookingId        String // kept as text: the line stays if the booking is deleted
+  date             DateTime       @db.Date
+  description      String
+  quantity         Int
+  unitPrice        Decimal        @db.Decimal(10, 2)
+  total            Decimal        @db.Decimal(10, 2)
+
+  @@index([partnerInvoiceId])
 }

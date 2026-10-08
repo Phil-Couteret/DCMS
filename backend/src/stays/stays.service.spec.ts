@@ -25,6 +25,8 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     bookingSource: BookingSource.DIRECT,
     notes: null,
     stayId: null,
+    partnerId: null,
+    partner: null,
     boat: { name: 'White Magic' },
     ...extra,
   } as Parameters<typeof priceStay>[1][number];

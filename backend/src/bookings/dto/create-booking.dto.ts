@@ -47,6 +47,12 @@ export class CreateBookingDto {
   @IsEnum(BookingSource)
   bookingSource?: BookingSource;
 
+  // The partner that sold the booking; setting one makes the source PARTNER.
+  // null removes it on update.
+  @IsOptional()
+  @IsUUID()
+  partnerId?: string | null;
+
   @IsOptional()
   @IsString()
   notes?: string;

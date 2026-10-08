@@ -53,6 +53,8 @@ const BOOKING_SELECT = {
   bookingSource: true,
   notes: true,
   stayId: true,
+  partnerId: true,
+  partner: { select: { name: true } },
   boat: { select: { name: true } },
 } satisfies Prisma.BookingSelect;
 
@@ -87,7 +89,7 @@ export function priceStay(customer: StayCustomer, bookings: StayBookingRow[], co
   const unpriced = new Set<string>();
 
   const lines = bookings.map((b) => {
-    const partner = b.bookingSource === BookingSource.PARTNER;
+    const partner = b.partnerId !== null || b.bookingSource === BookingSource.PARTNER;
     const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : ACTIVITY_PRICES[b.activityType];
     if (unit === undefined && !partner) unpriced.add(ACTIVITY_NAMES[b.activityType]);
     const activityTotal = partner || unit === undefined ? new D(0) : new D(unit).times(b.participantCount);
@@ -186,7 +188,11 @@ export class StaysService {
         );
       }
       const items = invoiceItems(priced, stay.costs);
-      if (items.length === 0) throw new BadRequestException('This stay has nothing to bill');
+      // A stay of partner-paid bookings with no extras leaves the customer
+      // nothing to pay: no empty invoice.
+      if (priced.bookingsTotal.plus(priced.costsTotal).isZero()) {
+        throw new BadRequestException('Nothing in this stay is for the customer to pay');
+      }
 
       const stayId = stay.row?.id ?? (await tx.stay.create({ data: { customerId }, select: { id: true } })).id;
       await tx.booking.updateMany({ where: { id: { in: stay.bookings.map((b) => b.id) } }, data: { stayId } });
@@ -274,6 +280,7 @@ export class StaysService {
         status: l.booking.status,
         boatName: l.booking.boat.name,
         partner: l.partner,
+        partnerName: l.booking.partner?.name ?? null,
         unitPrice: l.unit === undefined ? null : money(l.unit),
         activityTotal: money(l.activityTotal),
         equipment: l.equipment.map((e) => ({ description: e.description, total: money(e.total) })),
@@ -309,7 +316,7 @@ function invoiceItems(priced: ReturnType<typeof priceStay>, costs: StayCostRow[]
         : '';
     const unitPrice = l.partner ? 0 : Number(l.unit);
     items.push({
-      description: `${name} · ${when}${l.partner ? ' · paid by partner' : rate}`,
+      description: `${name} · ${when}${l.partner ? ` · paid by ${l.booking.partner?.name ?? 'partner'}` : rate}`,
       quantity: l.booking.participantCount,
       unitPrice,
       total: new D(unitPrice).times(l.booking.participantCount).toNumber(),

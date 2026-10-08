@@ -33,6 +33,8 @@ export interface Booking {
   customer: { id: string; firstName: string; lastName: string };
   boat: { id: string; name: string; capacity: number };
   site: { id: string; nameEn: string } | null;
+  partnerId: string | null;
+  partner: { id: string; name: string } | null;
 }
 
 export type Language = "EN" | "ES" | "DE" | "FR";
@@ -240,6 +242,7 @@ export interface BookingData {
   timeSlot: TimeSlot;
   participantCount: number;
   bookingSource: string;
+  partnerId: string | null; // a partner makes the source PARTNER
   notes: string | null;
   status?: BookingStatus; // create only; later changes go through the status actions
 }
@@ -1167,6 +1170,7 @@ export interface StayBooking {
   status: BookingStatus;
   boatName: string;
   partner: boolean; // the activity is the partner's to pay
+  partnerName: string | null;
   unitPrice: string | null; // null: no price set for this activity
   activityTotal: string;
   equipment: { description: string; total: string }[];
@@ -1215,4 +1219,240 @@ export function billStay(customerId: string) {
   return apiFetch<{ stayId: string; invoiceId: string; invoiceNumber: string }>(`/stays/customer/${customerId}/bill`, {
     method: "POST",
   });
+}
+
+// Partners: agencies selling the center's activities. Commission rates are
+// percentages; money arrives as decimal strings.
+
+export interface Partner {
+  id: string;
+  name: string;
+  companyName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  commissionRate: string;
+  isActive: boolean;
+  apiKey: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnerListItem extends Partner {
+  _count: { bookings: number; customers: number };
+  outstanding: string;
+}
+
+export interface PartnerDetail extends Partner {
+  _count: { bookings: number; customers: number; invoices: number };
+}
+
+export interface PartnerData {
+  name: string;
+  companyName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  commissionRate: number;
+  isActive: boolean;
+  notes: string | null;
+}
+
+export interface PartnerCredentials {
+  apiKey: string;
+  apiSecret: string; // shown once
+}
+
+export type PartnerInvoiceStatus = "PENDING" | "PARTIAL" | "PAID" | "CANCELLED";
+
+export interface PartnerInvoice {
+  id: string;
+  invoiceNumber: string;
+  partnerId: string;
+  periodFrom: string;
+  periodTo: string;
+  dueDate: string;
+  commissionRate: string;
+  gross: string;
+  commission: string;
+  subtotal: string;
+  taxName: string;
+  taxRate: string;
+  tax: string;
+  total: string;
+  paidAmount: string;
+  status: PartnerInvoiceStatus;
+  paidAt: string | null;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnerInvoiceListItem extends PartnerInvoice {
+  partner: { id: string; name: string; companyName: string };
+}
+
+export interface PartnerInvoiceDetail extends PartnerInvoice {
+  partner: { id: string; name: string; companyName: string; contactEmail: string };
+  lines: { id: string; bookingId: string; date: string; description: string; quantity: number; unitPrice: string; total: string }[];
+}
+
+export interface PartnerInvoicePreview {
+  from: string;
+  to: string;
+  taxName: string;
+  taxRate: string;
+  commissionRate: string;
+  pendingBookings: number; // not confirmed yet, so not on the invoice
+  unpriced: string[];
+  bookings: {
+    id: string;
+    date: string;
+    timeSlot: TimeSlot;
+    activityName: string;
+    participantCount: number;
+    status: BookingStatus;
+    customerName: string;
+    unitPrice: string | null;
+    total: string | null;
+  }[];
+  gross: string;
+  commission: string;
+  subtotal: string;
+  tax: string;
+  total: string;
+}
+
+export function getPartners() {
+  return apiFetch<PartnerListItem[]>("/partners");
+}
+
+export function getPartner(id: string) {
+  return apiFetch<PartnerDetail>(`/partners/${id}`);
+}
+
+export function createPartner(data: PartnerData) {
+  return apiFetch<PartnerCredentials & { partner: Partner }>("/partners", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updatePartner(id: string, data: PartnerData) {
+  return apiFetch<Partner>(`/partners/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function regeneratePartnerCredentials(id: string) {
+  return apiFetch<PartnerCredentials>(`/partners/${id}/regenerate-credentials`, { method: "POST" });
+}
+
+export function deletePartner(id: string) {
+  return apiFetch<Partner>(`/partners/${id}`, { method: "DELETE" });
+}
+
+export function getPartnerInvoicePreview(partnerId: string, from: string, to: string) {
+  return apiFetch<PartnerInvoicePreview>(`/partners/${partnerId}/invoice-preview?${new URLSearchParams({ from, to })}`);
+}
+
+export function createPartnerInvoice(partnerId: string, from: string, to: string) {
+  return apiFetch<PartnerInvoiceDetail>(`/partners/${partnerId}/invoices`, {
+    method: "POST",
+    body: JSON.stringify({ from, to }),
+  });
+}
+
+export function getPartnerInvoices(filters: { partnerId?: string; status?: string } = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  return apiFetch<PartnerInvoiceListItem[]>(`/partner-invoices${params.size > 0 ? `?${params}` : ""}`);
+}
+
+export function getPartnerInvoice(id: string) {
+  return apiFetch<PartnerInvoiceDetail>(`/partner-invoices/${id}`);
+}
+
+export function recordPartnerPayment(id: string, paidAmount: number) {
+  return apiFetch<PartnerInvoiceDetail>(`/partner-invoices/${id}/payment`, {
+    method: "PATCH",
+    body: JSON.stringify({ paidAmount }),
+  });
+}
+
+export function cancelPartnerInvoice(id: string) {
+  return apiFetch<PartnerInvoiceDetail>(`/partner-invoices/${id}`, { method: "DELETE" });
+}
+
+// Partner portal: called with a partner session, scoped to that partner.
+
+export interface PortalMe {
+  partner: Partner;
+  stats: { customers: number; bookings: number; invoices: number; invoiced: string; commissionEarned: string; outstanding: string };
+}
+
+export interface PortalCustomer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  country: string;
+  email: string;
+}
+
+export interface PortalBooking {
+  id: string;
+  date: string; // YYYY-MM-DD
+  timeSlot: TimeSlot;
+  activityType: string;
+  activityName: string;
+  participantCount: number;
+  status: BookingStatus;
+  notes: string | null;
+  createdAt: string;
+  value: string | null; // catalogue value
+  customer: { id: string; firstName: string; lastName: string };
+  partnerInvoice: { id: string; invoiceNumber: string } | null;
+}
+
+export interface PortalCustomerData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  country: string;
+  birthdate?: string;
+}
+
+export interface PortalBookingData {
+  customerId?: string;
+  customer?: PortalCustomerData;
+  activityType: string;
+  date: string;
+  timeSlot: TimeSlot;
+  participantCount: number;
+  notes?: string;
+}
+
+export function getPortalMe() {
+  return apiFetch<PortalMe>("/partner/me");
+}
+
+export function getPortalCustomers() {
+  return apiFetch<PortalCustomer[]>("/partner/customers");
+}
+
+export function createPortalCustomer(data: PortalCustomerData) {
+  return apiFetch<PortalCustomer>("/partner/customers", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function getPortalBookings() {
+  return apiFetch<PortalBooking[]>("/partner/bookings");
+}
+
+export function createPortalBooking(data: PortalBookingData) {
+  return apiFetch<{ id: string }>("/partner/bookings", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function getPortalInvoices() {
+  return apiFetch<PartnerInvoice[]>("/partner/invoices");
+}
+
+export function getPortalInvoice(id: string) {
+  return apiFetch<PartnerInvoiceDetail>(`/partner/invoices/${id}`);
 }

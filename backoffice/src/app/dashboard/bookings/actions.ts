@@ -74,6 +74,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   const siteId = text(formData, "siteId");
   const participantCount = Number(text(formData, "participantCount"));
   const bookingSource = text(formData, "bookingSource");
+  const partnerId = text(formData, "partnerId");
   const status = text(formData, "status") as BookingStatus;
 
   if (!(activityType in ACTIVITY_LABELS)) return { error: "Choose an activity" };
@@ -83,6 +84,10 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   if (siteId && !UUID.test(siteId)) return { error: "Choose a valid dive site" };
   if (!Number.isInteger(participantCount) || participantCount < 1) return { error: "Participants must be at least 1" };
   if (!SOURCES.includes(bookingSource as (typeof SOURCES)[number])) return { error: "Choose a source" };
+  if (partnerId && !UUID.test(partnerId)) return { error: "Choose a valid partner" };
+  // The partner is invoiced for partner bookings, so one must be named.
+  if (bookingSource === "PARTNER" && !partnerId) return { error: "Choose the partner who sold this booking" };
+  if (bookingSource !== "PARTNER" && partnerId) return { error: "Set the source to Partner, or choose no partner" };
   if (!bookingId && status !== "PENDING" && status !== "CONFIRMED") return { error: "Choose a status" };
 
   const chosen = new Set(formData.getAll("equipment").map(String));
@@ -142,6 +147,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     timeSlot,
     participantCount,
     bookingSource,
+    partnerId: partnerId || null,
     notes: buildNotes(previousNotes, equipment, text(formData, "notes")),
     ...(!bookingId && { status }),
   };

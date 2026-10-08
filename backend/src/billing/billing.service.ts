@@ -93,6 +93,7 @@ export class BillingService {
         notes: true,
         invoice: { select: { id: true, invoiceNumber: true } },
         stayId: true,
+        partner: { select: { name: true } },
       },
     });
     if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
@@ -101,6 +102,11 @@ export class BillingService {
     }
     if (booking.stayId) {
       throw new ConflictException('This booking is billed with its stay; see Stays');
+    }
+    if (booking.partner) {
+      throw new ConflictException(
+        `${booking.partner.name} pays this booking's activity (partner invoice); bill any equipment with the customer's stay`,
+      );
     }
     if (booking.status === BookingStatus.CANCELLED) {
       throw new ConflictException('Cancelled bookings cannot be invoiced');

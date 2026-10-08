@@ -23,6 +23,7 @@ const INCLUDE = {
   customer: { select: { id: true, firstName: true, lastName: true } },
   boat: { select: { id: true, name: true, capacity: true } },
   site: { select: { id: true, nameEn: true } },
+  partner: { select: { id: true, name: true } },
 } satisfies Prisma.BookingInclude;
 
 type Tx = Prisma.TransactionClient;
@@ -70,7 +71,7 @@ export class BookingsService {
         } else {
           await lockBoat(tx, dto.boatId);
         }
-        return tx.booking.create({ data: { ...dto, date, status }, include: INCLUDE });
+        return tx.booking.create({ data: { ...withPartnerSource(dto), date, status }, include: INCLUDE });
       });
     } catch (e) {
       throw mapError(e);
@@ -79,6 +80,9 @@ export class BookingsService {
 
   async update(id: string, dto: UpdateBookingDto) {
     const current = await this.findOne(id);
+    if (dto.partnerId !== undefined && dto.partnerId !== current.partnerId && current.partnerInvoiceId) {
+      throw new ConflictException("This booking is on a partner invoice; cancel that invoice to change its partner");
+    }
     const date = dto.date !== undefined ? startOfUtcDay(dto.date) : undefined;
     const next = {
       boatId: dto.boatId ?? current.boatId,
@@ -95,7 +99,7 @@ export class BookingsService {
         }
         return tx.booking.update({
           where: { id },
-          data: { ...dto, ...(date && { date }) },
+          data: { ...withPartnerSource(dto), ...(date && { date }) },
           include: INCLUDE,
         });
       });
@@ -231,7 +235,7 @@ async function assertSeats(tx: Tx, slot: Slot, excludeBookingId?: string) {
 // Tries active boats in a fixed order (by id, so concurrent requests lock them
 // in the same order and cannot deadlock) and returns the first with room.
 // Each boat is locked before its seats are counted, as in assertSeats.
-async function firstBoatWithRoom(tx: Tx, slot: Omit<Slot, 'boatId'>) {
+export async function firstBoatWithRoom(tx: Tx, slot: Omit<Slot, 'boatId'>) {
   const boats = await tx.boat.findMany({
     where: { status: 'active' },
     select: { id: true },
@@ -243,6 +247,11 @@ async function firstBoatWithRoom(tx: Tx, slot: Omit<Slot, 'boatId'>) {
     if (booked + slot.participantCount <= capacity) return id;
   }
   throw new ConflictException('No available boats for this slot');
+}
+
+// A booking with a partner is a partner booking.
+function withPartnerSource<T extends { partnerId?: string | null; bookingSource?: BookingSource }>(dto: T): T {
+  return dto.partnerId ? { ...dto, bookingSource: BookingSource.PARTNER } : dto;
 }
 
 function startOfUtcDay(value: string) {

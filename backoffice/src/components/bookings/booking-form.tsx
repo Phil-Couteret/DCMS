@@ -30,6 +30,7 @@ export interface BookingFormValues {
   siteId: string;
   participantCount: number;
   bookingSource: string;
+  partnerId: string;
   status: BookingStatus;
   equipment: string[]; // "key" or "key:size"
   notes: string;
@@ -106,6 +107,7 @@ export function BookingForm({
   customers,
   boats,
   sites,
+  partners,
   cancelHref,
 }: {
   bookingId?: string;
@@ -113,6 +115,7 @@ export function BookingForm({
   customers: CustomerOption[];
   boats: Boat[];
   sites: DiveSiteOption[];
+  partners: { id: string; name: string }[]; // active ones, plus the booking's own
   cancelHref: string;
 }) {
   const [state, onSubmit, pending] = useFormAction<BookingFormState>(saveBooking, null);
@@ -271,6 +274,17 @@ export function BookingForm({
               {SOURCES.map((s) => (
                 <option key={s} value={s}>
                   {SOURCE_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={label}>
+            Partner (partner bookings)
+            <select name="partnerId" defaultValue={initial.partnerId} className={control}>
+              <option value="">None</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
             </select>

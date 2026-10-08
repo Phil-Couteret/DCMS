@@ -1,17 +1,26 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth, PARTNER_ROLE } from "@/auth";
 
-// Next.js 16 renamed the middleware file convention to proxy. Every page
-// except /login needs a session; signed-in users visiting /login go to the
-// dashboard instead.
+// Next.js 16 renamed the middleware file convention to proxy. Staff pages need
+// a staff session and the partner portal (/partner) a partner session; each
+// login page sends a signed-in visitor to their own home instead.
 export default auth((req) => {
-  const isLogin = req.nextUrl.pathname === "/login";
-  if (!req.auth && !isLogin) {
-    return NextResponse.redirect(new URL("/login", req.nextUrl));
+  const path = req.nextUrl.pathname;
+  const role = req.auth?.user?.role;
+  const partner = role === PARTNER_ROLE;
+  const to = (target: string) => NextResponse.redirect(new URL(target, req.nextUrl));
+
+  if (path === "/partner" || path.startsWith("/partner/")) {
+    if (path === "/partner/login") return req.auth ? to(partner ? "/partner" : "/dashboard") : undefined;
+    if (!req.auth) return to("/partner/login");
+    if (!partner) return to("/dashboard");
+    return;
   }
-  if (req.auth && isLogin) {
-    return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
-  }
+
+  const isLogin = path === "/login";
+  if (partner) return to("/partner");
+  if (!req.auth && !isLogin) return to("/login");
+  if (req.auth && isLogin) return to("/dashboard");
 });
 
 export const config = {
