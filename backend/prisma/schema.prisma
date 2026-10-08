@@ -120,7 +120,7 @@ model CenterSettings {
   phone     String?
   email     String?
   website   String?
-  // Percentage added to net prices on invoices, e.g. 7.00 for IGIC's general rate.
+  // Percentage added to net prices on invoices, e.g. 7.00 for 7%.
   taxRate   Decimal  @default(7.00) @db.Decimal(5, 2)
   taxName   String   @default("IGIC")
   updatedAt DateTime @updatedAt

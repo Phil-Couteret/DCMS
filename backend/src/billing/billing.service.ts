@@ -79,7 +79,7 @@ export class BillingService {
   // Builds the invoice from the booking and the server-side price list: one
   // line for the activity (price x participants), one per equipment item from
   // a guest booking's notes (the full package when all five are chosen), the
-  // tax from the settings (IGIC by default) on the subtotal, due on the dive date. A price in the notes is ignored:
+  // tax from the settings on the subtotal, due on the dive date. A price in the notes is ignored:
   // the guest's browser calculated it.
   async createFromBooking(bookingId: string) {
     const booking = await this.prisma.booking.findUnique({

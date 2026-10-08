@@ -1,6 +1,6 @@
 import { ActivityType, CustomerType } from '../generated/prisma/enums.js';
 
-// Net prices in EUR, excluding tax (IGIC; its rate is in the center
+// Net prices in EUR, excluding tax (its name and rate are in the center
 // settings). They must match the public site's catalogue
 // (frontend/src/lib/booking-catalog.ts) exactly: invoices are built from
 // these, never from a price a browser sent.

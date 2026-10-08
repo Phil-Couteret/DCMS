@@ -6,7 +6,7 @@ import { InvoiceStatusBadge } from "@/components/billing/invoice-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError, getInvoice, type InvoiceStatus, type Payment } from "@/lib/api";
+import { ApiError, getInvoice, getSettings, type InvoiceStatus, type Payment } from "@/lib/api";
 import { eur, formatDateTime, formatDay, METHOD_LABELS, PAYMENT_STATUS_STYLES } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +69,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     throw e;
   }
   const c = invoice.currency;
+  // The tax name comes from the center settings; the page still loads if they do not.
+  const taxName = (await getSettings().catch(() => null))?.taxName ?? "Tax";
   const hasSucceeded = invoice.payments.some((p) => p.status === "SUCCEEDED");
   const cancellable = (invoice.status === "DRAFT" || invoice.status === "SENT") && !hasSucceeded;
   const canPay = invoice.status !== "PAID" && invoice.status !== "CANCELLED" && Number(invoice.balance) > 0;
@@ -155,7 +157,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 <dd className="tabular-nums">{eur(invoice.subtotal, c)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-zinc-500">IGIC</dt>
+                <dt className="text-zinc-500">{taxName}</dt>
                 <dd className="tabular-nums">{eur(invoice.tax, c)}</dd>
               </div>
               <div className="flex justify-between">

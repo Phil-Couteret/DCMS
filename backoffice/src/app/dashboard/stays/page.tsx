@@ -159,7 +159,7 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
 export default async function StaysPage() {
   const today = centerNow().isoDate;
   let stays: Stay[];
-  let taxName = "IGIC";
+  let taxName: string;
   try {
     const [list, settings] = await Promise.all([getStays(), getSettings()]);
     stays = list;
