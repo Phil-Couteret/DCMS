@@ -57,3 +57,8 @@ export function SidebarNav() {
 export function SettingsNavLink() {
   return <NavLink href="/dashboard/settings" label="Settings" />;
 }
+
+// After Settings, for admins only.
+export function BreachesNavLink() {
+  return <NavLink href="/dashboard/breaches" label="Data Breaches" />;
+}

@@ -44,6 +44,7 @@ model User {
   role         Role      @default(CUSTOMER)
   customer     Customer?
   staff        Staff?
+  dataBreaches DataBreach[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
@@ -765,4 +766,47 @@ model PartnerInvoiceLine {
   total            Decimal        @db.Decimal(10, 2)
 
   @@index([partnerInvoiceId])
+}
+
+enum BreachSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Moves forward only: DETECTED → ASSESSED → REPORTED → RESOLVED, steps may
+// be skipped (a breach unlikely to harm anyone need not be reported).
+enum BreachStatus {
+  DETECTED
+  ASSESSED
+  REPORTED
+  RESOLVED
+}
+
+// The GDPR data breach register (Art. 33(5)). A breach must be reported to
+// the authority within 72 hours of detectedAt; one still DETECTED or ASSESSED
+// after that, and not reported, is overdue.
+model DataBreach {
+  id                  String         @id @default(uuid())
+  title               String
+  detectedAt          DateTime
+  severity            BreachSeverity
+  status              BreachStatus   @default(DETECTED)
+  description         String         @db.Text
+  // Array of data type keys, e.g. ["customer_data", "medical_data"].
+  affectedDataTypes   Json
+  estimatedAffected   Int?
+  reportedToAuthority Boolean        @default(false)
+  reportedAt          DateTime?
+  authorityReference  String?
+  resolutionDetails   String?        @db.Text
+  resolutionDate      DateTime?
+  createdById         String
+  createdBy           User           @relation(fields: [createdById], references: [id])
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([status])
+  @@index([detectedAt])
 }

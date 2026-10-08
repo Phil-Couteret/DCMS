@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { BoatsModule } from './boats/boats.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
+import { BreachesModule } from './breaches/breaches.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DiveLogsModule } from './dive-logs/dive-logs.module.js';
 import { DiveSitesModule } from './dive-sites/dive-sites.module.js';
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module.js';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     UsersModule,
+    BreachesModule,
     AuthModule,
     CustomersModule,
     BoatsModule,

@@ -110,9 +110,18 @@ export class UsersService {
   async remove(id: string, actorId: string) {
     if (id === actorId) throw new BadRequestException('You cannot delete your own account');
     const user = await this.findOne(id);
-    const { count } = await this.prisma.user.deleteMany({
-      where: { id, staff: { is: null }, customer: { is: null } },
-    });
+    let count: number;
+    try {
+      ({ count } = await this.prisma.user.deleteMany({
+        where: { id, staff: { is: null }, customer: { is: null } },
+      }));
+    } catch (e) {
+      // Records that name the user as their author, such as data breaches.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
+        throw new ConflictException('This user is recorded as the author of data breach records and cannot be deleted');
+      }
+      throw e;
+    }
     if (count === 0) {
       const profile = user.staffId ? 'a staff profile' : 'a customer profile';
       throw new ConflictException(`This user has ${profile} and cannot be deleted`);

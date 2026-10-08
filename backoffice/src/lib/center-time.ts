@@ -94,3 +94,35 @@ export function centerClock(iso: string) {
     hourCycle: "h23",
   }).format(new Date(iso));
 }
+
+// "2026-07-01T09:30" for an instant, in center time: the value of a
+// datetime-local input. centerLocalToUtc turns it back.
+export function centerDateTimeInput(iso: string) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: CENTER_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(iso))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+// "8 Oct 2026, 09:30" for an instant, in center time.
+export function centerDateTime(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: CENTER_TIME_ZONE,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(iso));
+}

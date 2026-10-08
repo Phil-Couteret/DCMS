@@ -1520,3 +1520,74 @@ export function getPortalInvoices() {
 export function getPortalInvoice(id: string) {
   return apiFetch<PartnerInvoiceDetail>(`/partner/invoices/${id}`);
 }
+
+// GDPR data breach register (admins only).
+
+export type BreachSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type BreachStatus = "DETECTED" | "ASSESSED" | "REPORTED" | "RESOLVED";
+
+export interface DataBreach {
+  id: string;
+  title: string;
+  detectedAt: string;
+  severity: BreachSeverity;
+  status: BreachStatus;
+  description: string;
+  affectedDataTypes: string[];
+  estimatedAffected: number | null;
+  reportedToAuthority: boolean;
+  reportedAt: string | null;
+  authorityReference: string | null;
+  resolutionDetails: string | null;
+  resolutionDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: { id: string; name: string | null; email: string };
+  reportingDeadline: string; // detectedAt + 72 hours
+  overdue: boolean; // DETECTED or ASSESSED, unreported, past the deadline
+}
+
+export interface BreachData {
+  title: string;
+  detectedAt: string; // ISO instant
+  severity: BreachSeverity;
+  description: string;
+  affectedDataTypes: string[];
+  estimatedAffected: number | null;
+}
+
+// Edits; the reporting fields once reported, the resolution fields once resolved.
+export interface BreachUpdate extends BreachData {
+  reportedAt?: string;
+  authorityReference?: string | null;
+  resolutionDetails?: string;
+  resolutionDate?: string;
+}
+
+export interface BreachStatusChange {
+  status: BreachStatus;
+  reportedAt?: string;
+  authorityReference?: string;
+  resolutionDetails?: string;
+  resolutionDate?: string;
+}
+
+export function getBreaches(status?: BreachStatus) {
+  return apiFetch<DataBreach[]>(`/breaches${status ? `?status=${status}` : ""}`);
+}
+
+export function createBreach(data: BreachData) {
+  return apiFetch<DataBreach>("/breaches", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateBreach(id: string, data: BreachUpdate) {
+  return apiFetch<DataBreach>(`/breaches/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function changeBreachStatus(id: string, data: BreachStatusChange) {
+  return apiFetch<DataBreach>(`/breaches/${id}/status`, { method: "POST", body: JSON.stringify(data) });
+}
+
+export function deleteBreach(id: string) {
+  return apiFetch<DataBreach>(`/breaches/${id}`, { method: "DELETE" });
+}
