@@ -4,7 +4,7 @@ import { BookingStatus, InvoiceStatus, LocationType, PaymentStatus } from '../ge
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DEFAULT_SETTINGS, seedTenantDefaults } from '../config/tenant-defaults.js';
 import { centerToday, dateOnly } from '../financial/center-day.js';
-import { runInTenant } from '../tenant/tenant-context.js';
+import { runInTenant, runUnscoped } from '../tenant/tenant-context.js';
 import { TenantsService } from '../tenant/tenants.service.js';
 import { CreateInvitationDto } from '../invitations/dto/create-invitation.dto.js';
 import { InvitationsService } from '../invitations/invitations.service.js';
@@ -81,22 +81,33 @@ export class SuperadminService {
     private readonly invitations: InvitationsService,
   ) {}
 
-  async listTenants() {
-    const [rows, storage] = await Promise.all([
-      this.prisma.tenant.findMany({ select: tenantSelect, orderBy: { name: 'asc' } }),
-      this.storage(),
-    ]);
-    return rows.map((r) => toView(r, storage.get(r.id) ?? 0));
+  // The console reads every tenant's rows (counts, storage): platform reads,
+  // explicitly unscoped, which row-level security lets through
+  // (app.rls_bypass; see tenant-pool.ts).
+  listTenants() {
+    return runUnscoped(async () => {
+      const [rows, storage] = await Promise.all([
+        this.prisma.tenant.findMany({ select: tenantSelect, orderBy: { name: 'asc' } }),
+        this.storage(),
+      ]);
+      return rows.map((r) => toView(r, storage.get(r.id) ?? 0));
+    });
   }
 
-  async getTenant(id: string) {
-    const row = await this.prisma.tenant.findUnique({ where: { id }, select: tenantSelect });
-    if (!row) throw new NotFoundException('Tenant not found');
-    return toView(row, (await this.storage(id)).get(id) ?? 0);
+  getTenant(id: string) {
+    return runUnscoped(async () => {
+      const row = await this.prisma.tenant.findUnique({ where: { id }, select: tenantSelect });
+      if (!row) throw new NotFoundException('Tenant not found');
+      return toView(row, (await this.storage(id)).get(id) ?? 0);
+    });
   }
 
   // The platform at a glance: centers, customers, bookings and storage.
-  async overview() {
+  overview() {
+    return runUnscoped(() => this.platformTotals());
+  }
+
+  private async platformTotals() {
     const [tenants, active, customers, bookings, storage] = await Promise.all([
       this.prisma.tenant.count(),
       this.prisma.tenant.count({ where: { isActive: true } }),
@@ -156,7 +167,7 @@ export class SuperadminService {
         const invite = firstAdmin
           ? await this.invitations.create(tx, { tenantId: id, email: firstAdmin.email, name: firstAdmin.name, invitedById: actorId })
           : null;
-        const tenant = await tx.tenant.findUniqueOrThrow({ where: { id }, select: tenantSelect });
+        const tenant = await runUnscoped(() => tx.tenant.findUniqueOrThrow({ where: { id }, select: tenantSelect }));
         await recordPlatformAction(tx, {
           userId: actorId,
           action: 'tenant.create',
@@ -228,7 +239,7 @@ export class SuperadminService {
     if (Object.keys(changes).length === 0) return current;
     try {
       const row = await this.prisma.$transaction(async (tx) => {
-        const tenant = await tx.tenant.update({ where: { id }, data, select: tenantSelect });
+        const tenant = await runUnscoped(() => tx.tenant.update({ where: { id }, data, select: tenantSelect }));
         await recordPlatformAction(tx, {
           userId: actorId,
           action: 'tenant.update',

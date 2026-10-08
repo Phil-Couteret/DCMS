@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { runUnscoped } from '../src/tenant/tenant-context.js';
 import { corsOptions, corsOriginAllowed, slugFromHost } from '../src/tenant/tenant-host.js';
 
 // The tenant from the host (docs/MULTITENANT_PLAN.md, step 4): public routes
@@ -62,7 +63,7 @@ beforeAll(async () => {
   for (const key of ['j', 'k'] as const) {
     const t = await prisma.tenant.create({ data: { name: `Host ${key} ${run}`, slug: slug[key] } });
     tenant[key] = t.id;
-    await prisma.$executeRaw`INSERT INTO "CenterSettings" ("tenantId", "name", "updatedAt") VALUES (${t.id}, ${`Center ${key}`}, now())`;
+    await runUnscoped(() => prisma.$executeRaw`INSERT INTO "CenterSettings" ("tenantId", "name", "updatedAt") VALUES (${t.id}, ${`Center ${key}`}, now())`);
   }
   const passwordHash = await bcrypt.hash('Host-pass-1', 4);
   const user = await prisma.user.create({
@@ -73,7 +74,9 @@ beforeAll(async () => {
   tokenJ = await app.get(JwtService).signAsync({ sub: user.id, email: user.email, role: 'ADMIN', tenantId: tenant.j });
 }, 60_000);
 
-afterAll(async () => {
+// Cleanup crosses tenants: unscoped, which row-level security lets through.
+afterAll(() =>
+  runUnscoped(async () => {
   if (prisma) {
     const ids = Object.values(tenant).filter(Boolean);
     await prisma.$executeRaw`DELETE FROM "CenterSettings" WHERE "tenantId" = ANY(${ids}::text[])`;
@@ -81,7 +84,8 @@ afterAll(async () => {
     await prisma.tenant.deleteMany({ where: { id: { in: ids } } });
   }
   await app?.close();
-});
+  }),
+);
 
 describe('host parsing', () => {
   it('reads the slug one level below a tenant domain', () => {

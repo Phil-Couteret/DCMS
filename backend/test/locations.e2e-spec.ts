@@ -6,6 +6,7 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { runUnscoped } from '../src/tenant/tenant-context.js';
 
 // Locations: their management, assigning boats and dive sites to them,
 // bookings taking their boat's location, and the location filters of the
@@ -99,7 +100,9 @@ beforeAll(async () => {
   instructor = await jwt.signAsync({ sub: inst.id, email: inst.email, role: 'INSTRUCTOR', tenantId: tenantIds[0] });
 }, 60_000);
 
-afterAll(async () => {
+// Cleanup crosses tenants: unscoped, which row-level security lets through.
+afterAll(() =>
+  runUnscoped(async () => {
   if (prisma) {
     const tables = await prisma.$queryRaw<{ table_name: string }[]>`
       SELECT table_name FROM information_schema.columns
@@ -119,7 +122,8 @@ afterAll(async () => {
     await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
   }
   await app?.close();
-});
+  }),
+);
 
 describe('locations', () => {
   const ids: Record<string, string> = {};
@@ -208,8 +212,10 @@ describe('locations', () => {
     await ok('DELETE', `/locations/${ids.north}`, admin);
     expect((await ok('GET', `/boats/${ids.boat}`, admin)).locationId).toBeNull();
     expect((await ok('GET', `/dive-sites/${ids.site}`, admin)).locationId).toBeNull();
-    const bookings = await prisma.$queryRaw<{ locationId: string | null }[]>`
-      SELECT "locationId" FROM "Booking" WHERE "tenantId" = ${tenantIds[0]}`;
+    const bookings = await runUnscoped(
+      () => prisma.$queryRaw<{ locationId: string | null }[]>`
+        SELECT "locationId" FROM "Booking" WHERE "tenantId" = ${tenantIds[0]}`,
+    );
     expect(bookings.length).toBe(1);
     expect(bookings[0].locationId).toBeNull();
   });

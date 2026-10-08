@@ -7,6 +7,7 @@ import bcrypt from 'bcrypt';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { runUnscoped } from '../src/tenant/tenant-context.js';
 
 // Platform administration and onboarding (docs/MULTITENANT_PLAN.md, step 5):
 // a center created in one go with its first location and an invitation for
@@ -60,7 +61,9 @@ beforeAll(async () => {
     : '';
 }, 60_000);
 
-afterAll(async () => {
+// Cleanup crosses tenants: unscoped, which row-level security lets through.
+afterAll(() =>
+  runUnscoped(async () => {
   if (prisma && tenantId) {
     const tables = await prisma.$queryRaw<{ table_name: string }[]>`
       SELECT table_name FROM information_schema.columns
@@ -80,7 +83,8 @@ afterAll(async () => {
   }
   if (prisma) await prisma.user.deleteMany({ where: { email: { endsWith: `${run}@example.test` } } });
   await app?.close();
-});
+  }),
+);
 
 describe('onboarding', () => {
   let link = '';

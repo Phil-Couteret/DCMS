@@ -22,7 +22,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:e2e:rls": "DCMS_APP_TENANT_FILTER=off vitest run --config ./vitest.config.e2e.ts test/tenant-isolation.e2e-spec.ts test/rls.e2e-spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

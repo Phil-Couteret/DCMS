@@ -225,6 +225,15 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Unlocks:** a single missed filter in application code can no longer leak data. This is the hardening the old docs called "optional". Here it is recommended before a second paying tenant goes live.
 
+**Status (2026-10-09): done, except creating the app role**, which needs a database superuser (see below). What was built (migration `enable_row_level_security`):
+
+- **Policies** on all 35 tenant tables, enabled and forced (so they bind the tables' owner too): a row is visible and writable only when its `tenantId` equals the session setting `app.tenant_id`. With no tenant set, a tenant table shows and accepts nothing.
+- **Setting the variable:** `TenantPool` (`src/prisma/tenant-pool.ts`), the pool behind Prisma, sets `app.tenant_id` from the request context before each statement (only when it changes; again after a rollback or an error). Following the context statement by statement, rather than once per transaction, covers transactions that switch tenant (onboarding seeds the new tenant inside the superadmin's transaction). Transaction-ending statements are never preceded by a setting, so a failed transaction is always rolled back.
+- **Platform reads:** `runUnscoped` also sets `app.rls_bypass = 'on'`, which the policies accept. Only the superadmin console's counts and storage, a partner's sign-in by API key, and the shared-account check use it. This is a session setting, not a role: the plan's "bypass role" would need a superuser to create.
+- **Roles:** `prisma/sql/create-app-role.sql` (to run as `postgres`) creates `dcms_app`, which owns no table and so cannot disable or un-force the policies; the API then connects as it, and migrations keep running as the owner (`MIGRATION_DATABASE_URL`, read by `prisma7.config.ts`). Until it is run, the API connects as the owner, and the forced policies still apply to it.
+- **Proof:** `npm run test:e2e:rls` runs the isolation suite and `test/rls.e2e-spec.ts` with the Prisma extension switched off (test-only `DCMS_APP_TENANT_FILTER=off`): row-level security alone keeps the tenants apart. `test/rls.e2e-spec.ts` also checks policy coverage, raw SQL across tenants, tenant switches inside a transaction, the pool after failed transactions, and concurrent requests.
+- **Migrations that change tenant data** must first `SET LOCAL app.rls_bypass = 'on'` (or set `app.tenant_id`). Plain `psql` sessions see no tenant rows without it.
+
 ### Step 7: Infrastructure, commercial and lifecycle (XL, splittable)
 
 **Build**, in independent parts:

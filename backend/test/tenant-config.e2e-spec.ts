@@ -8,7 +8,7 @@ import { AppModule } from '../src/app.module.js';
 import { centerToday } from '../src/financial/center-day.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { nextNumber } from '../src/tenant/numbering.js';
-import { runInTenant } from '../src/tenant/tenant-context.js';
+import { runInTenant, runUnscoped } from '../src/tenant/tenant-context.js';
 
 // Per-tenant configuration (docs/MULTITENANT_PLAN.md, step 3): a new
 // tenant's default settings and prices, its own invoice series and prefix,
@@ -101,7 +101,9 @@ beforeAll(async () => {
   }
 }, 60_000);
 
-afterAll(async () => {
+// Cleanup crosses tenants: unscoped, which row-level security lets through.
+afterAll(() =>
+  runUnscoped(async () => {
   if (prisma) {
     const ids = Object.values(tenants).map((t) => t.id);
     const tables = await prisma.$queryRaw<{ table_name: string }[]>`
@@ -122,7 +124,8 @@ afterAll(async () => {
     await prisma.tenant.deleteMany({ where: { id: { in: ids } } });
   }
   await app?.close();
-});
+  }),
+);
 
 describe('a new tenant', () => {
   it('starts with its settings and the default price list', async () => {

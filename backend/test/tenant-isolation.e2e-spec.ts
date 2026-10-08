@@ -167,7 +167,9 @@ beforeAll(async () => {
   });
 }, 60_000);
 
-afterAll(async () => {
+// Cleanup crosses tenants: unscoped, which row-level security lets through.
+afterAll(() =>
+  runUnscoped(async () => {
   if (prisma && tenantB) {
     // Every row of tenant B, children before parents: retried until the
     // foreign keys allow each delete.
@@ -189,7 +191,8 @@ afterAll(async () => {
     await prisma.tenant.delete({ where: { id: tenantB } });
   }
   await app?.close();
-});
+  }),
+);
 
 const LISTS = [
   'boats',
@@ -311,7 +314,15 @@ describe('tenant isolation', () => {
   });
 
   it('a public route without a tenant is refused once there are several tenants', async () => {
-    expect((await call('GET', '/dive-sites')).status).toBe(400);
+    const { status, data } = await call('GET', '/dive-sites');
+    if (process.env.DCMS_APP_TENANT_FILTER === 'off') {
+      // Row-level security alone (npm run test:e2e:rls): no error from the
+      // app, but no tenant's rows either.
+      expect([200, 400]).toContain(status);
+      if (status === 200) expect(data).toEqual([]);
+    } else {
+      expect(status).toBe(400);
+    }
   });
 
   it('an unknown tenant id is refused', async () => {

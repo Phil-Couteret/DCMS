@@ -8,7 +8,10 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
+  // Migrations run as the tables' owner. When the API connects as its own
+  // non-owner role (prisma/sql/create-app-role.sql), MIGRATION_DATABASE_URL
+  // is the owner's connection; otherwise both are DATABASE_URL.
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["MIGRATION_DATABASE_URL"] ?? process.env["DATABASE_URL"],
   },
 });

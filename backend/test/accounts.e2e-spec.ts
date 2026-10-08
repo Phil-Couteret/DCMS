@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { runUnscoped } from '../src/tenant/tenant-context.js';
 
 // Accounts, memberships and the token (docs/MULTITENANT_PLAN.md, step 2):
 // the "which center?" login, per-tenant roles, and the superadmin console.
@@ -81,7 +82,9 @@ beforeAll(async () => {
   await user('super', [], true);
 });
 
-afterAll(async () => {
+// Cleanup crosses tenants: unscoped, which row-level security lets through.
+afterAll(() =>
+  runUnscoped(async () => {
   if (prisma) {
     await prisma.user.deleteMany({ where: { email: { endsWith: `${run}@example.test` } } });
     await prisma.platformAuditLog.deleteMany({ where: { tenantId: { in: created } } });
@@ -93,7 +96,8 @@ afterAll(async () => {
     await prisma.tenant.deleteMany({ where: { id: { in: created } } });
   }
   await app?.close();
-});
+  }),
+);
 
 describe('login and the token', () => {
   it('one membership: a token for that tenant at once', async () => {
