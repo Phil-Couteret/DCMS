@@ -1,5 +1,4 @@
 import type { EquipmentCondition, EquipmentStatus } from "@/lib/api";
-import { centerNow } from "@/lib/center-time";
 
 export const EQUIPMENT_TYPES = [
   "wetsuit",
@@ -77,14 +76,10 @@ export const STATUS_ACTIONS: Record<EquipmentStatus, { to: EquipmentStatus; labe
   DECOMMISSIONED: [],
 };
 
-// Overdue: a next-maintenance date before today, Canary time. Decommissioned
-// items are out of service and never count.
-export function isOverdue(item: { status: EquipmentStatus; nextMaintenance: string | null }) {
-  return (
-    item.status !== "DECOMMISSIONED" &&
-    item.nextMaintenance !== null &&
-    item.nextMaintenance.slice(0, 10) < centerNow().isoDate
-  );
+// Overdue: a next-maintenance date before today (an ISO date, center time).
+// Decommissioned items are out of service and never count.
+export function isOverdue(item: { status: EquipmentStatus; nextMaintenance: string | null }, today: string) {
+  return item.status !== "DECOMMISSIONED" && item.nextMaintenance !== null && item.nextMaintenance.slice(0, 10) < today;
 }
 
 export function formatDay(iso: string | null) {
@@ -94,7 +89,7 @@ export function formatDay(iso: string | null) {
   );
 }
 
-export function formatEur(value: string | number | null) {
+export function formatCost(value: string | number | null, currency: string) {
   if (value === null) return "—";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(Number(value));
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(Number(value));
 }

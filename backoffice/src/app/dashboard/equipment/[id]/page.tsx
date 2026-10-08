@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, getEquipmentItem, getMaintenanceLogs } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
-import { formatDay, formatEur, isOverdue, typeLabel } from "@/lib/equipment";
+import { formatDay, formatCost, isOverdue, typeLabel } from "@/lib/equipment";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export default async function EquipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { timeZone, currency } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -37,7 +39,8 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
     (value) => ({ ok: true as const, value }),
     (e: Error) => ({ ok: false as const, error: e.message }),
   );
-  const overdue = isOverdue(item);
+  const today = centerNow(timeZone).isoDate;
+  const overdue = isOverdue(item, today);
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -74,7 +77,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
                 <span className="font-mono text-xs">{item.serialNumber ?? "—"}</span>
               </Row>
               <Row label="Purchased">
-                {formatDay(item.purchaseDate)} · {formatEur(item.purchaseCost)}
+                {formatDay(item.purchaseDate)} · {formatCost(item.purchaseCost, currency)}
               </Row>
               <Row label="Last maintenance">{formatDay(item.lastMaintenance)}</Row>
               <Row label="Next maintenance">
@@ -101,7 +104,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
               <CardTitle>Log maintenance</CardTitle>
             </CardHeader>
             <CardContent>
-              <LogMaintenanceForm equipmentId={item.id} today={centerNow().isoDate} />
+              <LogMaintenanceForm equipmentId={item.id} today={today} currency={currency} />
             </CardContent>
           </Card>
         </div>
@@ -132,7 +135,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
                     <TableCell className="capitalize">{l.type}</TableCell>
                     <TableCell>{l.technician}</TableCell>
                     <TableCell className="max-w-md whitespace-pre-wrap">{l.notes ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatEur(l.cost)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatCost(l.cost, currency)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

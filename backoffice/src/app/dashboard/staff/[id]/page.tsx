@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError, getStaffMember } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
 import { formatDay, nextDays, TYPE_LABELS } from "@/lib/staff";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
+  const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -33,7 +35,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
     throw e;
   }
 
-  const today = centerNow().isoDate;
+  const today = centerNow(timeZone).isoDate;
   const byDay = new Map(member.availability.map((a) => [a.date.slice(0, 10), a]));
   const week = nextDays(today, 7);
 

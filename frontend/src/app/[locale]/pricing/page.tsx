@@ -23,9 +23,6 @@ export default async function PricingPage({
   setRequestLocale(locale);
   const t = await getTranslations("pricing");
   const format = await getFormatter();
-  // Cents only when there are any: €45, €47.50.
-  const eur = (amount: number) =>
-    format.number(amount, { style: "currency", currency: "EUR", minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 });
 
   const sectionTitle = "text-2xl font-bold tracking-tight text-slate-900";
 
@@ -48,6 +45,11 @@ export default async function PricingPage({
       </main>
     );
   }
+  // In the center's currency, cents only when there are any: €45, €47.50.
+  const { currency } = prices;
+  const money = (amount: number) =>
+    format.number(amount, { style: "currency", currency, minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 });
+
 
   const fullPackage = prices.equipment.fullPackage;
   const itemsTotal = EQUIPMENT.reduce((sum, e) => sum + prices.equipment[e.priceKey], 0);
@@ -77,7 +79,7 @@ export default async function PricingPage({
                 className="flex flex-col rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
               >
                 <h3 className="text-lg font-semibold text-slate-900">{t(`items.${a.key}`)}</h3>
-                <p className="mt-2 text-3xl font-bold text-blue-900">{eur(activityPrice(prices, a)!)}</p>
+                <p className="mt-2 text-3xl font-bold text-blue-900">{money(activityPrice(prices, a)!)}</p>
                 <Link
                   href="/booking"
                   className="mt-6 inline-flex items-center justify-center self-start rounded-full bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
@@ -107,7 +109,7 @@ export default async function PricingPage({
                     <th scope="row" className="px-4 py-3 font-normal text-slate-900">
                       {t(`items.${e.key}`)}
                     </th>
-                    <td className="px-4 py-3 text-right font-medium text-slate-900">{eur(prices.equipment[e.priceKey])}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-900">{money(prices.equipment[e.priceKey])}</td>
                   </tr>
                 ))}
                 <tr className="bg-sky-50">
@@ -116,10 +118,10 @@ export default async function PricingPage({
                     <span className="block text-xs text-slate-600">{t("items.fullPackageNote")}</span>
                   </th>
                   <td className="px-4 py-3 text-right">
-                    <span className="font-semibold text-slate-900">{eur(fullPackage)}</span>
+                    <span className="font-semibold text-slate-900">{money(fullPackage)}</span>
                     {itemsTotal > fullPackage && (
                       <span className="block text-xs font-medium text-emerald-700">
-                        {t("save", { amount: eur(itemsTotal - fullPackage) })}
+                        {t("save", { amount: money(itemsTotal - fullPackage) })}
                       </span>
                     )}
                   </td>
@@ -143,12 +145,12 @@ export default async function PricingPage({
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-lg font-semibold text-slate-900">{t(`items.${p.key}`)}</h3>
                     <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                      {t("save", { amount: eur(p.save) })}
+                      {t("save", { amount: money(p.save) })}
                     </span>
                   </div>
-                  <p className="mt-2 text-3xl font-bold text-blue-900">{eur(p.price)}</p>
+                  <p className="mt-2 text-3xl font-bold text-blue-900">{money(p.price)}</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {t("perDive", { amount: eur(p.price / p.dives) })}
+                    {t("perDive", { amount: money(p.price / p.dives) })}
                   </p>
                   <Link
                     href="/booking"

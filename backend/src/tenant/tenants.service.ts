@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { setTenantId, tenantStore } from './tenant-context.js';
+import { currentTenantId, isPlatform, setTenantId, TenantRequiredError, tenantStore } from './tenant-context.js';
 
 const CACHE_MS = 30_000;
 
@@ -49,6 +49,18 @@ export class TenantsService {
     const store = tenantStore();
     if (store) store.headerTenantId = tenantId;
     setTenantId(tenantId);
+  }
+
+  // The request's tenant, applying the transitional single-tenant fallback
+  // (as the Prisma extension does for queries) for code that needs the id
+  // before running any query. Throws (400) when there is none.
+  async resolve(): Promise<string> {
+    const current = currentTenantId();
+    if (current) return current;
+    const only = isPlatform() ? null : await this.singleActiveTenant();
+    if (!only) throw new TenantRequiredError();
+    setTenantId(only);
+    return only;
   }
 
   forget(tenantId?: string) {

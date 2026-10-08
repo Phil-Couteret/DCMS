@@ -14,6 +14,7 @@ import {
   SEVERITY_STYLES,
 } from "@/lib/breaches";
 import { centerDateTime } from "@/lib/center-time";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +45,12 @@ function Stat({ label, value, tone = "text-zinc-900" }: { label: string; value: 
 }
 
 // The 72-hour deadline, and how it stands.
-function Deadline({ breach }: { breach: DataBreach }) {
+async function Deadline({ breach }: { breach: DataBreach }) {
+  const { timeZone } = await centerLocale();
   if (breach.overdue) {
     return (
       <>
-        {centerDateTime(breach.reportingDeadline)}
+        {centerDateTime(timeZone, breach.reportingDeadline)}
         <span className="mt-1 block">
           <Pill className="bg-red-600 text-white">Overdue</Pill>
         </span>
@@ -61,7 +63,7 @@ function Deadline({ breach }: { breach: DataBreach }) {
   const left = hoursLeft(breach.reportingDeadline);
   return (
     <>
-      {centerDateTime(breach.reportingDeadline)}
+      {centerDateTime(timeZone, breach.reportingDeadline)}
       <span className={`block text-xs ${left < 24 ? "font-medium text-amber-700" : "text-zinc-500"}`}>
         {left < 1 ? "Less than 1 hour left" : `${left} h left`}
       </span>
@@ -78,13 +80,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Details({ breach, editHref }: { breach: DataBreach; editHref: string }) {
+async function Details({ breach, editHref }: { breach: DataBreach; editHref: string }) {
+  const { timeZone } = await centerLocale();
   const dataTypes = breach.affectedDataTypes.map((t) => DATA_TYPE_LABELS[t] ?? t);
   return (
     <>
       {breach.overdue && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-800 ring-1 ring-red-200">
-          Overdue: the 72-hour deadline to report this breach passed on {centerDateTime(breach.reportingDeadline)}.
+          Overdue: the 72-hour deadline to report this breach passed on {centerDateTime(timeZone, breach.reportingDeadline)}.
         </p>
       )}
       <div className="flex flex-wrap gap-2">
@@ -92,7 +95,7 @@ function Details({ breach, editHref }: { breach: DataBreach; editHref: string })
         <Pill className={SEVERITY_STYLES[breach.severity]}>{SEVERITY_LABELS[breach.severity]} severity</Pill>
       </div>
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Detected">{centerDateTime(breach.detectedAt)}</Field>
+        <Field label="Detected">{centerDateTime(timeZone, breach.detectedAt)}</Field>
         <Field label="Report deadline">
           <Deadline breach={breach} />
         </Field>
@@ -102,19 +105,19 @@ function Details({ breach, editHref }: { breach: DataBreach; editHref: string })
           <Field label="Description">{breach.description}</Field>
         </div>
         <Field label="Reported to the authority">
-          {breach.reportedToAuthority && breach.reportedAt ? centerDateTime(breach.reportedAt) : "No"}
+          {breach.reportedToAuthority && breach.reportedAt ? centerDateTime(timeZone, breach.reportedAt) : "No"}
         </Field>
         <Field label="Authority reference">{breach.authorityReference ?? "—"}</Field>
         {breach.status === "RESOLVED" && (
           <>
-            <Field label="Resolved">{breach.resolutionDate ? centerDateTime(breach.resolutionDate) : "—"}</Field>
+            <Field label="Resolved">{breach.resolutionDate ? centerDateTime(timeZone, breach.resolutionDate) : "—"}</Field>
             <div className="sm:col-span-2">
               <Field label="Resolution">{breach.resolutionDetails ?? "—"}</Field>
             </div>
           </>
         )}
         <Field label="Recorded by">
-          {breach.createdBy.name ?? breach.createdBy.email}, {centerDateTime(breach.createdAt)}
+          {breach.createdBy.name ?? breach.createdBy.email}, {centerDateTime(timeZone, breach.createdAt)}
         </Field>
       </dl>
       <div className="flex flex-wrap items-start gap-2">
@@ -138,6 +141,7 @@ export default async function BreachesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone } = await centerLocale();
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
     return (
@@ -271,7 +275,7 @@ export default async function BreachesPage({
                   <td className={td}>
                     <Pill className={BREACH_STATUS_STYLES[b.status]}>{BREACH_STATUS_LABELS[b.status]}</Pill>
                   </td>
-                  <td className={`${td} whitespace-nowrap`}>{centerDateTime(b.detectedAt)}</td>
+                  <td className={`${td} whitespace-nowrap`}>{centerDateTime(timeZone, b.detectedAt)}</td>
                   <td className={`${td} whitespace-nowrap`}>
                     <Deadline breach={b} />
                   </td>
@@ -292,13 +296,13 @@ export default async function BreachesPage({
 
       {open === "new" && (
         <RoutedDialog wide closeHref={listHref} title="Record a data breach" description="Record it as soon as it is detected; details can be completed later.">
-          <BreachForm breach={null} cancelHref={listHref} />
+          <BreachForm breach={null} cancelHref={listHref} timeZone={timeZone} />
         </RoutedDialog>
       )}
       {selected &&
         (editing ? (
           <RoutedDialog wide closeHref={href({ status, breach: selected.id })} title={`Edit ${selected.title}`}>
-            <BreachForm breach={selected} cancelHref={href({ status, breach: selected.id })} />
+            <BreachForm breach={selected} cancelHref={href({ status, breach: selected.id })} timeZone={timeZone} />
           </RoutedDialog>
         ) : (
           <RoutedSheet closeHref={listHref} title={selected.title}>

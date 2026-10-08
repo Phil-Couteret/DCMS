@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CustomerForm } from "@/components/customers/customer-form";
 import { ApiError, getCustomer } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ function field(contact: unknown, key: string) {
 }
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
+  const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -69,7 +71,7 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
           emergencyRelationship: field(customer.emergencyContact, "relationship"),
         }}
         cancelHref={profileHref}
-        maxBirthdate={centerNow().isoDate}
+        maxBirthdate={centerNow(timeZone).isoDate}
       />
     </main>
   );

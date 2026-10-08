@@ -85,6 +85,10 @@ afterAll(async () => {
   if (prisma) {
     await prisma.user.deleteMany({ where: { email: { endsWith: `${run}@example.test` } } });
     await prisma.platformAuditLog.deleteMany({ where: { tenantId: { in: created } } });
+    // A tenant created through the API comes with its settings and prices.
+    for (const table of ['CenterSettings', 'ActivityPrice', 'EquipmentPrice', 'FunDiveTier']) {
+      await prisma.$executeRawUnsafe(`DELETE FROM "${table}" WHERE "tenantId" = ANY($1::text[])`, created);
+    }
     await prisma.tenant.deleteMany({ where: { id: { in: created } } });
   }
   await app?.close();

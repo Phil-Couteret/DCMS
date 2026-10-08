@@ -3,7 +3,8 @@ import { CheckInButton } from "@/components/dashboard/check-in-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getBoats, getStaff, getTodayBookings, type Booking } from "@/lib/api";
-import { centerNow, greeting, pendingAlert, SLOT_START, type SlotKey } from "@/lib/center-time";
+import { centerNow, greeting, pendingAlert, SLOT_START, type SlotKey, zoneLabel } from "@/lib/center-time";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,8 @@ function slotTime(minutes: number) {
 }
 
 export default async function DashboardPage() {
-  const now = centerNow();
+  const { timeZone } = await centerLocale();
+  const now = centerNow(timeZone);
   const [bookingsResult, boatsResult, staffResult] = await Promise.allSettled([
     getTodayBookings(),
     getBoats(),
@@ -69,7 +71,7 @@ export default async function DashboardPage() {
       <header>
         <h1 className="text-2xl font-semibold text-zinc-900">{greeting(now.minutes)}</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          {format(new Date(now.year, now.month - 1, now.day), "EEEE d MMMM yyyy")} · Canary Islands time
+          {format(new Date(now.year, now.month - 1, now.day), "EEEE d MMMM yyyy")} · {zoneLabel(timeZone)} time
         </p>
       </header>
 

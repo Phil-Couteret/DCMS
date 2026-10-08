@@ -34,6 +34,7 @@ import {
   type PrepTab,
 } from "@/lib/dive-prep";
 import { formatDayLabel, ROLE_LABELS, SLOT_NAMES, TRIP_SLOTS } from "@/lib/trips";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -485,10 +486,11 @@ export default async function DivePrepPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone } = await centerLocale();
   const params = await searchParams;
   const tab = PREP_TABS.find((t) => t.key === one(params.tab))?.key ?? "prep";
   const rawDate = one(params.date);
-  const date = rawDate && ISO_DATE.test(rawDate) ? rawDate : centerNow().isoDate;
+  const date = rawDate && ISO_DATE.test(rawDate) ? rawDate : centerNow(timeZone).isoDate;
   const slot = TRIP_SLOTS.find((s) => s === one(params.slot)) ?? "MORNING";
 
   return (

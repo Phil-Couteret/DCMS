@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { unstable_update } from "@/auth";
 import {
   ApiError,
   createBoat,
@@ -20,6 +21,8 @@ import {
   type BoatData,
   type EquipmentPriceKey,
   type FunDiveTier,
+  type Language,
+  type SettingsData,
   type DiveSiteData,
   type UserRole,
 } from "@/lib/api";
@@ -58,21 +61,47 @@ export async function saveGeneral(_prev: SettingsFormState, formData: FormData):
   if (!/^\d{1,3}(\.\d{1,2})?$/.test(taxRateRaw) || taxRate > 100) {
     return { error: "Tax rate must be a percentage between 0 and 100, with at most 2 decimals" };
   }
-  try {
-    await updateSettings({
-      name,
-      legalName: text(formData, "legalName") || null,
-      address: text(formData, "address") || null,
-      phone: text(formData, "phone") || null,
-      email: text(formData, "email") || null,
-      website: text(formData, "website") || null,
-      taxName,
-      taxRate,
+  const data: SettingsData = {
+    name,
+    legalName: text(formData, "legalName") || null,
+    address: text(formData, "address") || null,
+    phone: text(formData, "phone") || null,
+    email: text(formData, "email") || null,
+    website: text(formData, "website") || null,
+    taxName,
+    taxRate,
+  };
+  // The admin-only section, sent only when the form shows it.
+  if (formData.has("timeZone")) {
+    const invoicePrefix = text(formData, "invoicePrefix").toUpperCase();
+    const partnerInvoicePrefix = text(formData, "partnerInvoicePrefix").toUpperCase();
+    if (![invoicePrefix, partnerInvoicePrefix].every((p) => /^[A-Z0-9]{1,10}$/.test(p))) {
+      return { error: "Invoice prefixes take 1 to 10 capital letters or digits" };
+    }
+    const logoUrl = text(formData, "logoUrl");
+    if (logoUrl && !logoUrl.startsWith("https://")) return { error: "The logo URL must start with https://" };
+    // An unticked colour switch clears the colour.
+    const colour = (name: string) => (formData.has(`${name}On`) ? text(formData, name).toLowerCase() : null);
+    Object.assign(data, {
+      timeZone: text(formData, "timeZone"),
+      currency: text(formData, "currency"),
+      defaultLanguage: text(formData, "defaultLanguage") as Language,
+      logoUrl: logoUrl || null,
+      primaryColor: colour("primaryColor"),
+      accentColor: colour("accentColor"),
+      invoicePrefix,
+      partnerInvoicePrefix,
     });
+  }
+  try {
+    await updateSettings(data);
   } catch (e) {
     return fail(e, "Settings could not be saved");
   }
-  revalidatePath("/dashboard/settings");
+  // Every page shows dates and amounts in the session's time zone and
+  // currency: refresh this session now (others within 5 minutes).
+  await unstable_update({});
+  revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
 

@@ -1,6 +1,7 @@
-// The dive center runs on Canary Islands time, whatever timezone the server
-// is in. "Today", the greeting and the trip alerts all use this.
-export const CENTER_TIME_ZONE = "Atlantic/Canary";
+// Each center runs on its own time zone (Settings → General; centerLocale()
+// on the server, a prop in client components), whatever timezone the server
+// or the browser is in. "Today", the greeting, the trip alerts and every
+// wall-clock time staff enter or read use it.
 
 // Minutes after midnight, center time. Night dives start at 18:00, as in the
 // previous frontend's schedule.
@@ -17,10 +18,10 @@ export interface CenterNow {
   minutes: number; // minutes after midnight
 }
 
-export function centerNow(now = new Date()): CenterNow {
+export function centerNow(timeZone: string, now = new Date()): CenterNow {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", {
-      timeZone: CENTER_TIME_ZONE,
+      timeZone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -56,10 +57,10 @@ export function pendingAlert(status: string, slot: SlotKey, nowMinutes: number) 
   return untilStart <= ALERT_WINDOW_MINUTES ? untilStart : null;
 }
 
-function offsetMinutes(at: Date) {
+function offsetMinutes(at: Date, timeZone: string) {
   const p = Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", {
-      timeZone: CENTER_TIME_ZONE,
+      timeZone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -77,18 +78,18 @@ function offsetMinutes(at: Date) {
 // A wall-clock date and time at the center ("2026-07-01", "09:30") as a UTC
 // instant. Checked twice so the offset is the one in force at that moment,
 // summer or winter.
-export function centerLocalToUtc(date: string, time: string) {
+export function centerLocalToUtc(timeZone: string, date: string, time: string) {
   const [y, m, d] = date.split("-").map(Number);
   const [h, mi] = time.split(":").map(Number);
   const guess = Date.UTC(y, m - 1, d, h, mi);
-  const first = guess - offsetMinutes(new Date(guess)) * 60000;
-  return new Date(guess - offsetMinutes(new Date(first)) * 60000);
+  const first = guess - offsetMinutes(new Date(guess), timeZone) * 60000;
+  return new Date(guess - offsetMinutes(new Date(first), timeZone) * 60000);
 }
 
 // "09:30" for an instant, in center time.
-export function centerClock(iso: string) {
+export function centerClock(timeZone: string, iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: CENTER_TIME_ZONE,
+    timeZone,
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
@@ -97,10 +98,10 @@ export function centerClock(iso: string) {
 
 // "2026-07-01T09:30" for an instant, in center time: the value of a
 // datetime-local input. centerLocalToUtc turns it back.
-export function centerDateTimeInput(iso: string) {
+export function centerDateTimeInput(timeZone: string, iso: string) {
   const p = Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", {
-      timeZone: CENTER_TIME_ZONE,
+      timeZone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -115,9 +116,9 @@ export function centerDateTimeInput(iso: string) {
 }
 
 // "8 Oct 2026, 09:30" for an instant, in center time.
-export function centerDateTime(iso: string) {
+export function centerDateTime(timeZone: string, iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: CENTER_TIME_ZONE,
+    timeZone,
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -125,4 +126,9 @@ export function centerDateTime(iso: string) {
     minute: "2-digit",
     hourCycle: "h23",
   }).format(new Date(iso));
+}
+
+// A short label for the time zone, e.g. "Atlantic/Canary" → "Canary".
+export function zoneLabel(timeZone: string) {
+  return timeZone.split("/").pop()!.replace(/_/g, " ");
 }

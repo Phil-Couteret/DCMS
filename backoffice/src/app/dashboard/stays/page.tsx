@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { BillStayButton, StayCosts } from "@/components/stays/stay-forms";
 import { Button } from "@/components/ui/button";
-import { getSettings, getStays, type Stay } from "@/lib/api";
-import { eur } from "@/lib/billing";
+import { getPricing, getStays, type FunDiveTier, type Stay } from "@/lib/api";
+import { money } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { volumeBadge } from "@/lib/stays";
 import { SLOT_NAMES } from "@/lib/trips";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -20,17 +21,34 @@ function day(iso: string) {
   );
 }
 
-function rateNote(stay: Stay) {
+// The stay rate, from the center's fun dive tiers (Settings → Pricing).
+function rateNote(stay: Stay, currency: string, tiers: FunDiveTier[]) {
   const { customerType } = stay.customer;
   if (customerType !== "TOURIST") {
-    return `${CUSTOMER_TYPE_NAMES[customerType]} customers pay a flat ${eur(stay.pricePerDive)} per fun dive.`;
+    return `${CUSTOMER_TYPE_NAMES[customerType]} customers pay a flat ${money(stay.pricePerDive, currency)} per fun dive.`;
   }
-  return `Every fun dive in this stay is priced at ${eur(stay.pricePerDive)}, the rate for ${stay.totalDives} dive${
+  const lower = tiers
+    .filter((t) => t.minDives > 1)
+    .map((t) => `${t.minDives} dives ${money(t.tourist, currency)}`)
+    .join(", ");
+  return `Every fun dive in this stay is priced at ${money(stay.pricePerDive, currency)}, the rate for ${stay.totalDives} dive${
     stay.totalDives === 1 ? "" : "s"
-  }. More dives in the stay lower the rate for all of them: 3 dives €44, 6 dives €42, 9 dives €40, 13 dives €38.`;
+  }.${lower ? ` More dives in the stay lower the rate for all of them: ${lower}.` : ""}`;
 }
 
-function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName: string }) {
+function StayCard({
+  stay,
+  today,
+  taxName,
+  currency,
+  tiers,
+}: {
+  stay: Stay;
+  today: string;
+  taxName: string;
+  currency: string;
+  tiers: FunDiveTier[];
+}) {
   const { customer } = stay;
   const name = `${customer.firstName} ${customer.lastName}`;
   const badge = volumeBadge(stay.totalDives);
@@ -63,15 +81,15 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
         <div className="text-right">
           <div className="flex items-center justify-end gap-2">
             {hasFunDives && <span className={`rounded px-2 py-0.5 text-xs font-semibold ${badge.className}`}>{badge.label}</span>}
-            <span className="text-xl font-semibold text-[#0077b6]">{eur(stay.totals.subtotal)}</span>
+            <span className="text-xl font-semibold text-[#0077b6]">{money(stay.totals.subtotal, currency)}</span>
           </div>
           {hasFunDives && (
             <p className="text-sm text-zinc-500">
-              {stay.totalDives} fun dive{stay.totalDives === 1 ? "" : "s"} @ {eur(stay.pricePerDive)}
+              {stay.totalDives} fun dive{stay.totalDives === 1 ? "" : "s"} @ {money(stay.pricePerDive, currency)}
             </p>
           )}
           <p className="text-xs text-zinc-500">
-            before {taxName} · {eur(stay.totals.total)} with {taxName}
+            before {taxName} · {money(stay.totals.total, currency)} with {taxName}
           </p>
         </div>
       </summary>
@@ -112,22 +130,22 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
                         )}
                         {b.equipment.map((e) => (
                           <span key={e.description} className="block text-xs text-zinc-500">
-                            + {e.description} ({eur(e.total)})
+                            + {e.description} ({money(e.total, currency)})
                           </span>
                         ))}
                       </td>
                       <td className={`${td} text-right`}>{b.participantCount}</td>
                       <td className={`${td} text-right`}>
-                        {b.unitPrice === null ? <span className="text-red-700">No price</span> : eur(b.unitPrice)}
+                        {b.unitPrice === null ? <span className="text-red-700">No price</span> : money(b.unitPrice, currency)}
                       </td>
                       <td className={`${td} text-right`}>
                         {b.partner ? (
                           <>
                             <span className="text-zinc-500">Partner</span>
-                            {Number(b.total) > 0 && <span className="block text-xs">+{eur(b.total)} customer</span>}
+                            {Number(b.total) > 0 && <span className="block text-xs">+{money(b.total, currency)} customer</span>}
                           </>
                         ) : (
-                          eur(b.total)
+                          money(b.total, currency)
                         )}
                       </td>
                     </tr>
@@ -136,12 +154,12 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
               </table>
             </div>
           )}
-          {hasFunDives && <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900 ring-1 ring-blue-200">{rateNote(stay)}</p>}
+          {hasFunDives && <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900 ring-1 ring-blue-200">{rateNote(stay, currency, tiers)}</p>}
         </section>
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-zinc-900">Extra costs</h3>
-          <StayCosts customerId={customer.id} costs={stay.costs} total={stay.totals.costs} today={today} taxName={taxName} />
+          <StayCosts customerId={customer.id} costs={stay.costs} total={stay.totals.costs} today={today} taxName={taxName} currency={currency} />
         </section>
 
         <div className="flex flex-wrap items-start justify-between gap-3 border-t border-zinc-100 pt-4">
@@ -153,7 +171,7 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
               View customer
             </Button>
           </div>
-          <BillStayButton customerId={customer.id} name={name} total={stay.totals.total} disabledReason={disabledReason} />
+          <BillStayButton customerId={customer.id} name={name} total={stay.totals.total} disabledReason={disabledReason} currency={currency} />
         </div>
       </div>
     </details>
@@ -161,13 +179,16 @@ function StayCard({ stay, today, taxName }: { stay: Stay; today: string; taxName
 }
 
 export default async function StaysPage() {
-  const today = centerNow().isoDate;
+  const { timeZone, currency } = await centerLocale();
+  const today = centerNow(timeZone).isoDate;
   let stays: Stay[];
   let taxName: string;
+  let tiers: FunDiveTier[];
   try {
-    const [list, settings] = await Promise.all([getStays(), getSettings()]);
+    const [list, pricing] = await Promise.all([getStays(), getPricing()]);
     stays = list;
-    taxName = settings.taxName;
+    taxName = pricing.taxName;
+    tiers = pricing.funDiveTiers;
   } catch (e) {
     return (
       <main className="p-6 md:p-8">
@@ -207,7 +228,7 @@ export default async function StaysPage() {
           </Button>
         </div>
       ) : (
-        stays.map((s) => <StayCard key={s.customer.id} stay={s} today={today} taxName={taxName} />)
+        stays.map((s) => <StayCard key={s.customer.id} stay={s} today={today} taxName={taxName} currency={currency} tiers={tiers} />)
       )}
     </main>
   );

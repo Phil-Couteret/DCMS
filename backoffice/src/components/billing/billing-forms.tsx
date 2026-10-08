@@ -48,7 +48,7 @@ function useInline(state: FormState) {
   return [open, setOpen] as const;
 }
 
-export function AddPaymentForm({ invoiceId, balance }: { invoiceId: string; balance: string }) {
+export function AddPaymentForm({ invoiceId, balance, currency }: { invoiceId: string; balance: string; currency: string }) {
   const [state, onSubmit, pending] = useFormAction<FormState>(recordPayment, null);
   const [open, setOpen] = useInline(state);
   if (!open) return <Button onClick={() => setOpen(true)}>Add Payment</Button>;
@@ -57,7 +57,7 @@ export function AddPaymentForm({ invoiceId, balance }: { invoiceId: string; bala
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className={label}>
-          Amount (€)
+          Amount ({currency})
           <input name="amount" required inputMode="decimal" defaultValue={balance} pattern="\d+(\.\d{1,2})?" className={control} />
         </label>
         <label className={label}>
@@ -89,7 +89,17 @@ export function AddPaymentForm({ invoiceId, balance }: { invoiceId: string; bala
   );
 }
 
-export function RefundForm({ invoiceId, paymentId, refundable }: { invoiceId: string; paymentId: string; refundable: string }) {
+export function RefundForm({
+  invoiceId,
+  paymentId,
+  refundable,
+  currency,
+}: {
+  invoiceId: string;
+  paymentId: string;
+  refundable: string;
+  currency: string;
+}) {
   const [state, onSubmit, pending] = useFormAction<FormState>(recordRefund, null);
   const [open, setOpen] = useInline(state);
   if (!open)
@@ -104,7 +114,7 @@ export function RefundForm({ invoiceId, paymentId, refundable }: { invoiceId: st
       <input type="hidden" name="paymentId" value={paymentId} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr]">
         <label className={label}>
-          Amount (€)
+          Amount ({currency})
           <input name="amount" required inputMode="decimal" defaultValue={refundable} pattern="\d+(\.\d{1,2})?" className={control} />
         </label>
         <label className={label}>

@@ -1,12 +1,14 @@
+import { centerLocale } from "@/lib/center";
 import type { PartnerInvoiceDetail } from "@/lib/api";
-import { eur, formatDay } from "@/lib/billing";
+import { money, formatDay } from "@/lib/billing";
 import { outstanding, percent } from "@/lib/partners";
 
 const th = "px-3 py-2 font-medium";
 const td = "px-3 py-2";
 
 // A partner invoice as both staff and the partner see it.
-export function PartnerInvoiceDocument({ invoice, centerName }: { invoice: PartnerInvoiceDetail; centerName?: string }) {
+export async function PartnerInvoiceDocument({ invoice, centerName }: { invoice: PartnerInvoiceDetail; centerName?: string }) {
+  const { currency } = await centerLocale();
   const due = outstanding(invoice);
   return (
     <div className="space-y-5 rounded-xl bg-white p-6 ring-1 ring-zinc-200 print:ring-0">
@@ -46,8 +48,8 @@ export function PartnerInvoiceDocument({ invoice, centerName }: { invoice: Partn
               <tr key={l.id}>
                 <td className={td}>{l.description}</td>
                 <td className={`${td} text-right`}>{l.quantity}</td>
-                <td className={`${td} text-right`}>{eur(l.unitPrice)}</td>
-                <td className={`${td} text-right`}>{eur(l.total)}</td>
+                <td className={`${td} text-right`}>{money(l.unitPrice, currency)}</td>
+                <td className={`${td} text-right`}>{money(l.total, currency)}</td>
               </tr>
             ))}
           </tbody>
@@ -56,23 +58,23 @@ export function PartnerInvoiceDocument({ invoice, centerName }: { invoice: Partn
 
       <dl className="ml-auto grid max-w-sm grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
         <dt className="text-zinc-500">Catalogue value</dt>
-        <dd className="text-right">{eur(invoice.gross)}</dd>
+        <dd className="text-right">{money(invoice.gross, currency)}</dd>
         <dt className="text-zinc-500">Your commission ({percent(invoice.commissionRate)})</dt>
-        <dd className="text-right">−{eur(invoice.commission)}</dd>
+        <dd className="text-right">−{money(invoice.commission, currency)}</dd>
         <dt className="text-zinc-500">Due before {invoice.taxName}</dt>
-        <dd className="text-right">{eur(invoice.subtotal)}</dd>
+        <dd className="text-right">{money(invoice.subtotal, currency)}</dd>
         <dt className="text-zinc-500">
           {invoice.taxName} ({percent(invoice.taxRate)})
         </dt>
-        <dd className="text-right">{eur(invoice.tax)}</dd>
+        <dd className="text-right">{money(invoice.tax, currency)}</dd>
         <dt className="border-t border-zinc-200 pt-1 font-semibold text-zinc-900">Total due</dt>
-        <dd className="border-t border-zinc-200 pt-1 text-right font-semibold text-zinc-900">{eur(invoice.total)}</dd>
+        <dd className="border-t border-zinc-200 pt-1 text-right font-semibold text-zinc-900">{money(invoice.total, currency)}</dd>
         {invoice.status !== "CANCELLED" && (
           <>
             <dt className="text-zinc-500">Paid</dt>
-            <dd className="text-right">{eur(invoice.paidAmount)}</dd>
+            <dd className="text-right">{money(invoice.paidAmount, currency)}</dd>
             <dt className="font-medium text-zinc-900">Outstanding</dt>
-            <dd className={`text-right font-medium ${due > 0 ? "text-red-700" : "text-zinc-900"}`}>{eur(due)}</dd>
+            <dd className={`text-right font-medium ${due > 0 ? "text-red-700" : "text-zinc-900"}`}>{money(due, currency)}</dd>
           </>
         )}
       </dl>

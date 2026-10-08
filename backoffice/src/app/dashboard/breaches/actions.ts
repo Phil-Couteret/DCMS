@@ -15,6 +15,7 @@ import {
   type BreachUpdate,
 } from "@/lib/api";
 import { BREACH_SEVERITIES, BREACH_STATUSES, DATA_TYPE_LABELS } from "@/lib/breaches";
+import { centerLocale } from "@/lib/center";
 import { centerLocalToUtc } from "@/lib/center-time";
 
 export type BreachFormState = { error?: string; ok?: boolean } | null;
@@ -31,18 +32,18 @@ function fail(e: unknown, fallback: string): BreachFormState {
 
 // A datetime-local value, center time, as an ISO instant; null when empty,
 // undefined when malformed.
-function instant(formData: FormData, name: string) {
+function instant(timeZone: string, formData: FormData, name: string) {
   const raw = text(formData, name);
   if (raw === "") return null;
   const m = DATETIME_LOCAL.exec(raw);
-  return m ? centerLocalToUtc(m[1], m[2]).toISOString() : undefined;
+  return m ? centerLocalToUtc(timeZone, m[1], m[2]).toISOString() : undefined;
 }
 
-function breachData(formData: FormData): BreachData | string {
+function breachData(timeZone: string, formData: FormData): BreachData | string {
   const title = text(formData, "title");
   const description = text(formData, "description");
   const severity = text(formData, "severity") as BreachSeverity;
-  const detectedAt = instant(formData, "detectedAt");
+  const detectedAt = instant(timeZone, formData, "detectedAt");
   const affectedRaw = text(formData, "estimatedAffected");
   const estimatedAffected = affectedRaw === "" ? null : Number(affectedRaw);
   const affectedDataTypes = formData.getAll("affectedDataTypes").map(String);
@@ -60,7 +61,8 @@ function breachData(formData: FormData): BreachData | string {
 
 export async function saveBreach(_prev: BreachFormState, formData: FormData): Promise<BreachFormState> {
   const id = text(formData, "breachId");
-  const data = breachData(formData);
+  const { timeZone } = await centerLocale();
+  const data = breachData(timeZone, formData);
   if (typeof data === "string") return { error: data };
 
   let savedId = id;
@@ -69,13 +71,13 @@ export async function saveBreach(_prev: BreachFormState, formData: FormData): Pr
       const update: BreachUpdate = { ...data };
       // Sent only when the form shows them: once reported, once resolved.
       if (formData.has("reportedAt")) {
-        const reportedAt = instant(formData, "reportedAt");
+        const reportedAt = instant(timeZone, formData, "reportedAt");
         if (!reportedAt) return { error: "Enter when the breach was reported" };
         update.reportedAt = reportedAt;
         update.authorityReference = text(formData, "authorityReference") || null;
       }
       if (formData.has("resolutionDate")) {
-        const resolutionDate = instant(formData, "resolutionDate");
+        const resolutionDate = instant(timeZone, formData, "resolutionDate");
         if (!resolutionDate) return { error: "Enter when the breach was resolved" };
         const resolutionDetails = text(formData, "resolutionDetails");
         if (!resolutionDetails) return { error: "Describe how the breach was resolved" };
@@ -98,15 +100,16 @@ export async function moveBreach(_prev: BreachFormState, formData: FormData): Pr
   const status = text(formData, "status") as BreachStatus;
   if (!BREACH_STATUSES.includes(status)) return { error: "Choose a status" };
   const change: BreachStatusChange = { status };
+  const { timeZone } = await centerLocale();
   if (status === "REPORTED") {
-    const reportedAt = instant(formData, "reportedAt");
+    const reportedAt = instant(timeZone, formData, "reportedAt");
     if (reportedAt === undefined) return { error: "Enter a valid report date" };
     if (reportedAt) change.reportedAt = reportedAt;
     const reference = text(formData, "authorityReference");
     if (reference) change.authorityReference = reference;
   }
   if (status === "RESOLVED") {
-    const resolutionDate = instant(formData, "resolutionDate");
+    const resolutionDate = instant(timeZone, formData, "resolutionDate");
     if (resolutionDate === undefined) return { error: "Enter a valid resolution date" };
     if (resolutionDate) change.resolutionDate = resolutionDate;
     change.resolutionDetails = text(formData, "resolutionDetails");

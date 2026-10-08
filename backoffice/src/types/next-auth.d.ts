@@ -9,6 +9,9 @@ interface CenterFields {
   isSuperadmin?: boolean;
   // The account has another center, or the console, to switch to.
   canSwitchCenter?: boolean;
+  // The center's IANA time zone and ISO 4217 currency.
+  timeZone?: string;
+  currency?: string;
 }
 
 declare module "next-auth" {
@@ -26,5 +29,6 @@ declare module "@auth/core/jwt" {
   interface JWT extends CenterFields {
     role: string;
     accessToken: string;
+    refreshedAt?: number;
   }
 }

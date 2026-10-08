@@ -3,6 +3,7 @@ import { NewLogForm } from "@/components/dive-logs/new-log-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { getDiveSites, getStaff } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function NewDiveLogPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone } = await centerLocale();
   const booking = (await searchParams).booking;
   const bookingId = typeof booking === "string" && UUID.test(booking) ? booking : undefined;
   const [sites, guides] = await Promise.all([getDiveSites(), getStaff({ type: "GUIDE", status: "ACTIVE" })]);
@@ -28,7 +30,8 @@ export default async function NewDiveLogPage({
           <NewLogForm
             sites={sites.map((s) => ({ id: s.id, name: s.nameEn }))}
             guides={guides.map((g) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` }))}
-            today={centerNow().isoDate}
+            today={centerNow(timeZone).isoDate}
+            timeZone={timeZone}
             bookingId={bookingId}
           />
         </CardContent>

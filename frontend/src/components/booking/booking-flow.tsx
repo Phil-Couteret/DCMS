@@ -27,11 +27,12 @@ const secondaryButton =
 const field =
   'mt-1 block w-full rounded-lg border-0 bg-white px-3 py-2 text-slate-900 ring-1 ring-slate-300 focus:ring-2 focus:ring-blue-700';
 
-function useEur() {
+// Amounts in the center's currency, cents only when there are any: €45, €47.50.
+function useMoney() {
   const format = useFormatter();
-  // Cents only when there are any: €45, €47.50.
+  const { currency } = usePrices();
   return (amount: number) =>
-    format.number(amount, { style: 'currency', currency: 'EUR', minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 });
+    format.number(amount, { style: 'currency', currency, minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 });
 }
 
 // The chosen activity with its price, or null if none is chosen or it is no
@@ -84,7 +85,7 @@ function StepShell({ title, children }: { title: string; children: ReactNode }) 
 function StepActivity() {
   const t = useTranslations('booking');
   const tItems = useTranslations('pricing.items');
-  const eur = useEur();
+  const money = useMoney();
   const prices = usePrices();
   const { activityType, selectActivity } = useBookingStore();
 
@@ -103,7 +104,7 @@ function StepActivity() {
             >
               <span className="text-lg font-semibold text-slate-900">{tItems(a.key)}</span>
               <span className="mt-1 text-sm text-slate-600">{t(`activityDescriptions.${a.key}`)}</span>
-              <span className="mt-4 text-2xl font-bold text-blue-900">{eur(activityPrice(prices, a)!)}</span>
+              <span className="mt-4 text-2xl font-bold text-blue-900">{money(activityPrice(prices, a)!)}</span>
             </button>
           </li>
         ))}
@@ -268,13 +269,13 @@ function StepCustomer() {
 
 function PriceLines({ activityPrice, equipment }: { activityPrice: number; equipment: EquipmentSelection }) {
   const t = useTranslations('booking');
-  const eur = useEur();
+  const money = useMoney();
   const kit = equipmentTotal(equipment, usePrices());
   return (
     <dl className="space-y-2 text-sm">
       <div className="flex justify-between">
         <dt className="text-slate-600">{t('activityPrice')}</dt>
-        <dd className="font-medium text-slate-900">{eur(activityPrice)}</dd>
+        <dd className="font-medium text-slate-900">{money(activityPrice)}</dd>
       </div>
       <div className="flex justify-between">
         <dt className="text-slate-600">
@@ -283,12 +284,12 @@ function PriceLines({ activityPrice, equipment }: { activityPrice: number; equip
             <span className="ml-2 text-xs text-emerald-700">({t('fullPackageApplied')})</span>
           )}
         </dt>
-        <dd className="font-medium text-slate-900">{eur(kit)}</dd>
+        <dd className="font-medium text-slate-900">{money(kit)}</dd>
       </div>
       <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
         <dt className="font-semibold text-slate-900">{t('total')}</dt>
         <dd className="font-bold text-blue-900" data-testid="total">
-          {eur(activityPrice + kit)}
+          {money(activityPrice + kit)}
         </dd>
       </div>
     </dl>
@@ -298,7 +299,7 @@ function PriceLines({ activityPrice, equipment }: { activityPrice: number; equip
 function StepEquipment() {
   const t = useTranslations('booking');
   const tItems = useTranslations('pricing.items');
-  const eur = useEur();
+  const money = useMoney();
   const prices = usePrices();
   const { activityType, equipment, setEquipment, setStep } = useBookingStore();
   const activity = selectedActivity(activityType, prices);
@@ -331,7 +332,7 @@ function StepEquipment() {
           className="h-5 w-5 rounded border-slate-300"
         />
         <span className="font-medium text-slate-900">{t('fullPackage')}</span>
-        <span className="ml-auto text-sm font-semibold text-slate-900">{eur(prices.equipment.fullPackage)}</span>
+        <span className="ml-auto text-sm font-semibold text-slate-900">{money(prices.equipment.fullPackage)}</span>
       </label>
 
       <ul className="mt-4 divide-y divide-slate-200">
@@ -365,7 +366,7 @@ function StepEquipment() {
                   </select>
                 </label>
               )}
-              <span className="ml-auto text-sm text-slate-600">+{eur(equipmentPrice(prices, e.key))}</span>
+              <span className="ml-auto text-sm text-slate-600">+{money(equipmentPrice(prices, e.key))}</span>
             </li>
           );
         })}

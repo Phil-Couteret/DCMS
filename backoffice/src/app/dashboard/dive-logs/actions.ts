@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ApiError, createDiveLog, reportIncident, type CreateDiveLogData, type IncidentSeverity } from "@/lib/api";
 import { centerLocalToUtc } from "@/lib/center-time";
 import { SEVERITIES } from "@/lib/dive-logs";
+import { centerLocale } from "@/lib/center";
 
 export type FormState = { error?: string } | null;
 
@@ -25,6 +26,7 @@ function optionalInt(formData: FormData, name: string, label: string) {
 }
 
 export async function createLog(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { timeZone } = await centerLocale();
   const bookingId = text(formData, "bookingId");
   const siteId = text(formData, "siteId");
   const guideId = text(formData, "guideId");
@@ -38,9 +40,9 @@ export async function createLog(_prev: FormState, formData: FormData): Promise<F
   if (!ISO_DATE.test(date)) return { error: "Choose a date" };
   if (!CLOCK.test(entry) || !CLOCK.test(exit)) return { error: "Enter entry and exit times" };
 
-  // Times are entered as center (Canary) wall-clock time.
-  const entryTime = centerLocalToUtc(date, entry);
-  const exitTime = centerLocalToUtc(date, exit);
+  // Times are entered as the center's wall-clock time.
+  const entryTime = centerLocalToUtc(timeZone, date, entry);
+  const exitTime = centerLocalToUtc(timeZone, date, exit);
   const duration = Math.round((exitTime.getTime() - entryTime.getTime()) / 60000);
   if (duration <= 0) return { error: "Exit time must be after entry time" };
 

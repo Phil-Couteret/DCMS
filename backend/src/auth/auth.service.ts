@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { DEFAULT_SETTINGS } from '../config/tenant-defaults.js';
 import bcrypt from 'bcrypt';
 import { Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -103,12 +104,20 @@ export class AuthService {
   async me(principal: { id: string; role: string; tenantId: string | null }) {
     const user = await this.users.findById(principal.id);
     if (!user) throw new UnauthorizedException();
-    const tenant = principal.tenantId
+    const row = principal.tenantId
       ? await this.prisma.tenant.findUnique({
           where: { id: principal.tenantId },
-          select: { id: true, slug: true, name: true },
+          select: { id: true, slug: true, name: true, centerSettings: { select: { timeZone: true, currency: true } } },
         })
       : null;
+    // The center's time zone and currency, which the backoffice displays in.
+    const tenant = row && {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      timeZone: row.centerSettings?.timeZone ?? DEFAULT_SETTINGS.timeZone,
+      currency: row.centerSettings?.currency ?? DEFAULT_SETTINGS.currency,
+    };
     let role = principal.role;
     if (tenant && role !== Role.CUSTOMER) {
       const membership = await this.prisma.membership.findUnique({

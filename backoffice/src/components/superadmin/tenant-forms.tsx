@@ -7,14 +7,24 @@ import { ActionButton } from "@/components/action-button";
 import { Button } from "@/components/ui/button";
 import { switchCenter, type CenterChoiceState } from "@/lib/centers";
 import { PLAN_LABELS, SLUG_PATTERN, TENANT_PLANS, type Tenant } from "@/lib/platform";
+import { LANGUAGES } from "@/lib/customers";
 import { useFormAction } from "@/lib/use-form-action";
 
 const label = "block text-sm font-medium text-zinc-700";
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
 
-// Create (tenant null) or edit a center's name, slug and plan.
-export function TenantForm({ tenant }: { tenant: Tenant | null }) {
+// Create (tenant null) or edit a center's name, slug and plan. Creating also
+// sets its regional settings, which its admins change later in Settings.
+export function TenantForm({
+  tenant,
+  timeZones = [],
+  currencies = [],
+}: {
+  tenant: Tenant | null;
+  timeZones?: string[];
+  currencies?: string[];
+}) {
   const [state, onSubmit, pending] = useFormAction<TenantFormState>(tenant ? saveTenant : addTenant, null);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -50,6 +60,48 @@ export function TenantForm({ tenant }: { tenant: Tenant | null }) {
           </select>
         </label>
       </div>
+      {!tenant && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <label className={label}>
+            Time zone
+            <select name="timeZone" defaultValue="Atlantic/Canary" className={control}>
+              {timeZones.map((z) => (
+                <option key={z} value={z}>
+                  {z.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={label}>
+            Currency
+            <select name="currency" defaultValue="EUR" className={control}>
+              {currencies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={label}>
+            Default language
+            <select name="defaultLanguage" defaultValue="EN" className={control}>
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={label}>
+            Tax name
+            <input name="taxName" required maxLength={20} defaultValue="IGIC" className={control} />
+          </label>
+          <label className={label}>
+            Tax rate (%)
+            <input type="number" name="taxRate" required min={0} max={100} step={0.01} defaultValue={7} className={control} />
+          </label>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : tenant ? "Save" : "Create center"}

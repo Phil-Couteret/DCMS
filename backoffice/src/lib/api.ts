@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { centerLocale } from "@/lib/center";
 import { centerNow } from "@/lib/center-time";
 
 // Server-side only: auth() reads the session from the request cookies.
@@ -185,8 +186,9 @@ export function getBookings(
   return apiFetch<Booking[]>(`/bookings${query}`);
 }
 
-export function getTodayBookings() {
-  return getBookings({ date: centerNow().isoDate });
+export async function getTodayBookings() {
+  const { timeZone } = await centerLocale();
+  return getBookings({ date: centerNow(timeZone).isoDate });
 }
 
 export function getBooking(id: string) {
@@ -1005,10 +1007,34 @@ export interface CenterSettings {
   website: string | null;
   taxRate: string; // a percentage, as a decimal string, e.g. "7"
   taxName: string;
+  // Admins only, from here on.
+  timeZone: string; // IANA, e.g. "Atlantic/Canary"
+  currency: string; // ISO 4217, e.g. "EUR"
+  defaultLanguage: Language;
+  logoUrl: string | null; // https
+  primaryColor: string | null; // #rrggbb
+  accentColor: string | null;
+  invoicePrefix: string; // PREFIX-YYYY-0001
+  partnerInvoicePrefix: string;
   updatedAt: string | null; // null until first saved
 }
 
-export type SettingsData = Omit<CenterSettings, "updatedAt" | "taxRate"> & { taxRate: number };
+// Left out, the admin-only fields keep their values.
+export type SettingsData = Pick<CenterSettings, "name" | "legalName" | "address" | "phone" | "email" | "website" | "taxName"> & {
+  taxRate: number;
+} & Partial<
+    Pick<
+      CenterSettings,
+      | "timeZone"
+      | "currency"
+      | "defaultLanguage"
+      | "logoUrl"
+      | "primaryColor"
+      | "accentColor"
+      | "invoicePrefix"
+      | "partnerInvoicePrefix"
+    >
+  >;
 
 export function getSettings() {
   return apiFetch<CenterSettings>("/settings");

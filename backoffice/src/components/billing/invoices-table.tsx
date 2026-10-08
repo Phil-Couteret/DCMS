@@ -7,7 +7,7 @@ import { InvoiceStatusBadge } from "@/components/billing/invoice-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { InvoiceListItem } from "@/lib/api";
-import { CANCELLABLE, eur, formatDay } from "@/lib/billing";
+import { CANCELLABLE, money, formatDay } from "@/lib/billing";
 
 // Customer search runs in the browser over the invoices already loaded.
 export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListItem[]; filtered: boolean }) {
@@ -57,7 +57,7 @@ export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListIte
                   <TableCell>
                     {i.customer.firstName} {i.customer.lastName}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{eur(i.total, i.currency)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{money(i.total, i.currency)}</TableCell>
                   <TableCell>
                     <InvoiceStatusBadge status={i.status} />
                   </TableCell>

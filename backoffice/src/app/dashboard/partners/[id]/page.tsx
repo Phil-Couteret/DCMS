@@ -9,10 +9,11 @@ import {
 import { PartnerInvoiceBadge } from "@/components/partners/status-badge";
 import { Button } from "@/components/ui/button";
 import { ApiError, getPartner, getPartnerInvoicePreview, getPartnerInvoices } from "@/lib/api";
-import { eur, formatDay } from "@/lib/billing";
+import { money, formatDay } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { outstanding, percent } from "@/lib/partners";
 import { SLOT_NAMES } from "@/lib/trips";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ function defaultPeriod(today: string) {
 }
 
 async function InvoicePreview({ partnerId, from, to }: { partnerId: string; from: string; to: string }) {
+  const { currency } = await centerLocale();
   let p;
   try {
     p = await getPartnerInvoicePreview(partnerId, from, to);
@@ -93,8 +95,8 @@ async function InvoicePreview({ partnerId, from, to }: { partnerId: string; from
                     <td className={td}>{b.customerName}</td>
                     <td className={td}>{b.activityName}</td>
                     <td className={`${td} text-right`}>{b.participantCount}</td>
-                    <td className={`${td} text-right`}>{b.unitPrice ? eur(b.unitPrice) : <span className="text-red-700">No price</span>}</td>
-                    <td className={`${td} text-right`}>{b.total ? eur(b.total) : "—"}</td>
+                    <td className={`${td} text-right`}>{b.unitPrice ? money(b.unitPrice, currency) : <span className="text-red-700">No price</span>}</td>
+                    <td className={`${td} text-right`}>{b.total ? money(b.total, currency) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -103,22 +105,22 @@ async function InvoicePreview({ partnerId, from, to }: { partnerId: string; from
           <div className="flex flex-wrap items-end justify-between gap-4">
             <dl className="grid grid-cols-[auto_auto] gap-x-6 gap-y-1 text-sm">
               <dt className="text-zinc-500">Catalogue value</dt>
-              <dd className="text-right">{eur(p.gross)}</dd>
+              <dd className="text-right">{money(p.gross, currency)}</dd>
               <dt className="text-zinc-500">Commission ({percent(p.commissionRate)})</dt>
-              <dd className="text-right">−{eur(p.commission)}</dd>
+              <dd className="text-right">−{money(p.commission, currency)}</dd>
               <dt className="text-zinc-500">Due before {p.taxName}</dt>
-              <dd className="text-right">{eur(p.subtotal)}</dd>
+              <dd className="text-right">{money(p.subtotal, currency)}</dd>
               <dt className="text-zinc-500">
                 {p.taxName} ({percent(p.taxRate)})
               </dt>
-              <dd className="text-right">{eur(p.tax)}</dd>
+              <dd className="text-right">{money(p.tax, currency)}</dd>
               <dt className="font-semibold text-zinc-900">Total</dt>
-              <dd className="text-right font-semibold text-zinc-900">{eur(p.total)}</dd>
+              <dd className="text-right font-semibold text-zinc-900">{money(p.total, currency)}</dd>
             </dl>
             {p.unpriced.length > 0 ? (
               <p className="text-sm text-red-700">No price is set for {p.unpriced.join(", ")}.</p>
             ) : (
-              <CreateInvoiceButton partnerId={partnerId} from={from} to={to} total={p.total} />
+              <CreateInvoiceButton partnerId={partnerId} from={from} to={to} total={p.total} currency={currency} />
             )}
           </div>
         </>
@@ -134,10 +136,11 @@ export default async function PartnerPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone, currency } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const query = await searchParams;
-  const today = centerNow().isoDate;
+  const today = centerNow(timeZone).isoDate;
   const period = defaultPeriod(today);
   const rawFrom = one(query.from);
   const rawTo = one(query.to);
@@ -217,8 +220,8 @@ export default async function PartnerPage({
                       {formatDay(i.periodFrom)} – {formatDay(i.periodTo)}
                     </td>
                     <td className={td}>{formatDay(i.dueDate)}</td>
-                    <td className={`${td} text-right`}>{eur(i.total)}</td>
-                    <td className={`${td} text-right`}>{eur(outstanding(i))}</td>
+                    <td className={`${td} text-right`}>{money(i.total, currency)}</td>
+                    <td className={`${td} text-right`}>{money(outstanding(i), currency)}</td>
                     <td className={td}>
                       <PartnerInvoiceBadge invoice={i} today={today} />
                     </td>

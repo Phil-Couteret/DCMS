@@ -10,6 +10,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import {
   BookingStatus,
   InvoiceStatus,
+  NumberSeries,
   PaymentMethod,
   PaymentStatus,
   StayStatus,
@@ -17,6 +18,9 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { centerYear } from '../financial/center-day.js';
+import { nextNumber } from '../tenant/numbering.js';
+import { TenantConfig, type CenterConfig } from '../tenant/tenant-config.service.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { AddPaymentDto } from './dto/add-payment.dto.js';
 import { AddRefundDto } from './dto/add-refund.dto.js';
@@ -49,6 +53,7 @@ export class BillingService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly pricing: PricingService,
+    private readonly config: TenantConfig,
   ) {}
 
   findAll(filters: { status?: InvoiceStatus; customerId?: string } = {}) {
@@ -146,13 +151,16 @@ export class BillingService {
   async create(dto: CreateInvoiceDto) {
     const { items, ...fields } = dto;
     assertAmounts(fields.subtotal, fields.tax, fields.discount ?? 0, fields.total, items);
+    const config = await this.config.get();
     try {
       const { id } = await this.prisma.$transaction(async (tx) => {
         await assertBookingCustomer(tx, fields.bookingId, fields.customerId);
-        const invoiceNumber = await nextInvoiceNumber(tx, new Date().getUTCFullYear());
+        const invoiceNumber = await nextInvoiceNumber(tx, config);
         return tx.invoice.create({
           data: {
             ...fields,
+            // Invoices are in the center's currency unless one is given.
+            currency: fields.currency ?? config.currency,
             invoiceNumber,
             dueDate: new Date(fields.dueDate),
             items: { create: items.map(itemData) },
@@ -279,10 +287,12 @@ export class BillingService {
     const tax = subtotal.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
     const total = subtotal.plus(tax);
     assertAmounts(subtotal, tax, 0, total, data.items);
-    const invoiceNumber = await nextInvoiceNumber(tx, new Date().getUTCFullYear());
+    const config = await this.config.get();
+    const invoiceNumber = await nextInvoiceNumber(tx, config);
     return tx.invoice.create({
       data: {
         invoiceNumber,
+        currency: config.currency,
         stayId: data.stayId,
         customerId: data.customerId,
         subtotal,
@@ -347,17 +357,14 @@ async function lockInvoice(tx: Tx, id: string) {
   return tx.invoice.findUniqueOrThrow({ where: { id } });
 }
 
-// Numbers run INV-YYYY-0001 per tenant and calendar year of creation: each
-// center is its own issuer with its own series. The per-tenant, per-year lock
-// serialises concurrent creates, and the number is taken inside the same
-// transaction as the insert, so a failed create leaves no gap.
-async function nextInvoiceNumber(tx: Tx, year: number) {
-  const tenantId = requireTenantId();
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`invoice_number:${tenantId}`}), ${year}::int)`;
-  const [{ max }] = await tx.$queryRaw<{ max: number | null }[]>`
-    SELECT MAX(CAST(split_part("invoiceNumber", '-', 3) AS int)) AS max
-    FROM "Invoice" WHERE "tenantId" = ${tenantId} AND "invoiceNumber" LIKE ${`INV-${year}-%`}`;
-  return `INV-${year}-${String((max ?? 0) + 1).padStart(4, '0')}`;
+// Numbers run INV-YYYY-0001 (the tenant's prefix) per tenant and calendar
+// year of creation at the center: each center is its own issuer with its own
+// gap-free series. Taken inside the same transaction as the insert, so a
+// failed create gives its number back.
+async function nextInvoiceNumber(tx: Tx, config: CenterConfig) {
+  const year = centerYear(config.timeZone);
+  const n = await nextNumber(tx, NumberSeries.INVOICE, year);
+  return `${config.invoicePrefix}-${year}-${String(n).padStart(4, '0')}`;
 }
 
 // Paid = SUCCEEDED payments minus their refunds. PAID when it covers the

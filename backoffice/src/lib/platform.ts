@@ -28,6 +28,8 @@ export interface Tenant {
 
 export interface TenantStats {
   tenant: Tenant;
+  currency: string;
+  timeZone: string;
   bookings: { total: number; byStatus: Record<string, number>; last30Days: number; upcoming: number };
   customers: { total: number; last30Days: number };
   // Decimal strings, in the platform currency (EUR).
@@ -60,7 +62,19 @@ export function getTenantStats(id: string) {
   return apiFetch<TenantStats>(`/superadmin/tenants/${id}/stats`);
 }
 
-export function createTenant(data: { name: string; slug: string; plan: TenantPlan }) {
+export interface NewTenant {
+  name: string;
+  slug: string;
+  plan: TenantPlan;
+  // Left out, the platform defaults (Atlantic/Canary, EUR, English, IGIC 7%).
+  timeZone?: string;
+  currency?: string;
+  defaultLanguage?: string;
+  taxName?: string;
+  taxRate?: number;
+}
+
+export function createTenant(data: NewTenant) {
   return apiFetch<Tenant>("/superadmin/tenants", { method: "POST", body: JSON.stringify(data) });
 }
 

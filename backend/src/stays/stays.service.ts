@@ -18,6 +18,7 @@ import {
   StayStatus,
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
@@ -115,6 +116,7 @@ export class StaysService {
     private readonly billing: BillingService,
     private readonly settings: SettingsService,
     private readonly pricing: PricingService,
+    private readonly config: TenantConfig,
   ) {}
 
   // Every customer with an open stay: unbilled bookings from the last
@@ -235,7 +237,7 @@ export class StaysService {
   // up to STAY_DAYS days after the earliest. Cancelled and no-show bookings
   // are not billed.
   private async openStays(db: Db, customerId?: string) {
-    const since = dateOnly(addDays(centerToday(), -STAY_DAYS));
+    const since = dateOnly(addDays(centerToday(await this.config.timeZone()), -STAY_DAYS));
     const [rows, bookings] = await Promise.all([
       db.stay.findMany({
         where: { status: StayStatus.OPEN, ...(customerId && { customerId }) },

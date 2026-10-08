@@ -46,15 +46,37 @@ function AddPanel({ label, children }: { label: string; children: (close: () => 
   );
 }
 
-export function AddExpenseForm({ date, taxName, taxRate }: { date: string; taxName: string; taxRate: string }) {
+export function AddExpenseForm({
+  date,
+  taxName,
+  taxRate,
+  currency,
+}: {
+  date: string;
+  taxName: string;
+  taxRate: string;
+  currency: string;
+}) {
   return (
     <AddPanel label="Add expense">
-      {(close) => <ExpenseFields date={date} taxName={taxName} taxRate={taxRate} close={close} />}
+      {(close) => <ExpenseFields date={date} taxName={taxName} taxRate={taxRate} currency={currency} close={close} />}
     </AddPanel>
   );
 }
 
-function ExpenseFields({ date, taxName, taxRate, close }: { date: string; taxName: string; taxRate: string; close: () => void }) {
+function ExpenseFields({
+  date,
+  taxName,
+  taxRate,
+  currency,
+  close,
+}: {
+  date: string;
+  taxName: string;
+  taxRate: string;
+  currency: string;
+  close: () => void;
+}) {
   const { state, onSubmit, pending, form } = useResettingForm(addExpenseAction);
   return (
     <form ref={form} onSubmit={onSubmit} className="space-y-3">
@@ -74,11 +96,11 @@ function ExpenseFields({ date, taxName, taxRate, close }: { date: string; taxNam
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Amount (€, {taxName} included)
+          Amount ({currency}, {taxName} included)
           <input name="amount" required inputMode="decimal" placeholder="0.00" className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          {taxName} in the amount (€)
+          {taxName} in the amount ({currency})
           <input name="tax" inputMode="decimal" placeholder={`${Number(taxRate)}% if empty`} className={control} />
         </label>
       </div>
@@ -106,11 +128,11 @@ function ExpenseFields({ date, taxName, taxRate, close }: { date: string; taxNam
   );
 }
 
-export function AddIncomeForm({ date }: { date: string }) {
-  return <AddPanel label="Add income">{(close) => <IncomeFields date={date} close={close} />}</AddPanel>;
+export function AddIncomeForm({ date, currency }: { date: string; currency: string }) {
+  return <AddPanel label="Add income">{(close) => <IncomeFields date={date} currency={currency} close={close} />}</AddPanel>;
 }
 
-function IncomeFields({ date, close }: { date: string; close: () => void }) {
+function IncomeFields({ date, currency, close }: { date: string; currency: string; close: () => void }) {
   const { state, onSubmit, pending, form } = useResettingForm(addIncomeAction);
   return (
     <form ref={form} onSubmit={onSubmit} className="space-y-3">
@@ -124,7 +146,7 @@ function IncomeFields({ date, close }: { date: string; close: () => void }) {
           <input name="description" required maxLength={200} placeholder="e.g. Equipment sale, service fee" className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Amount (€)
+          Amount ({currency})
           <input name="amount" required inputMode="decimal" placeholder="0.00" className={control} />
         </label>
       </div>

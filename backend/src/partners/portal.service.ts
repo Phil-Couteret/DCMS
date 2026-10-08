@@ -7,6 +7,7 @@ import { centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingSource, BookingStatus, PartnerInvoiceStatus, Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PartnerBookingDto, PartnerCustomerDto } from './dto/portal.dto.js';
 import { PARTNER_SELECT, PartnersService, valueBooking } from './partners.service.js';
 
@@ -45,6 +46,7 @@ export class PortalService {
     private readonly prisma: PrismaService,
     private readonly partners: PartnersService,
     private readonly pricing: PricingService,
+    private readonly config: TenantConfig,
   ) {}
 
   async me(partnerId: string) {
@@ -61,6 +63,7 @@ export class PortalService {
     const total = new D(invoices._sum.total ?? 0);
     return {
       partner,
+      center: await this.partners.center(),
       stats: {
         customers,
         bookings,
@@ -128,7 +131,7 @@ export class PortalService {
   // A pending booking on the first boat with room; the center confirms it.
   async createBooking(partnerId: string, dto: PartnerBookingDto) {
     if (!dto.customerId === !dto.customer) throw new BadRequestException('Give either customerId or customer');
-    if (dto.date < centerToday()) throw new BadRequestException('The date has passed');
+    if (dto.date < centerToday(await this.config.timeZone())) throw new BadRequestException('The date has passed');
     const date = dateOnly(dto.date);
     return this.prisma.$transaction(async (tx) => {
       const customerId = dto.customerId
@@ -197,7 +200,7 @@ export class PortalService {
         lastName: dto.lastName.trim(),
         phone: dto.phone?.trim() || null,
         country: dto.country,
-        ...(dto.language && { language: dto.language }),
+        language: dto.language ?? (await this.config.get()).defaultLanguage,
         ...(dto.birthdate && { birthdate: dateOnly(dto.birthdate) }),
       },
       select: CUSTOMER_SELECT,

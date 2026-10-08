@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { billStayAction, deleteCostAction, saveCostAction, type StayFormState } from "@/app/dashboard/stays/actions";
 import { Button } from "@/components/ui/button";
 import type { StayCost, StayCostCategory } from "@/lib/api";
-import { eur } from "@/lib/billing";
+import { money } from "@/lib/billing";
 import { STAY_COST_CATEGORIES, STAY_COST_LABELS } from "@/lib/stays";
 import { useFormAction } from "@/lib/use-form-action";
 
@@ -27,12 +27,14 @@ function CostForm({
   cost,
   today,
   taxName,
+  currency,
   onDone,
 }: {
   customerId: string;
   cost?: StayCost;
   today: string;
   taxName: string;
+  currency: string;
   onDone: () => void;
 }) {
   const [state, onSubmit, pending] = useFormAction<StayFormState>(saveCostAction, null);
@@ -96,7 +98,7 @@ function CostForm({
           />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Unit price (€, before {taxName})
+          Unit price ({currency}, before {taxName})
           <input
             name="unitPrice"
             required
@@ -109,7 +111,7 @@ function CostForm({
         </label>
         <div className="text-sm font-medium text-zinc-700">
           Total
-          <p className="mt-1 py-2 text-zinc-900">{Number.isFinite(total) ? eur(total) : "—"}</p>
+          <p className="mt-1 py-2 text-zinc-900">{Number.isFinite(total) ? money(total, currency) : "—"}</p>
         </div>
         <label className="block text-sm font-medium text-zinc-700 sm:col-span-2">
           Notes (optional)
@@ -129,12 +131,12 @@ function CostForm({
   );
 }
 
-function DeleteCostButton({ cost }: { cost: StayCost }) {
+function DeleteCostButton({ cost, currency }: { cost: StayCost; currency: string }) {
   const [state, onSubmit, pending] = useFormAction<StayFormState>(deleteCostAction, null);
   return (
     <form
       onSubmit={(e) => {
-        if (!confirm(`Delete "${cost.description}" (${eur(cost.total)})?`)) {
+        if (!confirm(`Delete "${cost.description}" (${money(cost.total, currency)})?`)) {
           e.preventDefault();
           return;
         }
@@ -157,12 +159,14 @@ export function StayCosts({
   total,
   today,
   taxName,
+  currency,
 }: {
   customerId: string;
   costs: StayCost[];
   total: string;
   today: string;
   taxName: string;
+  currency: string;
 }) {
   // "new", a cost id being edited, or null.
   const [editing, setEditing] = useState<string | null>(null);
@@ -192,7 +196,7 @@ export function StayCosts({
                 editing === c.id ? (
                   <tr key={c.id}>
                     <td colSpan={7} className="py-2">
-                      <CostForm customerId={customerId} cost={c} today={today} taxName={taxName} onDone={close} />
+                      <CostForm customerId={customerId} cost={c} today={today} taxName={taxName} currency={currency} onDone={close} />
                     </td>
                   </tr>
                 ) : (
@@ -210,14 +214,14 @@ export function StayCosts({
                       {c.notes && <span className="block text-xs text-zinc-500">{c.notes}</span>}
                     </td>
                     <td className={`${td} text-right`}>{c.quantity}</td>
-                    <td className={`${td} text-right`}>{eur(c.unitPrice)}</td>
-                    <td className={`${td} text-right`}>{eur(c.total)}</td>
+                    <td className={`${td} text-right`}>{money(c.unitPrice, currency)}</td>
+                    <td className={`${td} text-right`}>{money(c.total, currency)}</td>
                     <td className={`${td} text-right`}>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setEditing(c.id)} disabled={editing !== null}>
                           Edit
                         </Button>
-                        <DeleteCostButton cost={c} />
+                        <DeleteCostButton cost={c} currency={currency} />
                       </div>
                     </td>
                   </tr>
@@ -228,25 +232,37 @@ export function StayCosts({
         </div>
       )}
       {editing === "new" ? (
-        <CostForm customerId={customerId} today={today} taxName={taxName} onDone={close} />
+        <CostForm customerId={customerId} today={today} taxName={taxName} currency={currency} onDone={close} />
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button size="sm" variant="outline" onClick={() => setEditing("new")} disabled={editing !== null}>
             Add cost
           </Button>
-          {costs.length > 0 && <p className="text-sm font-semibold text-zinc-900">Total extra costs: {eur(total)}</p>}
+          {costs.length > 0 && <p className="text-sm font-semibold text-zinc-900">Total extra costs: {money(total, currency)}</p>}
         </div>
       )}
     </div>
   );
 }
 
-export function BillStayButton({ customerId, name, total, disabledReason }: { customerId: string; name: string; total: string; disabledReason?: string }) {
+export function BillStayButton({
+  customerId,
+  name,
+  total,
+  disabledReason,
+  currency,
+}: {
+  customerId: string;
+  name: string;
+  total: string;
+  disabledReason?: string;
+  currency: string;
+}) {
   const [state, onSubmit, pending] = useFormAction<StayFormState>(billStayAction, null);
   return (
     <form
       onSubmit={(e) => {
-        if (!confirm(`End ${name}'s stay and create an invoice for ${eur(total)}?`)) {
+        if (!confirm(`End ${name}'s stay and create an invoice for ${money(total, currency)}?`)) {
           e.preventDefault();
           return;
         }

@@ -4,10 +4,11 @@ import { DailyReport } from "@/components/financial/daily-report";
 import { CloseDayButton, PrintButton } from "@/components/financial/forms";
 import { Button } from "@/components/ui/button";
 import { getClosedDays, getDailyFinancial, getFinancialInvoices, getSettings, getTaxDeclaration } from "@/lib/api";
-import { eur, formatDateTime, formatDay } from "@/lib/billing";
+import { money, formatDateTime, formatDay } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { FINANCIAL_TABS, financialHref, monthBounds, QUARTER_LABELS, signClass, type FinancialTab } from "@/lib/financial";
 import { formatDayLabel } from "@/lib/trips";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ function Stat({ label, value, hint, tone = "text-zinc-900" }: { label: string; v
 }
 
 async function DailyTab({ date, today }: { date: string; today: string }) {
+  const { timeZone } = await centerLocale();
   let data, settings;
   try {
     [data, settings] = await Promise.all([getDailyFinancial(date), getSettings()]);
@@ -79,7 +81,7 @@ async function DailyTab({ date, today }: { date: string; today: string }) {
 
       {data.closed && (
         <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900 ring-1 ring-blue-200 print:hidden">
-          Closed on {formatDateTime(data.closed.closedAt)} by {data.closed.closedBy}.{" "}
+          Closed on {formatDateTime(timeZone, data.closed.closedAt)} by {data.closed.closedBy}.{" "}
           <Link href={`/dashboard/financial/closed/${date}`} prefetch={false} className="font-medium underline">
             View the stored report
           </Link>
@@ -93,6 +95,7 @@ async function DailyTab({ date, today }: { date: string; today: string }) {
 }
 
 async function ClosedDaysTab() {
+  const { timeZone, currency } = await centerLocale();
   let days;
   try {
     days = await getClosedDays();
@@ -127,11 +130,11 @@ async function ClosedDaysTab() {
               <tr key={d.id}>
                 <td className={`${td} font-medium`}>{formatDayLabel(day, "long")}</td>
                 <td className={`${td} text-zinc-600`}>
-                  {formatDateTime(d.closedAt)} · {d.closedBy}
+                  {formatDateTime(timeZone, d.closedAt)} · {d.closedBy}
                 </td>
-                <td className={`${td} text-right`}>{eur(d.totals.income)}</td>
-                <td className={`${td} text-right text-red-700`}>{eur(d.totals.expenses)}</td>
-                <td className={`${td} text-right font-medium ${signClass(d.totals.net, "text-green-700")}`}>{eur(d.totals.net)}</td>
+                <td className={`${td} text-right`}>{money(d.totals.income, currency)}</td>
+                <td className={`${td} text-right text-red-700`}>{money(d.totals.expenses, currency)}</td>
+                <td className={`${td} text-right font-medium ${signClass(d.totals.net, "text-green-700")}`}>{money(d.totals.net, currency)}</td>
                 <td className={`${td} text-right`}>
                   <Link href={`/dashboard/financial/closed/${day}`} prefetch={false} className="font-medium text-[#0077b6] hover:underline">
                     View report
@@ -147,6 +150,7 @@ async function ClosedDaysTab() {
 }
 
 async function BillsTab({ from, to }: { from: string; to: string }) {
+  const { timeZone, currency } = await centerLocale();
   const form = (
     <form method="get" action="/dashboard/financial" className="flex flex-wrap items-end gap-2 print:hidden">
       <input type="hidden" name="tab" value="bills" />
@@ -180,9 +184,9 @@ async function BillsTab({ from, to }: { from: string; to: string }) {
       {form}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Invoices" value={String(totals.count)} hint="Issued, not cancelled" />
-        <Stat label="Net amount" value={eur(totals.subtotal)} />
-        <Stat label="Tax" value={eur(totals.tax)} />
-        <Stat label="Total" value={eur(totals.total)} hint={Number(totals.discount) > 0 ? `After ${eur(totals.discount)} discounts` : undefined} />
+        <Stat label="Net amount" value={money(totals.subtotal, currency)} />
+        <Stat label="Tax" value={money(totals.tax, currency)} />
+        <Stat label="Total" value={money(totals.total, currency)} hint={Number(totals.discount) > 0 ? `After ${money(totals.discount, currency)} discounts` : undefined} />
       </div>
       {data.invoices.length === 0 ? (
         <div className="rounded-xl bg-white p-10 text-center ring-1 ring-zinc-200">
@@ -211,16 +215,16 @@ async function BillsTab({ from, to }: { from: string; to: string }) {
                       {i.invoiceNumber}
                     </Link>
                   </td>
-                  <td className={td}>{formatDateTime(i.createdAt)}</td>
+                  <td className={td}>{formatDateTime(timeZone, i.createdAt)}</td>
                   <td className={td}>
                     {i.customer.firstName} {i.customer.lastName}
                   </td>
                   <td className={td}>
                     <InvoiceStatusBadge status={i.status} />
                   </td>
-                  <td className={`${td} text-right`}>{eur(i.subtotal)}</td>
-                  <td className={`${td} text-right`}>{eur(i.tax)}</td>
-                  <td className={`${td} text-right font-medium`}>{eur(i.total)}</td>
+                  <td className={`${td} text-right`}>{money(i.subtotal, currency)}</td>
+                  <td className={`${td} text-right`}>{money(i.tax, currency)}</td>
+                  <td className={`${td} text-right font-medium`}>{money(i.total, currency)}</td>
                 </tr>
               ))}
             </tbody>
@@ -232,6 +236,7 @@ async function BillsTab({ from, to }: { from: string; to: string }) {
 }
 
 async function TaxTab({ year, quarter }: { year: number; quarter: number }) {
+  const { currency } = await centerLocale();
   const form = (
     <form method="get" action="/dashboard/financial" className="flex flex-wrap items-end gap-2 print:hidden">
       <input type="hidden" name="tab" value="tax" />
@@ -282,17 +287,17 @@ async function TaxTab({ year, quarter }: { year: number; quarter: number }) {
         Period {formatDay(d.from)} – {formatDay(d.to)}
       </p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Sales base (base imponible)" value={eur(d.sales.base)} hint={`${d.sales.count} invoice${d.sales.count === 1 ? "" : "s"}`} />
-        <Stat label={`${d.taxName} collected (cuota devengada)`} value={eur(d.sales.tax)} tone="text-green-700" />
-        <Stat label="Purchases base (base imponible)" value={eur(d.purchases.base)} hint={`${d.purchases.count} expense${d.purchases.count === 1 ? "" : "s"}`} />
-        <Stat label={`${d.taxName} paid (cuota soportada)`} value={eur(d.purchases.tax)} tone="text-amber-700" />
+        <Stat label="Sales base (base imponible)" value={money(d.sales.base, currency)} hint={`${d.sales.count} invoice${d.sales.count === 1 ? "" : "s"}`} />
+        <Stat label={`${d.taxName} collected (cuota devengada)`} value={money(d.sales.tax, currency)} tone="text-green-700" />
+        <Stat label="Purchases base (base imponible)" value={money(d.purchases.base, currency)} hint={`${d.purchases.count} expense${d.purchases.count === 1 ? "" : "s"}`} />
+        <Stat label={`${d.taxName} paid (cuota soportada)`} value={money(d.purchases.tax, currency)} tone="text-amber-700" />
       </div>
       <div className={`rounded-xl p-6 text-center ring-1 ${toPay ? "bg-green-50 ring-green-200" : "bg-blue-50 ring-blue-200"}`}>
         <p className="text-sm font-medium text-zinc-700">
           Net {d.taxName} {toPay ? "to pay" : "to offset"}
         </p>
         <p className="text-xs text-zinc-500">{toPay ? "Resultado a ingresar" : "Resultado a compensar"}</p>
-        <p className="mt-2 text-4xl font-semibold text-zinc-900">{eur(Math.abs(Number(d.net)))}</p>
+        <p className="mt-2 text-4xl font-semibold text-zinc-900">{money(Math.abs(Number(d.net)), currency)}</p>
       </div>
       <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-zinc-200 print:ring-zinc-400">
         <table className="w-full text-left text-sm">
@@ -309,20 +314,20 @@ async function TaxTab({ year, quarter }: { year: number; quarter: number }) {
           <tbody className="divide-y divide-zinc-100">
             <tr>
               <td className={td}>Sales (ventas)</td>
-              <td className={`${td} text-right`}>{eur(d.sales.base)}</td>
-              <td className={`${td} text-right`}>{eur(d.sales.tax)}</td>
-              <td className={`${td} text-right`}>{eur(Number(d.sales.base) + Number(d.sales.tax))}</td>
+              <td className={`${td} text-right`}>{money(d.sales.base, currency)}</td>
+              <td className={`${td} text-right`}>{money(d.sales.tax, currency)}</td>
+              <td className={`${td} text-right`}>{money(Number(d.sales.base) + Number(d.sales.tax), currency)}</td>
             </tr>
             <tr>
               <td className={td}>Purchases (compras)</td>
-              <td className={`${td} text-right`}>{eur(d.purchases.base)}</td>
-              <td className={`${td} text-right`}>{eur(d.purchases.tax)}</td>
-              <td className={`${td} text-right`}>{eur(d.purchases.total)}</td>
+              <td className={`${td} text-right`}>{money(d.purchases.base, currency)}</td>
+              <td className={`${td} text-right`}>{money(d.purchases.tax, currency)}</td>
+              <td className={`${td} text-right`}>{money(d.purchases.total, currency)}</td>
             </tr>
             <tr className="font-semibold">
               <td className={td}>Net result</td>
               <td className={`${td} text-right`}>—</td>
-              <td className={`${td} text-right ${signClass(d.net)}`}>{eur(d.net)}</td>
+              <td className={`${td} text-right ${signClass(d.net)}`}>{money(d.net, currency)}</td>
               <td className={`${td} text-right`}>—</td>
             </tr>
           </tbody>
@@ -334,7 +339,7 @@ async function TaxTab({ year, quarter }: { year: number; quarter: number }) {
           recorded on the Daily tab. Other income carries no {d.taxName} figure and is not included.
         </p>
         {Number(d.sales.discount) > 0 && (
-          <p>Invoice discounts in this quarter: {eur(d.sales.discount)}. The tax above is as charged on the invoices.</p>
+          <p>Invoice discounts in this quarter: {money(d.sales.discount, currency)}. The tax above is as charged on the invoices.</p>
         )}
         <p>This is a summary. Check every amount before filing with the tax office.</p>
       </div>
@@ -347,8 +352,9 @@ export default async function FinancialPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone } = await centerLocale();
   const params = await searchParams;
-  const now = centerNow();
+  const now = centerNow(timeZone);
   const today = now.isoDate;
   const tab: FinancialTab = FINANCIAL_TABS.find((t) => t.key === one(params.tab))?.key ?? "today";
   const date = isoOr(one(params.date), today);

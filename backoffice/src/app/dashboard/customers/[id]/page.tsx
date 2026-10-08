@@ -31,6 +31,7 @@ import {
   RENTAL_SIZE_FIELDS,
   SKILL_LEVEL_LABELS,
 } from "@/lib/customers";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +144,7 @@ function selfDeclaredCert(bookings: Booking[]) {
 const dateTime = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
+  const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -165,7 +167,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     .slice(0, 10);
   const certs = certsResult.status === "fulfilled" ? certsResult.value : [];
   const declared = selfDeclaredCert(bookings);
-  const today = centerNow().isoDate;
+  const today = centerNow(timeZone).isoDate;
   const soon = new Date(Date.parse(`${today}T00:00:00Z`) + EXPIRY_WARNING_DAYS * 86_400_000).toISOString().slice(0, 10);
   const hasMedical = Boolean(customer.medicalCertNumber || customer.medicalCertExpiry);
   const hasInsurance = Boolean(customer.insuranceProvider || customer.insurancePolicyNumber || customer.insuranceExpiry);

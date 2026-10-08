@@ -2,9 +2,10 @@ import Link from "next/link";
 import { PartnerInvoiceBadge } from "@/components/partners/status-badge";
 import { Button } from "@/components/ui/button";
 import { getPartnerInvoices, getPartners } from "@/lib/api";
-import { eur, formatDay } from "@/lib/billing";
+import { money, formatDay } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { displayStatus, outstanding, PARTNER_INVOICE_LABELS, PARTNER_INVOICE_STATUSES, percent } from "@/lib/partners";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ function Stat({ label, value, tone = "text-zinc-900" }: { label: string; value: 
 }
 
 async function PartnersTab() {
+  const { currency } = await centerLocale();
   let partners;
   try {
     partners = await getPartners();
@@ -56,7 +58,7 @@ async function PartnersTab() {
         <Stat label="Partners" value={String(partners.length)} />
         <Stat label="Active" value={String(active.length)} />
         <Stat label="Average commission" value={`${avg.toFixed(1)}%`} />
-        <Stat label="Owed by partners" value={eur(owed)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
+        <Stat label="Owed by partners" value={money(owed, currency)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
       </div>
       {partners.length === 0 ? (
         <div className="rounded-xl bg-white p-10 text-center ring-1 ring-zinc-200">
@@ -91,7 +93,7 @@ async function PartnersTab() {
                   </td>
                   <td className={`${td} text-right`}>{percent(p.commissionRate)}</td>
                   <td className={`${td} text-right`}>{p._count.bookings}</td>
-                  <td className={`${td} text-right ${Number(p.outstanding) > 0 ? "font-medium text-red-700" : ""}`}>{eur(p.outstanding)}</td>
+                  <td className={`${td} text-right ${Number(p.outstanding) > 0 ? "font-medium text-red-700" : ""}`}>{money(p.outstanding, currency)}</td>
                   <td className={td}>
                     <span
                       className={`rounded px-2 py-0.5 text-xs font-semibold ${p.isActive ? "bg-green-100 text-green-900" : "bg-zinc-200 text-zinc-700"}`}
@@ -110,7 +112,8 @@ async function PartnersTab() {
 }
 
 async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?: string }) {
-  const today = centerNow().isoDate;
+  const { timeZone, currency } = await centerLocale();
+  const today = centerNow(timeZone).isoDate;
   let invoices, partners;
   try {
     [invoices, partners] = await Promise.all([
@@ -129,8 +132,8 @@ async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?:
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Invoices" value={String(live.length)} />
         <Stat label="Unpaid" value={String(live.filter((i) => i.status !== "PAID").length)} tone="text-amber-700" />
-        <Stat label="Invoiced" value={eur(live.reduce((s, i) => s + Number(i.total), 0))} />
-        <Stat label="Outstanding" value={eur(owed)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
+        <Stat label="Invoiced" value={money(live.reduce((s, i) => s + Number(i.total), 0), currency)} />
+        <Stat label="Outstanding" value={money(owed, currency)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
       </div>
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-zinc-200">
         <input type="hidden" name="tab" value="invoices" />
@@ -196,9 +199,9 @@ async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?:
                       {formatDay(i.periodFrom)} – {formatDay(i.periodTo)}
                     </td>
                     <td className={`${td} ${late ? "font-medium text-red-700" : ""}`}>{formatDay(i.dueDate)}</td>
-                    <td className={`${td} text-right`}>{eur(i.total)}</td>
-                    <td className={`${td} text-right`}>{eur(i.paidAmount)}</td>
-                    <td className={`${td} text-right ${due > 0 ? "font-medium text-red-700" : ""}`}>{eur(due)}</td>
+                    <td className={`${td} text-right`}>{money(i.total, currency)}</td>
+                    <td className={`${td} text-right`}>{money(i.paidAmount, currency)}</td>
+                    <td className={`${td} text-right ${due > 0 ? "font-medium text-red-700" : ""}`}>{money(due, currency)}</td>
                     <td className={td}>
                       <PartnerInvoiceBadge invoice={i} today={today} />
                     </td>

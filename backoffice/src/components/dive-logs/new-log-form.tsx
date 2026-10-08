@@ -1,5 +1,6 @@
 "use client";
 
+import { zoneLabel } from "@/lib/center-time";
 import { useState } from "react";
 import { createLog, type FormState } from "@/app/dashboard/dive-logs/actions";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,13 @@ export function NewLogForm({
   sites,
   guides,
   today,
+  timeZone,
   bookingId,
 }: {
   sites: { id: string; name: string }[];
   guides: { id: string; name: string }[];
   today: string;
+  timeZone: string;
   bookingId?: string;
 }) {
   const [state, onSubmit, pending] = useFormAction<FormState>(createLog, null);
@@ -93,7 +96,7 @@ export function NewLogForm({
           ) : (
             <span className="text-red-700">exit must be after entry</span>
           )}{" "}
-          <span className="text-xs text-zinc-500">· times in Canary Islands time</span>
+          <span className="text-xs text-zinc-500">· times in {zoneLabel(timeZone)} time ({timeZone})</span>
         </p>
       </fieldset>
 

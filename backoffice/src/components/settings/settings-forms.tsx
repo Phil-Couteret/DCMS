@@ -15,6 +15,8 @@ import {
   type SettingsFormState,
 } from "@/app/dashboard/settings/actions";
 import { Button } from "@/components/ui/button";
+import { LANGUAGE_LABELS, LANGUAGES } from "@/lib/customers";
+import { money } from "@/lib/billing";
 import type { Boat, CenterSettings, DiveSite, FunDiveTier, Pricing, User } from "@/lib/api";
 import {
   ACTIVITY_PRICE_LABELS,
@@ -54,7 +56,17 @@ function Status({ state, saved = "Saved." }: { state: SettingsFormState; saved?:
   return null;
 }
 
-export function GeneralForm({ settings }: { settings: CenterSettings }) {
+export function GeneralForm({
+  settings,
+  isAdmin,
+  timeZones,
+  currencies,
+}: {
+  settings: CenterSettings;
+  isAdmin: boolean;
+  timeZones: string[];
+  currencies: string[];
+}) {
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveGeneral, null);
   return (
     <form onSubmit={onSubmit} className="max-w-2xl space-y-4">
@@ -116,6 +128,17 @@ export function GeneralForm({ settings }: { settings: CenterSettings }) {
           </label>
         </div>
       </fieldset>
+      {isAdmin ? (
+        <CenterAdminFields settings={settings} timeZones={timeZones} currencies={currencies} />
+      ) : (
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-2 border-t border-zinc-200 pt-4 text-sm sm:grid-cols-2">
+          <ReadOnly label="Time zone" value={settings.timeZone} />
+          <ReadOnly label="Currency" value={settings.currency} />
+          <ReadOnly label="Default language" value={LANGUAGE_LABELS[settings.defaultLanguage] ?? settings.defaultLanguage} />
+          <ReadOnly label="Invoice numbers" value={`${settings.invoicePrefix}-YYYY-0001 · partners ${settings.partnerInvoicePrefix}-YYYY-0001`} />
+          <p className="text-xs text-zinc-500 sm:col-span-2">Only an admin can change these, and the branding.</p>
+        </dl>
+      )}
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save"}
@@ -123,6 +146,115 @@ export function GeneralForm({ settings }: { settings: CenterSettings }) {
         <Status state={state} />
       </div>
     </form>
+  );
+}
+
+function ReadOnly({ label: name, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-zinc-500">{name}</dt>
+      <dd className="font-medium text-zinc-900">{value}</dd>
+    </div>
+  );
+}
+
+// A colour picker that can also be left unset (the site's default colour).
+function ColourField({ name, title, value }: { name: string; title: string; value: string | null }) {
+  const [on, setOn] = useState(value !== null);
+  return (
+    <div className={label}>
+      <span className="flex items-center gap-2">
+        <input type="checkbox" name={`${name}On`} checked={on} onChange={(e) => setOn(e.target.checked)} aria-label={`Use a ${title.toLowerCase()}`} />
+        {title}
+      </span>
+      <input type="color" name={name} defaultValue={value ?? "#0077b6"} disabled={!on} aria-label={title} className="mt-1 h-9 w-20 rounded-md border border-zinc-300 disabled:opacity-40" />
+    </div>
+  );
+}
+
+// Admins: the center's time zone, currency and language, the public site's
+// branding, and the invoice number prefixes.
+function CenterAdminFields({
+  settings,
+  timeZones,
+  currencies,
+}: {
+  settings: CenterSettings;
+  timeZones: string[];
+  currencies: string[];
+}) {
+  const zones = timeZones.includes(settings.timeZone) ? timeZones : [settings.timeZone, ...timeZones];
+  return (
+    <>
+      <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">Region</legend>
+        <p className="text-xs text-zinc-500">
+          The time zone sets the center&apos;s days (closing a day, &quot;today&quot;, invoice years) and the times staff enter.
+          The currency applies to prices and new invoices; invoices already issued keep theirs.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <label className={label}>
+            Time zone
+            <select name="timeZone" defaultValue={settings.timeZone} className={control}>
+              {zones.map((z) => (
+                <option key={z} value={z}>
+                  {z.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={label}>
+            Currency
+            <select name="currency" defaultValue={settings.currency} className={control}>
+              {currencies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={label}>
+            Default language
+            <select name="defaultLanguage" defaultValue={settings.defaultLanguage} className={control}>
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs font-normal text-zinc-500">For new customers and the public site.</span>
+          </label>
+        </div>
+      </fieldset>
+      <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">Public site branding</legend>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <label className={`${label} sm:col-span-3`}>
+            Logo URL (optional)
+            <input type="url" name="logoUrl" maxLength={500} placeholder="https://" defaultValue={settings.logoUrl ?? ""} className={control} />
+          </label>
+          <ColourField name="primaryColor" title="Main colour" value={settings.primaryColor} />
+          <ColourField name="accentColor" title="Accent colour" value={settings.accentColor} />
+        </div>
+      </fieldset>
+      <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">Invoice numbers</legend>
+        <p className="text-xs text-zinc-500">
+          Each series runs PREFIX-YEAR-0001, 0002… without gaps, and starts again each year. A new prefix applies to the next
+          invoice; the count continues.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className={label}>
+            Customer invoices
+            <input name="invoicePrefix" required maxLength={10} pattern="[A-Za-z0-9]{1,10}" defaultValue={settings.invoicePrefix} className={`${control} uppercase`} />
+          </label>
+          <label className={label}>
+            Partner invoices
+            <input name="partnerInvoicePrefix" required maxLength={10} pattern="[A-Za-z0-9]{1,10}" defaultValue={settings.partnerInvoicePrefix} className={`${control} uppercase`} />
+          </label>
+        </div>
+      </fieldset>
+    </>
   );
 }
 
@@ -512,7 +644,19 @@ const thRight = `${th} text-right`;
 const td = "px-3 py-2";
 
 // A euro amount field, net of tax.
-function PriceField({ name, value, label: aria, optional }: { name: string; value: number | null; label: string; optional?: boolean }) {
+function PriceField({
+  name,
+  value,
+  label: aria,
+  optional,
+  currency,
+}: {
+  name: string;
+  value: number | null;
+  label: string;
+  optional?: boolean;
+  currency: string;
+}) {
   return (
     <div className="flex items-center justify-end gap-1.5">
       <input
@@ -526,7 +670,7 @@ function PriceField({ name, value, label: aria, optional }: { name: string; valu
         defaultValue={value === null ? "" : String(value)}
         className={priceInput}
       />
-      <span className="text-sm text-zinc-500">€</span>
+      <span className="text-sm text-zinc-500">{currency}</span>
     </div>
   );
 }
@@ -595,7 +739,7 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
                       )}
                     </td>
                     <td className={td}>
-                      <PriceField name={`activity_${key}`} value={pricing.activities[key]} label={`${name} price`} optional />
+                      <PriceField currency={pricing.currency} name={`activity_${key}`} value={pricing.activities[key]} label={`${name} price`} optional />
                     </td>
                   </tr>
                 ))}
@@ -618,7 +762,7 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
                   <tr key={key}>
                     <td className={`${td} font-medium text-zinc-900`}>{name}</td>
                     <td className={td}>
-                      <PriceField name={`equipment_${key}`} value={pricing.equipment[key]} label={`${name} price`} />
+                      <PriceField currency={pricing.currency} name={`equipment_${key}`} value={pricing.equipment[key]} label={`${name} price`} />
                     </td>
                   </tr>
                 ))}
@@ -626,11 +770,11 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
                   <td className={`${td} font-medium text-zinc-900`}>
                     Full package
                     <span className="block text-xs font-normal text-zinc-500">
-                      All five items together, instead of their sum (currently {itemsTotal.toLocaleString("en-GB")} €).
+                      All five items together, instead of their sum (currently {money(itemsTotal, pricing.currency)}).
                     </span>
                   </td>
                   <td className={td}>
-                    <PriceField name="equipment_fullPackage" value={pricing.equipment.fullPackage} label="Full package price" />
+                    <PriceField currency={pricing.currency} name="equipment_fullPackage" value={pricing.equipment.fullPackage} label="Full package price" />
                   </td>
                 </tr>
               </tbody>
@@ -672,13 +816,13 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
                       />
                     </td>
                     <td className={td}>
-                      <PriceField name="tierTourist" value={t.tourist} label={`Tier ${i + 1}: tourist rate`} />
+                      <PriceField currency={pricing.currency} name="tierTourist" value={t.tourist} label={`Tier ${i + 1}: tourist rate`} />
                     </td>
                     <td className={td}>
-                      <PriceField name="tierLocal" value={t.local} label={`Tier ${i + 1}: local rate`} />
+                      <PriceField currency={pricing.currency} name="tierLocal" value={t.local} label={`Tier ${i + 1}: local rate`} />
                     </td>
                     <td className={td}>
-                      <PriceField name="tierRecurrent" value={t.recurrent} label={`Tier ${i + 1}: recurrent rate`} />
+                      <PriceField currency={pricing.currency} name="tierRecurrent" value={t.recurrent} label={`Tier ${i + 1}: recurrent rate`} />
                     </td>
                     <td className={`${td} text-right`}>
                       <Button

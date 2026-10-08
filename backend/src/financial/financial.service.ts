@@ -4,6 +4,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ActivityType, InvoiceStatus, PaymentMethod, PaymentStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
 import { addDays, centerMidnight, centerToday, dateOnly, quarterDates } from './center-day.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
@@ -68,14 +69,16 @@ export class FinancialService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly tenant: TenantContext,
+    private readonly config: TenantConfig,
   ) {}
 
   // Everything the center took in and spent on one day (center time).
   // Invoice income is cash basis: payments that succeeded that day, less
   // refunds made that day, whenever the dives took place.
   async daily(date: string) {
-    const start = centerMidnight(date);
-    const end = centerMidnight(addDays(date, 1));
+    const tz = await this.config.timeZone();
+    const start = centerMidnight(date, tz);
+    const end = centerMidnight(addDays(date, 1), tz);
     const day = dateOnly(date);
     const [payments, refunds, income, expenses, closed, { taxName }] = await Promise.all([
       this.prisma.payment.findMany({
@@ -148,7 +151,7 @@ export class FinancialService {
   // Freezes the day's figures. Closing a day again replaces its report; the
   // figures themselves can still be changed afterwards.
   async closeDay(date: string, closedBy: string) {
-    if (date > centerToday()) throw new BadRequestException('A day cannot be closed before it has started');
+    if (date > centerToday(await this.config.timeZone())) throw new BadRequestException('A day cannot be closed before it has started');
     const { closed: _, ...summary } = await this.daily(date);
     const data = { summary: summary as unknown as Prisma.InputJsonValue, closedBy, closedAt: new Date() };
     return this.prisma.closedDay.upsert({
@@ -211,8 +214,9 @@ export class FinancialService {
   // with their totals.
   async invoices(from: string, to: string) {
     if (from > to) throw new BadRequestException('from must not be after to');
+    const tz = await this.config.timeZone();
     const invoices = await this.prisma.invoice.findMany({
-      where: { status: ISSUED, createdAt: { gte: centerMidnight(from), lt: centerMidnight(addDays(to, 1)) } },
+      where: { status: ISSUED, createdAt: { gte: centerMidnight(from, tz), lt: centerMidnight(addDays(to, 1), tz) } },
       include: { customer: { select: { id: true, firstName: true, lastName: true } } },
       orderBy: { invoiceNumber: 'desc' },
     });
@@ -235,9 +239,10 @@ export class FinancialService {
   // out, as in the previous system.
   async taxDeclaration(year: number, quarter: number) {
     const { from, next } = quarterDates(year, quarter);
+    const tz = await this.config.timeZone();
     const [sales, expenses, { taxName, taxRate }] = await Promise.all([
       this.prisma.invoice.findMany({
-        where: { status: ISSUED, createdAt: { gte: centerMidnight(from), lt: centerMidnight(next) } },
+        where: { status: ISSUED, createdAt: { gte: centerMidnight(from, tz), lt: centerMidnight(next, tz) } },
         select: { subtotal: true, tax: true, discount: true, total: true },
       }),
       this.prisma.expense.findMany({

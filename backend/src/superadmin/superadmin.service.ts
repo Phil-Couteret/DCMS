@@ -2,6 +2,8 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingStatus, InvoiceStatus, PaymentStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { DEFAULT_SETTINGS, seedTenantDefaults } from '../config/tenant-defaults.js';
+import { centerToday, dateOnly } from '../financial/center-day.js';
 import { runInTenant } from '../tenant/tenant-context.js';
 import { TenantsService } from '../tenant/tenants.service.js';
 import { recordPlatformAction } from './audit.js';
@@ -57,21 +59,23 @@ export class SuperadminService {
     return toView(row);
   }
 
-  // A new, empty tenant. Its default settings, prices and first location
-  // come with onboarding (MULTITENANT_PLAN.md step 5); until then a
-  // superadmin enters it and sets it up, starting with its first admin.
+  // A new tenant with its settings and the default price list, so it can
+  // price and invoice from day one. Its first location and the invitation of
+  // its first admin come with onboarding (MULTITENANT_PLAN.md step 5); until
+  // then a superadmin enters it and adds its first admin.
   async createTenant(dto: CreateTenantDto, actorId: string) {
+    const { name: rawName, slug, plan, ...regional } = dto;
+    const name = rawName.trim();
     try {
       const row = await this.prisma.$transaction(async (tx) => {
-        const tenant = await tx.tenant.create({
-          data: { name: dto.name.trim(), slug: dto.slug, plan: dto.plan },
-          select: tenantSelect,
-        });
+        const { id } = await tx.tenant.create({ data: { name, slug, plan }, select: { id: true } });
+        await runInTenant(id, () => seedTenantDefaults(tx, { name, ...regional }));
+        const tenant = await tx.tenant.findUniqueOrThrow({ where: { id }, select: tenantSelect });
         await recordPlatformAction(tx, {
           userId: actorId,
           action: 'tenant.create',
           tenantId: tenant.id,
-          details: { name: tenant.name, slug: tenant.slug, plan: tenant.plan },
+          details: { name: tenant.name, slug: tenant.slug, plan: tenant.plan, ...regional },
         });
         return tenant;
       });
@@ -113,8 +117,13 @@ export class SuperadminService {
   async tenantStats(id: string) {
     const tenant = await this.getTenant(id);
     const since = new Date(Date.now() - 30 * DAY_MS);
-    const today = new Date(new Date().toISOString().slice(0, 10));
     const stats = await runInTenant(id, async () => {
+      const settings = await this.prisma.centerSettings.findUnique({
+        where: { tenantId: id },
+        select: { currency: true, timeZone: true },
+      });
+      // Upcoming: from today at the center.
+      const today = dateOnly(centerToday(settings?.timeZone ?? DEFAULT_SETTINGS.timeZone));
       const [byStatus, recentBookings, upcoming, customers, newCustomers, invoiced, paid, refunded, paid30, refunded30] =
         await Promise.all([
           this.prisma.booking.groupBy({ by: ['status'], _count: { _all: true } }),
@@ -140,6 +149,8 @@ export class SuperadminService {
       for (const row of byStatus) statusCounts[row.status] = row._count._all;
       const zero = new Prisma.Decimal(0);
       return {
+        currency: settings?.currency ?? DEFAULT_SETTINGS.currency,
+        timeZone: settings?.timeZone ?? DEFAULT_SETTINGS.timeZone,
         bookings: {
           total: byStatus.reduce((n, r) => n + r._count._all, 0),
           byStatus: statusCounts,

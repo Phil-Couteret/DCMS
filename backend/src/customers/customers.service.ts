@@ -9,6 +9,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { Language, Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usedByOtherTenants } from '../tenant/shared-accounts.js';
+import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
@@ -27,6 +28,7 @@ export class CustomersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantContext,
+    private readonly config: TenantConfig,
   ) {}
 
   async findAll(filters: { country?: string; language?: Language } = {}) {
@@ -84,6 +86,8 @@ export class CustomersService {
   async create(dto: CreateCustomerDto) {
     const { email, userId, ...fields } = dto;
     if (!userId === !email) throw new BadRequestException('Give either userId or email');
+    // Without a language, the center's default.
+    fields.language ??= (await this.config.get()).defaultLanguage;
     try {
       const customer = await this.prisma.$transaction(async (tx) => {
         const ownerId = userId ?? (await accountFor(tx, email!.toLowerCase()));

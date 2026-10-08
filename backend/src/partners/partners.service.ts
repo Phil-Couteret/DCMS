@@ -11,11 +11,13 @@ import bcrypt from 'bcrypt';
 import { ACTIVITY_NAMES, type PriceList } from '../config/catalogue.js';
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { BookingStatus, PartnerInvoiceStatus } from '../generated/prisma/enums.js';
+import { BookingStatus, NumberSeries, PartnerInvoiceStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { nextNumber } from '../tenant/numbering.js';
+import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
-import { requireTenantId, runUnscoped } from '../tenant/tenant-context.js';
+import { runUnscoped } from '../tenant/tenant-context.js';
 import { TenantsService } from '../tenant/tenants.service.js';
 import { DUMMY_HASH, newCredentials } from './credentials.js';
 import { CreatePartnerDto } from './dto/create-partner.dto.js';
@@ -101,6 +103,7 @@ export class PartnersService {
     private readonly pricing: PricingService,
     private readonly jwt: JwtService,
     private readonly tenants: TenantsService,
+    private readonly config: TenantConfig,
   ) {}
 
   // --- Partner accounts ---
@@ -198,7 +201,17 @@ export class PartnersService {
       tenantId: partner.tenantId,
     });
     const { apiSecretHash: _, ...safe } = partner;
-    return { partner: safe, accessToken };
+    return { partner: safe, center: await this.center(), accessToken };
+  }
+
+  // The center a partner works with: its name, and the time zone and
+  // currency the portal displays in.
+  async center() {
+    const [{ timeZone, currency }, row] = await Promise.all([
+      this.config.get(),
+      this.prisma.centerSettings.findFirst({ select: { name: true } }),
+    ]);
+    return { name: row?.name ?? '', timeZone, currency };
   }
 
   // --- Partner invoices ---
@@ -248,7 +261,11 @@ export class PartnersService {
 
   async createInvoice(partnerId: string, from: string, to: string, createdBy: string) {
     assertRange(from, to);
-    const [{ taxRate, taxName }, prices] = await Promise.all([this.settings.tax(), this.pricing.current()]);
+    const [{ taxRate, taxName }, prices, config] = await Promise.all([
+      this.settings.tax(),
+      this.pricing.current(),
+      this.config.get(),
+    ]);
     const id = await this.prisma.$transaction(async (tx) => {
       // One invoice at a time per partner, so a booking cannot land on two.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner_invoice'), hashtext(${partnerId}))`;
@@ -262,10 +279,10 @@ export class PartnersService {
         throw new UnprocessableEntityException(`No price is set for ${names}; set it in Settings → Pricing`);
       }
       const amounts = partnerAmounts(sum(valued.map((v) => v.total!)), partner.commissionRate, taxRate);
-      const today = centerToday();
+      const today = centerToday(config.timeZone);
       const invoice = await tx.partnerInvoice.create({
         data: {
-          invoiceNumber: await nextPartnerInvoiceNumber(tx, Number(today.slice(0, 4))),
+          invoiceNumber: await nextPartnerInvoiceNumber(tx, config.partnerInvoicePrefix, Number(today.slice(0, 4))),
           partnerId,
           periodFrom: dateOnly(from),
           periodTo: dateOnly(to),
@@ -380,15 +397,11 @@ function clean<T extends Partial<CreatePartnerDto>>(dto: T) {
   };
 }
 
-// PINV-YYYY-0001, per tenant and calendar year, numbered under a lock like
-// customer invoices.
-async function nextPartnerInvoiceNumber(tx: Tx, year: number) {
-  const tenantId = requireTenantId();
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`partner_invoice_number:${tenantId}`}), ${year}::int)`;
-  const [{ max }] = await tx.$queryRaw<{ max: number | null }[]>`
-    SELECT MAX(CAST(split_part("invoiceNumber", '-', 3) AS int)) AS max
-    FROM "PartnerInvoice" WHERE "tenantId" = ${tenantId} AND "invoiceNumber" LIKE ${`PINV-${year}-%`}`;
-  return `PINV-${year}-${String((max ?? 0) + 1).padStart(4, '0')}`;
+// PINV-YYYY-0001 (the tenant's prefix), one gap-free series per tenant and
+// calendar year at the center.
+async function nextPartnerInvoiceNumber(tx: Tx, prefix: string, year: number) {
+  const n = await nextNumber(tx, NumberSeries.PARTNER_INVOICE, year);
+  return `${prefix}-${year}-${String(n).padStart(4, '0')}`;
 }
 
 function mapError(e: unknown) {

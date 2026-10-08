@@ -3,6 +3,7 @@ import { BookingForm } from "@/components/bookings/booking-form";
 import { getBoats, getCustomers, getDiveSites, getPartners } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
 import { customerOption } from "@/lib/customers";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function NewBookingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone } = await centerLocale();
   const params = await searchParams;
   // ?customer=<id> preselects the customer, e.g. from their profile.
   const customer = typeof params.customer === "string" && UUID.test(params.customer) ? params.customer : "";
@@ -39,7 +41,7 @@ export default async function NewBookingPage({
           initial={{
             customerId: customers.some((c) => c.id === customer) ? customer : "",
             activityType: "FUN_DIVE",
-            date: centerNow().isoDate,
+            date: centerNow(timeZone).isoDate,
             timeSlot: "MORNING",
             boatId: activeBoats.length === 1 ? activeBoats[0].id : "",
             siteId: "",

@@ -2,11 +2,12 @@ import Link from "next/link";
 import { AddCustomerForm, CreateBookingForm } from "@/components/portal/forms";
 import { PartnerInvoiceBadge } from "@/components/partners/status-badge";
 import { getPortalBookings, getPortalCustomers, getPortalInvoices, getPortalMe } from "@/lib/api";
-import { eur, formatDay } from "@/lib/billing";
+import { money, formatDay } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { countryLabel } from "@/lib/customers";
 import { outstanding, percent } from "@/lib/partners";
 import { SLOT_NAMES } from "@/lib/trips";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 async function Overview() {
+  const { currency } = await centerLocale();
   let me;
   try {
     me = await getPortalMe();
@@ -74,8 +76,8 @@ async function Overview() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Bookings" value={String(stats.bookings)} />
         <Stat label="Customers" value={String(stats.customers)} />
-        <Stat label="Invoiced" value={eur(stats.invoiced)} />
-        <Stat label="Outstanding" value={eur(stats.outstanding)} tone={Number(stats.outstanding) > 0 ? "text-red-700" : "text-zinc-900"} />
+        <Stat label="Invoiced" value={money(stats.invoiced, currency)} />
+        <Stat label="Outstanding" value={money(stats.outstanding, currency)} tone={Number(stats.outstanding) > 0 ? "text-red-700" : "text-zinc-900"} />
       </div>
       <section className="space-y-2 rounded-xl bg-white p-5 ring-1 ring-zinc-200">
         <h2 className="text-lg font-semibold text-zinc-900">Commission</h2>
@@ -83,7 +85,7 @@ async function Overview() {
           <dt className="text-zinc-500">Your rate</dt>
           <dd className="font-medium">{percent(partner.commissionRate)}</dd>
           <dt className="text-zinc-500">Earned on invoices</dt>
-          <dd className="font-medium">{eur(stats.commissionEarned)}</dd>
+          <dd className="font-medium">{money(stats.commissionEarned, currency)}</dd>
         </dl>
         <p className="text-sm text-zinc-500">
           Your bookings are valued at the dive center&apos;s prices. Each invoice deducts your commission and adds tax.
@@ -104,6 +106,7 @@ async function Overview() {
 }
 
 async function BookingsTab({ today }: { today: string }) {
+  const { currency } = await centerLocale();
   let bookings, customers;
   try {
     [bookings, customers] = await Promise.all([getPortalBookings(), getPortalCustomers()]);
@@ -144,7 +147,7 @@ async function BookingsTab({ today }: { today: string }) {
                     {b.notes && <span className="block max-w-xs truncate text-xs text-zinc-500">{b.notes}</span>}
                   </td>
                   <td className={`${td} text-right`}>{b.participantCount}</td>
-                  <td className={`${td} text-right`}>{b.value ? eur(b.value) : "—"}</td>
+                  <td className={`${td} text-right`}>{b.value ? money(b.value, currency) : "—"}</td>
                   <td className={td}>
                     <span className={`rounded px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[b.status]}`}>{STATUS_LABELS[b.status]}</span>
                   </td>
@@ -210,6 +213,7 @@ async function CustomersTab() {
 }
 
 async function InvoicesTab({ today }: { today: string }) {
+  const { currency } = await centerLocale();
   let invoices;
   try {
     invoices = await getPortalInvoices();
@@ -243,9 +247,9 @@ async function InvoicesTab({ today }: { today: string }) {
                 </td>
                 <td className={td}>{formatDay(i.createdAt)}</td>
                 <td className={td}>{formatDay(i.dueDate)}</td>
-                <td className={`${td} text-right font-medium`}>{eur(i.total)}</td>
-                <td className={`${td} text-right`}>{eur(i.paidAmount)}</td>
-                <td className={`${td} text-right ${due > 0 ? "font-medium text-red-700" : ""}`}>{eur(due)}</td>
+                <td className={`${td} text-right font-medium`}>{money(i.total, currency)}</td>
+                <td className={`${td} text-right`}>{money(i.paidAmount, currency)}</td>
+                <td className={`${td} text-right ${due > 0 ? "font-medium text-red-700" : ""}`}>{money(due, currency)}</td>
                 <td className={td}>
                   <PartnerInvoiceBadge invoice={i} today={today} />
                 </td>
@@ -263,9 +267,10 @@ export default async function PartnerPortalPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone } = await centerLocale();
   const requested = one((await searchParams).tab);
   const tab = TABS.find((t) => t.key === requested)?.key ?? "overview";
-  const today = centerNow().isoDate;
+  const today = centerNow(timeZone).isoDate;
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6 md:p-8">
       <nav aria-label="Portal sections" className="flex gap-1 overflow-x-auto border-b border-zinc-200">

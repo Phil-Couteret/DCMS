@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { CustomerForm } from "@/components/customers/customer-form";
+import { centerLocale } from "@/lib/center";
 import { centerNow } from "@/lib/center-time";
 
 export const dynamic = "force-dynamic";
 
-export default function NewCustomerPage() {
+export default async function NewCustomerPage() {
+  const { timeZone } = await centerLocale();
   return (
     <main className="max-w-4xl space-y-6 p-6 md:p-8">
       <Link href="/dashboard/customers" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
@@ -43,7 +45,7 @@ export default function NewCustomerPage() {
           emergencyRelationship: "",
         }}
         cancelHref="/dashboard/customers"
-        maxBirthdate={centerNow().isoDate}
+        maxBirthdate={centerNow(timeZone).isoDate}
       />
     </main>
   );

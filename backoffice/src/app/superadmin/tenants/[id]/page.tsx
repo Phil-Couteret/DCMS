@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { OpenTenantButton, TenantActiveButton, TenantForm } from "@/components/superadmin/tenant-forms";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api";
-import { eur, formatDay } from "@/lib/billing";
+import { money, formatDay } from "@/lib/billing";
 import { getTenantStats, PLAN_LABELS } from "@/lib/platform";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,8 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   });
-  const { tenant, bookings, customers, revenue } = stats;
+  // In the center's own currency, whatever the console session's.
+  const { tenant, bookings, customers, revenue, currency, timeZone } = stats;
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
@@ -51,7 +52,7 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
             </h1>
             <p className="text-sm text-zinc-500">
               {tenant.slug} · {PLAN_LABELS[tenant.plan]} plan · since {formatDay(tenant.createdAt)} · {tenant.counts.staff} staff,{" "}
-              {tenant.counts.locations} locations
+              {tenant.counts.locations} locations · {timeZone} · {currency}
             </p>
           </div>
           <div className="flex items-start gap-2">
@@ -91,9 +92,9 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-zinc-900">Revenue</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Stat label="Invoiced" value={eur(revenue.invoiced)} note="issued invoices, not cancelled" />
-          <Stat label="Collected" value={eur(revenue.collected)} note="payments received, less refunds" />
-          <Stat label="Collected, last 30 days" value={eur(revenue.collectedLast30Days)} />
+          <Stat label="Invoiced" value={money(revenue.invoiced, currency)} note="issued invoices, not cancelled" />
+          <Stat label="Collected" value={money(revenue.collected, currency)} note="payments received, less refunds" />
+          <Stat label="Collected, last 30 days" value={money(revenue.collectedLast30Days, currency)} />
         </div>
       </section>
 

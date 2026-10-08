@@ -5,12 +5,14 @@ import { PartnerInvoiceDocument } from "@/components/partners/invoice-document";
 import { PartnerInvoiceBadge } from "@/components/partners/status-badge";
 import { ApiError, getPortalInvoice } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function PortalInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   let invoice;
@@ -28,7 +30,7 @@ export default async function PortalInvoicePage({ params }: { params: Promise<{ 
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-3">
           <h1 className="font-mono text-2xl font-semibold text-zinc-900">{invoice.invoiceNumber}</h1>
-          <PartnerInvoiceBadge invoice={invoice} today={centerNow().isoDate} />
+          <PartnerInvoiceBadge invoice={invoice} today={centerNow(timeZone).isoDate} />
         </div>
         <PrintButton />
       </div>

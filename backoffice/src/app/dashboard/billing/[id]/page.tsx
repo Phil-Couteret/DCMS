@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, getInvoice, getSettings, type InvoiceStatus, type Payment } from "@/lib/api";
-import { eur, formatDateTime, formatDay, METHOD_LABELS, PAYMENT_STATUS_STYLES } from "@/lib/billing";
+import { money, formatDateTime, formatDay, METHOD_LABELS, PAYMENT_STATUS_STYLES } from "@/lib/billing";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ function refundable(p: Payment) {
 }
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -131,15 +133,15 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                       {item.description} <span className="ml-1 text-xs capitalize text-zinc-500">{item.type}</span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                    <TableCell className="text-right tabular-nums">{eur(item.unitPrice, c)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{eur(item.total, c)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{money(item.unitPrice, c)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{money(item.total, c)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={3} className="text-right">Subtotal</TableCell>
-                  <TableCell className="text-right tabular-nums">{eur(invoice.subtotal, c)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{money(invoice.subtotal, c)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
@@ -154,27 +156,27 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-zinc-500">Subtotal</dt>
-                <dd className="tabular-nums">{eur(invoice.subtotal, c)}</dd>
+                <dd className="tabular-nums">{money(invoice.subtotal, c)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-zinc-500">{taxName}</dt>
-                <dd className="tabular-nums">{eur(invoice.tax, c)}</dd>
+                <dd className="tabular-nums">{money(invoice.tax, c)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-zinc-500">Discount</dt>
-                <dd className="tabular-nums">{Number(invoice.discount) > 0 ? `−${eur(invoice.discount, c)}` : eur(0, c)}</dd>
+                <dd className="tabular-nums">{Number(invoice.discount) > 0 ? `−${money(invoice.discount, c)}` : money(0, c)}</dd>
               </div>
               <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-semibold">
                 <dt>Total</dt>
-                <dd className="tabular-nums">{eur(invoice.total, c)}</dd>
+                <dd className="tabular-nums">{money(invoice.total, c)}</dd>
               </div>
               <div className="flex justify-between pt-2">
                 <dt className="text-zinc-500">Paid (after refunds)</dt>
-                <dd className="tabular-nums">{eur(invoice.amountPaid, c)}</dd>
+                <dd className="tabular-nums">{money(invoice.amountPaid, c)}</dd>
               </div>
               <div className="flex justify-between font-medium">
                 <dt>Balance</dt>
-                <dd className="tabular-nums">{eur(invoice.balance, c)}</dd>
+                <dd className="tabular-nums">{money(invoice.balance, c)}</dd>
               </div>
             </dl>
           </CardContent>
@@ -194,22 +196,22 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 <li key={p.id} className="py-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3 text-sm">
-                      <span className="font-semibold tabular-nums">{eur(p.amount, p.currency)}</span>
+                      <span className="font-semibold tabular-nums">{money(p.amount, p.currency)}</span>
                       <span>{METHOD_LABELS[p.method]}</span>
                       <Badge className={PAYMENT_STATUS_STYLES[p.status]}>{p.status.toLowerCase()}</Badge>
-                      <span className="text-zinc-500">{p.paidAt ? `Paid ${formatDateTime(p.paidAt)}` : "Not paid yet"}</span>
+                      <span className="text-zinc-500">{p.paidAt ? `Paid ${formatDateTime(timeZone, p.paidAt)}` : "Not paid yet"}</span>
                       {p.stripePaymentId && <span className="font-mono text-xs text-zinc-500">{p.stripePaymentId}</span>}
                     </div>
                     {p.status === "SUCCEEDED" && Number(refundable(p)) > 0 && (
-                      <RefundForm invoiceId={invoice.id} paymentId={p.id} refundable={refundable(p)} />
+                      <RefundForm invoiceId={invoice.id} paymentId={p.id} refundable={refundable(p)} currency={invoice.currency} />
                     )}
                   </div>
                   {p.refunds.length > 0 && (
                     <ul className="mt-2 space-y-1 border-l-2 border-zinc-200 pl-4 text-sm text-zinc-600">
                       {p.refunds.map((r) => (
                         <li key={r.id}>
-                          Refund <span className="font-medium tabular-nums">−{eur(r.amount, p.currency)}</span> · {r.reason} ·{" "}
-                          {formatDateTime(r.processedAt)}
+                          Refund <span className="font-medium tabular-nums">−{money(r.amount, p.currency)}</span> · {r.reason} ·{" "}
+                          {formatDateTime(timeZone, r.processedAt)}
                         </li>
                       ))}
                     </ul>
@@ -218,7 +220,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               ))}
             </ul>
           )}
-          {canPay && <AddPaymentForm invoiceId={invoice.id} balance={Number(invoice.balance).toFixed(2)} />}
+          {canPay && <AddPaymentForm invoiceId={invoice.id} balance={Number(invoice.balance).toFixed(2)} currency={invoice.currency} />}
         </CardContent>
       </Card>
     </main>

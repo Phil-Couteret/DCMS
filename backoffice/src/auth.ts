@@ -26,13 +26,26 @@ interface MeResponse {
   name: string | null;
   role: string;
   isSuperadmin: boolean;
-  tenant: { id: string; slug: string; name: string } | null;
+  tenant: { id: string; slug: string; name: string; timeZone: string; currency: string } | null;
 }
 
 interface PartnerLoginResponse {
   partner: { id: string; name: string; contactEmail: string };
+  center: CenterLocale & { name: string };
   accessToken: string;
 }
+
+// The center's time zone and currency, which every date and amount is shown
+// in. Used until a session has its own (and outside any center).
+export interface CenterLocale {
+  timeZone: string;
+  currency: string;
+}
+export const DEFAULT_LOCALE: CenterLocale = { timeZone: "Atlantic/Canary", currency: "EUR" };
+
+// How often a session re-reads its center's name, time zone and currency, so
+// a change made in Settings reaches every signed-in user.
+const REFRESH_MS = 5 * 60 * 1000;
 
 // The role given to partner portal sessions. Staff roles come from the API.
 export const PARTNER_ROLE = "PARTNER";
@@ -102,12 +115,14 @@ async function sessionUser(accessToken: string) {
     tenantId: me.tenant?.id ?? null,
     tenantSlug: me.tenant?.slug ?? null,
     tenantName: me.tenant?.name ?? null,
+    timeZone: me.tenant?.timeZone ?? DEFAULT_LOCALE.timeZone,
+    currency: me.tenant?.currency ?? DEFAULT_LOCALE.currency,
     isSuperadmin: me.isSuperadmin,
     canSwitchCenter: count > 1,
   };
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   session: { strategy: "jwt", maxAge: ONE_DAY },
   // Auth.js v5 rejects every request under `next start` unless the host is
   // trusted. NEXTAUTH_URL pins the URL it builds, so trusting the host header
@@ -166,14 +181,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }).catch(() => null);
         if (!res?.ok) throw new CredentialsSignin();
 
-        const { partner, accessToken } = (await res.json()) as PartnerLoginResponse;
-        return { id: partner.id, email: partner.contactEmail, name: partner.name, role: PARTNER_ROLE, accessToken };
+        const { partner, center, accessToken } = (await res.json()) as PartnerLoginResponse;
+        return {
+          id: partner.id,
+          email: partner.contactEmail,
+          name: partner.name,
+          role: PARTNER_ROLE,
+          accessToken,
+          tenantName: center.name,
+          timeZone: center.timeZone,
+          currency: center.currency,
+        };
       },
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      if (!user && (trigger === "update" || Date.now() - (token.refreshedAt ?? 0) > REFRESH_MS)) {
+        await refresh(token);
+      }
       if (user) {
+        token.refreshedAt = Date.now();
+        token.timeZone = user.timeZone;
+        token.currency = user.currency;
         token.role = user.role;
         token.accessToken = user.accessToken;
         token.tenantId = user.tenantId ?? null;
@@ -192,8 +222,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.tenantName = token.tenantName ?? null;
       session.user.isSuperadmin = token.isSuperadmin ?? false;
       session.user.canSwitchCenter = token.canSwitchCenter ?? false;
+      session.user.timeZone = token.timeZone ?? DEFAULT_LOCALE.timeZone;
+      session.user.currency = token.currency ?? DEFAULT_LOCALE.currency;
       session.accessToken = token.accessToken;
       return session;
     },
   },
 });
+
+// Re-reads the center's name, time zone and currency into a session token.
+// A failed read keeps the old values: the API decides on access, not this.
+async function refresh(token: { accessToken: string; role: string; refreshedAt?: number } & Record<string, unknown>) {
+  token.refreshedAt = Date.now();
+  if (!token.accessToken) return;
+  if (token.role === PARTNER_ROLE) {
+    const me = await apiGet<{ center: CenterLocale & { name: string } }>("/partner/me", token.accessToken);
+    if (me) Object.assign(token, { tenantName: me.center.name, timeZone: me.center.timeZone, currency: me.center.currency });
+    return;
+  }
+  const me = await apiGet<MeResponse>("/auth/me", token.accessToken);
+  if (me?.tenant) {
+    Object.assign(token, { tenantName: me.tenant.name, timeZone: me.tenant.timeZone, currency: me.tenant.currency });
+  }
+}

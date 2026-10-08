@@ -30,9 +30,22 @@ function fields(formData: FormData) {
 export async function addTenant(_prev: TenantFormState, formData: FormData): Promise<TenantFormState> {
   const parsed = fields(formData);
   if (!parsed.data) return { error: parsed.error };
+  const taxRateRaw = text(formData, "taxRate");
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(taxRateRaw) || Number(taxRateRaw) > 100) {
+    return { error: "Tax rate must be a percentage between 0 and 100, with at most 2 decimals" };
+  }
+  const taxName = text(formData, "taxName");
+  if (!taxName) return { error: "Enter the tax name" };
   let id: string;
   try {
-    ({ id } = await createTenant(parsed.data));
+    ({ id } = await createTenant({
+      ...parsed.data,
+      timeZone: text(formData, "timeZone"),
+      currency: text(formData, "currency"),
+      defaultLanguage: text(formData, "defaultLanguage"),
+      taxName,
+      taxRate: Number(taxRateRaw),
+    }));
   } catch (e) {
     return fail(e, "The center could not be created");
   }

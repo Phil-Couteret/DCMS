@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, getDiveLog } from "@/lib/api";
 import { ACTIVITY_LABELS } from "@/lib/bookings";
-import { centerClock } from "@/lib/center-time";
+import { centerClock, zoneLabel } from "@/lib/center-time";
 import { formatDay, SEVERITY_LABELS, SEVERITY_STYLES } from "@/lib/dive-logs";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -26,16 +27,20 @@ function orDash(value: number | string | null, unit = "") {
   return value === null || value === "" ? "—" : `${value}${unit}`;
 }
 
-const signedAt = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Atlantic/Canary",
+// "08 Oct, 09:30" in center time.
+function signedAtFormat(timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+  timeZone,
   day: "2-digit",
   month: "short",
   hour: "2-digit",
   minute: "2-digit",
   hourCycle: "h23",
 });
+}
 
 export default async function DiveLogPage({ params }: { params: Promise<{ id: string }> }) {
+  const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -61,7 +66,7 @@ export default async function DiveLogPage({ params }: { params: Promise<{ id: st
             Dive log <span className="font-mono">{log.logNumber}</span>
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {formatDay(log.date)} · {log.site.nameEn} · {centerClock(log.entryTime)}–{centerClock(log.exitTime)}
+            {formatDay(log.date)} · {log.site.nameEn} · {centerClock(timeZone, log.entryTime)}–{centerClock(timeZone, log.exitTime)}
           </p>
         </div>
         <span title="Coming soon">
@@ -86,7 +91,7 @@ export default async function DiveLogPage({ params }: { params: Promise<{ id: st
               <Row label="Site">{log.site.nameEn}</Row>
               <Row label="Guide">{log.guide ? `${log.guide.firstName} ${log.guide.lastName}` : "—"}</Row>
               <Row label="Entry / exit">
-                {centerClock(log.entryTime)} – {centerClock(log.exitTime)} (Canary time)
+                {centerClock(timeZone, log.entryTime)} – {centerClock(timeZone, log.exitTime)} ({zoneLabel(timeZone)} time)
               </Row>
               <Row label="Duration">{log.duration} min</Row>
               <Row label="Max depth">{log.maxDepth} m</Row>
@@ -160,7 +165,7 @@ export default async function DiveLogPage({ params }: { params: Promise<{ id: st
                     <span>
                       {s.signerName} <span className="text-xs capitalize text-zinc-500">({s.signerType})</span>
                     </span>
-                    <span className="text-zinc-500">{signedAt.format(new Date(s.signedAt))}</span>
+                    <span className="text-zinc-500">{signedAtFormat(timeZone).format(new Date(s.signedAt))}</span>
                   </li>
                 ))}
               </ul>

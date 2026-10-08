@@ -32,7 +32,8 @@ export const PAYMENT_STATUS_STYLES: Record<PaymentStatus, string> = {
 // the last word.
 export const CANCELLABLE: InvoiceStatus[] = ["DRAFT", "SENT"];
 
-export function eur(value: string | number, currency = "EUR") {
+// An amount in a currency (the center's, or an invoice's own).
+export function money(value: string | number, currency: string) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(Number(value));
 }
 
@@ -42,9 +43,9 @@ export function formatDay(iso: string) {
   );
 }
 
-export function formatDateTime(iso: string) {
+export function formatDateTime(timeZone: string, iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Atlantic/Canary",
+    timeZone,
     day: "2-digit",
     month: "short",
     year: "numeric",

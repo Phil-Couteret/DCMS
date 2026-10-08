@@ -27,10 +27,12 @@ export const EQUIPMENT = [
 
 export type EquipmentKey = (typeof EQUIPMENT)[number]['key'];
 
-// Net prices in EUR from GET /pricing. An activity priced null is not sold.
+// Net prices from GET /pricing, in the center's currency (ISO 4217). An
+// activity priced null is not sold.
 // equipment.fullPackage is the price of all five items hired together,
 // whether chosen through the Full Package box or ticked one by one.
 export interface Prices {
+  currency: string;
   activities: Record<Activity['priceKey'] | 'dmCert', number | null>;
   equipment: Record<(typeof EQUIPMENT)[number]['priceKey'] | 'fullPackage', number>;
 }

@@ -6,6 +6,7 @@ import { ApiError, getClosedDay, getSettings } from "@/lib/api";
 import { formatDateTime } from "@/lib/billing";
 import { financialHref } from "@/lib/financial";
 import { formatDayLabel } from "@/lib/trips";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // The report as stored when the day was closed, not today's figures.
 export default async function ClosedDayPage({ params }: { params: Promise<{ date: string }> }) {
+  const { timeZone } = await centerLocale();
   const { date } = await params;
   if (!ISO_DATE.test(date)) notFound();
 
@@ -41,7 +43,7 @@ export default async function ClosedDayPage({ params }: { params: Promise<{ date
           {center?.name && <p className="hidden text-sm font-medium print:block">{center.name}</p>}
           <h1 className="text-2xl font-semibold text-zinc-900">Daily financial report</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {formatDayLabel(date, "long")} · closed {formatDateTime(day.closedAt)} by {day.closedBy}
+            {formatDayLabel(date, "long")} · closed {formatDateTime(timeZone, day.closedAt)} by {day.closedBy}
           </p>
         </div>
         <div className="flex gap-2 print:hidden">

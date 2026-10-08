@@ -56,12 +56,15 @@ function Panel({ title, description, action, children }: { title: string; descri
   );
 }
 
-async function GeneralTab() {
+async function GeneralTab({ isAdmin }: { isAdmin: boolean }) {
   try {
     const settings = await getSettings();
+    // Listed on the server so the form renders the same list it hydrates with.
+    const timeZones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+    const currencies = Intl.supportedValuesOf("currency");
     return (
-      <Panel title="Center details" description="Name and contact details of the dive center.">
-        <GeneralForm settings={settings} />
+      <Panel title="Center details" description="Name, contact details and how the center works.">
+        <GeneralForm settings={settings} isAdmin={isAdmin} timeZones={timeZones} currencies={currencies} />
       </Panel>
     );
   } catch (e) {
@@ -377,7 +380,7 @@ export default async function SettingsPage({
           </Link>
         ))}
       </nav>
-      {tab === "general" && <GeneralTab />}
+      {tab === "general" && <GeneralTab isAdmin={isAdmin} />}
       {tab === "boats" && <BoatsTab open={target(one(params.boat))} />}
       {tab === "sites" && <SitesTab open={target(one(params.site))} />}
       {tab === "staff" && <StaffTab />}

@@ -1,3 +1,5 @@
+import { centerLocale } from "@/lib/center";
+import { money } from "@/lib/billing";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusActions } from "@/components/bookings/status-actions";
@@ -30,6 +32,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { currency } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -124,7 +127,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </Row>
                 <Row label="Quoted total">
                   {guest.totalPrice !== null
-                    ? new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(guest.totalPrice)
+                    ? money(guest.totalPrice, currency)
                     : "—"}
                 </Row>
                 {guest.staffNotes && (

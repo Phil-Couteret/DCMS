@@ -40,7 +40,7 @@ export function ScheduleForm({ equipmentId, current }: { equipmentId: string; cu
   );
 }
 
-export function LogMaintenanceForm({ equipmentId, today }: { equipmentId: string; today: string }) {
+export function LogMaintenanceForm({ equipmentId, today, currency }: { equipmentId: string; today: string; currency: string }) {
   const [state, onSubmit, pending] = useFormAction<FormState>(logMaintenance, null);
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -70,7 +70,7 @@ export function LogMaintenanceForm({ equipmentId, today }: { equipmentId: string
           <input name="technician" required maxLength={100} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Cost (€, optional)
+          Cost ({currency}, optional)
           <input name="cost" type="number" min="0" step="0.01" inputMode="decimal" className={control} />
         </label>
       </div>

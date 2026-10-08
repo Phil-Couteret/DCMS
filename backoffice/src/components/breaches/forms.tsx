@@ -25,7 +25,16 @@ function Status({ state }: { state: BreachFormState }) {
 
 // Create (breach null) or edit. Report details are editable once reported,
 // the resolution once resolved; the status itself moves with StatusActions.
-export function BreachForm({ breach, cancelHref }: { breach: DataBreach | null; cancelHref: string }) {
+// timeZone: the center's; the datetime fields are its wall-clock time.
+export function BreachForm({
+  breach,
+  cancelHref,
+  timeZone,
+}: {
+  breach: DataBreach | null;
+  cancelHref: string;
+  timeZone: string;
+}) {
   const [state, onSubmit, pending] = useFormAction<BreachFormState>(saveBreach, null);
   const selected = new Set(breach?.affectedDataTypes ?? []);
   return (
@@ -42,7 +51,7 @@ export function BreachForm({ breach, cancelHref }: { breach: DataBreach | null; 
             type="datetime-local"
             name="detectedAt"
             required
-            defaultValue={breach ? centerDateTimeInput(breach.detectedAt) : ""}
+            defaultValue={breach ? centerDateTimeInput(timeZone, breach.detectedAt) : ""}
             className={control}
           />
           <span className={hint}>When the center became aware of it. The 72-hour deadline runs from here.</span>
@@ -110,7 +119,7 @@ export function BreachForm({ breach, cancelHref }: { breach: DataBreach | null; 
                 type="datetime-local"
                 name="reportedAt"
                 required
-                defaultValue={breach.reportedAt ? centerDateTimeInput(breach.reportedAt) : ""}
+                defaultValue={breach.reportedAt ? centerDateTimeInput(timeZone, breach.reportedAt) : ""}
                 className={control}
               />
             </label>
@@ -136,7 +145,7 @@ export function BreachForm({ breach, cancelHref }: { breach: DataBreach | null; 
               type="datetime-local"
               name="resolutionDate"
               required
-              defaultValue={breach.resolutionDate ? centerDateTimeInput(breach.resolutionDate) : ""}
+              defaultValue={breach.resolutionDate ? centerDateTimeInput(timeZone, breach.resolutionDate) : ""}
               className={control}
             />
           </label>

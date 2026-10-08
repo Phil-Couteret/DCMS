@@ -28,6 +28,7 @@ import {
   viewRange,
   type ScheduleView,
 } from "@/lib/trips";
+import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
 
@@ -72,8 +73,9 @@ export default async function SchedulePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { timeZone } = await centerLocale();
   const params = await searchParams;
-  const today = centerNow().isoDate;
+  const today = centerNow(timeZone).isoDate;
   const view = SCHEDULE_VIEWS.find((v) => v === one(params.view)) ?? "month";
   const anchor = isoOrUndefined(one(params.date)) ?? today;
   const day = isoOrUndefined(one(params.day));

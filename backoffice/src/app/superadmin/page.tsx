@@ -94,9 +94,13 @@ export default async function SuperadminPage() {
 
       <Panel
         title="New center"
-        description="Creates an empty center. Open it afterwards to add its first admin under Settings → Users, its dive sites and prices."
+        description="Creates the center with its settings and the default price list. Open it afterwards to add its first admin under Settings → Users, its boats and dive sites, and to adjust its prices."
       >
-        <TenantForm tenant={null} />
+        <TenantForm
+          tenant={null}
+          timeZones={["UTC", ...Intl.supportedValuesOf("timeZone")]}
+          currencies={Intl.supportedValuesOf("currency")}
+        />
       </Panel>
 
       <Panel title="Recent platform activity" description="Centers created or changed, and every entry into a center you are not a member of.">

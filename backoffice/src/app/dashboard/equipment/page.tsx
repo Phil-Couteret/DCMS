@@ -1,3 +1,5 @@
+import { centerLocale } from "@/lib/center";
+import { centerNow } from "@/lib/center-time";
 import Link from "next/link";
 import { ConditionBadge, EquipmentStatusBadge } from "@/components/equipment/badges";
 import { EquipmentStatusActions } from "@/components/equipment/status-actions";
@@ -29,6 +31,8 @@ export default async function EquipmentPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const { timeZone } = await centerLocale();
+  const today = centerNow(timeZone).isoDate;
   const type = EQUIPMENT_TYPES.find((t) => t === one(params.type)?.toLowerCase());
   const size = one(params.size) || undefined;
   const status = EQUIPMENT_STATUSES.find((s) => s === one(params.status));
@@ -52,7 +56,7 @@ export default async function EquipmentPage({
   );
   const sizes = [...new Set((all ?? []).map((i) => i.size).filter((s): s is string => Boolean(s)))].sort();
   // The banner covers the whole inventory, not only the filtered rows.
-  const overdue = (all ?? []).filter(isOverdue);
+  const overdue = (all ?? []).filter((i) => isOverdue(i, today));
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -170,9 +174,9 @@ export default async function EquipmentPage({
                     <ConditionBadge condition={i.condition} />
                   </TableCell>
                   <TableCell>{formatDay(i.lastMaintenance)}</TableCell>
-                  <TableCell className={isOverdue(i) ? "font-semibold text-red-700" : undefined}>
+                  <TableCell className={isOverdue(i, today) ? "font-semibold text-red-700" : undefined}>
                     {formatDay(i.nextMaintenance)}
-                    {isOverdue(i) && <span className="ml-1 text-xs">(overdue)</span>}
+                    {isOverdue(i, today) && <span className="ml-1 text-xs">(overdue)</span>}
                   </TableCell>
                   <TableCell className="text-right">
                     <EquipmentStatusActions equipmentId={i.id} status={i.status} />

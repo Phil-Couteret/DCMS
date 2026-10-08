@@ -13,7 +13,7 @@ import {
 } from "@/app/dashboard/partners/actions";
 import { Button } from "@/components/ui/button";
 import type { Partner, PartnerCredentials } from "@/lib/api";
-import { eur } from "@/lib/billing";
+import { money } from "@/lib/billing";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -179,10 +179,22 @@ export function DeletePartnerButton({ partnerId, name }: { partnerId: string; na
   );
 }
 
-export function CreateInvoiceButton({ partnerId, from, to, total }: { partnerId: string; from: string; to: string; total: string }) {
+export function CreateInvoiceButton({
+  partnerId,
+  from,
+  to,
+  total,
+  currency,
+}: {
+  partnerId: string;
+  from: string;
+  to: string;
+  total: string;
+  currency: string;
+}) {
   const [state, onSubmit, pending] = useFormAction<PartnerFormState>(createPartnerInvoiceAction, null);
   return (
-    <form onSubmit={confirmed(`Create an invoice for ${eur(total)}?`, onSubmit)} className="flex flex-col items-end gap-1">
+    <form onSubmit={confirmed(`Create an invoice for ${money(total, currency)}?`, onSubmit)} className="flex flex-col items-end gap-1">
       <input type="hidden" name="partnerId" value={partnerId} />
       <input type="hidden" name="from" value={from} />
       <input type="hidden" name="to" value={to} />
@@ -194,13 +206,23 @@ export function CreateInvoiceButton({ partnerId, from, to, total }: { partnerId:
   );
 }
 
-export function PartnerPaymentForm({ invoiceId, paidAmount, total }: { invoiceId: string; paidAmount: string; total: string }) {
+export function PartnerPaymentForm({
+  invoiceId,
+  paidAmount,
+  total,
+  currency,
+}: {
+  invoiceId: string;
+  paidAmount: string;
+  total: string;
+  currency: string;
+}) {
   const [state, onSubmit, pending] = useFormAction<PartnerFormState>(recordPartnerPaymentAction, null);
   return (
     <form onSubmit={onSubmit} className="space-y-2">
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <label className={label}>
-        Total paid so far (€)
+        Total paid so far ({currency})
         <input
           name="paidAmount"
           required
@@ -208,7 +230,7 @@ export function PartnerPaymentForm({ invoiceId, paidAmount, total }: { invoiceId
           defaultValue={Number(paidAmount) > 0 ? paidAmount : total}
           className={`${control} max-w-48`}
         />
-        <span className="mt-1 block text-xs font-normal text-zinc-500">Replaces the amount recorded before. Total: {eur(total)}.</span>
+        <span className="mt-1 block text-xs font-normal text-zinc-500">Replaces the amount recorded before. Total: {money(total, currency)}.</span>
       </label>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>

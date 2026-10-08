@@ -1,18 +1,32 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { OptionalJwtAuthGuard } from '../staff/optional-jwt-auth.guard.js';
+import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PricingService } from './pricing.service.js';
+import { SettingsService } from './settings.service.js';
 
-// The public site's catalogue prices, net of tax. Public, read-only. The
-// stay tiers are left out: they are not advertised.
-@Controller('pricing')
+// The public site's view of a center. Public, read-only. A token names the
+// tenant; without one, X-Tenant-ID does.
+@Controller()
 export class PublicPricingController {
-  constructor(private readonly pricing: PricingService) {}
+  constructor(
+    private readonly pricing: PricingService,
+    private readonly settings: SettingsService,
+    private readonly config: TenantConfig,
+  ) {}
 
-  // A token names the tenant; without one, X-Tenant-ID does.
-  @Get()
+  // Catalogue prices, net of tax. The stay tiers are left out: they are not
+  // advertised.
+  @Get('pricing')
   @UseGuards(OptionalJwtAuthGuard)
   async get() {
-    const { activities, equipment } = await this.pricing.view();
-    return { currency: 'EUR', activities, equipment };
+    const [{ activities, equipment }, currency] = await Promise.all([this.pricing.view(), this.config.currency()]);
+    return { currency, activities, equipment };
+  }
+
+  // Name, contact details, branding (logo, colours) and regional settings.
+  @Get('center')
+  @UseGuards(OptionalJwtAuthGuard)
+  center() {
+    return this.settings.publicView();
   }
 }
