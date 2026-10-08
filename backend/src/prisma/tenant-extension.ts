@@ -4,7 +4,7 @@ import { currentTenantId, isUnscoped, TenantRequiredError } from '../tenant/tena
 // Models shared by all tenants: never filtered. Queries that reach tenant
 // data through them (e.g. a user's customer profiles) must filter by
 // tenantId themselves.
-export const GLOBAL_MODELS = new Set(['User', 'Tenant', 'Membership', 'PlatformAuditLog']);
+export const GLOBAL_MODELS = new Set(['User', 'Tenant', 'Membership', 'PlatformAuditLog', 'Invitation']);
 
 const WHERE_OPS = new Set([
   'findUnique',

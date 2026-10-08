@@ -52,6 +52,11 @@ model Tenant {
   slug                   String                  @unique // {slug}.dcms.<domain>
   plan                   TenantPlan              @default(FREE)
   isActive               Boolean                 @default(true)
+  // Authorized limits, shown against usage in the superadmin console:
+  // { locations, diveSites, boats, users, customers, storageGb,
+  // storagePricePerGbMonth }. Missing keys take the platform defaults
+  // (superadmin/quotas.ts). Not enforced yet (MULTITENANT_PLAN.md step 7).
+  quotas                 Json?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   customers              Customer[]
@@ -91,6 +96,7 @@ model Tenant {
   memberships            Membership[]
   platformAudit          PlatformAuditLog[]
   numberSequences        NumberSequence[]
+  invitations            Invitation[]
 }
 
 enum LocationType {
@@ -145,6 +151,30 @@ model Membership {
   @@index([tenantId])
 }
 
+// An invitation to join a tenant's staff, sent by email as a link with a
+// one-time token (only its SHA-256 is stored). Accepting it creates the
+// account (or, for an existing one, checks its password) and the
+// membership. A global model: it is accepted before any tenant is known.
+model Invitation {
+  id          String         @id @default(uuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  name        String?
+  role        MembershipRole @default(ADMIN)
+  tokenHash   String         @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  // A newer invitation to the same email and tenant replaces this one.
+  revokedAt   DateTime?
+  invitedById String?
+  invitedBy   User?          @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+
+  @@index([tenantId])
+  @@index([email])
+}
+
 // Platform-level actions: tenants created or changed by a superadmin, and
 // every time a superadmin enters a tenant they are not a member of.
 model PlatformAuditLog {
@@ -162,23 +192,24 @@ model PlatformAuditLog {
 }
 
 model User {
-  id            String             @id @default(uuid())
-  email         String             @unique
-  passwordHash  String
-  name          String?
-  role          Role               @default(CUSTOMER)
+  id              String             @id @default(uuid())
+  email           String             @unique
+  passwordHash    String
+  name            String?
+  role            Role               @default(CUSTOMER)
   // Platform operator: manages tenants and may enter any of them (audited).
   // The very first account created becomes one (trigger, migration
   // multitenancy_accounts).
-  isSuperadmin  Boolean            @default(false)
+  isSuperadmin    Boolean            @default(false)
   // One account per person. Its customer and staff profiles are per tenant.
-  customers     Customer[]
-  staffProfiles Staff[]
-  memberships   Membership[]
-  dataBreaches  DataBreach[]
-  platformAudit PlatformAuditLog[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  customers       Customer[]
+  staffProfiles   Staff[]
+  memberships     Membership[]
+  dataBreaches    DataBreach[]
+  platformAudit   PlatformAuditLog[]
+  invitationsSent Invitation[]       @relation("InvitationsSent")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 }
 
 model Customer {

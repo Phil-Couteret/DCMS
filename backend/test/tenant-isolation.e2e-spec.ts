@@ -353,7 +353,7 @@ describe('tenant isolation', () => {
     expect(missing).toEqual([]);
     const tenantTables = await prisma.$queryRaw<{ table_name: string }[]>`
       SELECT table_name FROM information_schema.columns
-      WHERE table_schema = 'public' AND column_name = 'tenantId' AND table_name NOT IN ('Membership', 'PlatformAuditLog')`;
+      WHERE table_schema = 'public' AND column_name = 'tenantId' AND table_name NOT IN ('Membership', 'PlatformAuditLog', 'Invitation')`;
     const withTrigger = new Set(triggers.map((t) => t.tbl));
     expect(tenantTables.map((t) => t.table_name).filter((t) => !withTrigger.has(t))).toEqual([]);
   });

@@ -12,12 +12,49 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEmail, IsInt, IsObject, ValidateNested } from 'class-validator';
 import { CURRENCIES, TIME_ZONES } from '../../config/tenant-defaults.js';
-import { Language, TenantPlan } from '../../generated/prisma/enums.js';
+import { Language, LocationType, TenantPlan } from '../../generated/prisma/enums.js';
 
 // {slug}.dcms.<domain>: a DNS label, lowercase.
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const SLUG_MESSAGE = 'slug: lowercase letters, digits and hyphens, not starting or ending with a hyphen';
+
+// Authorized limits; left out, the platform defaults (quotas.ts).
+export class QuotasDto {
+  @IsOptional() @IsInt() @Min(0) @Max(100000) locations?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(100000) diveSites?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(100000) boats?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(100000) users?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(10000000) customers?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(100000) storageGb?: number;
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(10000) storagePricePerGbMonth?: number;
+}
+
+// The center's first location.
+export class FirstLocationDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  name: string;
+
+  @IsOptional()
+  @IsEnum(LocationType)
+  type?: LocationType;
+}
+
+// The center's first admin, invited by email.
+export class FirstAdminDto {
+  @IsEmail()
+  @MaxLength(254)
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  name?: string;
+}
 
 export class CreateTenantDto {
   @IsString()
@@ -59,6 +96,24 @@ export class CreateTenantDto {
   @Min(0)
   @Max(100)
   taxRate?: number;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => FirstLocationDto)
+  firstLocation?: FirstLocationDto;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => FirstAdminDto)
+  firstAdmin?: FirstAdminDto;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => QuotasDto)
+  quotas?: QuotasDto;
 }
 
 export class UpdateTenantDto {
@@ -81,4 +136,11 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // Replaces the quotas given; the others keep their values.
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => QuotasDto)
+  quotas?: QuotasDto;
 }

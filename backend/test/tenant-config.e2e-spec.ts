@@ -96,8 +96,8 @@ beforeAll(async () => {
     ['f', { timeZone: 'Europe/Madrid', currency: 'GBP', defaultLanguage: 'ES', taxName: 'IVA', taxRate: 21 }],
   ] as const) {
     const created = await ok('POST', '/superadmin/tenants', superToken, { name: `Cfg ${key} ${run}`, slug: `cfg-${key}-${run}`, ...extra });
-    const entered = await ok('POST', '/auth/switch-tenant', superToken, { tenantId: created.id });
-    tenants[key] = { id: created.id, token: entered.accessToken };
+    const entered = await ok('POST', '/auth/switch-tenant', superToken, { tenantId: created.tenant.id });
+    tenants[key] = { id: created.tenant.id, token: entered.accessToken };
   }
 }, 60_000);
 

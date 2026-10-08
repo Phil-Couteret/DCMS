@@ -203,6 +203,16 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Unlocks:** signing up a new center without database access.
 
+**Status (2026-10-09): done.** What was built (migration `tenant_onboarding`):
+
+- **Console** (`/superadmin`): a platform overview (centers, customers, bookings, storage), and per center its usage against its quotas as bars (locations, dive sites, boats, users, customers, storage; amber from 80%, red from 100%), its status, a link to its backoffice address, "Manage", "Open" (the audited switch) and activate/deactivate (soft delete). The center page adds its stats, usage, the quota form, its invitations and its details.
+- **Onboarding in one transaction:** the tenant with its quotas, its settings and default price list (step 3), its first location (name and type), and an invitation for its first admin. The slug is filled in from the name, as in the original.
+- **Invitations** (`Invitation`, a global model): a one-time link valid 7 days, emailed through `SMTP_URL` (nodemailer). Only the token's SHA-256 is stored. Without SMTP, or when sending fails, the console shows the link to pass on. The backoffice page `/invite/{token}` sets a name and password for a new account, or asks an existing staff account for its current password; customer accounts are refused. A new invitation to the same email replaces a pending one. Invitations and accepts are audited.
+- **Quotas** (`Tenant.quotas`): the original's limits (locations 20, dive sites 15, boats 10, users 20, customers 500, storage 5 GB, price per GB per month 0) as defaults, editable per center. Storage is the size of the center's rows. Not enforced (step 7).
+- **Tests:** `test/onboarding.e2e-spec.ts`.
+
+**Not yet:** a center admin inviting staff from Settings → Users (they still create accounts with a password); custom domains (step 7).
+
 ### Step 6: Row-level security backstop (M)
 
 **Build**

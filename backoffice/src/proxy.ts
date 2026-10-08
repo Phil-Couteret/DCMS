@@ -13,6 +13,10 @@ export default auth((req) => {
   const partner = role === PARTNER_ROLE;
   const to = (target: string) => NextResponse.redirect(new URL(target, req.nextUrl));
 
+  // Invitation links are public (the token is the credential), whoever is
+  // signed in, on whichever address.
+  if (path.startsWith("/invite/")) return;
+
   // On a center's own address ({slug}.<TENANT_DOMAIN>) a session must be for
   // that center. One for another center, or for the superadmin console, is
   // sent to its own address, where (cookies being host-only) the visitor

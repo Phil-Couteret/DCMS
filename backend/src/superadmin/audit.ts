@@ -2,7 +2,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 
 type Db = Pick<Prisma.TransactionClient, 'platformAuditLog'>;
 
-export type PlatformAction = 'tenant.enter' | 'tenant.create' | 'tenant.update';
+export type PlatformAction = 'tenant.enter' | 'tenant.create' | 'tenant.update' | 'tenant.invite';
 
 // Records a superadmin's platform action (PlatformAuditLog, a global model).
 export function recordPlatformAction(

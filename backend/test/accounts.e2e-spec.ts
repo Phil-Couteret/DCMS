@@ -85,8 +85,9 @@ afterAll(async () => {
   if (prisma) {
     await prisma.user.deleteMany({ where: { email: { endsWith: `${run}@example.test` } } });
     await prisma.platformAuditLog.deleteMany({ where: { tenantId: { in: created } } });
-    // A tenant created through the API comes with its settings and prices.
-    for (const table of ['CenterSettings', 'ActivityPrice', 'EquipmentPrice', 'FunDiveTier']) {
+    // A tenant created through the API comes with its settings, prices and
+    // first location.
+    for (const table of ['CenterSettings', 'ActivityPrice', 'EquipmentPrice', 'FunDiveTier', 'Location']) {
       await prisma.$executeRawUnsafe(`DELETE FROM "${table}" WHERE "tenantId" = ANY($1::text[])`, created);
     }
     await prisma.tenant.deleteMany({ where: { id: { in: created } } });
@@ -202,15 +203,15 @@ describe('superadmin', () => {
     const slug = `acct-new-${run}`;
     const made = await call('POST', '/superadmin/tenants', token, { name: 'New center', slug, plan: 'STARTER' });
     expect(made.status).toBe(201);
-    created.push(made.data.id);
+    created.push(made.data.tenant.id);
     expect((await call('POST', '/superadmin/tenants', token, { name: 'Dup', slug })).status).toBe(409);
     expect((await call('POST', '/superadmin/tenants', token, { name: 'Bad', slug: 'Not A Slug' })).status).toBe(400);
 
-    const patched = await call('PATCH', `/superadmin/tenants/${made.data.id}`, token, { name: 'Renamed', isActive: false });
+    const patched = await call('PATCH', `/superadmin/tenants/${made.data.tenant.id}`, token, { name: 'Renamed', isActive: false });
     expect(patched.status).toBe(200);
     expect(patched.data).toMatchObject({ name: 'Renamed', isActive: false });
 
-    const log = await prisma.platformAuditLog.findMany({ where: { tenantId: made.data.id }, orderBy: { createdAt: 'asc' } });
+    const log = await prisma.platformAuditLog.findMany({ where: { tenantId: made.data.tenant.id }, orderBy: { createdAt: 'asc' } });
     expect(log.map((l) => l.action)).toEqual(['tenant.create', 'tenant.update']);
     expect(log[1].details).toMatchObject({ name: { from: 'New center', to: 'Renamed' }, isActive: { from: true, to: false } });
   });
