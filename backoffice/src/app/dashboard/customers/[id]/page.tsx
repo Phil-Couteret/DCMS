@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/bookings/status-badge";
 import { ActionButton, AddCertificationForm } from "@/components/customers/profile-actions";
+import { UploadDocumentForm } from "@/components/customers/documents";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   removeCertification,
+  removeDocument,
   setApproval,
   setCertificationVerified,
   setDocumentVerified,
@@ -18,10 +20,12 @@ import {
   getCustomer,
   getCustomerCertifications,
   getCustomerDiveHistory,
+  getCustomerDocuments,
   type Booking,
 } from "@/lib/api";
 import { ACTIVITY_LABELS, formatBookingDate, parseGuestNotes } from "@/lib/bookings";
 import { centerNow } from "@/lib/center-time";
+import { DOCUMENT_TYPE_LABELS, fileSize } from "@/lib/documents";
 import {
   CERT_LABELS,
   countryLabel,
@@ -156,10 +160,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     throw e;
   }
 
-  const [historyResult, bookingsResult, certsResult] = await Promise.allSettled([
+  const [historyResult, bookingsResult, certsResult, docsResult] = await Promise.allSettled([
     getCustomerDiveHistory(id),
     getBookings({ customerId: id }),
     getCustomerCertifications(id),
+    getCustomerDocuments(id),
   ]);
   const bookings = bookingsResult.status === "fulfilled" ? bookingsResult.value : [];
   const recentBookings = [...bookings]
@@ -468,6 +473,72 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           ) : (
             <p className="text-sm text-zinc-500">No notes.</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documents</CardTitle>
+          <CardDescription>Medical certificates, insurance and certification cards the diver has provided.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {docsResult.status === "rejected" ? (
+            <p role="alert" className="text-sm text-red-700">
+              Documents could not be loaded: {String((docsResult.reason as Error).message)}
+            </p>
+          ) : docsResult.value.length === 0 ? (
+            <p className="text-sm text-zinc-500">No documents uploaded yet.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Document</TableHead>
+                    <TableHead>File</TableHead>
+                    <TableHead className="text-right">Size</TableHead>
+                    <TableHead>Uploaded</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {docsResult.value.map((d) => {
+                    const href = `/dashboard/customers/${customer.id}/documents/${d.id}`;
+                    return (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-medium">{DOCUMENT_TYPE_LABELS[d.type]}</TableCell>
+                        <TableCell className="max-w-72">
+                          <a href={href} target="_blank" rel="noopener" className="block truncate text-[#0077b6] hover:underline" title={d.filename}>
+                            {d.filename}
+                          </a>
+                          <span className="text-xs text-zinc-500">{d.mimeType === "application/pdf" ? "PDF" : "Photo"}</span>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{fileSize(d.size)}</TableCell>
+                        <TableCell>{formatBookingDate(d.uploadedAt)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-start justify-end gap-1">
+                            <Button size="sm" variant="outline" nativeButton={false} render={<a href={`${href}?download=1`} />}>
+                              Download
+                            </Button>
+                            <ActionButton
+                              action={removeDocument}
+                              fields={{ ...idField, documentId: d.id }}
+                              pendingLabel="Deleting…"
+                              variant="ghost"
+                              className="text-destructive"
+                              confirm={`Delete ${d.filename}? This cannot be undone.`}
+                            >
+                              Delete
+                            </ActionButton>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <UploadDocumentForm customerId={customer.id} />
         </CardContent>
       </Card>
 

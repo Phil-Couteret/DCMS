@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   removeBoat,
+  removeBono,
+  saveBono,
   removeLocation,
   saveLocation,
   assignLocation,
@@ -20,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LANGUAGE_LABELS, LANGUAGES } from "@/lib/customers";
 import { money } from "@/lib/billing";
-import type { Boat, CenterSettings, DiveSite, FunDiveTier, Location, LocationRef, Pricing, User } from "@/lib/api";
+import type { Bono, Boat, CenterSettings, DiveSite, FunDiveTier, Location, LocationRef, Pricing, User } from "@/lib/api";
 import { LOCATION_TYPE_LABELS, LOCATION_TYPES, locationOptions } from "@/lib/locations";
 import {
   ACTIVITY_PRICE_LABELS,
@@ -262,7 +264,7 @@ function CenterAdminFields({
   );
 }
 
-const REMOVE = { boat: removeBoat, site: removeSite, user: removeUser, location: removeLocation };
+const REMOVE = { boat: removeBoat, site: removeSite, user: removeUser, location: removeLocation, bono: removeBono };
 
 // A delete button with a confirmation, for a boat, a dive site or a user.
 export function DeleteButton({
@@ -1033,3 +1035,88 @@ export function LocationSelect({
     </form>
   );
 }
+
+// A government bono: a code staff enter on bookings, and its discount.
+export function BonoForm({ bono, currency, cancelHref }: { bono: Bono | null; currency: string; cancelHref: string }) {
+  const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveBono, null);
+  const [type, setType] = useState(bono?.type ?? "PERCENTAGE");
+  const used = bono?.usageCount ?? 0;
+  return (
+    <form onSubmit={onSubmit} className="space-y-5">
+      {bono && <input type="hidden" name="bonoId" value={bono.id} />}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className={label}>
+          Code
+          <input
+            name="code"
+            required
+            maxLength={40}
+            pattern="[A-Za-z0-9][A-Za-z0-9\-]{1,39}"
+            title="Letters, digits and dashes"
+            autoComplete="off"
+            defaultValue={bono?.code ?? ""}
+            className={`${control} font-mono uppercase`}
+          />
+          <span className="mt-1 block text-xs font-normal text-zinc-500">What staff enter on a booking, for example BONO-2026.</span>
+        </label>
+        <label className={label}>
+          Description
+          <input name="description" required maxLength={200} defaultValue={bono?.description ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Discount
+          <select name="type" value={type} onChange={(e) => setType(e.target.value as Bono["type"])} className={control}>
+            <option value="PERCENTAGE">Percentage of the activity</option>
+            <option value="FIXED">Fixed amount off the activity</option>
+          </select>
+        </label>
+        <label className={label}>
+          {type === "PERCENTAGE" ? "Percentage" : `Amount (${currency})`}
+          <input
+            type="number"
+            name="discountValue"
+            required
+            min={0.01}
+            max={type === "PERCENTAGE" ? 100 : MAX_PRICE}
+            step={0.01}
+            defaultValue={bono ? Number(bono.discountValue) : ""}
+            className={control}
+          />
+          <span className="mt-1 block text-xs font-normal text-zinc-500">
+            {type === "PERCENTAGE" ? "Off the activity price, before tax." : "Off the activity price, before tax, up to the whole of it."}
+          </span>
+        </label>
+        <label className={label}>
+          Valid from
+          <input type="date" name="validFrom" required defaultValue={bono?.validFrom.slice(0, 10) ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Valid to
+          <input type="date" name="validTo" defaultValue={bono?.validTo?.slice(0, 10) ?? ""} className={control} />
+          <span className="mt-1 block text-xs font-normal text-zinc-500">The booking&apos;s date must fall in this period. Empty: no end.</span>
+        </label>
+        <label className={label}>
+          Usage limit
+          <input
+            type="number"
+            name="usageLimit"
+            min={Math.max(1, used)}
+            step={1}
+            defaultValue={bono?.usageLimit ?? ""}
+            placeholder="No limit"
+            className={control}
+          />
+          <span className="mt-1 block text-xs font-normal text-zinc-500">
+            Uses are counted when a booking is invoiced{bono ? `; ${used} so far` : ""}.
+          </span>
+        </label>
+        <label className="flex items-center gap-2 self-center text-sm font-medium text-zinc-700">
+          <input type="checkbox" name="isActive" defaultChecked={bono?.isActive ?? true} className="size-4" />
+          Active (can be entered on bookings)
+        </label>
+      </div>
+      <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!bono} />
+    </form>
+  );
+}
+

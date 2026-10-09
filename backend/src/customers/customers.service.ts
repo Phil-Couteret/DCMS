@@ -6,11 +6,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
-import { Language, Role } from '../generated/prisma/enums.js';
+import { isEmail } from 'class-validator';
+import { csvDate, csvRecords, type ImportResult, type UploadedFileData } from '../common/csv.js';
+import { CustomerType, Language, Role, SkillLevel } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usedByOtherTenants } from '../tenant/shared-accounts.js';
 import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
+import { requireTenantId } from '../tenant/tenant-context.js';
+import { centerToday } from '../financial/center-day.js';
+import { deleteCustomerFolder } from './document-storage.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 
@@ -143,10 +148,18 @@ export class CustomersService {
     }
   }
 
+  async import(file: UploadedFileData | undefined) {
+    const [config, timeZone] = await Promise.all([this.config.get(), this.config.timeZone()]);
+    return importCustomers(this.prisma, file, config.defaultLanguage, centerToday(timeZone));
+  }
+
   async remove(id: string) {
     await this.findOne(id);
     try {
-      return await this.prisma.customer.delete({ where: { id } });
+      const deleted = await this.prisma.customer.delete({ where: { id } });
+      // Their documents' rows went with them; now their files.
+      await deleteCustomerFolder(requireTenantId(), id);
+      return deleted;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
         throw new ConflictException('This customer has bookings or dive log entries and cannot be deleted');
@@ -154,6 +167,114 @@ export class CustomersService {
       throw e;
     }
   }
+}
+
+// Customers from a CSV file (Customers → Import CSV): one per row, with a
+// certification when the row names one. A row whose email is already a
+// customer here (or earlier in the file) is skipped; a row with a problem is
+// reported, and the others are still imported.
+export const IMPORT_COLUMNS = [
+  'firstName',
+  'lastName',
+  'email',
+  'phone',
+  'dob',
+  'nationality',
+  'gender',
+  'customerType',
+  'centerSkillLevel',
+  'certificationLevel',
+  'certificationAgency',
+] as const;
+
+export async function importCustomers(
+  prisma: PrismaService,
+  file: UploadedFileData | undefined,
+  defaultLanguage: Language,
+  today: string,
+): Promise<ImportResult> {
+  const { columns, records } = csvRecords(file);
+  const missing = ['firstName', 'lastName', 'email', 'nationality'].filter((c) => !columns.has(c.toLowerCase()));
+  if (missing.length > 0) throw new BadRequestException(`The CSV file needs these columns: ${missing.join(', ')}`);
+
+  const existing = await prisma.customer.findMany({ select: { user: { select: { email: true } } } });
+  const seen = new Set(existing.map((c) => c.user.email));
+  const result: ImportResult = { imported: 0, skipped: [], errors: [] };
+
+  for (const r of records) {
+    const problems: string[] = [];
+    const text = (column: string, max: number, required = false) => {
+      const value = r.get(column);
+      if (!value && required) problems.push(`${column} is missing`);
+      if (value && value.length > max) problems.push(`${column} is over ${max} characters`);
+      return value;
+    };
+    const firstName = text('firstName', 100, true);
+    const lastName = text('lastName', 100, true);
+    // A two-letter country code, as the customer forms store it.
+    const nationality = r.get('nationality');
+    if (!nationality) problems.push('nationality is missing');
+    else if (!/^[A-Za-z]{2}$/.test(nationality)) problems.push(`nationality "${nationality}" is not a two-letter country code (DE, ES, GB…)`);
+    const country = nationality?.toUpperCase();
+    const phone = text('phone', 40);
+    const gender = text('gender', 30);
+    const email = r.get('email')?.toLowerCase();
+    if (!email) problems.push('email is missing');
+    else if (!isEmail(email) || email.length > 254) problems.push(`email "${email}" is not an email address`);
+    const dobText = r.get('dob');
+    const birthdate = dobText ? csvDate(dobText) : undefined;
+    if (dobText && (!birthdate || birthdate > today)) problems.push(`dob "${dobText}" is not a past date (DD/MM/YYYY or YYYY-MM-DD)`);
+    const choice = <T extends string>(column: string, values: Record<string, T>) => {
+      const value = r.get(column);
+      if (!value) return undefined;
+      const match = Object.values(values).find((v) => v === value.toUpperCase());
+      if (!match) problems.push(`${column} "${value}" is not one of ${Object.values(values).join(', ')}`);
+      return match;
+    };
+    const customerType = choice('customerType', CustomerType);
+    const centerSkillLevel = choice('centerSkillLevel', SkillLevel);
+    const level = text('certificationLevel', 60);
+    const agency = text('certificationAgency', 60);
+    if (!level !== !agency) problems.push('give both certificationLevel and certificationAgency, or neither');
+
+    if (problems.length > 0) {
+      result.errors.push({ line: r.line, message: problems.join('; ') });
+      continue;
+    }
+    if (seen.has(email!)) {
+      result.skipped.push({ line: r.line, reason: `${email} is already a customer` });
+      continue;
+    }
+    seen.add(email!);
+    try {
+      await prisma.$transaction(async (tx) => {
+        const userId = await accountFor(tx, email!);
+        const customer = await tx.customer.create({
+          data: {
+            userId,
+            firstName: firstName!,
+            lastName: lastName!,
+            country: country!,
+            phone: phone ?? null,
+            gender: gender ?? null,
+            birthdate: birthdate ? new Date(birthdate) : null,
+            language: defaultLanguage,
+            ...(customerType && { customerType }),
+            ...(centerSkillLevel && { centerSkillLevel }),
+          } as Prisma.CustomerUncheckedCreateInput,
+          select: { id: true },
+        });
+        if (level && agency) {
+          await tx.customerCertification.create({ data: { customerId: customer.id, agency, level } });
+        }
+      });
+      result.imported++;
+    } catch (e) {
+      if (e instanceof ConflictException) result.skipped.push({ line: r.line, reason: `${email} is already a customer` });
+      else result.errors.push({ line: r.line, message: e instanceof BadRequestException ? e.message : 'could not be saved' });
+    }
+  }
+  return result;
 }
 
 // The account for a new customer: an existing one without a customer profile,

@@ -48,6 +48,8 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
           siteId: booking.siteId ?? "",
           participantCount: booking.participantCount,
           numberOfDives: booking.numberOfDives,
+          bonoCode: booking.bono?.code ?? "",
+          bonoLocked: booking.bonoUsed,
           bookingSource: booking.bookingSource,
           partnerId: booking.partnerId ?? "",
           status: booking.status,

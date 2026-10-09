@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { RoutedDialog } from "@/components/routed-panel";
 import {
+  BonoForm,
   BoatForm,
   DeleteButton,
   GeneralForm,
@@ -15,8 +16,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getBoats, getDiveSites, getLocations, getPricing, getSettings, getStaff, getUsers, type LocationRef } from "@/lib/api";
+import { getBonos, getBoats, getDiveSites, getLocations, getPricing, getSettings, getStaff, getUsers, type LocationRef } from "@/lib/api";
 import { formatBookingDate } from "@/lib/bookings";
+import { money } from "@/lib/billing";
+import { centerLocale } from "@/lib/center";
 import { LOCATION_TYPE_LABELS, shortAddress } from "@/lib/locations";
 import { BOAT_STATUS_LABELS, SETTINGS_TABS, SITE_CERT_LEVELS, USER_ROLE_LABELS, type SettingsTab } from "@/lib/settings";
 
@@ -311,6 +314,107 @@ async function LocationsTab({ open }: { open?: string }) {
   );
 }
 
+async function BonosTab({ open }: { open?: string }) {
+  let bonos;
+  let currency: string;
+  try {
+    [bonos, { currency }] = await Promise.all([getBonos(), centerLocale()]);
+  } catch (e) {
+    return <LoadError what="Bonos" reason={e} />;
+  }
+  const editing = open && open !== "new" ? bonos.find((b) => b.id === open) : undefined;
+  const closeHref = tabHref("bonos");
+  const date = (iso: string) => formatBookingDate(iso.slice(0, 10));
+  return (
+    <Panel
+      title="Government bonos"
+      description="Discount codes, such as the Canary Islands government's bonos. Staff enter the code on a booking; the discount comes off the activity when it is invoiced, and that counts as a use."
+      action={
+        <Button nativeButton={false} render={<Link href={tabHref("bonos", { bono: "new" })} prefetch={false} scroll={false} />}>
+          Add bono
+        </Button>
+      }
+    >
+      {bonos.length === 0 ? (
+        <p className="text-sm text-zinc-500">No bonos yet. Click &quot;Add bono&quot; to create the first one.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Discount</TableHead>
+                <TableHead>Valid</TableHead>
+                <TableHead className="text-right">Used</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bonos.map((b) => {
+                const usedUp = b.usageLimit !== null && b.usageCount >= b.usageLimit;
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell className="font-mono font-medium">{b.code}</TableCell>
+                    <TableCell className="max-w-72 whitespace-normal">{b.description}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {b.type === "PERCENTAGE" ? `${Number(b.discountValue)}%` : money(b.discountValue, currency)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {date(b.validFrom)} – {b.validTo ? date(b.validTo) : "no end"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {b.usageCount}
+                      {b.usageLimit !== null && <span className="text-zinc-500"> / {b.usageLimit}</span>}
+                    </TableCell>
+                    <TableCell>
+                      {!b.isActive ? (
+                        <Badge variant="outline">Inactive</Badge>
+                      ) : usedUp ? (
+                        <Badge variant="outline">Used up</Badge>
+                      ) : (
+                        <Badge variant="secondary">Active</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-start justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          nativeButton={false}
+                          render={<Link href={tabHref("bonos", { bono: b.id })} prefetch={false} scroll={false} />}
+                        >
+                          Edit
+                        </Button>
+                        <DeleteButton
+                          kind="bono"
+                          id={b.id}
+                          name={b.code}
+                          confirmText={
+                            b._count.bookings > 0
+                              ? `${b.code} is on ${b._count.bookings} booking(s) and cannot be deleted; deactivate it instead. Try anyway?`
+                              : `Delete bono ${b.code}? This cannot be undone.`
+                          }
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      {open && (open === "new" || editing) && (
+        <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit bono ${editing.code}` : "Add bono"}>
+          <BonoForm bono={editing ?? null} currency={currency} cancelHref={closeHref} />
+        </RoutedDialog>
+      )}
+    </Panel>
+  );
+}
+
 async function StaffTab() {
   const staff = await getStaff().catch(() => null);
   const active = staff?.filter((s) => s.status === "ACTIVE").length;
@@ -479,6 +583,7 @@ export default async function SettingsPage({
       {tab === "sites" && <SitesTab open={target(one(params.site))} />}
       {tab === "staff" && <StaffTab />}
       {tab === "pricing" && <PricingTab canEdit={isAdmin} />}
+      {tab === "bonos" && <BonosTab open={target(one(params.bono))} />}
       {tab === "users" && (
         <UsersTab open={target(one(params.user))} password={target(one(params.password))} selfId={session!.user.id} />
       )}

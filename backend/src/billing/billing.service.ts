@@ -16,6 +16,7 @@ import {
   PaymentStatus,
   StayStatus,
 } from '../generated/prisma/enums.js';
+import { bonoDiscount, releaseBonos, useBonos } from '../bonos/bono-rules.js';
 import { MailerService } from '../mail/mailer.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../settings/pricing.service.js';
@@ -101,6 +102,8 @@ export class BillingService {
         date: true,
         status: true,
         notes: true,
+        bonoId: true,
+        bono: { select: { code: true, type: true, discountValue: true } },
         invoice: { select: { id: true, invoiceNumber: true } },
         stayId: true,
         partner: { select: { name: true } },
@@ -141,28 +144,44 @@ export class BillingService {
       ...equipmentLines(booking.notes, prices),
     ];
     const subtotal = sum(items.map((i) => i.total));
+    // A government bono takes its discount off the activity; tax is on what
+    // remains.
+    const discount = booking.bono ? bonoDiscount(booking.bono, items[0].total) : new D(0);
     const { taxRate } = await this.settings.tax();
-    const tax = subtotal.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    const tax = subtotal.minus(discount).times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
 
-    return this.create({
-      bookingId,
-      customerId: booking.customerId,
-      subtotal: subtotal.toNumber(),
-      tax: tax.toNumber(),
-      discount: 0,
-      total: subtotal.plus(tax).toNumber(),
-      dueDate: booking.date.toISOString(),
-      items,
-    });
+    return this.insert(
+      {
+        bookingId,
+        customerId: booking.customerId,
+        subtotal: subtotal.toNumber(),
+        tax: tax.toNumber(),
+        discount: discount.toNumber(),
+        total: subtotal.minus(discount).plus(tax).toNumber(),
+        dueDate: booking.date.toISOString(),
+        items,
+      },
+      async (tx) => {
+        if (!booking.bonoId) return;
+        await useBonos(tx, [booking.bonoId]);
+        await tx.booking.update({ where: { id: bookingId }, data: { bonoUsed: true } });
+      },
+    );
   }
 
-  async create(dto: CreateInvoiceDto) {
+  create(dto: CreateInvoiceDto) {
+    return this.insert(dto);
+  }
+
+  // Creates the invoice; `alongside` runs in the same transaction.
+  private async insert(dto: CreateInvoiceDto, alongside?: (tx: Tx) => Promise<void>) {
     const { items, ...fields } = dto;
     assertAmounts(fields.subtotal, fields.tax, fields.discount ?? 0, fields.total, items);
     const config = await this.config.get();
     try {
       const { id } = await this.prisma.$transaction(async (tx) => {
         await assertBookingCustomer(tx, fields.bookingId, fields.customerId);
+        await alongside?.(tx);
         const invoiceNumber = await nextInvoiceNumber(tx, config);
         return tx.invoice.create({
           data: {
@@ -289,12 +308,16 @@ export class BillingService {
 
   // A stay's invoice, inside the stays service's transaction (which holds the
   // customer's stay lock). Tax from the settings on the subtotal, due today.
-  async createStayInvoice(tx: Tx, data: { stayId: string; customerId: string; items: InvoiceItemDto[] }) {
+  // `discount`: the stay's government bono discounts (see stays.service).
+  async createStayInvoice(
+    tx: Tx,
+    data: { stayId: string; customerId: string; items: InvoiceItemDto[]; discount: Prisma.Decimal },
+  ) {
     const subtotal = sum(data.items.map((i) => i.total));
     const { taxRate } = await this.settings.tax();
-    const tax = subtotal.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
-    const total = subtotal.plus(tax);
-    assertAmounts(subtotal, tax, 0, total, data.items);
+    const tax = subtotal.minus(data.discount).times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    const total = subtotal.minus(data.discount).plus(tax);
+    assertAmounts(subtotal, tax, data.discount, total, data.items);
     const config = await this.config.get();
     const invoiceNumber = await nextInvoiceNumber(tx, config);
     return tx.invoice.create({
@@ -305,7 +328,7 @@ export class BillingService {
         customerId: data.customerId,
         subtotal,
         tax,
-        discount: 0,
+        discount: data.discount,
         total,
         dueDate: new Date(),
         items: { create: data.items.map(itemData) },
@@ -325,6 +348,13 @@ export class BillingService {
         throw new ConflictException('Invoices with succeeded payments cannot be cancelled');
       }
       await tx.invoice.update({ where: { id }, data: { status: InvoiceStatus.CANCELLED } });
+      // The bonos it used can be used again.
+      const used = await tx.booking.findMany({
+        where: { bonoUsed: true, ...(invoice.stayId ? { stayId: invoice.stayId } : { invoice: { is: { id } } }) },
+        select: { id: true, bonoId: true },
+      });
+      await releaseBonos(tx, used.map((b) => b.bonoId));
+      await tx.booking.updateMany({ where: { id: { in: used.map((b) => b.id) } }, data: { bonoUsed: false } });
       // The stay is open again, with the same bookings and costs, to be
       // corrected and billed on a new invoice.
       if (invoice.stayId) await reopenStay(tx, invoice.stayId, invoice.customerId);

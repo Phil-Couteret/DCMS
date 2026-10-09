@@ -96,6 +96,9 @@ model Tenant {
   memberships            Membership[]
   platformAudit          PlatformAuditLog[]
   numberSequences        NumberSequence[]
+  governmentBonos        GovernmentBono[]
+  tanks                  Tank[]
+  customerDocuments      CustomerDocument[]
   invitations            Invitation[]
 }
 
@@ -121,6 +124,7 @@ model Location {
   updatedAt   DateTime     @updatedAt
   // What operates from here. Deleting the location unassigns them.
   boats       Boat[]
+  tanks       Tank[]
   diveSites   DiveSite[]
   bookings    Booking[]
 
@@ -149,6 +153,94 @@ model Membership {
 
   @@unique([userId, tenantId])
   @@index([tenantId])
+}
+
+// A government discount voucher (e.g. the Canary Islands' "bono"): a code
+// staff enter on a booking. Its discount is applied when the booking is
+// invoiced, which is also when a use is counted.
+enum BonoType {
+  PERCENTAGE
+  FIXED
+}
+
+model GovernmentBono {
+  id            String    @id @default(uuid())
+  tenantId      String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  // Stored upper case; unique per tenant.
+  code          String
+  type          BonoType
+  // A percentage (PERCENTAGE) or an amount in the center's currency (FIXED).
+  discountValue Decimal   @db.Decimal(10, 2)
+  description   String
+  validFrom     DateTime  @db.Date
+  validTo       DateTime? @db.Date
+  usageLimit    Int?
+  usageCount    Int       @default(0)
+  isActive      Boolean   @default(true)
+  bookings      Booking[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+// A dive cylinder and its periodic tests. The dates are when each test was
+// last done; the next one is due a fixed interval later (tanks.rules.ts).
+enum TankStatus {
+  ACTIVE
+  RETIRED
+}
+
+model Tank {
+  id                   String     @id @default(uuid())
+  tenantId             String     @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant               Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  locationId           String?
+  location             Location?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  serialNumber         String
+  // 10L, 12L, 15L, Nitrox12L or Nitrox15L.
+  size                 String
+  visualInspectionDate DateTime?  @db.Date
+  hydrostaticTestDate  DateTime?  @db.Date
+  status               TankStatus @default(ACTIVE)
+  notes                String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@unique([tenantId, serialNumber])
+  @@index([tenantId])
+}
+
+// A file kept with a customer's record (medical certificate, insurance,
+// certification card…). The file itself is on disk under UPLOAD_DIR, at
+// storagePath (relative): {tenantId}/{customerId}/{id}{extension}.
+enum CustomerDocumentType {
+  MEDICAL_CERT
+  INSURANCE
+  CERTIFICATION
+  OTHER
+}
+
+model CustomerDocument {
+  id          String               @id @default(uuid())
+  tenantId    String               @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customerId  String
+  customer    Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type        CustomerDocumentType
+  // The name it was uploaded with, shown and offered on download only.
+  filename    String
+  mimeType    String
+  size        Int
+  storagePath String
+  uploadedBy  String?
+  uploadedAt  DateTime             @default(now())
+  createdAt   DateTime             @default(now())
+
+  @@index([tenantId])
+  @@index([customerId])
 }
 
 // An invitation to join a tenant's staff, sent by email as a link with a
@@ -255,6 +347,7 @@ model Customer {
   // The partner who registered this customer, if any.
   partnerId             String?
   partner               Partner?                @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  documents             CustomerDocument[]
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
 
@@ -597,6 +690,12 @@ model Booking {
   participantCount Int
   // Dives in this booking (fun dives are billed per dive). At least 1.
   numberOfDives    Int             @default(1)
+  // A government bono applied to this booking (discount on invoicing).
+  bonoId           String?
+  bono             GovernmentBono? @relation(fields: [bonoId], references: [id], onDelete: Restrict)
+  // The bono's use has been counted (when the booking was invoiced); a
+  // cancelled invoice gives it back.
+  bonoUsed         Boolean         @default(false)
   bookingSource    BookingSource   @default(DIRECT)
   notes            String?
   diveLog          DiveLog?

@@ -147,7 +147,8 @@ function InvoiceDocument({ invoice, center, timeZone, logo }: InvoicePdfInput & 
           {Number(invoice.discount) > 0 && (
             <View style={s.totalRow}>
               <Text>Discount</Text>
-              <Text>−{money(invoice.discount, c)}</Text>
+              {/* ASCII "-": the built-in Helvetica has no "−" (U+2212) glyph. */}
+              <Text>-{money(invoice.discount, c)}</Text>
             </View>
           )}
           <View style={s.totalRow}>

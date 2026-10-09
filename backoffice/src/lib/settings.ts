@@ -18,6 +18,7 @@ export const SETTINGS_TABS = [
   { key: "sites", label: "Dive Sites" },
   { key: "staff", label: "Staff" },
   { key: "pricing", label: "Pricing" },
+  { key: "bonos", label: "Bonos", adminOnly: true },
   { key: "users", label: "Users", adminOnly: true },
 ] as const;
 

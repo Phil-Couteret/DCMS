@@ -88,8 +88,12 @@ function StayCard({
               {stay.totalDives} fun dive{stay.totalDives === 1 ? "" : "s"} @ {money(stay.pricePerDive, currency)}
             </p>
           )}
+          {Number(stay.totals.discount) > 0 && (
+            <p className="text-sm font-medium text-emerald-800">−{money(stay.totals.discount, currency)} government bonos</p>
+          )}
           <p className="text-xs text-zinc-500">
             before {taxName} · {money(stay.totals.total, currency)} with {taxName}
+            {Number(stay.totals.discount) > 0 && " and bonos"}
           </p>
         </div>
       </summary>
@@ -133,6 +137,11 @@ function StayCard({
                             + {e.description} ({money(e.total, currency)})
                           </span>
                         ))}
+                        {b.bono && (
+                          <span className="block text-xs font-medium text-emerald-800">
+                            Bono {b.bono.code}: −{money(b.bono.discount, currency)}
+                          </span>
+                        )}
                       </td>
                       <td className={`${td} text-right`}>{b.participantCount}</td>
                       <td className={`${td} text-right`}>

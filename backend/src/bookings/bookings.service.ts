@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingSource, BookingStatus, Role, TimeSlot } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { usableBono } from '../bonos/bono-rules.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { GuestBookingDto } from './dto/guest-booking.dto.js';
@@ -25,6 +26,7 @@ const INCLUDE = {
   boat: { select: { id: true, name: true, capacity: true } },
   site: { select: { id: true, nameEn: true } },
   partner: { select: { id: true, name: true } },
+  bono: { select: { id: true, code: true, type: true, discountValue: true, description: true } },
 } satisfies Prisma.BookingInclude;
 
 type Tx = Prisma.TransactionClient;
@@ -72,7 +74,9 @@ export class BookingsService {
         } else {
           await lockBoat(tx, dto.boatId);
         }
-        return tx.booking.create({ data: { ...withPartnerSource(dto), date, status }, include: INCLUDE });
+        const { bonoCode, ...fields } = dto;
+        const bonoId = bonoCode ? (await usableBono(tx, bonoCode, date)).id : null;
+        return tx.booking.create({ data: { ...withPartnerSource(fields), date, status, bonoId }, include: INCLUDE });
       });
     } catch (e) {
       throw mapError(e);
@@ -98,9 +102,11 @@ export class BookingsService {
         if (SEAT_HOLDING.includes(next.status)) {
           await assertSeats(tx, next, id);
         }
+        const { bonoCode, ...fields } = dto;
+        const bonoId = await bonoChange(tx, current, bonoCode, date);
         return tx.booking.update({
           where: { id },
-          data: { ...withPartnerSource(dto), ...(date && { date }) },
+          data: { ...withPartnerSource(fields), ...(date && { date }), ...(bonoId !== undefined && { bonoId }) },
           include: INCLUDE,
         });
       });
@@ -249,6 +255,27 @@ export async function firstBoatWithRoom(tx: Tx, slot: Omit<Slot, 'boatId'>) {
     if (booked + slot.participantCount <= capacity) return id;
   }
   throw new ConflictException('No available boats for this slot');
+}
+
+// The booking's bono after an update: undefined to leave it, null to remove
+// it, or the id of the bono named. A new code, or a new date, is checked
+// against the bono's dates; once its use has been counted (the booking is
+// invoiced) the bono cannot change.
+async function bonoChange(
+  tx: Tx,
+  current: { bonoId: string | null; bonoUsed: boolean; bono: { code: string } | null; date: Date },
+  bonoCode: string | null | undefined,
+  date: Date | undefined,
+) {
+  const code = bonoCode === undefined ? current.bono?.code : bonoCode?.trim().toUpperCase() || null;
+  const changed = (code ?? null) !== (current.bono?.code ?? null);
+  if (current.bonoUsed) {
+    if (changed) throw new ConflictException('This booking has been invoiced with its bono; cancel the invoice to change it');
+    return undefined;
+  }
+  if (!code) return changed ? null : undefined;
+  if (!changed && date === undefined) return undefined;
+  return (await usableBono(tx, code, date ?? current.date)).id;
 }
 
 // A booking with a partner is a partner booking.

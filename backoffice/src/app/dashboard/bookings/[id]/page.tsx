@@ -88,6 +88,18 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               </Row>
               <Row label="Participants">{booking.participantCount}</Row>
               <Row label="Dives">{booking.numberOfDives}</Row>
+              {booking.bono && (
+                <Row label="Government bono">
+                  {booking.bono.code} ·{" "}
+                  {booking.bono.type === "PERCENTAGE"
+                    ? `${Number(booking.bono.discountValue)}% off`
+                    : `${money(booking.bono.discountValue, currency)} off`}{" "}
+                  the activity
+                  <span className="block text-xs text-zinc-500">
+                    {booking.bonoUsed ? "Applied on the invoice" : "Applied when the booking is invoiced"} · {booking.bono.description}
+                  </span>
+                </Row>
+              )}
               <Row label="Boat">{booking.boat ? `${booking.boat.name} (capacity ${booking.boat.capacity})` : "—"}</Row>
               <Row label="Dive site">{booking.site?.nameEn ?? "Not assigned"}</Row>
               <Row label="Source">

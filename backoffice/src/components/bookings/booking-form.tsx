@@ -35,6 +35,8 @@ export interface BookingFormValues {
   status: BookingStatus;
   equipment: string[]; // "key" or "key:size"
   notes: string;
+  bonoCode: string;
+  bonoLocked: boolean; // its use is counted on the booking's invoice
 }
 
 const MAX_MATCHES = 8;
@@ -282,6 +284,25 @@ export function BookingForm({
               className={control}
             />
             <span className="mt-1 block text-xs font-normal text-zinc-500">Fun dives are billed per dive and count toward the stay rate.</span>
+          </label>
+          <label className={label}>
+            Government bono
+            <input
+              name="bonoCode"
+              maxLength={40}
+              pattern="[A-Za-z0-9][A-Za-z0-9\-]{1,39}"
+              title="The bono's code: letters, digits and dashes"
+              autoComplete="off"
+              defaultValue={initial.bonoCode}
+              readOnly={initial.bonoLocked}
+              placeholder="None"
+              className={`${control} uppercase placeholder:normal-case${initial.bonoLocked ? " bg-zinc-50 text-zinc-500" : ""}`}
+            />
+            <span className="mt-1 block text-xs font-normal text-zinc-500">
+              {initial.bonoLocked
+                ? "Applied on this booking's invoice; cancel the invoice to change it."
+                : "The code of a government bono (Settings → Bonos). Its discount is applied when the booking is invoiced."}
+            </span>
           </label>
           <label className={label}>
             Source

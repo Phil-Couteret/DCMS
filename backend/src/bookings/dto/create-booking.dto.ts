@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import {
@@ -64,4 +65,11 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // A government bono's code; its discount is applied when the booking is
+  // invoiced. null or "" removes it on update.
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  bonoCode?: string | null;
 }

@@ -35,6 +35,13 @@ const nextConfig: NextConfig = {
   // The PDF renderer (invoice PDFs) loads its own WebAssembly and fonts; it
   // runs as a plain Node package rather than through the bundler.
   serverExternalPackages: ["@react-pdf/renderer"],
+  experimental: {
+    // Customer documents are uploaded through a server action: up to 10 MB,
+    // plus the multipart form around them. The proxy buffers bodies up to its
+    // own limit (10 MB by default), so it is raised to match.
+    serverActions: { bodySizeLimit: "11mb" },
+    proxyClientMaxBodySize: "11mb",
+  },
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },

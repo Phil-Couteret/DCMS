@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { BillingService, equipmentLines, lockCustomerStays, type Tx } from '../billing/billing.service.js';
 import { InvoiceItemDto } from '../billing/dto/invoice-item.dto.js';
+import { bonoDiscount, useBonos } from '../bonos/bono-rules.js';
 import { ACTIVITY_NAMES, billedUnits, stayDivePrice, withDives, type PriceList } from '../config/catalogue.js';
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -59,6 +60,8 @@ const BOOKING_SELECT = {
   partnerId: true,
   partner: { select: { name: true } },
   boat: { select: { name: true } },
+  bonoId: true,
+  bono: { select: { code: true, type: true, discountValue: true } },
 } satisfies Prisma.BookingSelect;
 
 type StayBookingRow = Prisma.BookingGetPayload<{ select: typeof BOOKING_SELECT }>;
@@ -106,11 +109,15 @@ export function priceStay(
     const activityTotal = partner || unit === null ? new D(0) : new D(unit).times(billedUnits(b));
     const equipment = equipmentLines(b.notes, prices);
     const total = activityTotal.plus(sum(equipment.map((e) => e.total)));
-    return { booking: b, partner, unit, activityTotal, equipment, total };
+    // A government bono discounts this booking's activity (not a partner's).
+    const bono = partner ? null : b.bono;
+    const discount = bono ? bonoDiscount(bono, activityTotal) : new D(0);
+    return { booking: b, partner, unit, activityTotal, equipment, total, bono, discount };
   });
   const bookingsTotal = sum(lines.map((l) => l.total));
   const costsTotal = sum(costs.map((c) => c.total));
-  return { totalDives, pricePerDive, lines, unpriced: [...unpriced], bookingsTotal, costsTotal };
+  const discount = sum(lines.map((l) => l.discount));
+  return { totalDives, pricePerDive, lines, unpriced: [...unpriced], bookingsTotal, costsTotal, discount };
 }
 
 @Injectable()
@@ -217,7 +224,10 @@ export class StaysService {
 
       const stayId = stay.row?.id ?? (await tx.stay.create({ data: { customerId }, select: { id: true } })).id;
       await tx.booking.updateMany({ where: { id: { in: stay.bookings.map((b) => b.id) } }, data: { stayId } });
-      const invoice = await this.billing.createStayInvoice(tx, { stayId, customerId, items });
+      const withBono = priced.lines.filter((l) => l.bono).map((l) => l.booking);
+      await useBonos(tx, withBono.map((b) => b.bonoId));
+      await tx.booking.updateMany({ where: { id: { in: withBono.map((b) => b.id) } }, data: { bonoUsed: true } });
+      const invoice = await this.billing.createStayInvoice(tx, { stayId, customerId, items, discount: priced.discount });
       await tx.stay.update({ where: { id: stayId }, data: { status: StayStatus.BILLED, billedAt: new Date() } });
       return { stayId, invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber };
     });
@@ -281,7 +291,7 @@ export class StaysService {
   private present(stay: Awaited<ReturnType<StaysService['openStays']>>[number], taxRate: Decimal, prices: PriceList) {
     const priced = priceStay(stay.customer, stay.bookings, stay.costs, prices);
     const subtotal = priced.bookingsTotal.plus(priced.costsTotal);
-    const tax = subtotal.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    const tax = subtotal.minus(priced.discount).times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
     const { user, ...customer } = stay.customer;
     return {
       stayId: stay.row?.id ?? null,
@@ -306,14 +316,16 @@ export class StaysService {
         activityTotal: money(l.activityTotal),
         equipment: l.equipment.map((e) => ({ description: e.description, total: money(e.total) })),
         total: money(l.total),
+        bono: l.bono && { code: l.bono.code, discount: money(l.discount) },
       })),
       costs: stay.costs.map((c) => ({ ...c, unitPrice: money(c.unitPrice), total: money(c.total) })),
       totals: {
         bookings: money(priced.bookingsTotal),
         costs: money(priced.costsTotal),
         subtotal: money(subtotal),
+        discount: money(priced.discount),
         tax: money(tax),
-        total: money(subtotal.plus(tax)),
+        total: money(subtotal.minus(priced.discount).plus(tax)),
       },
     };
   }

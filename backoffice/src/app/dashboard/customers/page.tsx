@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import { CustomersTable } from "@/components/customers/customers-table";
+import { ImportCustomersForm } from "@/components/customers/import-customers";
+import { RoutedDialog } from "@/components/routed-panel";
 import { Button } from "@/components/ui/button";
 import { getCustomers, type Customer } from "@/lib/api";
 import { countryLabel, LANGUAGES } from "@/lib/customers";
@@ -19,9 +22,17 @@ export default async function CustomersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const isAdmin = (await auth())?.user?.role === "ADMIN";
   const country = one(params.country) || undefined;
   const language = LANGUAGES.find((l) => l.code === one(params.language))?.code;
   const filtered = Boolean(country || language);
+  // ?import=1: the import dialog, over the list with its filters.
+  const importing = isAdmin && one(params.import) === "1";
+  const listParams = new URLSearchParams();
+  if (country) listParams.set("country", country);
+  if (language) listParams.set("language", language);
+  const listHref = `/dashboard/customers${listParams.size > 0 ? `?${listParams}` : ""}`;
+  const withImport = `/dashboard/customers?${new URLSearchParams([...listParams, ["import", "1"]])}`;
 
   // Country and language filter on the API. The country list comes from the
   // unfiltered set, so choosing one country does not empty the selector.
@@ -41,10 +52,22 @@ export default async function CustomersPage({
     <main className="space-y-6 p-6 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900">Customers</h1>
-        <Button nativeButton={false} render={<Link href="/dashboard/customers/new" prefetch={false} />}>
-          New Customer
-        </Button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button variant="outline" nativeButton={false} render={<Link href={withImport} prefetch={false} scroll={false} />}>
+              Import CSV
+            </Button>
+          )}
+          <Button nativeButton={false} render={<Link href="/dashboard/customers/new" prefetch={false} />}>
+            New Customer
+          </Button>
+        </div>
       </div>
+      {importing && (
+        <RoutedDialog wide closeHref={listHref} title="Import customers from CSV">
+          <ImportCustomersForm closeHref={listHref} />
+        </RoutedDialog>
+      )}
 
       <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-[repeat(2,minmax(0,16rem))_auto]">
         <label className="block text-sm font-medium text-zinc-700">

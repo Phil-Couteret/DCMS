@@ -100,6 +100,9 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     return item.sizes && item.sizes.includes(size) ? `${item.key}:${size}` : item.key;
   });
 
+  const bonoCode = text(formData, "bonoCode").toUpperCase();
+  if (bonoCode && !/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(bonoCode)) return { error: "A bono code is letters, digits and dashes" };
+
   let previousNotes: string | null = null;
   if (bookingId) {
     try {
@@ -155,6 +158,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     partnerId: partnerId || null,
     notes: buildNotes(previousNotes, equipment, text(formData, "notes")),
     ...(!bookingId && { status }),
+    bonoCode: bonoCode || (bookingId ? "" : null),
   };
 
   let savedId: string;

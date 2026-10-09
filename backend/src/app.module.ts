@@ -5,6 +5,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BillingModule } from './billing/billing.module.js';
+import { BonosModule } from './bonos/bonos.module.js';
 import { BoatsModule } from './boats/boats.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { BreachesModule } from './breaches/breaches.module.js';
@@ -21,6 +22,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { StaysModule } from './stays/stays.module.js';
+import { TanksModule } from './tanks/tanks.module.js';
 import { SuperadminModule } from './superadmin/superadmin.module.js';
 import { TenantModule } from './tenant/tenant.module.js';
 import { TripsModule } from './trips/trips.module.js';
@@ -41,6 +43,8 @@ import { UsersModule } from './users/users.module.js';
     BoatsModule,
     DiveSitesModule,
     EquipmentModule,
+    TanksModule,
+    BonosModule,
     StaffModule,
     BookingsModule,
     DiveLogsModule,

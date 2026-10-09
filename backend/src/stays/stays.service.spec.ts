@@ -23,6 +23,8 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     activityType,
     participantCount: 1,
     numberOfDives: 1,
+    bonoId: null,
+    bono: null,
     status: 'CONFIRMED',
     bookingSource: BookingSource.DIRECT,
     notes: null,
@@ -150,5 +152,24 @@ describe('priceStay', () => {
   it('reports activities with no price', () => {
     const priced = priceStay(customer(CustomerType.TOURIST), [booking(ActivityType.DM_CERT)], [], SEEDED_PRICES);
     expect(priced.unpriced).toEqual(['Divemaster Course']);
+  });
+
+  it('takes a government bono off its booking\'s activity only, not equipment or partner activities', () => {
+    const pct = { code: 'GOV20', type: 'PERCENTAGE', discountValue: '20' };
+    const fixed = { code: 'GOV50', type: 'FIXED', discountValue: '50' };
+    const hire = JSON.stringify({ selectedEquipment: ['regulator'] });
+    const priced = priceStay(
+      customer(CustomerType.TOURIST),
+      [
+        booking(ActivityType.FUN_DIVE, { numberOfDives: 2, bonoId: 'p', bono: pct, notes: hire }), // 4 dives in the stay: 44 each; 2 × 44 = 88 → 17.60
+        booking(ActivityType.FUN_DIVE, { bonoId: 'f', bono: fixed }), // 44, of 50 off → 44
+        booking(ActivityType.FUN_DIVE, { bonoId: 'f', bono: fixed, partnerId: 'x', bookingSource: BookingSource.PARTNER }),
+      ],
+      [],
+      SEEDED_PRICES,
+    );
+    expect(priced.lines.map((l) => l.discount.toFixed(2))).toEqual(['17.60', '44.00', '0.00']);
+    expect(priced.lines[2].bono).toBeNull();
+    expect(priced.discount.toFixed(2)).toBe('61.60');
   });
 });

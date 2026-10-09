@@ -6,6 +6,10 @@ import { unstable_update } from "@/auth";
 import {
   ApiError,
   createBoat,
+  createBono,
+  deleteBono,
+  updateBono,
+  type BonoData,
   createDiveSite,
   createLocation,
   deleteLocation,
@@ -439,3 +443,57 @@ export async function assignLocation(_prev: SettingsFormState, formData: FormDat
   revalidatePath("/dashboard/settings");
   return { ok: true };
 }
+
+// A government bono (Settings → Bonos). The code is stored upper case.
+export async function saveBono(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const id = text(formData, "bonoId");
+  const code = text(formData, "code").toUpperCase();
+  const type = text(formData, "type");
+  const value = Number(text(formData, "discountValue").replace(",", "."));
+  const description = text(formData, "description");
+  const validFrom = text(formData, "validFrom");
+  const validTo = text(formData, "validTo");
+  const usageLimit = int(formData, "usageLimit");
+  if (!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(code)) return { error: "The code must be 2 to 40 letters, digits or dashes" };
+  if (type !== "PERCENTAGE" && type !== "FIXED") return { error: "Choose the kind of discount" };
+  if (!Number.isFinite(value) || value <= 0 || Math.round(value * 100) !== value * 100) {
+    return { error: "Enter the discount as a positive number with at most 2 decimals" };
+  }
+  if (type === "PERCENTAGE" && value > 100) return { error: "A percentage discount cannot be over 100" };
+  if (!description) return { error: "Enter a description" };
+  if (!ISO_DATE.test(validFrom)) return { error: "Enter the date the bono is valid from" };
+  if (validTo && !ISO_DATE.test(validTo)) return { error: "Enter a valid end date, or leave it empty" };
+  if (validTo && validTo < validFrom) return { error: "The end date cannot be before the start date" };
+  if (usageLimit !== null && (!Number.isInteger(usageLimit) || usageLimit < 1)) {
+    return { error: "The usage limit is a whole number of at least 1, or empty for no limit" };
+  }
+  const data: BonoData = {
+    code,
+    type,
+    discountValue: value,
+    description,
+    validFrom,
+    validTo: validTo || null,
+    usageLimit,
+    isActive: formData.get("isActive") === "on",
+  };
+  try {
+    if (id) await updateBono(id, data);
+    else await createBono(data);
+  } catch (e) {
+    return fail(e, "The bono could not be saved");
+  }
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?tab=bonos");
+}
+
+export async function removeBono(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  try {
+    await deleteBono(text(formData, "id"));
+  } catch (e) {
+    return fail(e, "The bono could not be deleted");
+  }
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+

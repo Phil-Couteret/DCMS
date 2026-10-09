@@ -7,6 +7,11 @@ import {
   createCustomer,
   createCustomerCertification,
   deleteCustomerCertification,
+  deleteCustomerDocument,
+  importCustomers,
+  uploadCustomerDocument,
+  type CustomerDocumentType,
+  type ImportResult,
   getCustomer,
   updateCustomer,
   updateCustomerCertification,
@@ -26,6 +31,8 @@ import {
   SKILL_LEVEL_LABELS,
   TANK_SIZES,
 } from "@/lib/customers";
+import { csvUpload } from "@/lib/csv-upload";
+import { DOCUMENT_TYPES, MAX_DOCUMENT_BYTES } from "@/lib/documents";
 
 export type CustomerFormState = { error?: string } | null;
 export type CustomerActionState = { error?: string; ok?: boolean } | null;
@@ -251,3 +258,55 @@ export async function removeCertification(
   refresh(id);
   return { ok: true };
 }
+
+export type DocumentUploadState = { error?: string; uploaded?: number } | null;
+
+// A document for the customer's record (PDF or photo, at most 10 MB). The
+// API decides the file's type from its contents.
+export async function uploadDocument(_prev: DocumentUploadState, formData: FormData): Promise<DocumentUploadState> {
+  const id = text(formData, "customerId");
+  const type = text(formData, "type") as CustomerDocumentType;
+  const file = formData.get("file");
+  if (!UUID.test(id)) return { error: "Unknown customer" };
+  if (!DOCUMENT_TYPES.includes(type)) return { error: "Choose what the document is" };
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a file" };
+  if (file.size > MAX_DOCUMENT_BYTES) return { error: "The file is over 10 MB" };
+  const form = new FormData();
+  form.set("type", type);
+  form.set("file", file, file.name);
+  try {
+    await uploadCustomerDocument(id, form);
+  } catch (e) {
+    return fail(e, "The document could not be uploaded");
+  }
+  refresh(id);
+  return { uploaded: Date.now() };
+}
+
+export async function removeDocument(_prev: CustomerActionState, formData: FormData): Promise<CustomerActionState> {
+  const id = text(formData, "customerId");
+  const documentId = text(formData, "documentId");
+  if (!UUID.test(id) || !UUID.test(documentId)) return { error: "Unknown document" };
+  try {
+    await deleteCustomerDocument(id, documentId);
+  } catch (e) {
+    return fail(e, "The document could not be deleted");
+  }
+  refresh(id);
+  return { ok: true };
+}
+
+export type CustomerImportState = { error?: string; result?: ImportResult } | null;
+
+export async function importCustomersCsv(_prev: CustomerImportState, formData: FormData): Promise<CustomerImportState> {
+  const upload = csvUpload(formData);
+  if ("error" in upload) return upload;
+  try {
+    const result = await importCustomers(upload.form);
+    revalidatePath("/dashboard/customers");
+    return { result };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "The file could not be imported" };
+  }
+}
+

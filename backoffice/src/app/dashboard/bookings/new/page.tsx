@@ -47,6 +47,8 @@ export default async function NewBookingPage({
             siteId: "",
             participantCount: 1,
             numberOfDives: 1,
+            bonoCode: "",
+            bonoLocked: false,
             bookingSource: "WALK_IN",
             partnerId: "",
             status: "CONFIRMED",

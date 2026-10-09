@@ -5,6 +5,7 @@ import { ConditionBadge, EquipmentStatusBadge } from "@/components/equipment/bad
 import { DeleteEquipmentButton, EquipmentForm } from "@/components/equipment/equipment-form";
 import { EquipmentStatusActions } from "@/components/equipment/status-actions";
 import { RoutedDialog } from "@/components/routed-panel";
+import { TanksPanel } from "./tanks-panel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,12 +30,46 @@ function one(value: string | string[] | undefined) {
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
 
+function EquipmentTabs({ current }: { current: "equipment" | "tanks" }) {
+  const tabs = [
+    { key: "equipment", label: "Equipment", href: "/dashboard/equipment" },
+    { key: "tanks", label: "Tanks", href: "/dashboard/equipment?tab=tanks" },
+  ] as const;
+  return (
+    <nav aria-label="Equipment sections" className="flex gap-1 border-b border-zinc-200">
+      {tabs.map((t) => (
+        <Link
+          key={t.key}
+          href={t.href}
+          prefetch={false}
+          aria-current={t.key === current ? "page" : undefined}
+          className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
+            t.key === current ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
+          }`}
+        >
+          {t.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 export default async function EquipmentPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  if (one(params.tab) === "tanks") {
+    const flat = Object.fromEntries(Object.keys(params).map((k) => [k, one(params[k])]));
+    return (
+      <main className="space-y-6 p-6 md:p-8">
+        <h1 className="text-2xl font-semibold text-zinc-900">Equipment</h1>
+        <EquipmentTabs current="tanks" />
+        <TanksPanel params={flat} />
+      </main>
+    );
+  }
   const { timeZone } = await centerLocale();
   const today = centerNow(timeZone).isoDate;
   const type = EQUIPMENT_TYPES.find((t) => t === one(params.type)?.toLowerCase());
@@ -85,6 +120,7 @@ export default async function EquipmentPage({
           New equipment
         </Button>
       </div>
+      <EquipmentTabs current="equipment" />
 
       {overdue.length > 0 && (
         <Alert className="border-amber-300 bg-amber-50 text-amber-900">

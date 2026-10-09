@@ -80,6 +80,9 @@ services:
       BACKOFFICE_URL: https://{slug}.${ADMIN_DOMAIN}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
+    volumes:
+      # Customer documents (UPLOAD_DIR). Back it up with the database.
+      - uploads:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -144,3 +147,4 @@ networks:
 
 volumes:
   pgdata:
+  uploads:

@@ -37,6 +37,8 @@ export interface Booking {
   site: { id: string; nameEn: string } | null;
   partnerId: string | null;
   partner: { id: string; name: string } | null;
+  bono: { id: string; code: string; type: BonoType; discountValue: string; description: string } | null;
+  bonoUsed: boolean; // the bono's discount is on the booking's invoice
 }
 
 export type Language = "EN" | "ES" | "DE" | "FR";
@@ -166,7 +168,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     ...init,
     headers: {
       Accept: "application/json",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      // A FormData body (an upload) sets its own multipart content type.
+      ...(init.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
       ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
       ...(await forwardedFor()),
       ...init.headers,
@@ -366,6 +369,7 @@ export interface BookingData {
   partnerId: string | null; // a partner makes the source PARTNER
   notes: string | null;
   status?: BookingStatus; // create only; later changes go through the status actions
+  bonoCode: string | null; // a government bono's code; "" removes it
 }
 
 export function createBooking(data: BookingData) {
@@ -1453,6 +1457,7 @@ export interface StayBooking {
   activityTotal: string;
   equipment: { description: string; total: string }[];
   total: string;
+  bono: { code: string; discount: string } | null; // a government bono on the activity
 }
 
 export interface Stay {
@@ -1465,7 +1470,7 @@ export interface Stay {
   unpriced: string[];
   bookings: StayBooking[];
   costs: StayCost[];
-  totals: { bookings: string; costs: string; subtotal: string; tax: string; total: string };
+  totals: { bookings: string; costs: string; subtotal: string; discount: string; tax: string; total: string };
 }
 
 export interface StayCostData {
@@ -1805,3 +1810,156 @@ export function changeBreachStatus(id: string, data: BreachStatusChange) {
 export function deleteBreach(id: string) {
   return apiFetch<DataBreach>(`/breaches/${id}`, { method: "DELETE" });
 }
+
+// --- Government bonos (Settings → Bonos, admins) ---
+
+export type BonoType = "PERCENTAGE" | "FIXED";
+
+export interface Bono {
+  id: string;
+  code: string;
+  type: BonoType;
+  discountValue: string; // a percentage, or an amount in the center's currency
+  description: string;
+  validFrom: string;
+  validTo: string | null;
+  usageLimit: number | null;
+  usageCount: number; // uses counted on invoices
+  isActive: boolean;
+  _count: { bookings: number };
+}
+
+export interface BonoData {
+  code: string;
+  type: BonoType;
+  discountValue: number;
+  description: string;
+  validFrom: string;
+  validTo: string | null;
+  usageLimit: number | null;
+  isActive: boolean;
+}
+
+export function getBonos() {
+  return apiFetch<Bono[]>("/bonos");
+}
+
+export function createBono(data: BonoData) {
+  return apiFetch<Bono>("/bonos", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateBono(id: string, data: BonoData) {
+  return apiFetch<Bono>(`/bonos/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteBono(id: string) {
+  return apiFetch<Bono>(`/bonos/${id}`, { method: "DELETE" });
+}
+
+// --- CSV imports (customers, tanks) ---
+
+export interface ImportResult {
+  imported: number;
+  skipped: { line: number; reason: string }[];
+  errors: { line: number; message: string }[];
+}
+
+// --- Tanks (Equipment → Tanks) ---
+
+export type TankSize = "10L" | "12L" | "15L" | "Nitrox12L" | "Nitrox15L";
+export type TankStatus = "ACTIVE" | "RETIRED";
+export type TankTestState = "OK" | "DUE_SOON" | "OVERDUE" | "NO_RECORD";
+
+export interface Tank {
+  id: string;
+  serialNumber: string;
+  size: TankSize;
+  locationId: string | null;
+  location: { id: string; name: string } | null;
+  visualInspectionDate: string | null; // when last done
+  hydrostaticTestDate: string | null;
+  status: TankStatus;
+  notes: string | null;
+  nextVisualInspection: string | null; // YYYY-MM-DD; null: no test on record
+  visualState: TankTestState;
+  nextHydrostaticTest: string | null;
+  hydrostaticState: TankTestState;
+}
+
+export interface TankData {
+  serialNumber: string;
+  size: TankSize;
+  locationId: string | null;
+  visualInspectionDate: string | null;
+  hydrostaticTestDate: string | null;
+  status: TankStatus;
+  notes: string | null;
+}
+
+export function getTanks() {
+  return apiFetch<Tank[]>("/tanks");
+}
+
+export function createTank(data: TankData) {
+  return apiFetch<Tank>("/tanks", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateTank(id: string, data: TankData) {
+  return apiFetch<Tank>(`/tanks/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteTank(id: string) {
+  return apiFetch<Tank>(`/tanks/${id}`, { method: "DELETE" });
+}
+
+// form: "file" (the CSV) and optionally "locationId".
+export function importTanks(form: FormData) {
+  return apiFetch<ImportResult>("/tanks/import", { method: "POST", body: form });
+}
+
+// form: "file" (the CSV).
+export function importCustomers(form: FormData) {
+  return apiFetch<ImportResult>("/customers/import", { method: "POST", body: form });
+}
+
+// --- Customer documents ---
+
+export type CustomerDocumentType = "MEDICAL_CERT" | "INSURANCE" | "CERTIFICATION" | "OTHER";
+
+export interface CustomerDocument {
+  id: string;
+  customerId: string;
+  type: CustomerDocumentType;
+  filename: string;
+  mimeType: string;
+  size: number; // bytes
+  uploadedAt: string;
+  uploadedBy: string | null;
+}
+
+export function getCustomerDocuments(customerId: string) {
+  return apiFetch<CustomerDocument[]>(`/customers/${customerId}/documents`);
+}
+
+// form: "file" and "type".
+export function uploadCustomerDocument(customerId: string, form: FormData) {
+  return apiFetch<CustomerDocument>(`/customers/${customerId}/documents`, { method: "POST", body: form });
+}
+
+export function deleteCustomerDocument(customerId: string, documentId: string) {
+  return apiFetch<{ id: string }>(`/customers/${customerId}/documents/${documentId}`, { method: "DELETE" });
+}
+
+// The document's file, as the API answers it (streamed on by the
+// backoffice's own route).
+export async function fetchCustomerDocumentFile(customerId: string, documentId: string, download: boolean) {
+  const session = await auth();
+  return fetch(`${API_URL}/customers/${customerId}/documents/${documentId}/file${download ? "?download=1" : ""}`, {
+    headers: {
+      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+      ...(await forwardedFor()),
+    },
+    cache: "no-store",
+  });
+}
+

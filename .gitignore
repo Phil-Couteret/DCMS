@@ -75,3 +75,6 @@ coverage/
 .npmrc
 dcms-backend.tar
 *.tsbuildinfo
+
+# Customer documents (UPLOAD_DIR)
+uploads/
