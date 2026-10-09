@@ -7,6 +7,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { BookingSource, BookingStatus, PartnerInvoiceStatus } from '../generated/prisma/enums.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { accountForCustomer } from '../users/accounts.js';
+import { lockPrices } from '../billing/price-lines.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PartnerBookingDto, PartnerCustomerDto } from './dto/portal.dto.js';
@@ -114,6 +115,7 @@ export class PortalService {
         status: true,
         notes: true,
         createdAt: true,
+        pricePerDiver: true,
         customer: { select: { id: true, firstName: true, lastName: true } },
         partnerInvoice: { select: { id: true, invoiceNumber: true } },
       },
@@ -121,8 +123,9 @@ export class PortalService {
     });
     return rows.map((b) => {
       const { total } = valueBooking(b, prices);
+      const { pricePerDiver: _locked, ...rest } = b;
       return {
-        ...b,
+        ...rest,
         date: b.date.toISOString().slice(0, 10),
         activityName: ACTIVITY_NAMES[b.activityType],
         value: total === null ? null : money(total),
@@ -144,8 +147,10 @@ export class PortalService {
         timeSlot: dto.timeSlot,
         participantCount: dto.participantCount,
       });
+      const notes = dto.notes?.trim() || null;
       return tx.booking.create({
         data: {
+          ...lockPrices(await this.pricing.current(), { activityType: dto.activityType, notes }),
           customerId,
           boatId,
           partnerId,
@@ -155,7 +160,7 @@ export class PortalService {
           participantCount: dto.participantCount,
           status: BookingStatus.PENDING,
           bookingSource: BookingSource.PARTNER,
-          notes: dto.notes?.trim() || null,
+          notes,
         },
         select: { id: true, date: true, timeSlot: true, activityType: true, participantCount: true, numberOfDives: true, status: true },
       });

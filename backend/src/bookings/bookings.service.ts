@@ -2,13 +2,16 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
-import { BookingSource, BookingStatus, TimeSlot } from '../generated/prisma/enums.js';
+import { ActivityType, BookingSource, BookingStatus, TimeSlot } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usableBono } from '../bonos/bono-rules.js';
 import { accountForCustomer } from '../users/accounts.js';
+import { equipmentSelection, lockPrices } from '../billing/price-lines.js';
+import { PricingService } from '../settings/pricing.service.js';
 import { assertShoreStart, placeOnShoreTrip, shoreSite } from '../trips/shore.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
@@ -42,7 +45,12 @@ interface Slot {
 
 @Injectable()
 export class BookingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(BookingsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pricing: PricingService,
+  ) {}
 
   findAll(
     filters: { status?: BookingStatus; date?: string; boatId?: string; customerId?: string } = {},
@@ -74,6 +82,8 @@ export class BookingsService {
     if (!dto.boatId === !dto.shoreTime) {
       throw new BadRequestException('Give a boat, or a shore time for a shore booking (not both)');
     }
+    // The prices in force now are the booking's (see price-lines.ts).
+    const locked = await this.lockedNow({ activityType: dto.activityType, notes: dto.notes ?? null });
     try {
       return await this.prisma.$transaction(async (tx) => {
         await assertReferences(tx, dto);
@@ -85,7 +95,7 @@ export class BookingsService {
           } else {
             await lockBoat(tx, dto.boatId);
           }
-          return tx.booking.create({ data: { ...withPartnerSource(fields), date, status, bonoId }, include: INCLUDE });
+          return tx.booking.create({ data: { ...withPartnerSource(fields), date, status, bonoId, ...locked }, include: INCLUDE });
         }
         const site = await shoreSite(tx, dto.siteId);
         assertShoreStart(dto.timeSlot, dto.shoreTime!);
@@ -93,7 +103,7 @@ export class BookingsService {
           ? await placeOnShoreTrip(tx, { ...dto, date, shoreTime: dto.shoreTime!, siteId: site.id })
           : null;
         return tx.booking.create({
-          data: { ...withPartnerSource(fields), date, status, bonoId, siteId: site.id, locationId: site.locationId, tripId },
+          data: { ...withPartnerSource(fields), date, status, bonoId, siteId: site.id, locationId: site.locationId, tripId, ...locked },
           include: INCLUDE,
         });
       });
@@ -127,7 +137,7 @@ export class BookingsService {
         await assertReferences(tx, dto);
         const { bonoCode, ...fields } = dto;
         const bonoId = await bonoChange(tx, current, bonoCode, date);
-        const placement: Prisma.BookingUncheckedUpdateInput = { boatId, shoreTime };
+        const placement: Prisma.BookingUncheckedUpdateInput = { boatId, shoreTime, ...(await this.relock(current, dto)) };
         const onShoreTrip = current.trip?.isShore ?? false;
         if (boatId) {
           if (SEAT_HOLDING.includes(next.status)) await assertSeats(tx, { ...next, boatId }, id);
@@ -165,11 +175,53 @@ export class BookingsService {
     }
   }
 
+  // The prices to lock on a booking now. A center whose price list cannot be
+  // read (it should always have one) still takes the booking, unlocked: it is
+  // then billed at the price list of the day, as bookings from before locking.
+  private async lockedNow(booking: { activityType: ActivityType; notes: string | null }): Promise<ReturnType<typeof lockPrices> | null> {
+    try {
+      return lockPrices(await this.pricing.current(), booking);
+    } catch (e) {
+      this.logger.warn(`Booking prices not locked: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  // An edit that changes what is booked takes the current prices for that
+  // part: a new activity its price, a different equipment set its price.
+  // The rest keeps the prices locked when it was booked. A booking from
+  // before prices were locked stays unlocked (it uses the current list).
+  private async relock(
+    current: { activityType: ActivityType; notes: string | null; pricePerDiver: unknown },
+    dto: UpdateBookingDto,
+  ): Promise<Prisma.BookingUncheckedUpdateInput> {
+    if (current.pricePerDiver === null) return {};
+    const activityChanged = dto.activityType !== undefined && dto.activityType !== current.activityType;
+    const equipmentChanged = dto.notes !== undefined && equipmentSelection(dto.notes ?? null) !== equipmentSelection(current.notes);
+    if (!activityChanged && !equipmentChanged) return {};
+    const now = await this.lockedNow({
+      activityType: dto.activityType ?? current.activityType,
+      notes: dto.notes !== undefined ? (dto.notes ?? null) : current.notes,
+    });
+    if (!now) return {};
+    return {
+      ...(activityChanged && { pricePerDiver: now.pricePerDiver }),
+      ...(equipmentChanged && { equipmentPrice: now.equipmentPrice }),
+    };
+  }
+
   // Public booking without an account. Finds or creates the user and customer
   // by email, then books the first active boat with room in that slot.
   async createGuest(dto: GuestBookingDto) {
     const date = startOfUtcDay(dto.date);
     const email = dto.email.toLowerCase();
+    const notes = JSON.stringify({
+      certificationLevel: dto.certificationLevel ?? null,
+      selectedEquipment: dto.selectedEquipment ?? [],
+      totalPrice: dto.totalPrice ?? null,
+    });
+    // The guest pays the prices shown now: they are locked on the booking.
+    const locked = await this.lockedNow({ activityType: dto.activityType, notes });
     const booking = await this.prisma.$transaction(async (tx) => {
       if (dto.siteId) {
         const site = await tx.diveSite.findUnique({ where: { id: dto.siteId }, select: { id: true } });
@@ -211,11 +263,8 @@ export class BookingsService {
           participantCount: dto.participantCount,
           status: BookingStatus.PENDING,
           bookingSource: BookingSource.DIRECT,
-          notes: JSON.stringify({
-            certificationLevel: dto.certificationLevel ?? null,
-            selectedEquipment: dto.selectedEquipment ?? [],
-            totalPrice: dto.totalPrice ?? null,
-          }),
+          notes,
+          ...locked,
         },
         select: { id: true },
       });

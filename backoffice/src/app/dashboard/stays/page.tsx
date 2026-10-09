@@ -6,6 +6,8 @@ import { money } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { volumeBadge } from "@/lib/stays";
 import { SLOT_NAMES } from "@/lib/trips";
+import { ACTIVITY_LABELS } from "@/lib/bookings";
+import { ADD_ON_LABELS } from "@/lib/add-ons";
 import { centerLocale } from "@/lib/center";
 import type { T } from "@/lib/i18n/core";
 import { getT } from "@/lib/i18n/server";
@@ -29,7 +31,8 @@ function rateNote(t: T, stay: Stay, currency: string, tiers: FunDiveTier[]) {
   const price = money(stay.pricePerDive, currency);
   if (customerType === "LOCAL") return t("Local customers pay a flat {price} per fun dive.", { price });
   if (customerType === "RECURRENT") return t("Recurrent customers pay a flat {price} per fun dive.", { price });
-  const lower = tiers
+  // The rates this stay is billed at (locked on its first booking).
+  const lower = (stay.funDiveTiers?.length ? stay.funDiveTiers : tiers)
     .filter((tier) => tier.minDives > 1)
     .map((tier) => t("{count} dives {price}", { count: tier.minDives, price: money(tier.tourist, currency) }))
     .join(", ");
@@ -38,6 +41,44 @@ function rateNote(t: T, stay: Stay, currency: string, tiers: FunDiveTier[]) {
       ? t("Every fun dive in this stay is priced at {price}, the rate for 1 dive.", { price })
       : t("Every fun dive in this stay is priced at {price}, the rate for {count} dives.", { price, count: stay.totalDives });
   return lower ? `${rate} ${t("More dives in the stay lower the rate for all of them: {rates}.", { rates: lower })}` : rate;
+}
+
+// What changed in the price list since the stay's bookings were made: they
+// are billed at the prices locked then.
+function PriceChanges({ t, changes, currency }: { t: T; changes: Stay["priceChanges"]; currency: string }) {
+  if (changes.length === 0) return null;
+  const m = (v: number) => money(v, currency);
+  const line = (c: Stay["priceChanges"][number]) => {
+    switch (c.kind) {
+      case "stayRate":
+        return t("Fun dive rate: {locked} when the stay began, {current} today", { locked: m(c.locked), current: m(c.current) });
+      case "activity":
+        return c.current === null
+          ? t("{activity}: {locked} per diver when booked, no price today", { activity: t(ACTIVITY_LABELS[c.activityType] ?? c.activityType), locked: m(c.locked) })
+          : t("{activity}: {locked} per diver when booked, {current} today", {
+              activity: t(ACTIVITY_LABELS[c.activityType] ?? c.activityType),
+              locked: m(c.locked),
+              current: m(c.current),
+            });
+      case "equipment":
+        return c.bookings === 1
+          ? t("Equipment hire: 1 booking at the prices when it was booked")
+          : t("Equipment hire: {count} bookings at the prices when they were booked", { count: c.bookings });
+      case "addOn":
+        return t("{addOn}: {locked} when booked, {current} today", { addOn: t(ADD_ON_LABELS[c.addOn] ?? c.addOn), locked: m(c.locked), current: m(c.current) });
+    }
+  };
+  return (
+    <div role="note" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-300">
+      <p className="font-medium">{t("Prices have changed since some of these bookings were made.")}</p>
+      <p className="mt-0.5">{t("This stay is billed at the prices locked when each booking was made:")}</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-5">
+        {changes.map((c, i) => (
+          <li key={i}>{line(c)}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 async function StayCard({
@@ -177,6 +218,7 @@ async function StayCard({
             </div>
           )}
           {hasFunDives && <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900 ring-1 ring-blue-200">{rateNote(t, stay, currency, tiers)}</p>}
+          <PriceChanges t={t} changes={stay.priceChanges} currency={currency} />
           {stay.pack && (
             <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
               <strong>{t("{count}-dive pack available:", { count: stay.pack.diveCount })}</strong>{" "}

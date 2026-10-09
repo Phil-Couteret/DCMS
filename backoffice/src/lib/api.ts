@@ -1535,7 +1535,11 @@ export interface Stay {
   startDate: string | null; // null when it only has extra costs
   endDate: string | null;
   totalDives: number; // fun dives, per diver
-  pricePerDive: string;
+  pricePerDive: string; // the volume rate locked on the stay's earliest booking
+  // Prices the stay is billed at (locked when each booking was made) that the
+  // price list has since changed.
+  priceChanges: StayPriceChange[];
+  funDiveTiers: FunDiveTier[]; // the volume rates the stay is billed at
   unpriced: string[];
   bookings: StayBooking[];
   costs: StayCost[];
@@ -1544,6 +1548,12 @@ export interface Stay {
   // totals when billed with it; null when none matches.
   pack: { diveCount: number; price: string; divers: number; total: string; totals: StayTotals } | null;
 }
+
+export type StayPriceChange =
+  | { kind: "stayRate"; locked: number; current: number }
+  | { kind: "activity"; activityType: string; locked: number; current: number | null }
+  | { kind: "equipment"; bookings: number }
+  | { kind: "addOn"; addOn: BookingAddOn; locked: number; current: number };
 
 export interface StayTotals {
   bookings: string;

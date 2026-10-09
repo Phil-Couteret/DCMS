@@ -756,6 +756,18 @@ model Booking {
   bonoUsed         Boolean         @default(false)
   // Night dive, personal instructor: billed on top of the activity.
   addOns           BookingAddOn[]  @default([])
+  // Prices locked when the booking was made (or when what it is for changed),
+  // so later price list changes do not reprice it. Null on bookings from
+  // before prices were locked: those use the current price list.
+  //   pricePerDiver: the activity's price per diver (per dive for fun dives
+  //     invoiced on their own);
+  //   equipmentPrice: the hired equipment set, as booked;
+  //   addOnPrices: { NIGHT_DIVE, PERSONAL_INSTRUCTOR } unit prices;
+  //   funDiveTiers: the volume rates; a stay uses its earliest booking's.
+  pricePerDiver    Decimal?        @db.Decimal(8, 2)
+  equipmentPrice   Decimal?        @db.Decimal(8, 2)
+  addOnPrices      Json?
+  funDiveTiers     Json?
   bookingSource    BookingSource   @default(DIRECT)
   notes            String?
   diveLog          DiveLog?

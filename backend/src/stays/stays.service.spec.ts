@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { stayDivePrice } from '../config/catalogue.js';
 import { SEEDED_PRICES } from '../config/catalogue.fixture.js';
 import { ActivityType, BookingSource, CustomerType } from '../generated/prisma/enums.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { packOffer, priceStay } from './stays.service.js';
 
 const customer = (customerType: CustomerType) => ({
@@ -27,6 +28,10 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     bono: null,
     addOns: [],
     shoreTime: null,
+    pricePerDiver: null,
+    equipmentPrice: null,
+    addOnPrices: null,
+    funDiveTiers: null,
     status: 'CONFIRMED',
     bookingSource: BookingSource.DIRECT,
     notes: null,
@@ -231,3 +236,67 @@ describe('dive packs', () => {
     expect(priced.lines.map((l) => l.activityTotal.toFixed(2))).toEqual(['33.33', '33.33', '33.34']);
   });
 });
+
+describe('prices locked at booking time', () => {
+  // December's price list; January's raises everything.
+  const DEC = SEEDED_PRICES;
+  const JAN = {
+    ...SEEDED_PRICES,
+    activities: { ...SEEDED_PRICES.activities, SNORKELING: 30 },
+    equipment: { ...SEEDED_PRICES.equipment, regulator: 14 },
+    addOns: { NIGHT_DIVE: 25, PERSONAL_INSTRUCTOR: 120 },
+    funDiveTiers: SEEDED_PRICES.funDiveTiers.map((t) => ({ ...t, tourist: t.tourist + 4 })),
+  };
+  const lockedAt = (prices: typeof DEC, extra: Record<string, unknown>) => ({
+    pricePerDiver: new Prisma.Decimal(prices.activities[(extra.activityType as ActivityType) ?? ActivityType.FUN_DIVE] ?? 0),
+    equipmentPrice: new Prisma.Decimal(extra.equipmentTotal as number ?? 0),
+    addOnPrices: { ...prices.addOns },
+    funDiveTiers: prices.funDiveTiers,
+  });
+  const hire = JSON.stringify({ selectedEquipment: ['regulator'] });
+
+  it('bills each booking at its own prices, and fun dives at the stay\'s first rates', () => {
+    const dec = booking(ActivityType.FUN_DIVE, { date: new Date('2026-12-28T00:00:00Z'), numberOfDives: 2, notes: hire, addOns: ['NIGHT_DIVE'], ...lockedAt(DEC, { equipmentTotal: 10 }) });
+    const decSnorkel = booking(ActivityType.SNORKELING, { date: new Date('2026-12-29T00:00:00Z'), ...lockedAt(DEC, { activityType: ActivityType.SNORKELING }) });
+    const jan = booking(ActivityType.FUN_DIVE, { date: new Date('2027-01-03T00:00:00Z'), numberOfDives: 2, notes: hire, addOns: ['NIGHT_DIVE'], ...lockedAt(JAN, { equipmentTotal: 14 }) });
+    const janSnorkel = booking(ActivityType.SNORKELING, { date: new Date('2027-01-04T00:00:00Z'), ...lockedAt(JAN, { activityType: ActivityType.SNORKELING }) });
+    // Billed in January, with January's list current.
+    const priced = priceStay(customer(CustomerType.TOURIST), [jan, janSnorkel, dec, decSnorkel], [], JAN);
+    // 4 fun dives: December's 3+ tier (44), not January's (48).
+    expect(priced.pricePerDive).toBe(44);
+    const byId = new Map(priced.lines.map((l) => [l.booking.id, l]));
+    expect(byId.get(decSnorkel.id)!.activityTotal.toFixed(2)).toBe('25.00'); // December price
+    expect(byId.get(janSnorkel.id)!.activityTotal.toFixed(2)).toBe('30.00'); // January price
+    expect(byId.get(dec.id)!.equipment.map((e) => e.total)).toEqual([10]);
+    expect(byId.get(jan.id)!.equipment.map((e) => e.total)).toEqual([14]);
+    expect(byId.get(dec.id)!.addOns.map((a) => a.total)).toEqual([20]);
+    expect(byId.get(jan.id)!.addOns.map((a) => a.total)).toEqual([25]);
+    // Fun dives 4 × 44, snorkeling 25 + 30, equipment 10 + 14, night 20 + 25.
+    expect(priced.bookingsTotal.toFixed(2)).toBe('300.00');
+    expect(priced.priceChanges).toEqual(
+      expect.arrayContaining([
+        { kind: 'stayRate', locked: 44, current: 48 },
+        { kind: 'activity', activityType: 'SNORKELING', locked: 25, current: 30 },
+        { kind: 'equipment', bookings: 1 },
+        { kind: 'addOn', addOn: 'NIGHT_DIVE', locked: 20, current: 25 },
+      ]),
+    );
+  });
+
+  it('uses the current price list for bookings from before prices were locked, and reports no change', () => {
+    const old = booking(ActivityType.SNORKELING);
+    const priced = priceStay(customer(CustomerType.TOURIST), [old, ...funDives(2)], [], JAN);
+    expect(priced.lines[0].activityTotal.toFixed(2)).toBe('30.00');
+    expect(priced.pricePerDive).toBe(50); // January's 1-2 dive tier
+    expect(priced.priceChanges).toEqual([]);
+  });
+
+  it('shows a locked equipment price that differs from today\'s as one line', () => {
+    const b = booking(ActivityType.FUN_DIVE, { notes: JSON.stringify({ selectedEquipment: ['regulator', 'bcd:L'] }), ...lockedAt(DEC, { equipmentTotal: 20 }) });
+    const lines = priceStay(customer(CustomerType.TOURIST), [b], [], JAN).lines[0].equipment;
+    expect(lines).toEqual([{ description: 'Equipment: BCD (L), Regulator', quantity: 1, unitPrice: 20, total: 20, type: 'equipment' }]);
+    // Unchanged prices keep the item lines.
+    expect(priceStay(customer(CustomerType.TOURIST), [b], [], DEC).lines[0].equipment).toHaveLength(2);
+  });
+});
+

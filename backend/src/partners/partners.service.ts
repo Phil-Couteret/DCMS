@@ -12,6 +12,7 @@ import { ACTIVITY_NAMES, billedUnits, withDives, type PriceList } from '../confi
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingStatus, NumberSeries, PartnerInvoiceStatus } from '../generated/prisma/enums.js';
+import { bookingUnitPrice } from '../billing/price-lines.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { nextNumber } from '../tenant/numbering.js';
 import { TenantConfig } from '../tenant/tenant-config.service.js';
@@ -60,6 +61,7 @@ const BOOKING_SELECT = {
   participantCount: true,
   numberOfDives: true,
   status: true,
+  pricePerDiver: true,
   customer: { select: { firstName: true, lastName: true } },
 } satisfies Prisma.BookingSelect;
 
@@ -75,8 +77,10 @@ function shortDay(d: Date) {
 
 // A booking's catalogue value: the activity price for each diver. Equipment
 // is the customer's to pay and is billed with their stay.
+// At the activity price locked when the booking was made (the current one
+// for a booking from before prices were locked).
 export function valueBooking(b: ValuedBooking, prices: PriceList) {
-  const unit = prices.activities[b.activityType];
+  const unit = bookingUnitPrice(prices, b);
   return {
     booking: b,
     unitPrice: unit === null ? null : new D(unit),

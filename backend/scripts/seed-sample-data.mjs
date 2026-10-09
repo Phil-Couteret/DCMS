@@ -5,13 +5,14 @@
 //   cd /data/dcms/app/backend && node scripts/seed-sample-data.mjs
 //
 // Records go through the API (API_URL, default http://localhost:4000), into the
-// tenant SEED_TENANT (a slug, default "default"). Direct SQL only reads, to
-// find existing accounts. Staff get staff logins (global accounts, POST
-// /users); customers get the tenant's own customer accounts (POST
-// /auth/register), as customer accounts are per tenant.
+// tenant SEED_TENANT (a slug, default "default"), except staff logins:
+// global accounts with a membership, written directly (the API invites staff
+// when email is set up). Customers get the tenant's own customer accounts
+// (POST /auth/register), as customer accounts are per tenant.
 // New accounts get the password SEED_PASSWORD (default DeepBlue2025!).
 
 import 'dotenv/config';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
 
@@ -156,17 +157,29 @@ async function customerAccountFor(email, name) {
 }
 
 // A staff login (a global account) with access to this center, created with
-// PASSWORD if it does not exist. An existing login is given access here.
+// PASSWORD if it does not exist; an existing login is given access here.
+// Written directly: with email set up the API invites staff instead of
+// taking a password, and sample staff need a known one.
 async function staffAccountFor(email, name) {
-  const found = (await db.query(`SELECT id, role FROM "User" WHERE email = $1 AND "tenantId" IS NULL`, [email])).rows[0];
-  if (found) {
-    const member = (await db.query(`SELECT 1 FROM "Membership" WHERE "userId" = $1 AND "tenantId" = $2`, [found.id, tenant.id])).rows[0];
-    if (!member) await api('POST', '/users', { email, password: PASSWORD, name, role: 'INSTRUCTOR' });
-    log('user', email, false);
-    return found;
+  let user = (await db.query(`SELECT id, role FROM "User" WHERE email = $1 AND "tenantId" IS NULL`, [email])).rows[0];
+  const created = !user;
+  if (!user) {
+    const hash = await bcrypt.hash(PASSWORD, 12);
+    user = (
+      await db.query(
+        `INSERT INTO "User" (id, email, "passwordHash", name, role, "updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $2, $3, 'INSTRUCTOR', now()) RETURNING id, role`,
+        [email, hash, name],
+      )
+    ).rows[0];
   }
-  const user = await api('POST', '/users', { email, password: PASSWORD, name, role: 'INSTRUCTOR' });
-  log('user', email, true);
+  await db.query(
+    `INSERT INTO "Membership" (id, "userId", "tenantId", role, "updatedAt")
+     VALUES (gen_random_uuid()::text, $1, $2, 'INSTRUCTOR', now())
+     ON CONFLICT ("userId", "tenantId") DO NOTHING`,
+    [user.id, tenant.id],
+  );
+  log('user', email, created);
   return user;
 }
 

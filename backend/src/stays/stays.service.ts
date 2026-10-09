@@ -5,7 +5,8 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { addOnLines, BillingService, equipmentLines, lockCustomerStays, type Tx } from '../billing/billing.service.js';
+import { BillingService, lockCustomerStays, type Tx } from '../billing/billing.service.js';
+import { addOnLines, bookingEquipmentLines, bookingUnitPrice, equipmentLines, lockedTiers, pricesFor, sumLines } from '../billing/price-lines.js';
 import { InvoiceItemDto } from '../billing/dto/invoice-item.dto.js';
 import { bonoDiscount, useBonos } from '../bonos/bono-rules.js';
 import { ACTIVITY_NAMES, billedUnits, stayDivePrice, withDives, type PriceList } from '../config/catalogue.js';
@@ -64,6 +65,10 @@ const BOOKING_SELECT = {
   bonoId: true,
   bono: { select: { code: true, type: true, discountValue: true } },
   addOns: true,
+  pricePerDiver: true,
+  equipmentPrice: true,
+  addOnPrices: true,
+  funDiveTiers: true,
 } satisfies Prisma.BookingSelect;
 
 type StayBookingRow = Prisma.BookingGetPayload<{ select: typeof BOOKING_SELECT }>;
@@ -123,21 +128,27 @@ export function priceStay(
   const pack = packOffer(bookings, prices);
   if (usePack && !pack) throw new BadRequestException('No dive pack matches the fun dives in this stay');
   const packShares = usePack && pack ? packShareByBooking(bookings, pack) : null;
+  // The volume rates in force when the stay began: those locked on its
+  // earliest booking (the current ones for a booking from before locking).
+  const first = [...bookings].sort((a, b) => a.date.getTime() - b.date.getTime() || SLOTS.indexOf(a.timeSlot) - SLOTS.indexOf(b.timeSlot))[0];
+  const stayTiers = (first && lockedTiers(first)) ?? prices.funDiveTiers;
   const totalDives = bookings
     .filter((b) => b.activityType === ActivityType.FUN_DIVE)
     .reduce((n, b) => n + b.numberOfDives, 0);
-  const pricePerDive = stayDivePrice(prices, customer.customerType, totalDives);
+  const pricePerDive = stayDivePrice({ ...prices, funDiveTiers: stayTiers }, customer.customerType, totalDives);
   const unpriced = new Set<string>();
 
   const lines = bookings.map((b) => {
     const partner = partnerPaid(b);
-    const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : prices.activities[b.activityType];
+    // Each booking at the prices locked when it was made.
+    const own = pricesFor(prices, b);
+    const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : bookingUnitPrice(own, b);
     const share = packShares?.get(b.id);
     if (unit === null && !partner && share === undefined) unpriced.add(ACTIVITY_NAMES[b.activityType]);
     const activityTotal =
       share ?? (partner || unit === null ? new D(0) : new D(unit).times(billedUnits(b)));
-    const equipment = equipmentLines(b.notes, prices);
-    const addOns = addOnLines(b, prices);
+    const equipment = bookingEquipmentLines(own, b);
+    const addOns = addOnLines(b, own);
     const total = activityTotal.plus(sum([...equipment, ...addOns].map((e) => new D(e.total))));
     // A government bono discounts this booking's activity (not a partner's).
     const bono = partner ? null : b.bono;
@@ -150,6 +161,9 @@ export function priceStay(
   return {
     totalDives,
     pricePerDive,
+    // Where locked prices differ from the current price list.
+    priceChanges: priceChanges(customer, bookings, prices, stayTiers, totalDives),
+    stayTiers,
     lines,
     unpriced: [...unpriced],
     bookingsTotal,
@@ -158,6 +172,47 @@ export function priceStay(
     pack,
     usedPack: usePack ? pack : null,
   };
+}
+
+const SLOTS = ['MORNING', 'AFTERNOON', 'NIGHT'];
+
+export type PriceChange =
+  | { kind: 'stayRate'; locked: number; current: number }
+  | { kind: 'activity'; activityType: ActivityType; locked: number; current: number | null }
+  | { kind: 'equipment'; bookings: number }
+  | { kind: 'addOn'; addOn: string; locked: number; current: number };
+
+// The prices this stay is billed at that are no longer the price list's: the
+// stay's fun dive rate, activity prices, equipment sets and add-ons, each
+// once. Staff see them on the Stays page.
+function priceChanges(
+  customer: StayCustomer,
+  bookings: StayBookingRow[],
+  prices: PriceList,
+  stayTiers: PriceList['funDiveTiers'],
+  totalDives: number,
+): PriceChange[] {
+  const changes = new Map<string, PriceChange>();
+  if (bookings.some((b) => b.activityType === ActivityType.FUN_DIVE) && stayTiers !== prices.funDiveTiers) {
+    const locked = stayDivePrice({ ...prices, funDiveTiers: stayTiers }, customer.customerType, totalDives);
+    const current = stayDivePrice(prices, customer.customerType, totalDives);
+    if (locked !== current) changes.set('stayRate', { kind: 'stayRate', locked, current });
+  }
+  let equipment = 0;
+  for (const b of bookings) {
+    if (b.activityType !== ActivityType.FUN_DIVE && b.pricePerDiver !== null) {
+      const locked = new D(b.pricePerDiver).toNumber();
+      const current = prices.activities[b.activityType];
+      if (locked !== current) changes.set(`activity:${b.activityType}`, { kind: 'activity', activityType: b.activityType, locked, current });
+    }
+    if (b.equipmentPrice !== null && !new D(b.equipmentPrice).equals(sumLines(equipmentLines(b.notes, prices)))) equipment++;
+    const lockedAddOns = pricesFor(prices, b).addOns;
+    for (const a of b.addOns) {
+      if (lockedAddOns[a] !== prices.addOns[a]) changes.set(`addOn:${a}`, { kind: 'addOn', addOn: a, locked: lockedAddOns[a], current: prices.addOns[a] });
+    }
+  }
+  if (equipment > 0) changes.set('equipment', { kind: 'equipment', bookings: equipment });
+  return [...changes.values()];
 }
 
 // Each pack booking's share of the pack price, by its dives (the last takes
@@ -370,6 +425,9 @@ export class StaysService {
       endDate: stay.bookings.length > 0 ? isoDay(stay.bookings[stay.bookings.length - 1].date) : null,
       totalDives: priced.totalDives,
       pricePerDive: money(priced.pricePerDive),
+      priceChanges: priced.priceChanges,
+      // The volume rates the stay is billed at (its earliest booking's).
+      funDiveTiers: priced.stayTiers,
       unpriced: priced.unpriced,
       bookings: priced.lines.map((l) => ({
         id: l.booking.id,

@@ -6,19 +6,9 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import {
-  ACTIVITY_NAMES,
-  ADD_ON_NAMES,
-  billedUnits,
-  EQUIPMENT_ITEMS,
-  PER_DIVER_ADD_ONS,
-  withDives,
-  type EquipmentKey,
-  type PriceList,
-} from '../config/catalogue.js';
+import { ACTIVITY_NAMES, billedUnits, withDives } from '../config/catalogue.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
-  BookingAddOn,
   BookingStatus,
   InvoiceStatus,
   NumberSeries,
@@ -28,6 +18,7 @@ import {
 } from '../generated/prisma/enums.js';
 import { bonoDiscount, releaseBonos, useBonos } from '../bonos/bono-rules.js';
 import { MailerService } from '../mail/mailer.service.js';
+import { addOnLines, bookingEquipmentLines, bookingUnitPrice, pricesFor } from './price-lines.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -115,6 +106,10 @@ export class BillingService {
         bonoId: true,
         bono: { select: { code: true, type: true, discountValue: true } },
         addOns: true,
+        pricePerDiver: true,
+        equipmentPrice: true,
+        addOnPrices: true,
+        funDiveTiers: true,
         invoice: { select: { id: true, invoiceNumber: true } },
         stayId: true,
         partner: { select: { name: true } },
@@ -136,8 +131,10 @@ export class BillingService {
       throw new ConflictException('Cancelled bookings cannot be invoiced');
     }
 
-    const prices = await this.pricing.current();
-    const unitPrice = prices.activities[booking.activityType];
+    // The prices locked on the booking when it was made; the current price
+    // list for a booking from before prices were locked.
+    const prices = pricesFor(await this.pricing.current(), booking);
+    const unitPrice = bookingUnitPrice(prices, booking);
     if (unitPrice === null) {
       throw new UnprocessableEntityException(
         `No price is set for ${ACTIVITY_NAMES[booking.activityType]}; set it in Settings → Pricing`,
@@ -152,7 +149,7 @@ export class BillingService {
         total: new D(unitPrice).times(billedUnits(booking)).toNumber(),
         type: 'activity',
       },
-      ...equipmentLines(booking.notes, prices),
+      ...bookingEquipmentLines(prices, booking),
       ...addOnLines(booking, prices),
     ];
     const subtotal = sum(items.map((i) => i.total));
@@ -512,77 +509,6 @@ async function assertBookingCustomer(tx: Tx, bookingId: string, customerId: stri
   }
 }
 
-// A booking's add-ons: the night dive surcharge for each diver, the personal
-// instructor once. Not discounted by a bono, and paid by the customer even
-// when a partner pays the activity.
-export function addOnLines(
-  booking: { addOns: BookingAddOn[]; participantCount: number },
-  prices: PriceList,
-): InvoiceItemDto[] {
-  return booking.addOns.map((addOn) => {
-    const quantity = PER_DIVER_ADD_ONS.includes(addOn) ? booking.participantCount : 1;
-    const unitPrice = prices.addOns[addOn];
-    return {
-      description: ADD_ON_NAMES[addOn],
-      quantity,
-      unitPrice,
-      total: new D(unitPrice).times(quantity).toNumber(),
-      type: 'addon',
-    };
-  });
-}
-
-// Equipment from a guest booking's notes: {"selectedEquipment": ["wetsuit:M", ...]}.
-// Staff-written notes are plain text and carry no equipment. One set per
-// booking, as the booking form collects it.
-export function equipmentLines(notes: string | null, prices: PriceList): InvoiceItemDto[] {
-  let selected: string[] = [];
-  try {
-    const parsed = notes ? (JSON.parse(notes) as { selectedEquipment?: unknown }) : null;
-    if (Array.isArray(parsed?.selectedEquipment)) {
-      selected = parsed.selectedEquipment.filter((x): x is string => typeof x === 'string');
-    }
-  } catch {
-    return [];
-  }
-  const keys = Object.keys(EQUIPMENT_ITEMS) as EquipmentKey[];
-  const byNoteKey = new Map<string, EquipmentKey>(keys.map((k) => [EQUIPMENT_ITEMS[k].noteKey, k]));
-  const chosen = new Map<EquipmentKey, string | undefined>();
-  for (const entry of selected) {
-    const [noteKey, size] = entry.split(':');
-    const key = byNoteKey.get(noteKey);
-    if (key) chosen.set(key, size);
-  }
-  if (keys.every((k) => chosen.has(k))) {
-    const sizes = keys
-      .filter((k) => chosen.get(k))
-      .map((k) => `${EQUIPMENT_ITEMS[k].name} ${chosen.get(k)}`)
-      .join(', ');
-    return [
-      {
-        description: `Full equipment package${sizes ? ` (${sizes})` : ''}`,
-        quantity: 1,
-        unitPrice: prices.fullPackage,
-        total: prices.fullPackage,
-        type: 'equipment',
-      },
-    ];
-  }
-  return keys
-    .filter((k) => chosen.has(k))
-    .map((k) => {
-      const size = chosen.get(k);
-      const { name } = EQUIPMENT_ITEMS[k];
-      const price = prices.equipment[k];
-      return {
-        description: size ? `${name} (${size})` : name,
-        quantity: 1,
-        unitPrice: price,
-        total: price,
-        type: 'equipment',
-      };
-    });
-}
 
 function itemData(item: InvoiceItemDto) {
   return { ...item, quantity: item.quantity ?? 1 };

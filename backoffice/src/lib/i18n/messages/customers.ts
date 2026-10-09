@@ -1,6 +1,14 @@
 // Spanish and French for the backoffice's customers screens, keyed by the
 // English text (see ../core.ts). Keep keys sorted within each language.
 export const es: Record<string, string> = {
+  "Equipment hire: 1 booking at the prices when it was booked": "Alquiler de equipo: 1 reserva a los precios de cuando se reservó",
+  "Equipment hire: {count} bookings at the prices when they were booked": "Alquiler de equipo: {count} reservas a los precios de cuando se reservaron",
+  "Fun dive rate: {locked} when the stay began, {current} today": "Tarifa de inmersión recreativa: {locked} al empezar la estancia, {current} hoy",
+  "Prices have changed since some of these bookings were made.": "Los precios han cambiado desde que se hicieron algunas de estas reservas.",
+  "This stay is billed at the prices locked when each booking was made:": "Esta estancia se factura a los precios fijados al hacer cada reserva:",
+  "{activity}: {locked} per diver when booked, no price today": "{activity}: {locked} por buceador al reservar, hoy sin precio",
+  "{activity}: {locked} per diver when booked, {current} today": "{activity}: {locked} por buceador al reservar, {current} hoy",
+  "{addOn}: {locked} when booked, {current} today": "{addOn}: {locked} al reservar, {current} hoy",
   "(as you write it: Spanish, German, ES…; it is kept as the customer's country).": "(tal como lo escribas: Spanish, German, ES…; se guarda como el país del cliente).",
   "(expired)": "(caducada)",
   "(today)": "(hoy)",
@@ -407,6 +415,14 @@ export const es: Record<string, string> = {
 };
 
 export const fr: Record<string, string> = {
+  "Equipment hire: 1 booking at the prices when it was booked": "Location de matériel : 1 réservation aux prix du moment de la réservation",
+  "Equipment hire: {count} bookings at the prices when they were booked": "Location de matériel : {count} réservations aux prix du moment de leur réservation",
+  "Fun dive rate: {locked} when the stay began, {current} today": "Tarif plongée loisir : {locked} au début du séjour, {current} aujourd’hui",
+  "Prices have changed since some of these bookings were made.": "Les prix ont changé depuis certaines de ces réservations.",
+  "This stay is billed at the prices locked when each booking was made:": "Ce séjour est facturé aux prix fixés lors de chaque réservation :",
+  "{activity}: {locked} per diver when booked, no price today": "{activity} : {locked} par plongeur à la réservation, sans prix aujourd’hui",
+  "{activity}: {locked} per diver when booked, {current} today": "{activity} : {locked} par plongeur à la réservation, {current} aujourd’hui",
+  "{addOn}: {locked} when booked, {current} today": "{addOn} : {locked} à la réservation, {current} aujourd’hui",
   "(as you write it: Spanish, German, ES…; it is kept as the customer's country).": "(tel que vous l'écrivez : Spanish, German, ES… ; il est conservé comme pays du client).",
   "(expired)": "(expirée)",
   "(today)": "(aujourd'hui)",
