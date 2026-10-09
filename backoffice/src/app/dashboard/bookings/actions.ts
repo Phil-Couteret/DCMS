@@ -73,6 +73,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   const boatId = text(formData, "boatId");
   const siteId = text(formData, "siteId");
   const participantCount = Number(text(formData, "participantCount"));
+  const numberOfDives = Number(text(formData, "numberOfDives"));
   const bookingSource = text(formData, "bookingSource");
   const partnerId = text(formData, "partnerId");
   const status = text(formData, "status") as BookingStatus;
@@ -83,6 +84,9 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   if (!UUID.test(boatId)) return { error: "Choose a boat" };
   if (siteId && !UUID.test(siteId)) return { error: "Choose a valid dive site" };
   if (!Number.isInteger(participantCount) || participantCount < 1) return { error: "Participants must be at least 1" };
+  if (!Number.isInteger(numberOfDives) || numberOfDives < 1 || numberOfDives > 20) {
+    return { error: "The number of dives must be a whole number from 1 to 20" };
+  }
   if (!SOURCES.includes(bookingSource as (typeof SOURCES)[number])) return { error: "Choose a source" };
   if (partnerId && !UUID.test(partnerId)) return { error: "Choose a valid partner" };
   // The partner is invoiced for partner bookings, so one must be named.
@@ -146,6 +150,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     date,
     timeSlot,
     participantCount,
+    numberOfDives,
     bookingSource,
     partnerId: partnerId || null,
     notes: buildNotes(previousNotes, equipment, text(formData, "notes")),

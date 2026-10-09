@@ -1,10 +1,19 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useFormAction } from "@/lib/use-form-action";
-import { changeStaffStatus, saveAvailability, type FormState } from "@/app/dashboard/staff/actions";
+import {
+  changeStaffStatus,
+  removeQualification,
+  saveAvailability,
+  saveQualification,
+  saveStaff,
+  type FormState,
+} from "@/app/dashboard/staff/actions";
 import { Button } from "@/components/ui/button";
-import type { StaffStatus } from "@/lib/api";
+import type { Staff, StaffQualification, StaffStatus } from "@/lib/api";
+import { STAFF_STATUSES, STAFF_TYPES, STATUS_LABELS, TYPE_LABELS } from "@/lib/staff";
 
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
@@ -65,6 +74,180 @@ export function AvailabilityForm({ staffId, today }: { staffId: string; today: s
         {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
         {state?.ok && <p role="status" className="text-sm text-green-700">Saved.</p>}
       </div>
+    </form>
+  );
+}
+
+const label = "block text-sm font-medium text-zinc-700";
+
+function FormError({ state }: { state: FormState }) {
+  return state?.error ? (
+    <p role="alert" className="text-sm text-destructive">
+      {state.error}
+    </p>
+  ) : null;
+}
+
+// Create (staff null: choose one of the accounts without a profile) or edit
+// a staff profile.
+export function StaffForm({
+  staff,
+  accounts,
+  cancelHref,
+}: {
+  staff: Staff | null;
+  accounts: { id: string; label: string }[];
+  cancelHref: string;
+}) {
+  const [state, onSubmit, pending] = useFormAction<FormState>(saveStaff, null);
+  return (
+    <form onSubmit={onSubmit} className="max-w-2xl space-y-4">
+      {staff && <input type="hidden" name="staffId" value={staff.id} />}
+      {!staff && (
+        <label className={label}>
+          Account
+          <select name="userId" required defaultValue="" className={control}>
+            <option value="" disabled>
+              Choose an account
+            </option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs font-normal text-zinc-500">
+            {accounts.length === 0
+              ? "Every staff account already has a profile. Add the person in Settings → Users first."
+              : "Staff accounts of this center without a profile. New people are added in Settings → Users first."}
+          </span>
+        </label>
+      )}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className={label}>
+          First name
+          <input name="firstName" required maxLength={80} defaultValue={staff?.firstName ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Last name
+          <input name="lastName" required maxLength={80} defaultValue={staff?.lastName ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Phone
+          <input type="tel" name="phone" required maxLength={40} defaultValue={staff?.phone ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Hire date
+          <input type="date" name="hireDate" required defaultValue={staff?.hireDate.slice(0, 10) ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Type
+          <select name="type" defaultValue={staff?.type ?? "GUIDE"} className={control}>
+            {STAFF_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={label}>
+          Status
+          <select name="status" defaultValue={staff?.status ?? "ACTIVE"} className={control}>
+            {STAFF_STATUSES.map((st) => (
+              <option key={st} value={st}>
+                {STATUS_LABELS[st]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" disabled={pending || (!staff && accounts.length === 0)}>
+          {pending ? "Saving…" : staff ? "Save changes" : "Create profile"}
+        </Button>
+        <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} />}>
+          Cancel
+        </Button>
+        <FormError state={state} />
+      </div>
+    </form>
+  );
+}
+
+// Add (qualification null) or edit a qualification.
+export function QualificationForm({
+  staffId,
+  qualification,
+  cancelHref,
+}: {
+  staffId: string;
+  qualification: StaffQualification | null;
+  cancelHref: string;
+}) {
+  const [state, onSubmit, pending] = useFormAction<FormState>(saveQualification, null);
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <input type="hidden" name="staffId" value={staffId} />
+      {qualification && <input type="hidden" name="qualificationId" value={qualification.id} />}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className={label}>
+          Qualification
+          <input
+            name="type"
+            required
+            maxLength={80}
+            placeholder="e.g. Open Water Instructor"
+            defaultValue={qualification?.type ?? ""}
+            className={control}
+          />
+        </label>
+        <label className={label}>
+          Agency
+          <input name="agency" required maxLength={40} placeholder="e.g. PADI" defaultValue={qualification?.agency ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Number
+          <input name="number" required maxLength={60} defaultValue={qualification?.number ?? ""} className={control} />
+        </label>
+        <span />
+        <label className={label}>
+          Issued
+          <input type="date" name="issueDate" required defaultValue={qualification?.issueDate.slice(0, 10) ?? ""} className={control} />
+        </label>
+        <label className={label}>
+          Expires (optional)
+          <input type="date" name="expiryDate" defaultValue={qualification?.expiryDate?.slice(0, 10) ?? ""} className={control} />
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : qualification ? "Save changes" : "Add qualification"}
+        </Button>
+        <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
+          Cancel
+        </Button>
+        <FormError state={state} />
+      </div>
+    </form>
+  );
+}
+
+export function DeleteQualificationButton({ staffId, qualification }: { staffId: string; qualification: StaffQualification }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(removeQualification, null);
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!window.confirm(`Delete the qualification ${qualification.type} (${qualification.agency})?`)) e.preventDefault();
+      }}
+      className="inline-flex flex-col items-end gap-1"
+    >
+      <input type="hidden" name="staffId" value={staffId} />
+      <input type="hidden" name="qualificationId" value={qualification.id} />
+      <Button type="submit" size="sm" variant="ghost" className="text-destructive" disabled={pending}>
+        {pending ? "Deleting…" : "Delete"}
+      </Button>
+      <FormError state={state} />
     </form>
   );
 }

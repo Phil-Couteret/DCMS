@@ -1,14 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   addMaintenanceLog,
   ApiError,
+  createEquipment,
+  deleteEquipment,
   getEquipmentItem,
   updateEquipment,
+  type EquipmentCondition,
+  type EquipmentData,
   type EquipmentStatus,
 } from "@/lib/api";
-import { EQUIPMENT_STATUSES, MAINTENANCE_TYPES, STATUS_ACTIONS } from "@/lib/equipment";
+import { CONDITIONS, EQUIPMENT_STATUSES, MAINTENANCE_TYPES, STATUS_ACTIONS } from "@/lib/equipment";
 
 export type FormState = { error?: string; ok?: boolean } | null;
 
@@ -76,5 +81,58 @@ export async function logMaintenance(_prev: FormState, formData: FormData): Prom
     return { error: message(e, "Could not save the entry") };
   }
   refresh(id);
+  return { ok: true };
+}
+
+// Create (no equipmentId) or edit an item. Back to the list afterwards,
+// keeping its filters (returnTo).
+export async function saveEquipment(_prev: FormState, formData: FormData): Promise<FormState> {
+  const text = (name: string) => String(formData.get(name) ?? "").trim();
+  const id = text("equipmentId");
+  const cost = text("purchaseCost");
+  const data: EquipmentData = {
+    type: text("type").toLowerCase(),
+    brand: text("brand"),
+    model: text("model") || null,
+    size: text("size") || null,
+    serialNumber: text("serialNumber") || null,
+    status: text("status") as EquipmentStatus,
+    condition: text("condition") as EquipmentCondition,
+    purchaseDate: text("purchaseDate"),
+    purchaseCost: Number(cost),
+    lastMaintenance: text("lastMaintenance") || null,
+    nextMaintenance: text("nextMaintenance") || null,
+  };
+  if (!data.type) return { error: "Choose a type" };
+  if (!data.brand) return { error: "Enter the brand" };
+  if (!EQUIPMENT_STATUSES.includes(data.status)) return { error: "Choose a status" };
+  if (!CONDITIONS.includes(data.condition)) return { error: "Choose a condition" };
+  if (!ISO_DATE.test(data.purchaseDate)) return { error: "Enter the purchase date" };
+  if (!/^\d{1,8}([.,]\d{1,2})?$/.test(cost)) return { error: "The purchase cost is an amount with at most 2 decimals" };
+  data.purchaseCost = Number(cost.replace(",", "."));
+  for (const [field, name] of [["lastMaintenance", "last maintenance"], ["nextMaintenance", "next maintenance"]] as const) {
+    const v = data[field];
+    if (v && !ISO_DATE.test(v)) return { error: `Enter a valid ${name} date` };
+  }
+  try {
+    if (id) await updateEquipment(id, data);
+    else await createEquipment(data);
+  } catch (e) {
+    return { error: message(e, "The equipment could not be saved") };
+  }
+  revalidatePath("/dashboard/equipment");
+  if (id) revalidatePath(`/dashboard/equipment/${id}`);
+  const back = text("returnTo");
+  redirect(back.startsWith("/dashboard/equipment") ? back : "/dashboard/equipment");
+}
+
+export async function removeEquipment(_prev: FormState, formData: FormData): Promise<FormState> {
+  const id = String(formData.get("equipmentId") ?? "");
+  try {
+    await deleteEquipment(id);
+  } catch (e) {
+    return { error: message(e, "The equipment could not be deleted") };
+  }
+  revalidatePath("/dashboard/equipment");
   return { ok: true };
 }

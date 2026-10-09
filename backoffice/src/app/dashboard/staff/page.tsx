@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import { StaffStatusBadge } from "@/components/staff/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,6 +21,7 @@ export default async function StaffPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const isAdmin = (await auth())?.user.role === "ADMIN";
   const type = STAFF_TYPES.find((t) => t === one(params.type));
   const status = STAFF_STATUSES.find((s) => s === one(params.status));
   const filtered = Boolean(type || status);
@@ -34,7 +36,14 @@ export default async function StaffPage({
 
   return (
     <main className="space-y-6 p-6 md:p-8">
-      <h1 className="text-2xl font-semibold text-zinc-900">Staff</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-zinc-900">Staff</h1>
+        {isAdmin && (
+          <Button nativeButton={false} render={<Link href="/dashboard/staff/new" prefetch={false} />}>
+            New staff
+          </Button>
+        )}
+      </div>
 
       <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-[repeat(2,minmax(0,14rem))_auto]">
         <label className="block text-sm font-medium text-zinc-700">

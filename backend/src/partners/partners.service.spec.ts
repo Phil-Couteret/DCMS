@@ -4,13 +4,14 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ActivityType } from '../generated/prisma/enums.js';
 import { partnerAmounts, valueBooking } from './partners.service.js';
 
-const booking = (activityType: ActivityType, participantCount = 1) =>
+const booking = (activityType: ActivityType, participantCount = 1, numberOfDives = 1) =>
   ({
     id: 'b1',
     date: new Date('2026-10-01T00:00:00Z'),
     timeSlot: 'MORNING',
     activityType,
     participantCount,
+    numberOfDives,
     status: 'CONFIRMED',
     customer: { firstName: 'Ana', lastName: 'Diaz' },
   }) as Parameters<typeof valueBooking>[0];

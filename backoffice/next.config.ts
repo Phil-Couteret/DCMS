@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: import.meta.dirname,
   poweredByHeader: false,
+  // The PDF renderer (invoice PDFs) loads its own WebAssembly and fonts; it
+  // runs as a plain Node package rather than through the bundler.
+  serverExternalPackages: ["@react-pdf/renderer"],
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },

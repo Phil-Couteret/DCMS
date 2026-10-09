@@ -28,6 +28,7 @@ export interface Booking {
   timeSlot: TimeSlot;
   status: BookingStatus;
   participantCount: number;
+  numberOfDives: number;
   bookingSource: string;
   notes: string | null;
   createdAt: string;
@@ -360,6 +361,7 @@ export interface BookingData {
   date: string;
   timeSlot: TimeSlot;
   participantCount: number;
+  numberOfDives: number; // at least 1; fun dives are billed per dive
   bookingSource: string;
   partnerId: string | null; // a partner makes the source PARTNER
   notes: string | null;
@@ -374,6 +376,31 @@ export function updateBooking(id: string, data: BookingData) {
   return apiFetch<Booking>(`/bookings/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
+// The dashboard's figures (GET /dashboard/overview). revenue is null for
+// non-admins. Amounts are decimal strings in the center's currency.
+export interface DashboardOverview {
+  currency: string;
+  today: string;
+  bookingsByActivity: { activityType: string; count: number }[];
+  bookingsPeriod: { from: string; to: string };
+  upcoming: {
+    id: string;
+    date: string;
+    timeSlot: TimeSlot;
+    activityType: string;
+    participantCount: number;
+    numberOfDives: number;
+    status: BookingStatus;
+    customer: { id: string; firstName: string; lastName: string };
+    boat: { name: string };
+  }[];
+  revenue: { month: string; monthStart: string; trend: { date: string; amount: string }[] } | null;
+}
+
+export function getDashboardOverview() {
+  return apiFetch<DashboardOverview>("/dashboard/overview");
+}
+
 export function getStaff(filters: { type?: string; status?: string } = {}) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
@@ -385,8 +412,53 @@ export function getStaffMember(id: string) {
   return apiFetch<StaffDetail>(`/staff/${id}`);
 }
 
+export interface StaffData {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  type: StaffType;
+  status: StaffStatus;
+  hireDate: string; // YYYY-MM-DD
+}
+
+// A staff profile for one of the center's accounts (Settings → Users).
+export function createStaff(data: StaffData & { userId: string }) {
+  return apiFetch<Staff>("/staff", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateStaff(id: string, data: StaffData) {
+  return apiFetch<Staff>(`/staff/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export interface QualificationData {
+  type: string;
+  agency: string;
+  number: string;
+  issueDate: string; // YYYY-MM-DD
+  expiryDate: string | null; // null: no expiry
+}
+
+export function addQualification(staffId: string, data: QualificationData) {
+  const { expiryDate, ...rest } = data;
+  return apiFetch<StaffQualification>(`/staff/${staffId}/qualifications`, {
+    method: "POST",
+    body: JSON.stringify({ ...rest, ...(expiryDate && { expiryDate }) }),
+  });
+}
+
+export function updateQualification(staffId: string, id: string, data: QualificationData) {
+  return apiFetch<StaffQualification>(`/staff/${staffId}/qualifications/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteQualification(staffId: string, id: string) {
+  return apiFetch<StaffQualification>(`/staff/${staffId}/qualifications/${id}`, { method: "DELETE" });
+}
+
 export function updateStaffStatus(id: string, status: StaffStatus) {
-  return apiFetch<Staff>(`/staff/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+  return apiFetch<Staff>(`/staff/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
 }
 
 // Creates or replaces the entry for that day. A missing reason clears the
@@ -537,11 +609,33 @@ export function getEquipmentItem(id: string) {
   return apiFetch<Equipment>(`/equipment/${id}`);
 }
 
-export function updateEquipment(
-  id: string,
-  data: Partial<Pick<Equipment, "status" | "condition" | "nextMaintenance">>,
-) {
+export function updateEquipment(id: string, data: Partial<EquipmentData>) {
   return apiFetch<Equipment>(`/equipment/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+// The equipment form. null clears an optional field on update.
+export interface EquipmentData {
+  type: string;
+  brand: string;
+  model: string | null;
+  size: string | null;
+  serialNumber: string | null;
+  status: EquipmentStatus;
+  condition: EquipmentCondition;
+  purchaseDate: string; // YYYY-MM-DD
+  purchaseCost: number;
+  lastMaintenance: string | null;
+  nextMaintenance: string | null;
+}
+
+export function createEquipment(data: EquipmentData) {
+  // A create leaves out what is not set rather than sending null.
+  const body = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null));
+  return apiFetch<Equipment>("/equipment", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function deleteEquipment(id: string) {
+  return apiFetch<Equipment>(`/equipment/${id}`, { method: "DELETE" });
 }
 
 export function getMaintenanceLogs(id: string) {
@@ -788,7 +882,16 @@ export interface Payment {
   refunds: Refund[];
 }
 
-export interface InvoiceDetail extends Omit<InvoiceListItem, "_count"> {
+export interface InvoiceDetail extends Omit<InvoiceListItem, "_count" | "customer"> {
+  // With the contact details for the "Bill to" block.
+  customer: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string | null;
+    country: string | null;
+    user: { email: string } | null;
+  };
   items: InvoiceItem[];
   payments: Payment[];
   amountPaid: string;
@@ -822,6 +925,14 @@ export function getInvoices(filters: { status?: string; customerId?: string } = 
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   const query = params.size > 0 ? `?${params}` : "";
   return apiFetch<InvoiceListItem[]>(`/billing${query}`);
+}
+
+// Emails the rendered invoice (base64 PDF) to the customer's email on record.
+export function emailInvoicePdf(id: string, pdf: Buffer, filename: string) {
+  return apiFetch<{ sent: boolean; to: string }>(`/billing/${id}/email`, {
+    method: "POST",
+    body: JSON.stringify({ pdf: pdf.toString("base64"), filename }),
+  });
 }
 
 export function getInvoice(id: string) {

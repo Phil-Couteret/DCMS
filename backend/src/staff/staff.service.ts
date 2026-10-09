@@ -8,7 +8,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { StaffStatus, StaffType } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
-import { CreateQualificationDto } from './dto/create-qualification.dto.js';
+import { CreateQualificationDto, UpdateQualificationDto } from './dto/create-qualification.dto.js';
 import { CreateStaffDto } from './dto/create-staff.dto.js';
 import { SetAvailabilityDto } from './dto/set-availability.dto.js';
 import { UpdateStaffDto } from './dto/update-staff.dto.js';
@@ -58,19 +58,21 @@ export class StaffService {
     return staff;
   }
 
-  // A staff profile also gives the account access to this tenant.
+  // The staff profile of one of this tenant's accounts (an active
+  // membership: add the account in Settings → Users first). A profile never
+  // grants an account access: otherwise any account on the platform could be
+  // pulled into a tenant by its id.
   async create(dto: CreateStaffDto) {
     const tenantId = this.tenant.tenantId;
+    const member = await this.prisma.membership.findUnique({
+      where: { userId_tenantId: { userId: dto.userId, tenantId } },
+      select: { isActive: true },
+    });
+    if (!member?.isActive) {
+      throw new BadRequestException('Choose an account of this center (Settings → Users) for the staff profile');
+    }
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const staff = await tx.staff.create({ data: { ...dto, hireDate: new Date(dto.hireDate) } });
-        await tx.membership.upsert({
-          where: { userId_tenantId: { userId: dto.userId, tenantId } },
-          create: { userId: dto.userId, tenantId },
-          update: {},
-        });
-        return staff;
-      });
+      return await this.prisma.staff.create({ data: { ...dto, hireDate: new Date(dto.hireDate) } });
     } catch (e) {
       throw mapError(e);
     }
@@ -104,6 +106,31 @@ export class StaffService {
     return this.prisma.staffQualification.create({
       data: { ...dto, staffId, issueDate, expiryDate },
     });
+  }
+
+  async updateQualification(staffId: string, qualificationId: string, dto: UpdateQualificationDto) {
+    const current = await this.findQualification(staffId, qualificationId);
+    const issueDate = dto.issueDate ? new Date(dto.issueDate) : current.issueDate;
+    const expiryDate =
+      dto.expiryDate === null ? null : dto.expiryDate ? new Date(dto.expiryDate) : current.expiryDate;
+    if (expiryDate && expiryDate < issueDate) {
+      throw new BadRequestException('expiryDate must not be before issueDate');
+    }
+    return this.prisma.staffQualification.update({
+      where: { id: qualificationId },
+      data: { ...dto, issueDate, expiryDate },
+    });
+  }
+
+  async removeQualification(staffId: string, qualificationId: string) {
+    await this.findQualification(staffId, qualificationId);
+    return this.prisma.staffQualification.delete({ where: { id: qualificationId } });
+  }
+
+  private async findQualification(staffId: string, qualificationId: string) {
+    const q = await this.prisma.staffQualification.findFirst({ where: { id: qualificationId, staffId } });
+    if (!q) throw new NotFoundException(`Qualification ${qualificationId} not found`);
+    return q;
   }
 
   async setAvailability(staffId: string, dto: SetAvailabilityDto) {

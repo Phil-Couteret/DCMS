@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { BillingService, equipmentLines, lockCustomerStays, type Tx } from '../billing/billing.service.js';
 import { InvoiceItemDto } from '../billing/dto/invoice-item.dto.js';
-import { ACTIVITY_NAMES, stayDivePrice, type PriceList } from '../config/catalogue.js';
+import { ACTIVITY_NAMES, billedUnits, stayDivePrice, withDives, type PriceList } from '../config/catalogue.js';
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
@@ -51,6 +51,7 @@ const BOOKING_SELECT = {
   timeSlot: true,
   activityType: true,
   participantCount: true,
+  numberOfDives: true,
   status: true,
   bookingSource: true,
   notes: true,
@@ -82,16 +83,19 @@ function shortDay(d: Date) {
 }
 
 // Prices one customer's stay: every fun dive at the stay rate for the number
-// of fun dives in it (per diver, so a booking for two counts once), other
-// activities at catalogue price, equipment as booked. Partner bookings count
-// toward the volume, but their activity is the partner's to pay.
+// of fun dives in it (the dives of each fun dive booking added up, per diver,
+// so a booking for two counts its dives once), other activities at catalogue
+// price, equipment as booked. Partner bookings count toward the volume, but
+// their activity is the partner's to pay.
 export function priceStay(
   customer: StayCustomer,
   bookings: StayBookingRow[],
   costs: StayCostRow[],
   prices: PriceList,
 ) {
-  const totalDives = bookings.filter((b) => b.activityType === ActivityType.FUN_DIVE).length;
+  const totalDives = bookings
+    .filter((b) => b.activityType === ActivityType.FUN_DIVE)
+    .reduce((n, b) => n + b.numberOfDives, 0);
   const pricePerDive = stayDivePrice(prices, customer.customerType, totalDives);
   const unpriced = new Set<string>();
 
@@ -99,7 +103,7 @@ export function priceStay(
     const partner = b.partnerId !== null || b.bookingSource === BookingSource.PARTNER;
     const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : prices.activities[b.activityType];
     if (unit === null && !partner) unpriced.add(ACTIVITY_NAMES[b.activityType]);
-    const activityTotal = partner || unit === null ? new D(0) : new D(unit).times(b.participantCount);
+    const activityTotal = partner || unit === null ? new D(0) : new D(unit).times(billedUnits(b));
     const equipment = equipmentLines(b.notes, prices);
     const total = activityTotal.plus(sum(equipment.map((e) => e.total)));
     return { booking: b, partner, unit, activityTotal, equipment, total };
@@ -326,7 +330,7 @@ function invoiceItems(priced: ReturnType<typeof priceStay>, costs: StayCostRow[]
   const items: InvoiceItemDto[] = [];
   for (const l of priced.lines) {
     const when = `${shortDay(l.booking.date)} ${SLOT_NAMES[l.booking.timeSlot]}`;
-    const name = ACTIVITY_NAMES[l.booking.activityType];
+    const name = withDives(l.booking);
     const rate =
       l.booking.activityType === ActivityType.FUN_DIVE && !l.partner
         ? ` (stay rate, ${priced.totalDives} dive${priced.totalDives === 1 ? '' : 's'})`
@@ -334,9 +338,9 @@ function invoiceItems(priced: ReturnType<typeof priceStay>, costs: StayCostRow[]
     const unitPrice = l.partner ? 0 : Number(l.unit);
     items.push({
       description: `${name} · ${when}${l.partner ? ` · paid by ${l.booking.partner?.name ?? 'partner'}` : rate}`,
-      quantity: l.booking.participantCount,
+      quantity: billedUnits(l.booking),
       unitPrice,
-      total: new D(unitPrice).times(l.booking.participantCount).toNumber(),
+      total: new D(unitPrice).times(billedUnits(l.booking)).toNumber(),
       type: 'activity',
     });
     for (const e of l.equipment) items.push({ ...e, description: `${e.description} · ${when}` });

@@ -1,3 +1,4 @@
+import { InvoiceActions } from "@/components/billing/invoice-actions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AddPaymentForm, RefundForm } from "@/components/billing/billing-forms";
@@ -103,7 +104,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             )}
           </p>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="flex flex-wrap items-start justify-end gap-2">
+          <InvoiceActions invoiceId={invoice.id} customerEmail={invoice.customer.user?.email ?? null} />
           {invoice.status === "DRAFT" && <MarkSentButton invoiceId={invoice.id} />}
           {cancellable && <CancelInvoiceButton invoiceId={invoice.id} size="default" />}
         </div>

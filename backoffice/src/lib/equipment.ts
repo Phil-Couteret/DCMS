@@ -82,6 +82,35 @@ export function isOverdue(item: { status: EquipmentStatus; nextMaintenance: stri
   return item.status !== "DECOMMISSIONED" && item.nextMaintenance !== null && item.nextMaintenance.slice(0, 10) < today;
 }
 
+// The day three months after an ISO date ("2026-10-09" → "2027-01-09").
+export function addMonths(isoDate: string, months: number) {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+// Due soon: next maintenance within three months of today, not yet overdue
+// (the original's revision rule). Decommissioned items never count.
+export function isDueSoon(item: { status: EquipmentStatus; nextMaintenance: string | null }, today: string) {
+  if (item.status === "DECOMMISSIONED" || item.nextMaintenance === null) return false;
+  const due = item.nextMaintenance.slice(0, 10);
+  return due >= today && due < addMonths(today, 3);
+}
+
+export const CONDITIONS: EquipmentCondition[] = ["EXCELLENT", "GOOD", "FAIR", "POOR"];
+
+// Case-insensitive search on type, brand, model, size and serial number.
+export function matchesSearch(
+  item: { type: string; brand: string; model: string | null; size: string | null; serialNumber: string | null },
+  query: string,
+) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [typeLabel(item.type), item.type, item.brand, item.model, item.size, item.serialNumber].some((v) =>
+    (v ?? "").toLowerCase().includes(q),
+  );
+}
+
 export function formatDay(iso: string | null) {
   if (!iso) return "—";
   return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "2-digit", month: "short", year: "numeric" }).format(

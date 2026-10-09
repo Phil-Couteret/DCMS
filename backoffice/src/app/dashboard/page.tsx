@@ -1,8 +1,14 @@
 import { format } from "date-fns";
+import Link from "next/link";
+import { auth } from "@/auth";
+import { ActivityBars, RevenueTrend } from "@/components/dashboard/charts";
 import { CheckInButton } from "@/components/dashboard/check-in-button";
+import { StatusBadge as BookingStatusBadge } from "@/components/bookings/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getBoats, getStaff, getTodayBookings, type Booking } from "@/lib/api";
+import { getBoats, getDashboardOverview, getStaff, getTodayBookings, type Booking, type DashboardOverview } from "@/lib/api";
+import { money } from "@/lib/billing";
+import { SLOT_LABELS } from "@/lib/bookings";
 import { centerNow, greeting, pendingAlert, SLOT_START, type SlotKey, zoneLabel } from "@/lib/center-time";
 import { centerLocale } from "@/lib/center";
 
@@ -34,11 +40,14 @@ function slotTime(minutes: number) {
 export default async function DashboardPage() {
   const { timeZone } = await centerLocale();
   const now = centerNow(timeZone);
-  const [bookingsResult, boatsResult, staffResult] = await Promise.allSettled([
+  const isAdmin = (await auth())?.user.role === "ADMIN";
+  const [bookingsResult, boatsResult, staffResult, overviewResult] = await Promise.allSettled([
     getTodayBookings(),
     getBoats(),
     getStaff(),
+    getDashboardOverview(),
   ]);
+  const overview: DashboardOverview | null = overviewResult.status === "fulfilled" ? overviewResult.value : null;
 
   const bookings =
     bookingsResult.status === "fulfilled"
@@ -168,6 +177,111 @@ export default async function DashboardPage() {
           })}
         </div>
       </section>
+      {overviewResult.status === "rejected" && (
+        <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
+          The figures below could not be loaded: {String((overviewResult.reason as Error).message)}
+        </p>
+      )}
+
+      {overview?.revenue && isAdmin && (
+        <section aria-labelledby="revenue" className="space-y-3">
+          <h2 id="revenue" className="text-lg font-semibold text-zinc-900">Revenue</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,16rem)_1fr]">
+            <Card>
+              <CardHeader>
+                <CardDescription>Revenue this month</CardDescription>
+                <CardTitle className="text-4xl font-semibold">{money(overview.revenue.month, overview.currency)}</CardTitle>
+                <p className="text-xs text-zinc-500">
+                  Payments received since {format(new Date(`${overview.revenue.monthStart}T00:00:00`), "d MMMM")}, less refunds.
+                </p>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Last 30 days</CardTitle>
+                <CardDescription>Revenue per day: payments received, less refunds.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RevenueTrend
+                  points={overview.revenue.trend.map((p) => ({ date: p.date, amount: Number(p.amount) }))}
+                  currency={overview.currency}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
+
+      {overview && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <section aria-labelledby="by-activity">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle id="by-activity">Bookings by activity</CardTitle>
+                <CardDescription>
+                  Last 30 days ({format(new Date(`${overview.bookingsPeriod.from}T00:00:00`), "d MMM")} –{" "}
+                  {format(new Date(`${overview.bookingsPeriod.to}T00:00:00`), "d MMM")}), cancellations and no-shows left out.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {overview.bookingsByActivity.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No bookings in the last 30 days.</p>
+                ) : (
+                  <ActivityBars
+                    rows={overview.bookingsByActivity.map((r) => ({
+                      label: ACTIVITY_LABELS[r.activityType] ?? r.activityType,
+                      count: r.count,
+                    }))}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </section>
+
+          <section aria-labelledby="upcoming">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle id="upcoming">Upcoming bookings</CardTitle>
+                <CardDescription>Today and the next 6 days.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {overview.upcoming.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No bookings in the next 7 days.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {[...new Set(overview.upcoming.map((b) => b.date))].map((day) => (
+                      <div key={day}>
+                        <h3 className="text-sm font-semibold text-zinc-900">
+                          {day === overview.today ? "Today" : format(new Date(`${day}T00:00:00`), "EEEE d MMMM")}
+                        </h3>
+                        <ul className="mt-1 divide-y divide-zinc-100">
+                          {overview.upcoming
+                            .filter((b) => b.date === day)
+                            .map((b) => (
+                              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                                <span className="min-w-0">
+                                  <Link href={`/dashboard/bookings/${b.id}`} prefetch={false} className="font-medium text-zinc-900 hover:underline">
+                                    {b.customer.firstName} {b.customer.lastName}
+                                  </Link>
+                                  <span className="block text-xs text-zinc-500">
+                                    {SLOT_LABELS[b.timeSlot] ?? b.timeSlot} · {ACTIVITY_LABELS[b.activityType] ?? b.activityType}
+                                    {b.numberOfDives > 1 ? ` · ${b.numberOfDives} dives` : ""} · {b.boat.name}
+                                    {b.participantCount > 1 ? ` · ${b.participantCount} divers` : ""}
+                                  </span>
+                                </span>
+                                <BookingStatusBadge status={b.status} />
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

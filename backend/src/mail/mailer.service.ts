@@ -18,8 +18,18 @@ export class MailerService {
     return this.transport;
   }
 
+  // Whether outgoing email is set up (SMTP_URL).
+  get configured() {
+    return this.transporter() !== null;
+  }
+
   // True when the message was handed to the SMTP server.
-  async send(message: { to: string; subject: string; text: string }): Promise<boolean> {
+  async send(message: {
+    to: string;
+    subject: string;
+    text: string;
+    attachments?: { filename: string; content: Buffer; contentType: string }[];
+  }): Promise<boolean> {
     const transport = this.transporter();
     if (!transport) {
       this.logger.warn(`Not sent (SMTP_URL is not set): "${message.subject}" to ${message.to}`);

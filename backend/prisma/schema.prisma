@@ -595,6 +595,8 @@ model Booking {
   timeSlot         TimeSlot
   status           BookingStatus   @default(PENDING)
   participantCount Int
+  // Dives in this booking (fun dives are billed per dive). At least 1.
+  numberOfDives    Int             @default(1)
   bookingSource    BookingSource   @default(DIRECT)
   notes            String?
   diveLog          DiveLog?

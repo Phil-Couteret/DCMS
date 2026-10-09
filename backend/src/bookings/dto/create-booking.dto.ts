@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
 } from 'class-validator';
 import {
@@ -42,6 +43,13 @@ export class CreateBookingDto {
   @IsInt()
   @Min(1)
   participantCount: number;
+
+  // Dives in the booking (default 1). Fun dives are billed per dive.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  numberOfDives?: number;
 
   @IsOptional()
   @IsEnum(BookingSource)

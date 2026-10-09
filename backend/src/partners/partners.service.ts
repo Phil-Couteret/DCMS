@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcrypt';
-import { ACTIVITY_NAMES, type PriceList } from '../config/catalogue.js';
+import { ACTIVITY_NAMES, billedUnits, withDives, type PriceList } from '../config/catalogue.js';
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { BookingStatus, NumberSeries, PartnerInvoiceStatus } from '../generated/prisma/enums.js';
@@ -58,6 +58,7 @@ const BOOKING_SELECT = {
   timeSlot: true,
   activityType: true,
   participantCount: true,
+  numberOfDives: true,
   status: true,
   customer: { select: { firstName: true, lastName: true } },
 } satisfies Prisma.BookingSelect;
@@ -79,7 +80,7 @@ export function valueBooking(b: ValuedBooking, prices: PriceList) {
   return {
     booking: b,
     unitPrice: unit === null ? null : new D(unit),
-    total: unit === null ? null : new D(unit).times(b.participantCount),
+    total: unit === null ? null : new D(unit).times(billedUnits(b)),
   };
 }
 
@@ -248,7 +249,7 @@ export class PartnersService {
         id: v.booking.id,
         date: v.booking.date.toISOString().slice(0, 10),
         timeSlot: v.booking.timeSlot,
-        activityName: ACTIVITY_NAMES[v.booking.activityType],
+        activityName: withDives(v.booking),
         participantCount: v.booking.participantCount,
         status: v.booking.status,
         customerName: `${v.booking.customer.firstName} ${v.booking.customer.lastName}`,
@@ -296,8 +297,8 @@ export class PartnersService {
             create: valued.map((v) => ({
               bookingId: v.booking.id,
               date: v.booking.date,
-              description: `${ACTIVITY_NAMES[v.booking.activityType]} · ${shortDay(v.booking.date)} · ${v.booking.customer.firstName} ${v.booking.customer.lastName}`,
-              quantity: v.booking.participantCount,
+              description: `${withDives(v.booking)} · ${shortDay(v.booking.date)} · ${v.booking.customer.firstName} ${v.booking.customer.lastName}`,
+              quantity: billedUnits(v.booking),
               unitPrice: v.unitPrice!,
               total: v.total!,
             })),

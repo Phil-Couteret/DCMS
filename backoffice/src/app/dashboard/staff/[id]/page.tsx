@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AvailabilityForm, StatusToggle } from "@/components/staff/staff-forms";
+import { auth } from "@/auth";
+import { RoutedDialog } from "@/components/routed-panel";
+import { AvailabilityForm, DeleteQualificationButton, QualificationForm, StatusToggle } from "@/components/staff/staff-forms";
+import { Button } from "@/components/ui/button";
 import { StaffStatusBadge } from "@/components/staff/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,10 +25,20 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export default async function StaffMemberPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function StaffMemberPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
+  // Profiles and qualifications are edited by admins.
+  const isAdmin = (await auth())?.user.role === "ADMIN";
+  const raw = (await searchParams).qualification;
+  const editing = isAdmin ? (Array.isArray(raw) ? raw[0] : raw) : undefined;
 
   let member;
   try {
@@ -54,7 +67,14 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
             {TYPE_LABELS[member.type]} <StaffStatusBadge status={member.status} />
           </div>
         </div>
-        <StatusToggle staffId={member.id} status={member.status} />
+        <div className="flex items-start gap-2">
+          {isAdmin && (
+            <Button variant="outline" nativeButton={false} render={<Link href={`/dashboard/staff/${member.id}/edit`} prefetch={false} />}>
+              Edit
+            </Button>
+          )}
+          <StatusToggle staffId={member.id} status={member.status} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -133,7 +153,18 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
       </Card>
 
       <section aria-labelledby="qualifications" className="space-y-3">
-        <h2 id="qualifications" className="text-lg font-semibold text-zinc-900">Qualifications</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="qualifications" className="text-lg font-semibold text-zinc-900">Qualifications</h2>
+          {isAdmin && (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/dashboard/staff/${member.id}?qualification=new`} prefetch={false} scroll={false} />}
+            >
+              Add qualification
+            </Button>
+          )}
+        </div>
         {member.qualifications.length === 0 ? (
           <p className="text-sm text-zinc-500">No qualifications recorded.</p>
         ) : (
@@ -146,6 +177,7 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
                   <TableHead>Number</TableHead>
                   <TableHead>Issued</TableHead>
                   <TableHead>Expires</TableHead>
+                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -161,6 +193,21 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
                         {q.expiryDate ? formatDay(q.expiryDate) : "No expiry"}
                         {expired && <span className="ml-1 text-xs">(expired)</span>}
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <div className="flex items-start justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              nativeButton={false}
+                              render={<Link href={`/dashboard/staff/${member.id}?qualification=${q.id}`} prefetch={false} scroll={false} />}
+                            >
+                              Edit
+                            </Button>
+                            <DeleteQualificationButton staffId={member.id} qualification={q} />
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
@@ -169,6 +216,18 @@ export default async function StaffMemberPage({ params }: { params: Promise<{ id
           </div>
         )}
       </section>
+      {editing && (editing === "new" || member.qualifications.some((q) => q.id === editing)) && (
+        <RoutedDialog
+          closeHref={`/dashboard/staff/${member.id}`}
+          title={editing === "new" ? "Add qualification" : "Edit qualification"}
+        >
+          <QualificationForm
+            staffId={member.id}
+            qualification={member.qualifications.find((q) => q.id === editing) ?? null}
+            cancelHref={`/dashboard/staff/${member.id}`}
+          />
+        </RoutedDialog>
+      )}
     </main>
   );
 }

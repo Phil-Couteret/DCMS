@@ -22,6 +22,7 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     timeSlot: 'MORNING',
     activityType,
     participantCount: 1,
+    numberOfDives: 1,
     status: 'CONFIRMED',
     bookingSource: BookingSource.DIRECT,
     notes: null,
@@ -85,6 +86,26 @@ describe('priceStay', () => {
     const priced = priceStay(customer(CustomerType.TOURIST), funDives(3, { participantCount: 2 }), [], SEEDED_PRICES);
     expect(priced.totalDives).toBe(3);
     expect(priced.bookingsTotal.toFixed(2)).toBe('264.00'); // 3 × 2 × 44
+  });
+
+  it('adds up the dives of each fun dive booking toward the volume, and charges each one', () => {
+    // 2 bookings of 3 dives and 1 of 1: 7 dives, the 6-dive tier (42).
+    const bookings = [...funDives(2, { numberOfDives: 3 }), ...funDives(1)];
+    const priced = priceStay(customer(CustomerType.TOURIST), bookings, [], SEEDED_PRICES);
+    expect(priced.totalDives).toBe(7);
+    expect(priced.pricePerDive).toBe(42);
+    expect(priced.bookingsTotal.toFixed(2)).toBe('294.00'); // 7 × 42
+  });
+
+  it('prices a course per person whatever its number of dives', () => {
+    const priced = priceStay(
+      customer(CustomerType.TOURIST),
+      [booking(ActivityType.OW_CERT, { numberOfDives: 4 })],
+      [],
+      SEEDED_PRICES,
+    );
+    expect(priced.totalDives).toBe(0);
+    expect(priced.bookingsTotal.toFixed(2)).toBe('350.00');
   });
 
   it('charges other activities at catalogue price, outside the volume', () => {

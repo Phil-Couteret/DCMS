@@ -46,6 +46,7 @@ export default async function NewBookingPage({
             boatId: activeBoats.length === 1 ? activeBoats[0].id : "",
             siteId: "",
             participantCount: 1,
+            numberOfDives: 1,
             bookingSource: "WALK_IN",
             partnerId: "",
             status: "CONFIRMED",

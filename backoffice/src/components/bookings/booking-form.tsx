@@ -29,6 +29,7 @@ export interface BookingFormValues {
   boatId: string;
   siteId: string;
   participantCount: number;
+  numberOfDives: number;
   bookingSource: string;
   partnerId: string;
   status: BookingStatus;
@@ -267,6 +268,20 @@ export function BookingForm({
               defaultValue={initial.participantCount}
               className={control}
             />
+          </label>
+          <label className={label}>
+            Number of dives
+            <input
+              type="number"
+              name="numberOfDives"
+              required
+              min={1}
+              max={20}
+              step={1}
+              defaultValue={initial.numberOfDives}
+              className={control}
+            />
+            <span className="mt-1 block text-xs font-normal text-zinc-500">Fun dives are billed per dive and count toward the stay rate.</span>
           </label>
           <label className={label}>
             Source

@@ -3,9 +3,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { ACTIVITY_NAMES, EQUIPMENT_ITEMS, type EquipmentKey, type PriceList } from '../config/catalogue.js';
+import { ACTIVITY_NAMES, billedUnits, EQUIPMENT_ITEMS, withDives, type EquipmentKey, type PriceList } from '../config/catalogue.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
   BookingStatus,
@@ -15,6 +16,7 @@ import {
   PaymentStatus,
   StayStatus,
 } from '../generated/prisma/enums.js';
+import { MailerService } from '../mail/mailer.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -25,6 +27,7 @@ import { requireTenantId } from '../tenant/tenant-context.js';
 import { AddPaymentDto } from './dto/add-payment.dto.js';
 import { AddRefundDto } from './dto/add-refund.dto.js';
 import { CreateInvoiceDto } from './dto/create-invoice.dto.js';
+import { EmailInvoiceDto } from './dto/email-invoice.dto.js';
 import { InvoiceItemDto } from './dto/invoice-item.dto.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 
@@ -40,7 +43,10 @@ const LIST_INCLUDE = {
 } satisfies Prisma.InvoiceInclude;
 
 const DETAIL_INCLUDE = {
-  customer: { select: { id: true, firstName: true, lastName: true } },
+  // Contact details for the "Bill to" block of the invoice document.
+  customer: {
+    select: { id: true, firstName: true, lastName: true, phone: true, country: true, user: { select: { email: true } } },
+  },
   items: true,
   payments: { include: { refunds: { orderBy: { processedAt: 'asc' } } }, orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.InvoiceInclude;
@@ -54,6 +60,7 @@ export class BillingService {
     private readonly settings: SettingsService,
     private readonly pricing: PricingService,
     private readonly config: TenantConfig,
+    private readonly mailer: MailerService,
   ) {}
 
   findAll(filters: { status?: InvoiceStatus; customerId?: string } = {}) {
@@ -90,6 +97,7 @@ export class BillingService {
         customerId: true,
         activityType: true,
         participantCount: true,
+        numberOfDives: true,
         date: true,
         status: true,
         notes: true,
@@ -124,10 +132,10 @@ export class BillingService {
 
     const items: InvoiceItemDto[] = [
       {
-        description: ACTIVITY_NAMES[booking.activityType],
-        quantity: booking.participantCount,
+        description: withDives(booking),
+        quantity: billedUnits(booking),
         unitPrice,
-        total: new D(unitPrice).times(booking.participantCount).toNumber(),
+        total: new D(unitPrice).times(billedUnits(booking)).toNumber(),
         type: 'activity',
       },
       ...equipmentLines(booking.notes, prices),
@@ -322,6 +330,34 @@ export class BillingService {
       if (invoice.stayId) await reopenStay(tx, invoice.stayId, invoice.customerId);
     });
     return this.findOne(id);
+  }
+
+  // Emails the invoice document (a PDF the backoffice rendered) to the
+  // customer's account email. The address is the one on record, never one
+  // the caller names.
+  async emailInvoice(id: string, dto: EmailInvoiceDto) {
+    if (!this.mailer.configured) {
+      throw new ServiceUnavailableException('Email is not set up on this server (SMTP_URL); download the PDF and send it yourself');
+    }
+    const invoice = await this.findOne(id);
+    const to = invoice.customer.user.email;
+    const pdf = Buffer.from(dto.pdf, 'base64');
+    if (pdf.subarray(0, 5).toString('latin1') !== '%PDF-') throw new BadRequestException('pdf must be a PDF document');
+    const center = (await this.settings.get()).name || 'the dive center';
+    const sent = await this.mailer.send({
+      to,
+      subject: `Invoice ${invoice.invoiceNumber} from ${center}`,
+      text: [
+        `Hello ${invoice.customer.firstName},`,
+        '',
+        `Please find attached invoice ${invoice.invoiceNumber} from ${center}.`,
+        '',
+        'Thank you for diving with us!',
+      ].join('\n'),
+      attachments: [{ filename: dto.filename, content: pdf, contentType: 'application/pdf' }],
+    });
+    if (!sent) throw new ServiceUnavailableException('The email could not be sent; try again later');
+    return { sent: true, to };
   }
 }
 

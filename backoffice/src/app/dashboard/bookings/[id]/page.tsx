@@ -87,6 +87,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 {booking.customer.firstName} {booking.customer.lastName}
               </Row>
               <Row label="Participants">{booking.participantCount}</Row>
+              <Row label="Dives">{booking.numberOfDives}</Row>
               <Row label="Boat">{booking.boat ? `${booking.boat.name} (capacity ${booking.boat.capacity})` : "—"}</Row>
               <Row label="Dive site">{booking.site?.nameEn ?? "Not assigned"}</Row>
               <Row label="Source">

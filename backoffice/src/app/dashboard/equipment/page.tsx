@@ -2,7 +2,9 @@ import { centerLocale } from "@/lib/center";
 import { centerNow } from "@/lib/center-time";
 import Link from "next/link";
 import { ConditionBadge, EquipmentStatusBadge } from "@/components/equipment/badges";
+import { DeleteEquipmentButton, EquipmentForm } from "@/components/equipment/equipment-form";
 import { EquipmentStatusActions } from "@/components/equipment/status-actions";
+import { RoutedDialog } from "@/components/routed-panel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,7 +13,9 @@ import {
   EQUIPMENT_STATUSES,
   EQUIPMENT_TYPES,
   formatDay,
+  isDueSoon,
   isOverdue,
+  matchesSearch,
   STATUS_LABELS,
   typeLabel,
 } from "@/lib/equipment";
@@ -36,7 +40,19 @@ export default async function EquipmentPage({
   const type = EQUIPMENT_TYPES.find((t) => t === one(params.type)?.toLowerCase());
   const size = one(params.size) || undefined;
   const status = EQUIPMENT_STATUSES.find((s) => s === one(params.status));
-  const filtered = Boolean(type || size || status);
+  const q = (one(params.q) ?? "").trim();
+  const filtered = Boolean(type || size || status || q);
+  // The add/edit dialog: ?equipment=new, or an item's id.
+  const open = one(params.equipment);
+  // The list with its filters, without the dialog.
+  const listParams = new URLSearchParams();
+  for (const [k, v] of [["q", q], ["type", type], ["size", size], ["status", status]] as const) if (v) listParams.set(k, v);
+  const listHref = `/dashboard/equipment${listParams.size > 0 ? `?${listParams}` : ""}`;
+  const withDialog = (value: string) => {
+    const p = new URLSearchParams(listParams);
+    p.set("equipment", value);
+    return `/dashboard/equipment?${p}`;
+  };
 
   let all: Equipment[] | null = null;
   let loadError: string | null = null;
@@ -52,15 +68,23 @@ export default async function EquipmentPage({
     (i) =>
       (!type || i.type.toLowerCase() === type) &&
       (!size || (i.size ?? "").toLowerCase() === size.toLowerCase()) &&
-      (!status || i.status === status),
+      (!status || i.status === status) &&
+      matchesSearch(i, q),
   );
   const sizes = [...new Set((all ?? []).map((i) => i.size).filter((s): s is string => Boolean(s)))].sort();
   // The banner covers the whole inventory, not only the filtered rows.
   const overdue = (all ?? []).filter((i) => isOverdue(i, today));
+  const dueSoon = (all ?? []).filter((i) => isDueSoon(i, today));
+  const editing = open && open !== "new" ? all?.find((i) => i.id === open) : undefined;
 
   return (
     <main className="space-y-6 p-6 md:p-8">
-      <h1 className="text-2xl font-semibold text-zinc-900">Equipment</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-zinc-900">Equipment</h1>
+        <Button nativeButton={false} render={<Link href={withDialog("new")} prefetch={false} scroll={false} />}>
+          New equipment
+        </Button>
+      </div>
 
       {overdue.length > 0 && (
         <Alert className="border-amber-300 bg-amber-50 text-amber-900">
@@ -83,7 +107,38 @@ export default async function EquipmentPage({
         </Alert>
       )}
 
-      <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-3 lg:grid-cols-[repeat(3,minmax(0,14rem))_auto]">
+      {dueSoon.length > 0 && (
+        <Alert className="border-sky-300 bg-sky-50 text-sky-900">
+          <AlertTitle>
+            {dueSoon.length} item{dueSoon.length === 1 ? " is" : "s are"} due for maintenance within 3 months
+          </AlertTitle>
+          <AlertDescription className="text-sky-900">
+            <ul className="mt-1 space-y-0.5">
+              {dueSoon.map((i) => (
+                <li key={i.id}>
+                  <Link href={`/dashboard/equipment/${i.id}`} prefetch={false} className="underline">
+                    {typeLabel(i.type)} · {i.brand}
+                    {i.serialNumber ? ` · ${i.serialNumber}` : ""}
+                  </Link>{" "}
+                  — due {formatDay(i.nextMaintenance)}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-[minmax(0,18rem)_repeat(3,minmax(0,12rem))_auto]">
+        <label className="block text-sm font-medium text-zinc-700">
+          Search
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Brand, model, size, serial…"
+            className={control}
+          />
+        </label>
         <label className="block text-sm font-medium text-zinc-700">
           Type
           <select name="type" defaultValue={type ?? ""} className={control}>
@@ -177,15 +232,32 @@ export default async function EquipmentPage({
                   <TableCell className={isOverdue(i, today) ? "font-semibold text-red-700" : undefined}>
                     {formatDay(i.nextMaintenance)}
                     {isOverdue(i, today) && <span className="ml-1 text-xs">(overdue)</span>}
+                    {isDueSoon(i, today) && <span className="ml-1 text-xs text-sky-800">(due soon)</span>}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <EquipmentStatusActions equipmentId={i.id} status={i.status} />
+                  <TableCell>
+                    <div className="flex items-start justify-end gap-1">
+                      <EquipmentStatusActions equipmentId={i.id} status={i.status} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={<Link href={withDialog(i.id)} prefetch={false} scroll={false} />}
+                      >
+                        Edit
+                      </Button>
+                      <DeleteEquipmentButton item={i} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+      )}
+      {open && (open === "new" || editing) && (
+        <RoutedDialog wide closeHref={listHref} title={editing ? `Edit ${typeLabel(editing.type)} · ${editing.brand}` : "New equipment"}>
+          <EquipmentForm item={editing ?? null} cancelHref={listHref} />
+        </RoutedDialog>
       )}
     </main>
   );

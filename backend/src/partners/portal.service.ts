@@ -109,6 +109,7 @@ export class PortalService {
         timeSlot: true,
         activityType: true,
         participantCount: true,
+        numberOfDives: true,
         status: true,
         notes: true,
         createdAt: true,
@@ -155,7 +156,7 @@ export class PortalService {
           bookingSource: BookingSource.PARTNER,
           notes: dto.notes?.trim() || null,
         },
-        select: { id: true, date: true, timeSlot: true, activityType: true, participantCount: true, status: true },
+        select: { id: true, date: true, timeSlot: true, activityType: true, participantCount: true, numberOfDives: true, status: true },
       });
     });
   }

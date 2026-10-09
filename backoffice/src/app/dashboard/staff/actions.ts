@@ -1,8 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ApiError, setStaffAvailability, updateStaffStatus, type StaffStatus } from "@/lib/api";
-import { STAFF_STATUSES } from "@/lib/staff";
+import { redirect } from "next/navigation";
+import {
+  addQualification,
+  ApiError,
+  createStaff,
+  deleteQualification,
+  setStaffAvailability,
+  updateQualification,
+  updateStaff,
+  updateStaffStatus,
+  type StaffStatus,
+  type StaffType,
+} from "@/lib/api";
+import { STAFF_STATUSES, STAFF_TYPES } from "@/lib/staff";
 
 export type FormState = { error?: string; ok?: boolean } | null;
 
@@ -40,5 +52,83 @@ export async function saveAvailability(_prev: FormState, formData: FormData): Pr
     return { error: e instanceof ApiError ? e.message : "Could not save availability" };
   }
   refresh(id);
+  return { ok: true };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function text(formData: FormData, name: string) {
+  return String(formData.get(name) ?? "").trim();
+}
+
+function fail(e: unknown, fallback: string): FormState {
+  return { error: e instanceof ApiError ? e.message : fallback };
+}
+
+// Create (no staffId; a userId picks the account) or edit a staff profile.
+export async function saveStaff(_prev: FormState, formData: FormData): Promise<FormState> {
+  const id = text(formData, "staffId");
+  const data = {
+    firstName: text(formData, "firstName"),
+    lastName: text(formData, "lastName"),
+    phone: text(formData, "phone"),
+    type: text(formData, "type") as StaffType,
+    status: text(formData, "status") as StaffStatus,
+    hireDate: text(formData, "hireDate"),
+  };
+  if (!data.firstName || !data.lastName) return { error: "Enter the first and last name" };
+  if (!data.phone) return { error: "Enter a phone number" };
+  if (!STAFF_TYPES.includes(data.type)) return { error: "Choose a type" };
+  if (!STAFF_STATUSES.includes(data.status)) return { error: "Choose a status" };
+  if (!ISO_DATE.test(data.hireDate)) return { error: "Enter the hire date" };
+  let savedId = id;
+  try {
+    if (id) {
+      await updateStaff(id, data);
+    } else {
+      const userId = text(formData, "userId");
+      if (!UUID.test(userId)) return { error: "Choose the account this profile belongs to" };
+      savedId = (await createStaff({ ...data, userId })).id;
+    }
+  } catch (e) {
+    return fail(e, "The staff profile could not be saved");
+  }
+  refresh(savedId);
+  redirect(`/dashboard/staff/${savedId}`);
+}
+
+// Add (no qualificationId) or edit one of a staff member's qualifications.
+export async function saveQualification(_prev: FormState, formData: FormData): Promise<FormState> {
+  const staffId = text(formData, "staffId");
+  const id = text(formData, "qualificationId");
+  const data = {
+    type: text(formData, "type"),
+    agency: text(formData, "agency"),
+    number: text(formData, "number"),
+    issueDate: text(formData, "issueDate"),
+    expiryDate: text(formData, "expiryDate") || null,
+  };
+  if (!data.type || !data.agency || !data.number) return { error: "Enter the type, agency and number" };
+  if (!ISO_DATE.test(data.issueDate)) return { error: "Enter the issue date" };
+  if (data.expiryDate && !ISO_DATE.test(data.expiryDate)) return { error: "Enter a valid expiry date" };
+  if (data.expiryDate && data.expiryDate < data.issueDate) return { error: "The expiry date is before the issue date" };
+  try {
+    if (id) await updateQualification(staffId, id, data);
+    else await addQualification(staffId, data);
+  } catch (e) {
+    return fail(e, "The qualification could not be saved");
+  }
+  refresh(staffId);
+  redirect(`/dashboard/staff/${staffId}`);
+}
+
+export async function removeQualification(_prev: FormState, formData: FormData): Promise<FormState> {
+  const staffId = text(formData, "staffId");
+  try {
+    await deleteQualification(staffId, text(formData, "qualificationId"));
+  } catch (e) {
+    return fail(e, "The qualification could not be deleted");
+  }
+  refresh(staffId);
   return { ok: true };
 }

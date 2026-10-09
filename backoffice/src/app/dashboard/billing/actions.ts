@@ -8,10 +8,15 @@ import {
   ApiError,
   cancelInvoice,
   createInvoiceFromBooking,
+  emailInvoicePdf,
+  getInvoice,
+  getSettings,
   markInvoiceSent,
   type PaymentMethod,
 } from "@/lib/api";
 import { PAYMENT_METHODS } from "@/lib/billing";
+import { centerLocale } from "@/lib/center";
+import { invoiceFilename, renderInvoicePdf } from "@/lib/invoice-pdf";
 
 export type FormState = { error?: string; ok?: boolean } | null;
 
@@ -102,4 +107,21 @@ export async function recordRefund(_prev: FormState, formData: FormData): Promis
   }
   refresh(id);
   return { ok: true };
+}
+
+// Renders the invoice PDF and emails it to the customer's address on record.
+export type EmailState = { error?: string; message?: string } | null;
+
+export async function emailInvoice(_prev: EmailState, formData: FormData): Promise<EmailState> {
+  const id = text(formData, "invoiceId");
+  if (!UUID.test(id)) return { error: "Unknown invoice" };
+  try {
+    const [invoice, center, { timeZone }] = await Promise.all([getInvoice(id), getSettings(), centerLocale()]);
+    if (!invoice.customer.user?.email) return { error: "This customer has no email address" };
+    const pdf = await renderInvoicePdf({ invoice, center, timeZone });
+    const { to } = await emailInvoicePdf(id, pdf, invoiceFilename(invoice.invoiceNumber));
+    return { message: `Sent to ${to}` };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "The invoice could not be emailed" };
+  }
 }

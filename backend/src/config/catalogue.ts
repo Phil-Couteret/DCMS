@@ -63,6 +63,19 @@ const TIER_RATE = {
   [CustomerType.RECURRENT]: 'recurrent',
 } as const satisfies Record<CustomerType, keyof FunDiveTier>;
 
+// How many units of its activity price a booking is billed: one per diver,
+// and for fun dives one per diver per dive. Courses, snorkeling and the like
+// are priced per person whatever the number of dives.
+export function billedUnits(b: { activityType: ActivityType; participantCount: number; numberOfDives: number }) {
+  return b.participantCount * (b.activityType === ActivityType.FUN_DIVE ? b.numberOfDives : 1);
+}
+
+// "Fun Dive (3 dives)" when a booking has several, else the activity name.
+export function withDives(b: { activityType: ActivityType; numberOfDives: number }) {
+  const name = ACTIVITY_NAMES[b.activityType];
+  return b.numberOfDives > 1 ? `${name} (${b.numberOfDives} dives)` : name;
+}
+
 // Fun dives billed together in a stay are priced by how many the customer
 // dives in it, as in the previous system: every dive of the stay gets the
 // same rate, the customer type's rate in the highest tier reached. Bookings

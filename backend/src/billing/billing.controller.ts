@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseEnumPipe,
   ParseUUIDPipe,
@@ -11,7 +12,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
+import { TenantThrottlerGuard } from '../tenant/tenant-throttler.guard.js';
+import { EmailInvoiceDto } from './dto/email-invoice.dto.js';
 import { InvoiceStatus } from '../generated/prisma/enums.js';
 import { BillingService } from './billing.service.js';
 import { AddPaymentDto } from './dto/add-payment.dto.js';
@@ -68,6 +72,16 @@ export class BillingController {
   }
 
   // Cancels rather than deletes: invoice numbers must never disappear.
+  // Emails the rendered invoice to the customer. Rate limited per center
+  // and IP: it sends mail to an outside address.
+  @Post(':id/email')
+  @HttpCode(200)
+  @UseGuards(TenantThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60 * 60_000 } })
+  email(@Param('id', ParseUUIDPipe) id: string, @Body() dto: EmailInvoiceDto) {
+    return this.billing.emailInvoice(id, dto);
+  }
+
   @Delete(':id')
   cancel(@Param('id', ParseUUIDPipe) id: string) {
     return this.billing.cancel(id);
