@@ -1,8 +1,10 @@
 import { centerLocale } from "@/lib/center";
 import Link from "next/link";
 import { AddExpenseForm, AddIncomeForm, DeleteEntryButton } from "@/components/financial/forms";
-import type { DailyFinancial } from "@/lib/api";
-import { money, METHOD_LABELS, PAYMENT_METHODS } from "@/lib/billing";
+import type { DailyFinancial, DayBooking, DiveCount } from "@/lib/api";
+import { activityWithDives } from "@/lib/bookings";
+import { SLOT_NAMES } from "@/lib/trips";
+import { INVOICE_STATUS_LABELS, money, METHOD_LABELS, PAYMENT_METHODS } from "@/lib/billing";
 import { centerClock } from "@/lib/center-time";
 import { EXPENSE_CATEGORY_LABELS, signClass } from "@/lib/financial";
 import { getT } from "@/lib/i18n/server";
@@ -55,6 +57,109 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-zinc-500">{children}</p>;
 }
 
+export const DIVE_GROUPS = [
+  ["funDives", "Fun dives"],
+  ["snorkeling", "Snorkeling"],
+  ["discoverScuba", "Discover scuba"],
+  ["courses", "Courses"],
+] as const;
+
+// What the day's bookings are: how many of each kind, divers and dives.
+async function DiveCounts({ counts }: { counts: NonNullable<Summary["diveCounts"]> }) {
+  const t = await getT();
+  const line = (c: DiveCount) =>
+    `${t(c.divers === 1 ? "1 diver" : "{count} divers", { count: c.divers })} · ${t(c.dives === 1 ? "1 dive" : "{count} dives", { count: c.dives })}`;
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {DIVE_GROUPS.map(([key, label]) => (
+        <div key={key} className="rounded-xl bg-white p-4 ring-1 ring-zinc-200 print:ring-zinc-400">
+          <p className="text-xs font-medium text-zinc-500">{t(label)}</p>
+          <p className="mt-1 text-2xl font-semibold text-zinc-900">{counts[key].bookings}</p>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            {t(counts[key].bookings === 1 ? "1 booking" : "{count} bookings", { count: counts[key].bookings })} · {line(counts[key])}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// How a booking is being billed.
+function billingText(b: DayBooking, t: (k: string, v?: Record<string, string | number>) => string) {
+  if (b.billing.kind === "invoice") return `${b.billing.invoiceNumber} · ${t(INVOICE_STATUS_LABELS[b.billing.status])}`;
+  return b.billing.kind === "stay" ? t("In an open stay") : t("Not billed yet");
+}
+
+// The day's bookings, folded away by default.
+async function BookingDetails({ bookings }: { bookings: DayBooking[] }) {
+  const t = await getT();
+  const { currency } = await centerLocale();
+  return (
+    <details className="group rounded-xl bg-white ring-1 ring-zinc-200 print:ring-zinc-400">
+      <summary className="flex cursor-pointer list-none items-baseline justify-between gap-2 p-5 [&::-webkit-details-marker]:hidden">
+        <h2 className="text-lg font-semibold text-zinc-900">
+          <span className="mr-2 inline-block text-zinc-400 transition-transform group-open:rotate-90">›</span>
+          {t("Booking details ({count})", { count: bookings.length })}
+        </h2>
+        <span className="text-xs text-zinc-500">{t("At each booking's prices, before tax")}</span>
+      </summary>
+      <div className="px-5 pb-5">
+        {bookings.length === 0 ? (
+          <Empty>{t("No bookings on this day.")}</Empty>
+        ) : (
+          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-zinc-200 bg-zinc-50 text-xs text-zinc-500">
+                <tr>
+                  <th className={th}>{t("Customer")}</th>
+                  <th className={th}>{t("Activity")}</th>
+                  <th className={th}>{t("When")}</th>
+                  <th className={th}>{t("Billing")}</th>
+                  <th className={`${th} text-right`}>{t("Amount")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {bookings.map((b) => (
+                  <tr key={b.id}>
+                    <td className={td}>
+                      <Link href={`/dashboard/bookings/${b.id}`} prefetch={false} className="font-medium text-zinc-900 hover:underline">
+                        {b.customerName}
+                      </Link>
+                      {b.participantCount > 1 && <span className="text-zinc-500"> +{b.participantCount - 1}</span>}
+                    </td>
+                    <td className={td}>
+                      {activityWithDives(b.activityType, b.numberOfDives, t)}
+                      {b.partnerName && (
+                        <span className="block text-xs text-zinc-500">{t("Activity paid by {partner}", { partner: b.partnerName })}</span>
+                      )}
+                    </td>
+                    <td className={`${td} whitespace-nowrap text-zinc-600`}>
+                      {t(SLOT_NAMES[b.timeSlot])} · {b.place ?? t("Shore")}
+                    </td>
+                    <td className={`${td} text-zinc-600`}>
+                      {b.billing.kind === "invoice" ? (
+                        <Link href={`/dashboard/billing/${b.billing.invoiceId}`} prefetch={false} className="hover:underline">
+                          {billingText(b, t)}
+                        </Link>
+                      ) : (
+                        billingText(b, t)
+                      )}
+                    </td>
+                    <td className={`${td} text-right tabular-nums`}>{b.amount === null ? t("No price set") : money(b.amount, currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-zinc-500">
+          {t("Fun dives billed with a stay get the stay's volume rate, so its invoice can differ.")}
+        </p>
+      </div>
+    </details>
+  );
+}
+
 // editable: the Daily tab, where entries can be added and deleted. A stored
 // closed-day report is read-only.
 export async function DailyReport({ data, editable }: { data: Summary; editable?: { taxRate: string } }) {
@@ -74,6 +179,9 @@ export async function DailyReport({ data, editable }: { data: Summary; editable?
         <Card label={t("Net")} value={totals.net} tone={signClass(totals.net, "text-green-700")} />
         <Card label={t("Invoice payments")} value={totals.payments} hint={t("Less refunds made this day")} tone={signClass(totals.payments)} />
       </div>
+
+      {data.diveCounts && <DiveCounts counts={data.diveCounts} />}
+      {data.bookings && <BookingDetails bookings={data.bookings} />}
 
       <Section title={t("Income from invoices")} total={{ label: t("Total"), value: totals.payments }}>
         <p className="text-xs text-zinc-500">

@@ -43,7 +43,22 @@ const DETAIL_INCLUDE = {
   actualSite: { select: { id: true, nameEn: true } },
   staff: STAFF_INCLUDE,
   bookings: {
-    include: { customer: { select: { id: true, firstName: true, lastName: true } } },
+    include: {
+      // Their sizes, for the equipment the trip takes out.
+      customer: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          ownEquipment: true,
+          tankSize: true,
+          bcdSize: true,
+          wetsuitSize: true,
+          finsSize: true,
+          bootsSize: true,
+        },
+      },
+    },
     orderBy: { createdAt: 'asc' },
   },
 } satisfies Prisma.TripInclude;
@@ -320,6 +335,17 @@ export class TripsService {
 
   // Takes the booking off the trip; it keeps its boat seat and can be added
   // to another trip.
+  // Takes every diver off the trip (an open one); their bookings stay, with
+  // no trip, ready to be assigned again.
+  async clearBookings(id: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const trip = await lockTrip(tx, id);
+      assertOpen(trip);
+      await tx.booking.updateMany({ where: { tripId: id }, data: { tripId: null } });
+    });
+    return this.findOne(id);
+  }
+
   async unlinkBooking(id: string, bookingId: string) {
     await this.prisma.$transaction(async (tx) => {
       const trip = await lockTrip(tx, id);

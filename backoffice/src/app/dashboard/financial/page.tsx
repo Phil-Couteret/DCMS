@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { InvoiceStatusBadge } from "@/components/billing/invoice-badge";
 import { DailyReport } from "@/components/financial/daily-report";
-import { CloseDayButton, PrintButton } from "@/components/financial/forms";
+import { CloseDayButton, PrintButton, ReportExport } from "@/components/financial/forms";
 import { Button } from "@/components/ui/button";
 import { getClosedDays, getDailyFinancial, getFinancialInvoices, getSettings, getTaxDeclaration } from "@/lib/api";
 import { money, formatDateTime, formatDay } from "@/lib/billing";
@@ -142,9 +142,12 @@ async function ClosedDaysTab() {
                 <td className={`${td} text-right text-red-700`}>{money(d.totals.expenses, currency)}</td>
                 <td className={`${td} text-right font-medium ${signClass(d.totals.net, "text-green-700")}`}>{money(d.totals.net, currency)}</td>
                 <td className={`${td} text-right`}>
-                  <Link href={`/dashboard/financial/closed/${day}`} prefetch={false} className="font-medium text-[#0077b6] hover:underline">
-                    {t("View report")}
-                  </Link>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <Link href={`/dashboard/financial/closed/${day}`} prefetch={false} className="font-medium text-[#0077b6] hover:underline">
+                      {t("View report")}
+                    </Link>
+                    <ReportExport date={day} compact />
+                  </div>
                 </td>
               </tr>
             );

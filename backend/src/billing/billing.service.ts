@@ -39,9 +39,33 @@ type Decimal = Prisma.Decimal;
 type Money = Decimal | number | string;
 export type Tx = Prisma.TransactionClient;
 
+// A stay's partner bookings: their activity is the partner's to pay, on a
+// partner invoice, so the customer's invoice leaves it out.
+const PARTNER_BOOKINGS = {
+  select: {
+    bookings: {
+      where: { partnerId: { not: null } },
+      select: {
+        id: true,
+        date: true,
+        activityType: true,
+        participantCount: true,
+        numberOfDives: true,
+        pricePerDiver: true,
+        partner: { select: { id: true, name: true } },
+        partnerInvoice: { select: { id: true, invoiceNumber: true } },
+        customer: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }],
+    },
+  },
+} satisfies Prisma.StayDefaultArgs;
+
 const LIST_INCLUDE = {
   customer: { select: { id: true, firstName: true, lastName: true } },
   _count: { select: { items: true, payments: true } },
+  stay: { select: { bookings: { where: { partnerId: { not: null } }, select: { partner: { select: { id: true, name: true } } } } } },
+  payments: { where: { status: PaymentStatus.SUCCEEDED }, select: { method: true } },
 } satisfies Prisma.InvoiceInclude;
 
 const DETAIL_INCLUDE = {
@@ -51,6 +75,7 @@ const DETAIL_INCLUDE = {
   },
   items: true,
   payments: { include: { refunds: { orderBy: { processedAt: 'asc' } } }, orderBy: { createdAt: 'asc' } },
+  stay: PARTNER_BOOKINGS,
 } satisfies Prisma.InvoiceInclude;
 
 type PaymentWithRefunds = { status: PaymentStatus; amount: Decimal; refunds: { amount: Decimal }[] };
@@ -65,8 +90,10 @@ export class BillingService {
     private readonly mailer: MailerService,
   ) {}
 
-  findAll(filters: { status?: InvoiceStatus; customerId?: string } = {}) {
-    return this.prisma.invoice.findMany({
+  // Each with who pays: the customer, plus the partners who pay some of the
+  // stay's activities; and how the customer paid (succeeded payments).
+  async findAll(filters: { status?: InvoiceStatus; customerId?: string } = {}) {
+    const invoices = await this.prisma.invoice.findMany({
       where: {
         ...(filters.status && { status: filters.status }),
         ...(filters.customerId && { customerId: filters.customerId }),
@@ -74,17 +101,58 @@ export class BillingService {
       include: LIST_INCLUDE,
       orderBy: { invoiceNumber: 'desc' },
     });
+    return invoices.map(({ stay, payments, ...invoice }) => ({
+      ...invoice,
+      partners: [...new Map((stay?.bookings ?? []).map((b) => [b.partner!.id, b.partner!])).values()],
+      paymentMethods: [...new Set(payments.map((p) => p.method))],
+    }));
   }
 
   async findOne(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({ where: { id }, include: DETAIL_INCLUDE });
-    if (!invoice) throw new NotFoundException(`Invoice ${id} not found`);
+    const found = await this.prisma.invoice.findUnique({ where: { id }, include: DETAIL_INCLUDE });
+    if (!found) throw new NotFoundException(`Invoice ${id} not found`);
+    const { stay, ...invoice } = found;
     const amountPaid = netPaid(invoice.payments);
     return {
       ...invoice,
       amountPaid: amountPaid.toFixed(2),
       balance: new D(invoice.total).minus(amountPaid).toFixed(2),
+      partnerSplit: await this.partnerSplit(stay?.bookings ?? []),
     };
+  }
+
+  // Who pays what for a stay invoice: the customer pays the invoice; each
+  // partner pays its bookings' activities, at the prices locked on them,
+  // before its commission and tax, on its partner invoice. Empty without
+  // partner bookings.
+  private async partnerSplit(bookings: Prisma.StayGetPayload<typeof PARTNER_BOOKINGS>['bookings']) {
+    if (bookings.length === 0) return [];
+    const prices = await this.pricing.current();
+    const byPartner = new Map<string, { partner: { id: string; name: string }; bookings: typeof bookings; total: Decimal }>();
+    for (const b of bookings) {
+      const unit = bookingUnitPrice(prices, b);
+      const entry = byPartner.get(b.partner!.id) ?? { partner: b.partner!, bookings: [], total: new D(0) };
+      entry.bookings.push(b);
+      if (unit !== null) entry.total = entry.total.plus(new D(unit).times(billedUnits(b)));
+      byPartner.set(b.partner!.id, entry);
+    }
+    return [...byPartner.values()].map(({ partner, bookings: own, total }) => ({
+      partner,
+      total: total.toFixed(2),
+      bookings: own.map((b) => {
+        const unit = bookingUnitPrice(prices, b);
+        return {
+          id: b.id,
+          date: b.date.toISOString().slice(0, 10),
+          activity: withDives(b),
+          activityType: b.activityType,
+          numberOfDives: b.numberOfDives,
+          customerName: `${b.customer.firstName} ${b.customer.lastName}`,
+          total: unit === null ? null : new D(unit).times(billedUnits(b)).toFixed(2),
+          partnerInvoice: b.partnerInvoice,
+        };
+      }),
+    }));
   }
 
   // Builds the invoice from the booking and the server-side price list: one

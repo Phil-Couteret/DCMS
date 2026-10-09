@@ -70,6 +70,12 @@ export class TripsController {
     return this.trips.linkBooking(id, bookingId, dto);
   }
 
+  // Clear all: every diver off the trip.
+  @Delete(':id/bookings')
+  clearBookings(@Param('id', ParseUUIDPipe) id: string) {
+    return this.trips.clearBookings(id);
+  }
+
   @Delete(':id/bookings/:bookingId')
   unlinkBooking(
     @Param('id', ParseUUIDPipe) id: string,

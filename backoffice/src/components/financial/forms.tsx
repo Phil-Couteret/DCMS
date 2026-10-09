@@ -6,6 +6,7 @@ import {
   addIncomeAction,
   closeDayAction,
   deleteEntryAction,
+  emailReportAction,
   type FinancialFormState,
 } from "@/app/dashboard/financial/actions";
 import { Button } from "@/components/ui/button";
@@ -219,6 +220,46 @@ export function CloseDayButton({ date, closed }: { date: string; closed: boolean
       </Button>
       <Feedback state={state} />
     </form>
+  );
+}
+
+// A closed day's report: download it as an HTML file, or email it to the
+// center's address or the signed-in user's own.
+export function ReportExport({ date, compact = false }: { date: string; compact?: boolean }) {
+  const t = useT();
+  const [state, onSubmit, pending] = useFormAction<FinancialFormState>(emailReportAction, null);
+  return (
+    <div className={`flex flex-col gap-1 ${compact ? "items-end" : "items-start"}`}>
+      <form onSubmit={onSubmit} className="flex flex-wrap items-center justify-end gap-1.5">
+        <input type="hidden" name="date" value={date} />
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<a href={`/dashboard/financial/closed/${date}/report`} download />}
+        >
+          {t("Download HTML")}
+        </Button>
+        <select
+          name="to"
+          aria-label={t("Send the report to")}
+          defaultValue="center"
+          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900"
+        >
+          <option value="center">{t("The center's email")}</option>
+          <option value="me">{t("My email")}</option>
+        </select>
+        <Button type="submit" size="sm" variant="outline" disabled={pending}>
+          {pending ? t("Sending…") : t("Email report")}
+        </Button>
+      </form>
+      {state?.error && (
+        <p role="alert" className="max-w-80 text-xs text-destructive">
+          {state.error}
+        </p>
+      )}
+      {state?.message && <p role="status" className="text-xs text-green-700">{state.message}</p>}
+    </div>
   );
 }
 

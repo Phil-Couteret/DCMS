@@ -6,7 +6,9 @@ import {
   removeCrew,
   setPlannedSite,
   unassignDiver,
+  clearDivers,
 } from "@/app/dashboard/dive-prep/actions";
+import { DiverSearch } from "@/components/dive-prep/diver-search";
 import { ActionButton } from "@/components/action-button";
 import { CrewForm, PrintButton, ReportForm, SiteForm } from "@/components/dive-prep/forms";
 import { TripStatusActions } from "@/components/schedule/trip-forms";
@@ -227,7 +229,25 @@ async function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
       </section>
 
       <section className="space-y-2">
-        <h4 className="text-sm font-semibold text-zinc-900">{t("3. Divers")}</h4>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-zinc-900">{t("3. Divers")}</h4>
+          {open && trip.bookings.length > 0 && (
+            <ActionButton
+              action={clearDivers}
+              fields={{ tripId: trip.id }}
+              pendingLabel={t("Removing…")}
+              variant="ghost"
+              size="xs"
+              className="text-destructive"
+              confirm={t("Take all {count} divers off {trip}? Their bookings stay, unassigned.", {
+                count: trip.bookings.reduce((n, b) => n + b.participantCount, 0),
+                trip: tripPlace(trip, t),
+              })}
+            >
+              {t("Clear all")}
+            </ActionButton>
+          )}
+        </div>
         {trip.bookings.length === 0 ? (
           <p className="text-xs text-zinc-500">{t("No divers yet. Add them from the unassigned list.")}</p>
         ) : (
@@ -331,9 +351,12 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
         {prep.unassigned.length === 0 ? (
           <p className="text-sm text-zinc-500">{t("Every confirmed booking in this slot is on a trip.")}</p>
         ) : (
-          <ul className="divide-y divide-zinc-100">
-            {prep.unassigned.map((b) => (
-              <li key={b.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+          <DiverSearch
+            rows={prep.unassigned.map((b) => ({
+              key: b.id,
+              name: `${b.customer.firstName} ${b.customer.lastName}`,
+              node: (
+              <>
                 <DiverLine b={b} />
                 <div className="flex flex-wrap items-start justify-end gap-1.5">
                   {openTrips.length === 0 && <span className="text-xs text-zinc-500">{t("No open trip")}</span>}
@@ -354,9 +377,10 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
                     );
                   })}
                 </div>
-              </li>
-            ))}
-          </ul>
+              </>
+              ),
+            }))}
+          />
         )}
       </section>
     </div>

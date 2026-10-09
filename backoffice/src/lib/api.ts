@@ -466,7 +466,7 @@ export function createBooking(data: BookingData) {
   return apiFetch<Booking>("/bookings", { method: "POST", body: JSON.stringify(data) });
 }
 
-export function updateBooking(id: string, data: BookingData) {
+export function updateBooking(id: string, data: Partial<BookingData>) {
   return apiFetch<Booking>(`/bookings/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
@@ -947,6 +947,27 @@ export interface InvoiceListItem {
   updatedAt: string;
   customer: { id: string; firstName: string; lastName: string };
   _count: { items: number; payments: number };
+  // Who pays: the customer, plus partners paying some of the stay's activities.
+  partners: { id: string; name: string }[];
+  paymentMethods: PaymentMethod[]; // how the customer paid (succeeded payments)
+}
+
+// What each partner pays for a stay invoice's partner bookings: their
+// activities, at the prices locked on them, before commission and tax, on
+// the partner's own invoice.
+export interface InvoicePartnerShare {
+  partner: { id: string; name: string };
+  total: string;
+  bookings: {
+    id: string;
+    date: string;
+    activity: string;
+    activityType: string;
+    numberOfDives: number;
+    customerName: string;
+    total: string | null; // null: no price set for the activity
+    partnerInvoice: { id: string; invoiceNumber: string } | null; // null: not on a partner invoice yet
+  }[];
 }
 
 export interface InvoiceItem {
@@ -979,7 +1000,7 @@ export interface Payment {
   refunds: Refund[];
 }
 
-export interface InvoiceDetail extends Omit<InvoiceListItem, "_count" | "customer"> {
+export interface InvoiceDetail extends Omit<InvoiceListItem, "_count" | "customer" | "partners" | "paymentMethods"> {
   // With the contact details for the "Bill to" block.
   customer: {
     id: string;
@@ -993,6 +1014,7 @@ export interface InvoiceDetail extends Omit<InvoiceListItem, "_count" | "custome
   payments: Payment[];
   amountPaid: string;
   balance: string;
+  partnerSplit: InvoicePartnerShare[]; // empty: the customer pays it all
 }
 
 export interface CreateInvoiceData {
@@ -1116,10 +1138,23 @@ export interface TripCapacity {
   available: number;
 }
 
+// A diver on a trip, with the sizes for the equipment the trip takes out.
+export interface TripDiver {
+  id: string;
+  firstName: string;
+  lastName: string;
+  ownEquipment: boolean;
+  tankSize: string | null;
+  bcdSize: string | null;
+  wetsuitSize: string | null;
+  finsSize: string | null;
+  bootsSize: string | null;
+}
+
 export interface TripDetail extends TripBase {
   boat: { id: string; name: string; capacity: number } | null;
   bookings: (Omit<Booking, "customer" | "boat" | "site"> & {
-    customer: { id: string; firstName: string; lastName: string };
+    customer: TripDiver;
   })[];
   issues: string[]; // what stops the trip from starting
   capacity: TripCapacity;
@@ -1180,6 +1215,11 @@ export function linkBooking(tripId: string, bookingId: string, opts: { reassignB
     method: "POST",
     body: JSON.stringify(opts),
   });
+}
+
+// Clear all: every diver off the trip.
+export function clearTripBookings(tripId: string) {
+  return apiFetch<TripDetail>(`/trips/${tripId}/bookings`, { method: "DELETE" });
 }
 
 export function unlinkBooking(tripId: string, bookingId: string) {
@@ -1433,9 +1473,36 @@ export interface FinancialTotals {
   net: string;
 }
 
+// Bookings, divers and dives of one kind of activity on a day.
+export interface DiveCount {
+  bookings: number;
+  divers: number;
+  dives: number;
+}
+
+export interface DayBooking {
+  id: string;
+  timeSlot: TimeSlot;
+  customerId: string;
+  customerName: string;
+  activity: string; // e.g. "Fun Dive (2 dives)"
+  activityType: string;
+  numberOfDives: number;
+  participantCount: number;
+  place: string | null; // the boat; null: shore
+  partnerName: string | null; // the partner pays the activity
+  amount: string | null; // at its booking prices, before tax; null: no price set
+  billing:
+    | { kind: "invoice"; invoiceId: string; invoiceNumber: string; status: InvoiceStatus }
+    | { kind: "stay" | "unbilled" };
+}
+
 export interface DailyFinancial {
   date: string;
   taxName: string;
+  // Missing on reports of days closed before they were recorded.
+  diveCounts?: { funDives: DiveCount; snorkeling: DiveCount; discoverScuba: DiveCount; courses: DiveCount };
+  bookings?: DayBooking[];
   payments: (FinancialInvoiceRef & { id: string; paidAt: string; method: PaymentMethod; amount: string })[];
   refunds: (FinancialInvoiceRef & {
     id: string;
@@ -1463,7 +1530,8 @@ export interface ClosedDayListItem {
 export interface ClosedDay {
   id: string;
   date: string;
-  closedBy: string;
+  closedBy: string; // the email of the account that closed it
+  closedByName: string | null;
   closedAt: string;
   summary: Omit<DailyFinancial, "closed">;
 }
@@ -1520,6 +1588,15 @@ export function getDailyFinancial(date: string) {
 
 export function getClosedDays() {
   return apiFetch<ClosedDayListItem[]>("/financial/closed-days");
+}
+
+// Emails a closed day's report (HTML rendered here) to the center's address
+// or the signed-in user's own.
+export function emailDailyReport(date: string, to: "center" | "me", html: string) {
+  return apiFetch<{ sent: boolean; to: string }>(`/financial/closed-days/${date}/email`, {
+    method: "POST",
+    body: JSON.stringify({ to, html }),
+  });
 }
 
 export function getClosedDay(date: string) {

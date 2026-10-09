@@ -39,7 +39,10 @@ const english = translator("en");
 
 // What to put in the diver's crate: their tank, and the rental sizes unless
 // they bring their own set.
-export function equipmentSummary(c: PrepBooking["customer"], t: T = english) {
+export function equipmentSummary(
+  c: Pick<PrepBooking["customer"], "ownEquipment" | "tankSize" | "bcdSize" | "wetsuitSize" | "finsSize" | "bootsSize">,
+  t: T = english,
+) {
   const tank = t("Tank {size}", { size: c.tankSize ?? "12L" });
   if (c.ownEquipment) return t("Own equipment · {tank}", { tank });
   const sizes = [

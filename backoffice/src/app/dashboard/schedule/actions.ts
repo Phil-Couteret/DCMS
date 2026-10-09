@@ -4,15 +4,24 @@ import { revalidatePath } from "next/cache";
 import {
   ApiError,
   assignStaff,
+  createBooking,
+  createCustomer,
   createTrip,
+  getBooking,
   getTrip,
   linkBooking,
   removeStaff,
+  updateBooking,
   updateTrip,
+  type Language,
   type TimeSlot,
   type TripRole,
   type TripStatus,
 } from "@/lib/api";
+import { ACTIVITY_LABELS, buildNotes, EQUIPMENT_ITEMS, staffNotesOf } from "@/lib/bookings";
+import { centerLocale } from "@/lib/center";
+import { centerNow } from "@/lib/center-time";
+import { LANGUAGES } from "@/lib/customers";
 import { getT } from "@/lib/i18n/server";
 import { SHORE_START_TIMES, TRIP_ROLES, TRIP_SLOTS, TRIP_STATUS_LABELS, TRIP_STATUSES, TRIP_TRANSITIONS } from "@/lib/trips";
 
@@ -130,5 +139,128 @@ export async function linkBookingAction(_prev: TripFormState, formData: FormData
   }
   refresh();
   revalidatePath("/dashboard/bookings");
+  return { ok: true };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// The rental items ticked on a diver's row, with their sizes ("key:size").
+function chosenEquipment(formData: FormData) {
+  const chosen = new Set(formData.getAll("equipment").map(String));
+  return EQUIPMENT_ITEMS.filter((item) => chosen.has(item.key)).map((item) => {
+    const size = field(formData, `size_${item.key}`);
+    return item.sizes && item.sizes.includes(size) ? `${item.key}:${size}` : item.key;
+  });
+}
+
+// A diver's rental equipment, changed from the trip panel. Their staff notes
+// and anything from a guest booking are kept; a different set is priced at
+// today's prices (as when editing the booking).
+export async function saveDiverEquipment(_prev: TripFormState, formData: FormData): Promise<TripFormState> {
+  const t = await getT();
+  const bookingId = field(formData, "bookingId");
+  if (!UUID.test(bookingId)) return { error: t("Unknown booking") };
+  try {
+    const { notes } = await getBooking(bookingId);
+    await updateBooking(bookingId, { notes: buildNotes(notes, chosenEquipment(formData), staffNotesOf(notes)) });
+  } catch (e) {
+    return fail(e, t("The equipment could not be saved"));
+  }
+  refresh();
+  revalidatePath(`/dashboard/bookings/${bookingId}`);
+  revalidatePath("/dashboard/stays");
+  return { ok: true };
+}
+
+// Create diver: a new customer and their booking on this trip, in one step.
+// A diving activity is a first dive with no insurance on file, so the
+// insurance check applies: a signed waiver (saved on the customer), or the
+// acknowledgement that insurance must be added to the stay.
+export async function createDiverOnTrip(_prev: TripFormState, formData: FormData): Promise<TripFormState> {
+  const t = await getT();
+  const tripId = field(formData, "tripId");
+  const firstName = field(formData, "firstName");
+  const lastName = field(formData, "lastName");
+  const email = field(formData, "email");
+  const country = field(formData, "country");
+  const language = field(formData, "language") as Language;
+  const activityType = field(formData, "activityType");
+  const numberOfDives = Number(field(formData, "numberOfDives"));
+  const waiverSigned = formData.get("waiverSigned") === "on";
+  const acknowledged = formData.get("insuranceAcknowledged") === "on";
+  const plannedRaw = field(formData, "plannedStayDays");
+  const plannedStayDays = plannedRaw ? Number(plannedRaw) : null;
+
+  if (!UUID.test(tripId)) return { error: t("Unknown trip") };
+  if (!firstName || !lastName) return { error: t("Enter the new customer's first and last name") };
+  if (!email) return { error: t("Enter the new customer's email") };
+  if (!country) return { error: t("Enter the new customer's country") };
+  if (!LANGUAGES.some((l) => l.code === language)) return { error: t("Choose the new customer's language") };
+  if (!(activityType in ACTIVITY_LABELS)) return { error: t("Choose an activity") };
+  if (!Number.isInteger(numberOfDives) || numberOfDives < 1 || numberOfDives > 20) {
+    return { error: t("The number of dives must be a whole number from 1 to 20") };
+  }
+  if (plannedStayDays !== null && !(Number.isInteger(plannedStayDays) && plannedStayDays >= 1 && plannedStayDays <= 3660)) {
+    return { error: t("The planned stay length is a number of days, from 1 to 3660") };
+  }
+  if (activityType !== "SNORKELING" && !waiverSigned && !acknowledged) {
+    return { error: t("This is the customer's first dive and they have no valid dive insurance: tick “Waiver signed” or acknowledge the warning.") };
+  }
+
+  let trip;
+  try {
+    trip = await getTrip(tripId);
+  } catch (e) {
+    return fail(e, t("The trip could not be loaded"));
+  }
+  if (!trip.boat && !trip.plannedSite) return { error: t("Choose the shore trip's site first") };
+
+  let customerId: string;
+  try {
+    const today = waiverSigned ? centerNow((await centerLocale()).timeZone).isoDate : null;
+    customerId = (
+      await createCustomer({
+        firstName,
+        lastName,
+        email,
+        phone: field(formData, "phone") || null,
+        country: country.toUpperCase(),
+        language,
+        birthdate: null,
+        emergencyContact: null,
+        ...(today && { waiverSignedAt: today }),
+      })
+    ).id;
+  } catch (e) {
+    return fail(e, t("The customer could not be created"));
+  }
+  revalidatePath("/dashboard/customers");
+
+  try {
+    const booking = await createBooking({
+      customerId,
+      boatId: trip.boat?.id ?? null,
+      shoreTime: trip.boat ? null : trip.startTime,
+      siteId: trip.plannedSite?.id ?? null,
+      activityType,
+      date: trip.date.slice(0, 10),
+      timeSlot: trip.timeSlot,
+      participantCount: 1,
+      numberOfDives,
+      bookingSource: "WALK_IN",
+      partnerId: null,
+      notes: null,
+      status: "CONFIRMED",
+      bonoCode: null,
+      addOns: [],
+      ...(plannedStayDays !== null && { plannedStayDays }),
+    });
+    if (booking.tripId !== tripId) await linkBooking(tripId, booking.id);
+  } catch (e) {
+    return { error: `${e instanceof ApiError ? e.message : t("The booking could not be saved")} ${t("The customer was saved; book them from their profile.")}` };
+  }
+  refresh();
+  revalidatePath("/dashboard/bookings");
+  revalidatePath("/dashboard/stays");
   return { ok: true };
 }

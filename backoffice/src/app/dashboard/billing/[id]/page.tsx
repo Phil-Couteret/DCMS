@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, getInvoice, getSettings, type InvoiceStatus, type Payment } from "@/lib/api";
 import { money, formatDateTime, formatDay, METHOD_LABELS, PAYMENT_STATUS_STYLES } from "@/lib/billing";
+import { activityWithDives } from "@/lib/bookings";
 import { centerLocale } from "@/lib/center";
 import type { T } from "@/lib/i18n/core";
 import { getT } from "@/lib/i18n/server";
@@ -187,6 +188,68 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </CardContent>
         </Card>
       </div>
+
+      {invoice.partnerSplit.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("Who pays")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <dl className="space-y-2">
+              <div className="flex justify-between gap-4">
+                <dt>
+                  {t("Paid by the customer")}
+                  <span className="block text-xs text-zinc-500">{t("This invoice")}</span>
+                </dt>
+                <dd className="tabular-nums font-medium">{money(invoice.total, c)}</dd>
+              </div>
+              {invoice.partnerSplit.map((s) => (
+                <div key={s.partner.id} className="flex justify-between gap-4">
+                  <dt>
+                    {t("Paid by {partner}", { partner: s.partner.name })}
+                    <span className="block text-xs text-zinc-500">
+                      {t("The activities of its bookings, before its commission and {tax}, on its partner invoice", { tax: taxName })}
+                    </span>
+                  </dt>
+                  <dd className="tabular-nums font-medium">{money(s.total, c)}</dd>
+                </div>
+              ))}
+            </dl>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("Date")}</TableHead>
+                  <TableHead>{t("Activity")}</TableHead>
+                  <TableHead>{t("Partner")}</TableHead>
+                  <TableHead>{t("Partner invoice")}</TableHead>
+                  <TableHead className="text-right">{t("Amount")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoice.partnerSplit.flatMap((s) =>
+                  s.bookings.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell className="whitespace-nowrap">{formatDay(b.date)}</TableCell>
+                      <TableCell>{activityWithDives(b.activityType, b.numberOfDives, t)}</TableCell>
+                      <TableCell>{s.partner.name}</TableCell>
+                      <TableCell>
+                        {b.partnerInvoice ? (
+                          <Link href={`/dashboard/partners/invoices/${b.partnerInvoice.id}`} prefetch={false} className="font-mono text-xs hover:underline">
+                            {b.partnerInvoice.invoiceNumber}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-zinc-500">{t("Not invoiced yet")}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{b.total === null ? t("No price set") : money(b.total, c)}</TableCell>
+                    </TableRow>
+                  )),
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

@@ -108,6 +108,15 @@ export function buildNotes(previous: string | null, equipment: string[], text: s
   });
 }
 
+// The staff's own notes in a booking's notes: the staffNotes of JSON notes,
+// or the plain text itself.
+export function staffNotesOf(notes: string | null) {
+  if (!notes) return "";
+  const guest = parseGuestNotes(notes);
+  if (guest) return guest.staffNotes ?? "";
+  return notes;
+}
+
 // Rental items as the public booking form and the billing price list know
 // them. Sized items are stored as "key:size".
 export const EQUIPMENT_ITEMS: { key: string; label: string; sizes: string[] | null }[] = [
@@ -125,6 +134,12 @@ export function equipmentLabel(item: string, t: T = (text) => text) {
   const known = EQUIPMENT_ITEMS.find((e) => e.key === key)?.label;
   const name = known ? t(known) : key;
   return size ? `${name} (${size})` : name;
+}
+
+// "Fun Dive" or "Fun Dive (2 dives)", in the reader's language.
+export function activityWithDives(activityType: string, numberOfDives: number, t: T = (text) => text) {
+  const name = ACTIVITY_LABELS[activityType] ? t(ACTIVITY_LABELS[activityType]) : activityType;
+  return numberOfDives > 1 ? `${name} (${t("{count} dives", { count: numberOfDives })})` : name;
 }
 
 export const SOURCES = ["DIRECT", "WALK_IN", "PARTNER"] as const;

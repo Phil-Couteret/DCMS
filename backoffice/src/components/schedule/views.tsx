@@ -1,13 +1,16 @@
 import Link from "next/link";
 import {
   AssignStaffForm,
+  CreateDiverForm,
+  DiverEquipment,
   LinkBookingButton,
   RemoveStaffButton,
   TripStatusActions,
 } from "@/components/schedule/trip-forms";
 import { Button } from "@/components/ui/button";
 import type { Booking, Staff, TripDetail, TripListItem, TripStatus } from "@/lib/api";
-import { ACTIVITY_LABELS, STATUS_LABELS as BOOKING_STATUS_LABELS } from "@/lib/bookings";
+import { ACTIVITY_LABELS, STATUS_LABELS as BOOKING_STATUS_LABELS, parseGuestNotes } from "@/lib/bookings";
+import { equipmentSummary } from "@/lib/dive-prep";
 import type { T } from "@/lib/i18n/core";
 import { getT } from "@/lib/i18n/server";
 import {
@@ -389,10 +392,19 @@ export async function TripDetailBody({
             {trip.bookings.map((b) => (
               <li key={b.id} className="px-3 py-2 text-sm">
                 <BookingLine b={b} />
+                {/* Their sizes, and what they rent on this booking. */}
+                <span className="mt-0.5 block text-xs text-zinc-500">{equipmentSummary(b.customer, t)}</span>
+                <DiverEquipment
+                  bookingId={b.id}
+                  items={parseGuestNotes(b.notes)?.selectedEquipment ?? []}
+                  diver={b.customer}
+                  editable={Boolean(manage) && open}
+                />
               </li>
             ))}
           </ul>
         )}
+        {manage && open && <CreateDiverForm tripId={trip.id} isShore={!trip.boat} />}
       </Section>
 
       {manage && open && manage.linkableBookings.length > 0 && (

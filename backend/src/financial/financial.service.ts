@@ -1,7 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ACTIVITY_NAMES } from '../config/catalogue.js';
+import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { addOnLines, bookingEquipmentLines, bookingUnitPrice, pricesFor } from '../billing/price-lines.js';
+import { MailerService } from '../mail/mailer.service.js';
+import { PricingService } from '../settings/pricing.service.js';
+import { runUnscoped } from '../tenant/tenant-context.js';
+import { ACTIVITY_NAMES, billedUnits, withDives } from '../config/catalogue.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { ActivityType, InvoiceStatus, PaymentMethod, PaymentStatus } from '../generated/prisma/enums.js';
+import { ActivityType, BookingStatus, InvoiceStatus, PaymentMethod, PaymentStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { TenantConfig } from '../tenant/tenant-config.service.js';
@@ -56,6 +60,42 @@ function activityOf(invoice: InvoiceRef): IncomeActivity {
 
 const INCOME_ACTIVITY_NAMES: Record<IncomeActivity, string> = { ...ACTIVITY_NAMES, STAY: 'Stay (several activities)' };
 
+// The day's bookings for the daily report: who, what, where, what it is
+// worth and how it is being billed.
+const DAY_BOOKING = {
+  select: {
+    id: true,
+    date: true,
+    timeSlot: true,
+    activityType: true,
+    participantCount: true,
+    numberOfDives: true,
+    status: true,
+    notes: true,
+    addOns: true,
+    pricePerDiver: true,
+    equipmentPrice: true,
+    addOnPrices: true,
+    customer: { select: { id: true, firstName: true, lastName: true } },
+    boat: { select: { name: true } },
+    partner: { select: { name: true } },
+    invoice: { select: { id: true, invoiceNumber: true, status: true } },
+    stay: { select: { status: true, invoices: { where: { status: { not: InvoiceStatus.CANCELLED } }, select: { id: true, invoiceNumber: true, status: true } } } },
+  },
+} satisfies Prisma.BookingDefaultArgs;
+
+// Dive counts by kind of activity: bookings, divers (participants) and dives
+// (each diver's dives).
+const DIVE_GROUPS: Record<ActivityType, 'funDives' | 'snorkeling' | 'discoverScuba' | 'courses'> = {
+  [ActivityType.FUN_DIVE]: 'funDives',
+  [ActivityType.SNORKELING]: 'snorkeling',
+  [ActivityType.DISCOVER_SCUBA]: 'discoverScuba',
+  [ActivityType.OW_CERT]: 'courses',
+  [ActivityType.AOW_CERT]: 'courses',
+  [ActivityType.RESCUE_CERT]: 'courses',
+  [ActivityType.DM_CERT]: 'courses',
+};
+
 export function assertIsoDate(value: string | undefined, name = 'date') {
   if (!value || !ISO_DATE.test(value) || Number.isNaN(Date.parse(value))) {
     throw new BadRequestException(`${name} must be a date as YYYY-MM-DD`);
@@ -70,7 +110,55 @@ export class FinancialService {
     private readonly settings: SettingsService,
     private readonly tenant: TenantContext,
     private readonly config: TenantConfig,
+    private readonly pricing: PricingService,
+    private readonly mailer: MailerService,
   ) {}
+
+  // The day's bookings that take place (not cancelled, not no-shows), each
+  // valued at the prices locked on it (activity, equipment, add-ons, before
+  // tax; fun dives billed in a stay get the stay's volume rate instead), and
+  // the dive counts by kind.
+  private async dayBookings(day: Date) {
+    const [rows, prices] = await Promise.all([
+      this.prisma.booking.findMany({
+        where: { date: day, status: { notIn: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] } },
+        ...DAY_BOOKING,
+        orderBy: [{ timeSlot: 'asc' }, { createdAt: 'asc' }],
+      }),
+      // A center with no price list still gets its bookings, unpriced.
+      this.pricing.current().catch(() => null),
+    ]);
+    const counts = Object.fromEntries(
+      ['funDives', 'snorkeling', 'discoverScuba', 'courses'].map((k) => [k, { bookings: 0, divers: 0, dives: 0 }]),
+    ) as Record<(typeof DIVE_GROUPS)[ActivityType], { bookings: number; divers: number; dives: number }>;
+    const bookings = rows.map((b) => {
+      const group = counts[DIVE_GROUPS[b.activityType]];
+      group.bookings += 1;
+      group.divers += b.participantCount;
+      group.dives += b.participantCount * b.numberOfDives;
+      const own = prices && pricesFor(prices, b);
+      const unit = own && bookingUnitPrice(own, b);
+      const extras = own ? sum([...bookingEquipmentLines(own, b), ...addOnLines(b, own)].map((l) => l.total)) : new D(0);
+      const invoice = b.invoice ?? b.stay?.invoices[0] ?? null;
+      return {
+        id: b.id,
+        timeSlot: b.timeSlot,
+        customerName: `${b.customer.firstName} ${b.customer.lastName}`,
+        customerId: b.customer.id,
+        activity: withDives(b),
+        activityType: b.activityType,
+        numberOfDives: b.numberOfDives,
+        participantCount: b.participantCount,
+        place: b.boat?.name ?? null, // null: shore
+        partnerName: b.partner?.name ?? null, // the partner pays the activity
+        amount: unit === null || unit === undefined ? null : money(new D(unit).times(billedUnits(b)).plus(extras)),
+        billing: invoice
+          ? { kind: 'invoice' as const, invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, status: invoice.status }
+          : { kind: b.stay ? ('stay' as const) : ('unbilled' as const) },
+      };
+    });
+    return { bookings, diveCounts: counts };
+  }
 
   // Everything the center took in and spent on one day (center time).
   // Invoice income is cash basis: payments that succeeded that day, less
@@ -80,7 +168,7 @@ export class FinancialService {
     const start = centerMidnight(date, tz);
     const end = centerMidnight(addDays(date, 1), tz);
     const day = dateOnly(date);
-    const [payments, refunds, income, expenses, closed, { taxName }] = await Promise.all([
+    const [payments, refunds, income, expenses, closed, { taxName }, day_] = await Promise.all([
       this.prisma.payment.findMany({
         where: { status: PaymentStatus.SUCCEEDED, paidAt: { gte: start, lt: end } },
         include: { invoice: INVOICE_REF },
@@ -95,6 +183,7 @@ export class FinancialService {
       this.prisma.expense.findMany({ where: { date: day }, orderBy: { createdAt: 'asc' } }),
       this.prisma.closedDay.findFirst({ where: { date: day }, select: { closedAt: true, closedBy: true } }),
       this.settings.tax(),
+      this.dayBookings(day),
     ]);
 
     const byMethod = new Map<PaymentMethod, Decimal>(Object.values(PaymentMethod).map((m) => [m, new D(0)]));
@@ -135,6 +224,8 @@ export class FinancialService {
         amount: money(amount),
       })),
       byMethod: Object.fromEntries([...byMethod].map(([m, amount]) => [m, money(amount)])) as Record<PaymentMethod, string>,
+      diveCounts: day_.diveCounts,
+      bookings: day_.bookings,
       manualIncome: income.map((i) => ({ ...i, amount: money(i.amount) })),
       expenses: expenses.map((e) => ({ ...e, amount: money(e.amount), tax: money(e.tax) })),
       totals: {
@@ -169,10 +260,35 @@ export class FinancialService {
     }));
   }
 
+  // With the name of the staff member who closed it, when their account
+  // still exists.
   async closedDay(date: string) {
     const row = await this.prisma.closedDay.findFirst({ where: { date: dateOnly(date) } });
     if (!row) throw new NotFoundException(`${date} has not been closed`);
-    return row;
+    const user = await runUnscoped(() => this.prisma.user.findFirst({ where: { email: row.closedBy, tenantId: null }, select: { name: true } }));
+    return { ...row, closedByName: user?.name ?? null };
+  }
+
+  // Emails a closed day's report (the HTML the backoffice rendered from the
+  // stored figures) to the center's address or the signed-in user's own.
+  async emailReport(date: string, to: 'center' | 'me', html: string, userEmail: string) {
+    if (!this.mailer.configured) {
+      throw new ServiceUnavailableException('Email is not set up on this server (SMTP_URL); download the report and send it yourself');
+    }
+    await this.closedDay(date);
+    if (!/^<!doctype html>/i.test(html.trimStart())) throw new BadRequestException('html must be an HTML document');
+    const settings = await this.settings.get();
+    const address = to === 'me' ? userEmail : settings.email;
+    if (!address) throw new BadRequestException("The center has no email address; set it in Settings → Center");
+    const center = settings.name || 'the dive center';
+    const sent = await this.mailer.send({
+      to: address,
+      subject: `Daily report ${date} · ${center}`,
+      text: [`The daily financial report of ${center} for ${date} is attached.`, '', `Sent from DCMS by ${userEmail}.`].join('\n'),
+      attachments: [{ filename: `daily-report-${date}.html`, content: Buffer.from(html, 'utf8'), contentType: 'text/html; charset=utf-8' }],
+    });
+    if (!sent) throw new ServiceUnavailableException('The email could not be sent; try again later');
+    return { sent: true, to: address };
   }
 
   async addExpense(dto: CreateExpenseDto, createdBy: string) {

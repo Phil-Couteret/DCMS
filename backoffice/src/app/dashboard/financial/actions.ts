@@ -7,13 +7,33 @@ import {
   ApiError,
   closeDay,
   deleteExpense,
+  emailDailyReport,
+  getClosedDay,
   deleteManualIncome,
   type ExpenseCategory,
 } from "@/lib/api";
+import { reportContext } from "@/lib/daily-report-context";
+import { dailyReportHtml } from "@/lib/daily-report-html";
 import { EXPENSE_CATEGORIES } from "@/lib/financial";
 import { getT } from "@/lib/i18n/server";
 
-export type FinancialFormState = { error?: string; ok?: boolean } | null;
+export type FinancialFormState = { error?: string; ok?: boolean; message?: string } | null;
+
+// Emails a closed day's report, built from its stored figures, to the
+// center's address or the signed-in user's own.
+export async function emailReportAction(_prev: FinancialFormState, formData: FormData): Promise<FinancialFormState> {
+  const t = await getT();
+  const date = String(formData.get("date") ?? "");
+  const to = formData.get("to") === "me" ? "me" : "center";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: t("Choose a valid date") };
+  try {
+    const html = dailyReportHtml(await getClosedDay(date), await reportContext());
+    const sent = await emailDailyReport(date, to, html);
+    return { ok: true, message: t("Sent to {email}.", { email: sent.to }) };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : t("The report could not be emailed") };
+  }
+}
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

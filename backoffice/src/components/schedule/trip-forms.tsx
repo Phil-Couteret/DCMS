@@ -5,13 +5,17 @@ import { useRouter } from "next/navigation";
 import {
   assignStaffAction,
   changeTripStatus,
+  createDiverOnTrip,
   createTripAction,
   linkBookingAction,
   removeStaffAction,
+  saveDiverEquipment,
   type TripFormState,
 } from "@/app/dashboard/schedule/actions";
 import { Button } from "@/components/ui/button";
-import type { Boat, DiveSiteOption, Staff, TimeSlot, TripStatus } from "@/lib/api";
+import type { Boat, DiveSiteOption, Language, Staff, TimeSlot, TripDiver, TripStatus } from "@/lib/api";
+import { ACTIVITY_LABELS, EQUIPMENT_ITEMS, equipmentLabel } from "@/lib/bookings";
+import { LANGUAGES } from "@/lib/customers";
 import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 import { SHORE_START_TIMES, shoreSession, ROLE_LABELS, SLOT_NAMES, TRIP_ROLES, TRIP_SLOTS, TRIP_TRANSITIONS } from "@/lib/trips";
@@ -133,6 +137,230 @@ export function RemoveStaffButton({ tripId, staffId, name }: { tripId: string; s
         {pending ? t("Removing…") : t("Remove")}
       </Button>
       <ErrorText state={state} className="text-right" />
+    </form>
+  );
+}
+
+// The size a diver's profile gives for a rental item, if it is one the item
+// comes in.
+function profileSize(key: string, diver: TripDiver) {
+  const size = { wetsuit: diver.wetsuitSize, bcd: diver.bcdSize, maskFins: diver.finsSize }[key];
+  return EQUIPMENT_ITEMS.find((i) => i.key === key)?.sizes?.includes(size ?? "") ? size! : "";
+}
+
+// A diver's rental items on the trip panel, with an inline editor: the items
+// and sizes for this booking, saved without leaving the trip.
+export function DiverEquipment({
+  bookingId,
+  items,
+  diver,
+  editable,
+}: {
+  bookingId: string;
+  items: string[]; // "key" or "key:size"
+  diver: TripDiver;
+  editable: boolean;
+}) {
+  const t = useT();
+  const [editing, setEditing] = useState(false);
+  const [state, onSubmit, pending] = useFormAction<TripFormState>(saveDiverEquipment, null);
+  const chosen = new Map(items.map((i) => i.split(":") as [string, string | undefined]));
+  const [ticked, setTicked] = useState(() => new Set(chosen.keys()));
+  useEffect(() => {
+    if (state?.ok) setEditing(false);
+  }, [state]);
+
+  if (!editing) {
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-zinc-600">
+          {items.length > 0 ? t("Rents: {items}", { items: items.map((i) => equipmentLabel(i, t)).join(", ") }) : t("Rents nothing")}
+        </span>
+        {editable && (
+          <Button type="button" size="xs" variant="ghost" onClick={() => setEditing(true)}>
+            {t("Edit")}
+          </Button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={onSubmit} className="mt-2 space-y-2 rounded-md bg-zinc-50 p-2 ring-1 ring-zinc-200">
+      <input type="hidden" name="bookingId" value={bookingId} />
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        {EQUIPMENT_ITEMS.map((item) => (
+          <div key={item.key} className="flex items-center gap-2 text-xs">
+            <label className="flex min-w-28 items-center gap-1.5 text-zinc-900">
+              <input
+                type="checkbox"
+                name="equipment"
+                value={item.key}
+                checked={ticked.has(item.key)}
+                onChange={(e) =>
+                  setTicked((prev) => {
+                    const next = new Set(prev);
+                    if (e.target.checked) next.add(item.key);
+                    else next.delete(item.key);
+                    return next;
+                  })
+                }
+              />
+              {t(item.label)}
+            </label>
+            {item.sizes && (
+              <select
+                name={`size_${item.key}`}
+                aria-label={t("{item} size", { item: t(item.label) })}
+                defaultValue={chosen.get(item.key) ?? profileSize(item.key, diver)}
+                disabled={!ticked.has(item.key)}
+                className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-xs disabled:opacity-40"
+              >
+                <option value="">{t("Size…")}</option>
+                {item.sizes.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" size="xs" disabled={pending}>
+          {pending ? t("Saving…") : t("Save")}
+        </Button>
+        <Button type="button" size="xs" variant="ghost" onClick={() => setEditing(false)}>
+          {t("Cancel")}
+        </Button>
+        <span className="text-xs text-zinc-500">{t("A different set is charged at today's prices.")}</span>
+      </div>
+      <ErrorText state={state} />
+    </form>
+  );
+}
+
+// Create diver: a new customer and their booking on this trip in one step.
+export function CreateDiverForm({ tripId, isShore }: { tripId: string; isShore: boolean }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [state, onSubmit, pending] = useFormAction<TripFormState>(createDiverOnTrip, null);
+  const [activity, setActivity] = useState(isShore ? "DISCOVER_SCUBA" : "FUN_DIVE");
+  const [waiver, setWaiver] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (!state?.ok) return;
+    formRef.current?.reset();
+    setWaiver(false);
+    setAcknowledged(false);
+    setOpen(false);
+  }, [state]);
+  const diving = activity !== "SNORKELING";
+  const checked = !diving || waiver || acknowledged;
+
+  if (!open) {
+    return (
+      <div className="flex items-center gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
+          + {t("Create diver")}
+        </Button>
+        {state?.ok && <span className="text-xs text-green-700">{t("Diver added to the trip.")}</span>}
+      </div>
+    );
+  }
+  return (
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-3 rounded-lg bg-zinc-50 p-3 ring-1 ring-zinc-200">
+      <input type="hidden" name="tripId" value={tripId} />
+      <p className="text-sm font-medium text-zinc-900">{t("New customer, booked on this trip")}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="text-xs font-medium text-zinc-700">
+          {t("First name")}
+          <input name="firstName" required maxLength={100} className={control} />
+        </label>
+        <label className="text-xs font-medium text-zinc-700">
+          {t("Last name")}
+          <input name="lastName" required maxLength={100} className={control} />
+        </label>
+        <label className="text-xs font-medium text-zinc-700">
+          {t("Email")}
+          <input type="email" name="email" required maxLength={254} className={control} />
+        </label>
+        <label className="text-xs font-medium text-zinc-700">
+          {t("Phone (optional)")}
+          <input type="tel" name="phone" maxLength={40} className={control} />
+        </label>
+        <label className="text-xs font-medium text-zinc-700">
+          {t("Country code")}
+          <input name="country" required maxLength={60} placeholder="ES, DE, GB…" className={control} />
+        </label>
+        <label className="text-xs font-medium text-zinc-700">
+          {t("Language")}
+          <select name="language" defaultValue={"EN" satisfies Language} className={control}>
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {t(l.label)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-zinc-700">
+          {t("Activity")}
+          <select name="activityType" value={activity} onChange={(e) => setActivity(e.target.value)} className={control}>
+            {Object.entries(ACTIVITY_LABELS).map(([value, text]) => (
+              <option key={value} value={value}>
+                {t(text)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-zinc-700">
+          {t("Number of dives")}
+          <input type="number" name="numberOfDives" required min={1} max={20} step={1} defaultValue={1} className={control} />
+        </label>
+      </div>
+      {diving && (
+        <div className="space-y-2 rounded-md bg-amber-50 p-2 text-xs text-amber-950 ring-1 ring-amber-300">
+          <p className="font-medium">{t("Insurance check: a new customer's first dive, with no insurance on file.")}</p>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="waiverSigned" checked={waiver} onChange={(e) => setWaiver(e.target.checked)} />
+            {t("Waiver signed")}
+          </label>
+          {!waiver && (
+            <>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="insuranceAcknowledged"
+                  checked={acknowledged}
+                  onChange={(e) => setAcknowledged(e.target.checked)}
+                />
+                {t("I understand: dive insurance must be added to the stay before they dive")}
+              </label>
+              <label className="block font-medium">
+                {t("Planned stay length (days)")}
+                <input
+                  type="number"
+                  name="plannedStayDays"
+                  min={1}
+                  max={3660}
+                  step={1}
+                  className="mt-1 block w-24 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs"
+                />
+              </label>
+            </>
+          )}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" size="sm" disabled={pending || !checked}>
+          {pending ? t("Saving…") : t("Create and add to trip")}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          {t("Cancel")}
+        </Button>
+      </div>
+      <ErrorText state={state} />
     </form>
   );
 }

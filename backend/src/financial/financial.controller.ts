@@ -9,10 +9,10 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  UseGuards, HttpCode } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { AdminAuthGuard } from '../auth/admin-auth.guard.js';
+import { EmailReportDto } from './dto/email-report.dto.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
 import { CreateIncomeDto } from './dto/create-income.dto.js';
 import { assertIsoDate, FinancialService } from './financial.service.js';
@@ -43,6 +43,12 @@ export class FinancialController {
   @Post('closed-days/:date')
   closeDay(@Param('date') date: string, @CurrentUser() user: User) {
     return this.financial.closeDay(assertIsoDate(date), user.email);
+  }
+
+  @Post('closed-days/:date/email')
+  @HttpCode(200)
+  emailReport(@Param('date') date: string, @Body() dto: EmailReportDto, @CurrentUser() user: User) {
+    return this.financial.emailReport(assertIsoDate(date), dto.to, dto.html, user.email);
   }
 
   @Post('expenses')

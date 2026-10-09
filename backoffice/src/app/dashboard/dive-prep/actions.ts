@@ -10,6 +10,7 @@ import {
   getTrip,
   linkBooking,
   removeStaff,
+  clearTripBookings,
   unlinkBooking,
   updateTrip,
   type TimeSlot,
@@ -63,6 +64,20 @@ export async function unassignDiver(_prev: ActionState, formData: FormData): Pro
     await unlinkBooking(found[0], found[1]);
   } catch (e) {
     return fail(e, t("The diver could not be removed"));
+  }
+  refresh();
+  return { ok: true };
+}
+
+// Clear all: every diver off the trip, back to the unassigned list.
+export async function clearDivers(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
+  const found = ids(formData, "tripId");
+  if (!found) return { error: t("Unknown trip") };
+  try {
+    await clearTripBookings(found[0]);
+  } catch (e) {
+    return fail(e, t("The divers could not be removed"));
   }
   refresh();
   return { ok: true };

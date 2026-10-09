@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DailyReport } from "@/components/financial/daily-report";
-import { PrintButton } from "@/components/financial/forms";
+import { PrintButton, ReportExport } from "@/components/financial/forms";
 import { ApiError, getClosedDay, getSettings } from "@/lib/api";
 import { formatDateTime } from "@/lib/billing";
 import { financialHref } from "@/lib/financial";
@@ -46,10 +46,11 @@ export default async function ClosedDayPage({ params }: { params: Promise<{ date
           <h1 className="text-2xl font-semibold text-zinc-900">{t("Daily financial report")}</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {formatDayLabel(date, "long")} ·{" "}
-            {t("closed {date} by {name}", { date: formatDateTime(timeZone, day.closedAt), name: day.closedBy })}
+            {t("closed {date} by {name}", { date: formatDateTime(timeZone, day.closedAt), name: day.closedByName ?? day.closedBy })}
           </p>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex flex-wrap items-start gap-2 print:hidden">
+          <ReportExport date={date} />
           <PrintButton />
           <Link
             href={financialHref({ tab: "today", date })}

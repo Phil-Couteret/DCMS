@@ -7,7 +7,7 @@ import { InvoiceStatusBadge } from "@/components/billing/invoice-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { InvoiceListItem } from "@/lib/api";
-import { CANCELLABLE, money, formatDay } from "@/lib/billing";
+import { CANCELLABLE, METHOD_LABELS, money, formatDay } from "@/lib/billing";
 import { useT } from "@/lib/i18n/client";
 
 // Customer search runs in the browser over the invoices already loaded.
@@ -46,6 +46,7 @@ export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListIte
                 <TableHead>{t("Invoice Number")}</TableHead>
                 <TableHead>{t("Date")}</TableHead>
                 <TableHead>{t("Customer")}</TableHead>
+                <TableHead>{t("Paid by")}</TableHead>
                 <TableHead className="text-right">{t("Total")}</TableHead>
                 <TableHead>{t("Status")}</TableHead>
                 <TableHead className="text-right">{t("Actions")}</TableHead>
@@ -58,6 +59,20 @@ export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListIte
                   <TableCell className="whitespace-nowrap">{formatDay(i.createdAt)}</TableCell>
                   <TableCell>
                     {i.customer.firstName} {i.customer.lastName}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {/* The customer pays the invoice; a partner pays its bookings' activities on its own invoice. */}
+                    <span className="block text-zinc-900">
+                      {t("Customer")}
+                      {i.paymentMethods.length > 0 && (
+                        <span className="text-zinc-500"> · {i.paymentMethods.map((m) => t(METHOD_LABELS[m])).join(", ")}</span>
+                      )}
+                    </span>
+                    {i.partners.map((p) => (
+                      <span key={p.id} className="block text-zinc-500">
+                        + {t("{partner} (activities)", { partner: p.name })}
+                      </span>
+                    ))}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{money(i.total, i.currency)}</TableCell>
                   <TableCell>
