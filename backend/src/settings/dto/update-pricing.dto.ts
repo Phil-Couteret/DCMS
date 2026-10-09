@@ -1,13 +1,17 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
-  IsOptional,
   ArrayMinSize,
   IsArray,
   IsInt,
-  IsObject,
+  IsNotEmpty,
   IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateIf,
   ValidateNested,
@@ -67,11 +71,24 @@ export class AddOnPricesDto {
   @Price() personalInstructor: number; // per booking
 }
 
-export class InsurancePricesDto {
-  @Price() day: number;
-  @Price() week: number;
-  @Price() month: number;
-  @Price() year: number;
+// A period of dive insurance: its name, the days it covers, its price. id:
+// an existing period (kept, even when renamed); left out for a new one.
+export class InsurancePeriodDto {
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(40)
+  name: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(3660)
+  days: number;
+
+  @Price() price: number;
 }
 
 export class DivePackDto {
@@ -109,11 +126,13 @@ export class UpdatePricingDto {
   @Type(() => AddOnPricesDto)
   addOns?: AddOnPricesDto;
 
+  // The whole list; an empty one removes every period.
   @IsOptional()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => InsurancePricesDto)
-  insurance?: InsurancePricesDto;
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => InsurancePeriodDto)
+  insurance?: InsurancePeriodDto[];
 
   // An empty list removes every pack.
   @IsOptional()

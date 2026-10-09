@@ -3,13 +3,12 @@ import {
   ACTIVITY_KEYS,
   ADD_ON_KEYS,
   EQUIPMENT_ITEMS,
-  INSURANCE_KEYS,
   FULL_PACKAGE_KEY,
   type ActivityKey,
   type EquipmentKey,
   type PriceList,
 } from '../config/catalogue.js';
-import { ActivityType, BookingAddOn, InsurancePeriod } from '../generated/prisma/enums.js';
+import { ActivityType, BookingAddOn } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
 import { UpdatePricingDto } from './dto/update-pricing.dto.js';
@@ -33,9 +32,8 @@ export class PricingService {
       this.prisma.funDiveTier.findMany({ orderBy: { minDives: 'asc' } }),
       this.prisma.addOnPrice.findMany(),
       this.prisma.divePack.findMany({ orderBy: { diveCount: 'asc' } }),
-      this.prisma.insurancePrice.findMany(),
+      this.prisma.insurancePrice.findMany({ orderBy: [{ days: 'asc' }, { name: 'asc' }] }),
     ]);
-    const insurancePrice = new Map(insurance.map((i) => [i.period, i.price.toNumber()]));
     const addOnPrice = new Map(addOns.map((a) => [a.addOn, a.price.toNumber()]));
     const activityPrice = new Map(activities.map((a) => [a.activityType, a.price.toNumber()]));
     const equipmentPrice = new Map(equipment.map((e) => [e.key, e.price.toNumber()]));
@@ -67,13 +65,7 @@ export class PricingService {
         }),
       ) as PriceList['addOns'],
       divePacks: packs.map((p) => ({ diveCount: p.diveCount, price: p.price.toNumber() })),
-      insurance: Object.fromEntries(
-        Object.values(InsurancePeriod).map((p) => {
-          const price = insurancePrice.get(p);
-          if (price === undefined) throw new Error(`InsurancePrice ${p} is missing`);
-          return [p, price];
-        }),
-      ) as PriceList['insurance'],
+      insurance: insurance.map((i) => ({ id: i.id, name: i.name, days: i.days, price: i.price.toNumber() })),
     };
   }
 
@@ -92,10 +84,7 @@ export class PricingService {
         number
       >,
       divePacks: prices.divePacks,
-      insurance: Object.fromEntries(Object.entries(INSURANCE_KEYS).map(([key, p]) => [key, prices.insurance[p]])) as Record<
-        keyof typeof INSURANCE_KEYS,
-        number
-      >,
+      insurance: prices.insurance,
     };
   }
 
@@ -109,6 +98,10 @@ export class PricingService {
     const packs = dto.divePacks && [...dto.divePacks].sort((a, b) => a.diveCount - b.diveCount);
     if (packs && new Set(packs.map((p) => p.diveCount)).size !== packs.length) {
       throw new BadRequestException('Two dive packs have the same number of dives');
+    }
+    const insurance = dto.insurance?.map((i) => ({ ...i, name: i.name.trim().replace(/\s+/g, ' ') }));
+    if (insurance && new Set(insurance.map((i) => i.name.toLowerCase())).size !== insurance.length) {
+      throw new BadRequestException('Two insurance periods have the same name');
     }
     const priced = ACTIVITY_ENTRIES.filter(([key]) => dto.activities[key] !== null);
     const equipment = [...EQUIPMENT_KEYS, FULL_PACKAGE_KEY] as (keyof typeof dto.equipment)[];
@@ -141,14 +134,15 @@ export class PricingService {
         }),
       ),
       // Left out, add-on prices, insurance prices and packs stay as they are.
-      ...(dto.insurance
-        ? (Object.entries(INSURANCE_KEYS) as [keyof typeof INSURANCE_KEYS, InsurancePeriod][]).map(([key, period]) =>
-            this.prisma.insurancePrice.upsert({
-              where: { tenantId_period: { tenantId, period } },
-              create: { period, price: dto.insurance![key] },
-              update: { price: dto.insurance![key] },
+      // The insurance periods are replaced as a list: those sent with their
+      // id keep it (so a rename is the same period).
+      ...(insurance
+        ? [
+            this.prisma.insurancePrice.deleteMany({}),
+            this.prisma.insurancePrice.createMany({
+              data: insurance.map(({ id, name, days, price }) => ({ ...(id && { id }), name, days, price })),
             }),
-          )
+          ]
         : []),
       ...(dto.addOns
         ? (Object.entries(ADD_ON_KEYS) as [keyof typeof ADD_ON_KEYS, BookingAddOn][]).map(([key, addOn]) =>

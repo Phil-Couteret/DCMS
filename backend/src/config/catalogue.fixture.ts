@@ -25,5 +25,10 @@ export const SEEDED_PRICES: PriceList = {
     { diveCount: 5, price: 200 },
     { diveCount: 10, price: 380 },
   ],
-  insurance: { DAY: 7, WEEK: 18, MONTH: 25, YEAR: 45 },
+  insurance: [
+    { id: 'i1', name: '1 day', days: 1, price: 7 },
+    { id: 'i7', name: '1 week', days: 7, price: 18 },
+    { id: 'i30', name: '1 month', days: 30, price: 25 },
+    { id: 'i365', name: '1 year', days: 365, price: 45 },
+  ],
 };

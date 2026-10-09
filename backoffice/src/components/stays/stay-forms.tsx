@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { billStayAction, deleteCostAction, saveCostAction, type StayFormState } from "@/app/dashboard/stays/actions";
+import { addInsuranceAction, billStayAction, deleteCostAction, saveCostAction, type StayFormState } from "@/app/dashboard/stays/actions";
 import { Button } from "@/components/ui/button";
-import type { StayCost, StayCostCategory } from "@/lib/api";
+import type { StayCost, StayCostCategory, StayInsurance } from "@/lib/api";
 import { money } from "@/lib/billing";
 import { STAY_COST_CATEGORIES, STAY_COST_LABELS } from "@/lib/stays";
 import { useT } from "@/lib/i18n/client";
@@ -18,6 +18,58 @@ function ErrorText({ state }: { state: StayFormState }) {
     <p role="alert" className="text-sm text-destructive">
       {state.error}
     </p>
+  );
+}
+
+// Dive insurance for a stay: staff choose the period, the one covering the
+// stay's diving days preselected.
+export function InsuranceOfferForm({
+  customerId,
+  offer,
+  currency,
+}: {
+  customerId: string;
+  offer: NonNullable<StayInsurance["offer"]>;
+  currency: string;
+}) {
+  const t = useT();
+  const [state, onSubmit, pending] = useFormAction<StayFormState>(addInsuranceAction, null);
+  const [periodId, setPeriodId] = useState(offer.suggestedId ?? "");
+  const chosen = offer.options.find((o) => o.id === periodId);
+  if (offer.options.length === 0) {
+    return <p className="text-sm">{t("No insurance periods are set: add them in Settings → Pricing.")}</p>;
+  }
+  return (
+    <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="customerId" value={customerId} />
+      <label className="text-sm font-medium">
+        {t("Insurance period")}
+        <select
+          name="periodId"
+          value={periodId}
+          onChange={(e) => setPeriodId(e.target.value)}
+          className="mt-1 block rounded-md border border-amber-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-900"
+        >
+          {offer.options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {`${t(o.name)} · ${money(o.price, currency)}`}
+              {o.id === offer.suggestedId ? ` (${t("suggested")})` : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Button type="submit" size="sm" disabled={pending || !chosen}>
+        {pending ? t("Adding…") : chosen ? t("Add insurance ({price})", { price: money(chosen.price, currency) }) : t("Add insurance")}
+      </Button>
+      {chosen && chosen.days < offer.days && (
+        <p className="basis-full text-xs text-amber-900">
+          {t("{name} covers {count} days; the stay's diving spans {days}.", { name: t(chosen.name), count: chosen.days, days: offer.days })}
+        </p>
+      )}
+      <div className="basis-full">
+        <ErrorText state={state} />
+      </div>
+    </form>
   );
 }
 

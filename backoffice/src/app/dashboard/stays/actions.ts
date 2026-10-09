@@ -69,13 +69,15 @@ export async function deleteCostAction(_prev: StayFormState, formData: FormData)
   return { ok: true };
 }
 
-// Adds the dive insurance the stay needs, at the price for its period.
+// Adds dive insurance to the stay, for the period staff chose.
 export async function addInsuranceAction(_prev: StayFormState, formData: FormData): Promise<StayFormState> {
   const t = await getT();
   const customerId = text(formData, "customerId");
+  const periodId = text(formData, "periodId");
   if (!UUID.test(customerId)) return { error: t("Unknown stay") };
+  if (!UUID.test(periodId)) return { error: t("Choose an insurance period") };
   try {
-    await addStayInsurance(customerId);
+    await addStayInsurance(customerId, periodId);
   } catch (e) {
     return fail(e, t("Could not add the insurance"));
   }

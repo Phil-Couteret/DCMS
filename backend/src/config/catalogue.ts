@@ -1,4 +1,4 @@
-import { ActivityType, BookingAddOn, CustomerType, InsurancePeriod } from '../generated/prisma/enums.js';
+import { ActivityType, BookingAddOn, CustomerType } from '../generated/prisma/enums.js';
 
 // What the center sells. The prices are in the database (ActivityPrice,
 // EquipmentPrice, FunDiveTier), edited in Settings → Pricing and read
@@ -57,36 +57,23 @@ export interface PriceList {
   funDiveTiers: FunDiveTier[]; // ascending minDives, the first at 1
   addOns: Record<BookingAddOn, number>;
   divePacks: DivePack[]; // ascending diveCount
-  insurance: Record<InsurancePeriod, number>; // dive insurance, per period of cover
+  insurance: InsuranceOption[]; // dive insurance periods, shortest first
 }
 
-// Dive insurance periods: the pricing API's keys, their names on invoices,
-// and their length in days.
-export const INSURANCE_KEYS = {
-  day: InsurancePeriod.DAY,
-  week: InsurancePeriod.WEEK,
-  month: InsurancePeriod.MONTH,
-  year: InsurancePeriod.YEAR,
-} as const;
+// A period of dive insurance cover a center sells: its name ("1 week"),
+// the days it covers and its price.
+export interface InsuranceOption {
+  id: string;
+  name: string;
+  days: number;
+  price: number;
+}
 
-export const INSURANCE_NAMES: Record<InsurancePeriod, string> = {
-  [InsurancePeriod.DAY]: '1 day',
-  [InsurancePeriod.WEEK]: '1 week',
-  [InsurancePeriod.MONTH]: '1 month',
-  [InsurancePeriod.YEAR]: '1 year',
-};
-
-const INSURANCE_DAYS: [InsurancePeriod, number][] = [
-  [InsurancePeriod.DAY, 1],
-  [InsurancePeriod.WEEK, 7],
-  [InsurancePeriod.MONTH, 31],
-  [InsurancePeriod.YEAR, 366],
-];
-
-// The shortest insurance that covers so many days of diving (a year for
-// anything longer).
-export function insurancePeriodFor(days: number): InsurancePeriod {
-  return (INSURANCE_DAYS.find(([, length]) => days <= length) ?? INSURANCE_DAYS[INSURANCE_DAYS.length - 1])[0];
+// The insurance to suggest for so many days of diving: the shortest period
+// that covers them, else the longest there is. null when none is set.
+export function suggestedInsurance(options: InsuranceOption[], days: number): InsuranceOption | null {
+  const byLength = [...options].sort((a, b) => a.days - b.days);
+  return byLength.find((o) => o.days >= days) ?? byLength[byLength.length - 1] ?? null;
 }
 
 // Every activity but snorkeling is diving, and needs insurance or a waiver.

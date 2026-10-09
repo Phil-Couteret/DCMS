@@ -36,7 +36,7 @@ import {
   type BoatData,
   type EquipmentPriceKey,
   type FunDiveTier,
-  type InsurancePrices,
+  type InsuranceOptionData,
   type Language,
   type SettingsData,
   type DiveSiteData,
@@ -403,11 +403,22 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
   if (addOns.nightDive == null) return { error: t("Night dive surcharge: enter a price such as 20") };
   if (addOns.personalInstructor == null) return { error: t("Personal instructor fee: enter a price such as 100") };
 
-  const insurance = {} as InsurancePrices;
-  for (const [key, period] of [["day", "1 day"], ["week", "1 week"], ["month", "1 month"], ["year", "1 year"]] as const) {
-    const value = price(text(formData, `insurance_${key}`));
-    if (value == null) return { error: t("Dive insurance, {period}: enter a price such as 18", { period: t(period) }) };
-    insurance[key] = value;
+  const [insIds, insNames, insDays, insPrices] = ["insId", "insName", "insDays", "insPrice"].map(column);
+  const insurance: InsuranceOptionData[] = [];
+  for (let i = 0; i < insNames.length; i++) {
+    const name = insNames[i].replace(/\s+/g, " ");
+    if (!name) return { error: t("Insurance period {n}: enter a name, such as 1 week", { n: i + 1 }) };
+    if (name.length > 40) return { error: t("Insurance period {n}: the name is at most 40 characters", { n: i + 1 }) };
+    const days = Number(insDays[i]);
+    if (!/^\d{1,4}$/.test(insDays[i] ?? "") || days < 1 || days > 3660) {
+      return { error: t("{name}: the days covered must be a whole number from 1 to 3660", { name }) };
+    }
+    const periodPrice = price(insPrices[i] ?? "");
+    if (periodPrice == null) return { error: t("{name}: enter its price", { name }) };
+    insurance.push({ ...(UUID_RE.test(insIds[i] ?? "") && { id: insIds[i] }), name, days, price: periodPrice });
+  }
+  if (new Set(insurance.map((p) => p.name.toLowerCase())).size !== insurance.length) {
+    return { error: t("Two insurance periods have the same name") };
   }
 
   const [packDives, packPrices] = ["packDives", "packPrice"].map(column);

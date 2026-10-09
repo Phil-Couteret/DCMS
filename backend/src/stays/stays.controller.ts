@@ -3,6 +3,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { BillStayDto } from './dto/bill-stay.dto.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
+import { AddInsuranceDto } from './dto/add-insurance.dto.js';
 import { QuoteBookingDto } from './dto/quote-booking.dto.js';
 import { UpdateStayCostDto } from './dto/update-stay-cost.dto.js';
 import { StaysService } from './stays.service.js';
@@ -34,8 +35,12 @@ export class StaysController {
 
   // The dive insurance the stay needs, added to it as an extra cost.
   @Post('customer/:customerId/insurance')
-  addInsurance(@Param('customerId', ParseUUIDPipe) customerId: string, @CurrentUser() user: { email: string }) {
-    return this.stays.addInsurance(customerId, user.email);
+  addInsurance(
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @Body() dto: AddInsuranceDto,
+    @CurrentUser() user: { email: string },
+  ) {
+    return this.stays.addInsurance(customerId, user.email, dto.periodId);
   }
 
   // A booking priced before it is saved (the booking form's live price).

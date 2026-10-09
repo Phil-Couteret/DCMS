@@ -22,10 +22,9 @@ import { bonoDiscount, usableBono, useBonos } from '../bonos/bono-rules.js';
 import {
   ACTIVITY_NAMES,
   billedUnits,
-  INSURANCE_NAMES,
-  insurancePeriodFor,
   isDiving,
   stayDivePrice,
+  suggestedInsurance,
   withDives,
   type PriceList,
 } from '../config/catalogue.js';
@@ -119,8 +118,8 @@ function diveCover(customer: { insuranceExpiry: Date | null; waiverSignedAt: Dat
 }
 
 // Dive insurance for a stay: how the customer is covered, or what to sell
-// them (the shortest period covering the stay's diving days). null when the
-// stay has no diving.
+// them: every period the center offers, suggesting the shortest that covers
+// the stay's diving days. null when the stay has no diving.
 function stayInsurance(
   customer: StayCustomer,
   bookings: StayBookingRow[],
@@ -133,12 +132,18 @@ function stayInsurance(
   const to = isoDay(diving[diving.length - 1].date);
   const cover = costs.some((c) => c.category === StayCostCategory.INSURANCE) ? ('added' as const) : diveCover(customer, to);
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
-  const period = insurancePeriodFor(days);
   return {
     cover, // insured, waiver, added (an insurance cost in the stay), or null
     insuranceExpiry: customer.insuranceExpiry ? isoDay(customer.insuranceExpiry) : null,
     waiverSignedAt: customer.waiverSignedAt ? isoDay(customer.waiverSignedAt) : null,
-    offer: cover === null ? { period, description: `Dive insurance (${INSURANCE_NAMES[period]})`, price: money(prices.insurance[period]) } : null,
+    offer:
+      cover === null
+        ? {
+            days, // the stay's diving days, first to last
+            suggestedId: suggestedInsurance(prices.insurance, days)?.id ?? null,
+            options: prices.insurance.map((o) => ({ ...o, price: money(o.price) })),
+          }
+        : null,
   };
 }
 const sum = (values: (Decimal | number)[]) => values.reduce<Decimal>((acc, v) => acc.plus(v), new D(0));
@@ -415,7 +420,9 @@ export class StaysService {
 
   // Adds the dive insurance the stay needs to it, as an extra cost, at the
   // price for the period that covers its diving days.
-  async addInsurance(customerId: string, createdBy: string) {
+  // periodId: one of the center's insurance periods; the suggested one when
+  // left out.
+  async addInsurance(customerId: string, createdBy: string, periodId?: string) {
     const [stay, prices] = await Promise.all([this.openStay(this.prisma, customerId), this.pricing.current()]);
     if (!stay) throw new NotFoundException('This customer has no open stay');
     const insurance = stayInsurance(stay.customer, stay.bookings, stay.costs, prices);
@@ -424,14 +431,20 @@ export class StaysService {
       const why = { insured: 'has dive insurance for it', waiver: 'has signed a waiver', added: 'already has insurance added' };
       throw new ConflictException(`This customer ${why[insurance.cover!]}`);
     }
+    const period = insurance.offer.options.find((o) => o.id === (periodId ?? insurance.offer!.suggestedId));
+    if (!period) {
+      throw new BadRequestException(
+        periodId ? 'There is no such insurance period' : 'No insurance period is set; add them in Settings → Pricing',
+      );
+    }
     return this.addCost(
       customerId,
       {
         date: isoDay(stay.bookings.find((b) => isDiving(b.activityType))!.date),
         category: StayCostCategory.INSURANCE,
-        description: insurance.offer.description,
+        description: `Dive insurance (${period.name})`,
         quantity: 1,
-        unitPrice: Number(insurance.offer.price),
+        unitPrice: Number(period.price),
       },
       createdBy,
     );

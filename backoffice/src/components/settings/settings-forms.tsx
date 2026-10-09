@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LANGUAGE_LABELS, LANGUAGES } from "@/lib/customers";
 import { money } from "@/lib/billing";
-import type { Bono, Boat, CenterSettings, DiveSite, FunDiveTier, Location, LocationRef, Pricing, User } from "@/lib/api";
+import type { Bono, Boat, CenterSettings, DiveSite, FunDiveTier, InsuranceOptionData, Location, LocationRef, Pricing, User } from "@/lib/api";
 import { LOCATION_TYPE_LABELS, LOCATION_TYPES, locationOptions } from "@/lib/locations";
 import {
   ACTIVITY_PRICE_LABELS,
@@ -838,6 +838,10 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(savePricing, null);
   const [tiers, setTiers] = useState<TierRow[]>(() => pricing.funDiveTiers.map((t) => ({ ...t, id: nextTierId++ })));
   const [packs, setPacks] = useState(() => pricing.divePacks.map((p) => ({ ...p, id: nextTierId++ })));
+  // Insurance periods: id is the saved period's (kept when renamed), key the row's.
+  const [periods, setPeriods] = useState<(InsuranceOptionData & { key: number })[]>(() =>
+    pricing.insurance.map((p) => ({ ...p, key: nextTierId++ })),
+  )
   const funDive = pricing.activities.funDive;
   const tax = `${pricing.taxName} (${pricing.taxRate.toLocaleString("en-GB", { maximumFractionDigits: 2 })}%)`;
   const itemsTotal = Object.keys(EQUIPMENT_PRICE_LABELS).reduce(
@@ -1112,41 +1116,81 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
         <Card
           title={t("Dive insurance")}
           description={t(
-            "Offered on the Stays page to a diver with no insurance and no signed waiver: the shortest cover for the stay's diving days.",
+            "The periods of cover sold with a stay. On the Stays page, staff choose one for a diver with no insurance and no signed waiver; the shortest period covering the stay's diving days is suggested.",
           )}
         >
-          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-50">
-                <tr>
-                  <th className={th}>{t("Cover")}</th>
-                  <th className={thRight}>{t("Net price")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200">
-                {(
-                  [
-                    ["day", t("1 day")],
-                    ["week", t("1 week")],
-                    ["month", t("1 month")],
-                    ["year", t("1 year")],
-                  ] as const
-                ).map(([key, text]) => (
-                  <tr key={key}>
-                    <td className={`${td} font-medium text-zinc-900`}>{text}</td>
-                    <td className={td}>
-                      <PriceField
-                        currency={pricing.currency}
-                        name={`insurance_${key}`}
-                        value={pricing.insurance[key]}
-                        label={t("Dive insurance, {period}", { period: text })}
-                      />
-                    </td>
+          {periods.length === 0 ? (
+            <p className="text-sm text-zinc-500">{t("No insurance periods: the Stays page cannot offer insurance. Add one, for example 1 week.")}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-50">
+                  <tr>
+                    <th className={th}>{t("Name")}</th>
+                    <th className={th}>{t("Days covered")}</th>
+                    <th className={thRight}>{t("Net price")}</th>
+                    <th className={thRight}>
+                      <span className="sr-only">{t("Actions")}</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-zinc-200">
+                  {periods.map((p, i) => (
+                    <tr key={p.key}>
+                      <td className={td}>
+                        <input type="hidden" name="insId" value={p.id ?? ""} />
+                        <input
+                          name="insName"
+                          aria-label={t("Insurance period {n}: name", { n: i + 1 })}
+                          required
+                          maxLength={40}
+                          placeholder={t("e.g. 2 weeks")}
+                          defaultValue={p.name}
+                          className={`${priceInput} w-36 text-left`}
+                        />
+                      </td>
+                      <td className={td}>
+                        <input
+                          name="insDays"
+                          aria-label={t("Insurance period {n}: days covered", { n: i + 1 })}
+                          type="number"
+                          required
+                          min={1}
+                          max={3660}
+                          step={1}
+                          defaultValue={p.days}
+                          className={`${priceInput} w-24 text-left`}
+                        />
+                      </td>
+                      <td className={td}>
+                        <PriceField currency={pricing.currency} name="insPrice" value={p.price} label={t("Insurance period {n}: price", { n: i + 1 })} />
+                      </td>
+                      <td className={`${td} text-right`}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => setPeriods(periods.filter((x) => x.key !== p.key))}
+                        >
+                          {t("Remove")}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={periods.length >= 20}
+            onClick={() => setPeriods([...periods, { name: "", days: 7, price: 0, key: nextTierId++ }])}
+          >
+            {t("Add period")}
+          </Button>
         </Card>
       </fieldset>
       {canEdit && (

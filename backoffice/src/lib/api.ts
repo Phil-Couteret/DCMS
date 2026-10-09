@@ -1347,16 +1347,19 @@ export interface PriceList {
   funDiveTiers: FunDiveTier[]; // ascending, the first at 1
   addOns: { nightDive: number; personalInstructor: number }; // per diver; per booking
   divePacks: DivePack[]; // ascending diveCount
-  insurance: InsurancePrices;
+  insurance: InsuranceOption[]; // shortest first
 }
 
-// Dive insurance sold with a stay, per period of cover.
-export interface InsurancePrices {
-  day: number;
-  week: number;
-  month: number;
-  year: number;
+// A period of dive insurance cover the center sells with a stay.
+export interface InsuranceOption {
+  id: string;
+  name: string; // e.g. "1 week"
+  days: number; // the days it covers
+  price: number;
 }
+
+// As saved: an existing period keeps its id (even renamed); a new one has none.
+export type InsuranceOptionData = Omit<InsuranceOption, "id"> & { id?: string };
 
 export interface DivePack {
   diveCount: number;
@@ -1376,7 +1379,7 @@ export function getPricing() {
 }
 
 // Admin only: replaces the whole price list.
-export function updatePricing(data: PriceList) {
+export function updatePricing(data: Omit<PriceList, "insurance"> & { insurance: InsuranceOptionData[] }) {
   return apiFetch<Pricing>("/settings/pricing", { method: "PUT", body: JSON.stringify(data) });
 }
 
@@ -1610,12 +1613,17 @@ export interface Stay {
 
 // How the customer is covered for the stay's diving: insurance valid to its
 // last diving day, a signed waiver, or insurance added to the stay. Without
-// any, offer: the shortest insurance that covers its diving days.
+// any, offer: every insurance period, suggesting the shortest that covers
+// the diving days.
 export interface StayInsurance {
   cover: "insured" | "waiver" | "added" | null;
   insuranceExpiry: string | null;
   waiverSignedAt: string | null;
-  offer: { period: "DAY" | "WEEK" | "MONTH" | "YEAR"; description: string; price: string } | null;
+  offer: {
+    days: number; // the stay's diving days, first to last
+    suggestedId: string | null; // null: no period is set
+    options: (Omit<InsuranceOption, "price"> & { price: string })[];
+  } | null;
 }
 
 export type StayPriceChange =
@@ -1650,8 +1658,8 @@ export function addStayCost(customerId: string, data: StayCostData) {
   return apiFetch<StayCost>(`/stays/customer/${customerId}/costs`, { method: "POST", body: JSON.stringify(data) });
 }
 
-export function addStayInsurance(customerId: string) {
-  return apiFetch<StayCost>(`/stays/customer/${customerId}/insurance`, { method: "POST" });
+export function addStayInsurance(customerId: string, periodId: string) {
+  return apiFetch<StayCost>(`/stays/customer/${customerId}/insurance`, { method: "POST", body: JSON.stringify({ periodId }) });
 }
 
 export function updateStayCost(id: string, data: StayCostData) {

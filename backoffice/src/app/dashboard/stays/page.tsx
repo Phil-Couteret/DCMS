@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { ActionButton } from "@/components/action-button";
-import { BillStayButton, StayCosts } from "@/components/stays/stay-forms";
-import { addInsuranceAction } from "./actions";
+import { BillStayButton, InsuranceOfferForm, StayCosts } from "@/components/stays/stay-forms";
 import { Button } from "@/components/ui/button";
 import { getPricing, getStays, type FunDiveTier, type Stay, type StayInsurance } from "@/lib/api";
 import { money } from "@/lib/billing";
@@ -98,19 +96,19 @@ function InsuranceNote({ t, insurance, customerId, currency }: { t: T; insurance
   if (insurance.offer) {
     const { offer } = insurance;
     return (
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-300">
+      <div className="space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-300">
         <div>
           <p className="font-medium">{t("No dive insurance and no signed waiver")}</p>
           <p className="mt-0.5">
             {insurance.insuranceExpiry
               ? t("Their insurance expires on {date}, before the stay's last dive.", { date: formatBookingDate(insurance.insuranceExpiry) })
               : t("Every diver needs insurance or a signed waiver.")}{" "}
-            {t("Add {item} to the bill for {price}?", { item: t(offer.description), price: money(offer.price, currency) })}
+            {offer.days === 1
+              ? t("The stay has 1 diving day.")
+              : t("The stay's diving spans {days} days.", { days: offer.days })}
           </p>
         </div>
-        <ActionButton action={addInsuranceAction} fields={{ customerId }} pendingLabel={t("Adding…")}>
-          {t("Add insurance ({price})", { price: money(offer.price, currency) })}
-        </ActionButton>
+        <InsuranceOfferForm customerId={customerId} offer={offer} currency={currency} />
       </div>
     );
   }

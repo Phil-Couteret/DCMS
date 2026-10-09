@@ -509,22 +509,18 @@ model AddOnPrice {
   @@id([tenantId, addOn])
 }
 
-// Dive insurance sold with a stay, for the period that covers it.
-enum InsurancePeriod {
-  DAY
-  WEEK
-  MONTH
-  YEAR
-}
-
+// Dive insurance sold with a stay: the periods of cover a center offers,
+// each with the days it covers (to suggest the one that covers a stay).
 model InsurancePrice {
-  tenantId  String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
-  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  period    InsurancePeriod
-  price     Decimal         @db.Decimal(8, 2)
-  updatedAt DateTime        @updatedAt
+  id        String   @id @default(uuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name      String
+  days      Int
+  price     Decimal  @db.Decimal(8, 2)
+  updatedAt DateTime @updatedAt
 
-  @@id([tenantId, period])
+  @@unique([tenantId, name])
 }
 
 // A fixed price for a number of fun dives (per diver), offered when a stay's
