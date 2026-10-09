@@ -99,6 +99,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 <Row label={t("Planned stay")}>{t("{days} days, as declared", { days: booking.plannedStayDays })}</Row>
               )}
               {booking.addOns.length > 0 && <Row label={t("Add-ons")}>{booking.addOns.map((a) => t(ADD_ON_LABELS[a])).join(", ")}</Row>}
+              {booking.addOns.includes("TRANSFER") && <Row label={t("Pickup point")}>{booking.transferPickup ?? t("Not given")}</Row>}
               {booking.bono && (
                 <Row label={t("Government bono")}>
                   {booking.bono.code} ·{" "}

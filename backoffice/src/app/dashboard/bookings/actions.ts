@@ -142,6 +142,7 @@ export async function quoteBookingForm(formData: FormData): Promise<QuoteState> 
       addOns: chosenAddOns(formData),
       ...(/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(bonoCode) && { bonoCode }),
       ...(typeof plannedStayDays === "number" && { plannedStayDays }),
+      ...(text(formData, "transferPickup") && { transferPickup: text(formData, "transferPickup").slice(0, 200) }),
     });
     return { quote };
   } catch (e) {
@@ -272,6 +273,8 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     ...(!bookingId && { status }),
     bonoCode: bonoCode || (bookingId ? "" : null),
     addOns: chosenAddOns(formData),
+    // Kept by the API only with the transfer add-on.
+    transferPickup: text(formData, "transferPickup").slice(0, 200) || null,
     // Only asked at the insurance check of a new booking.
     ...(plannedStayDays !== null && { plannedStayDays }),
   };

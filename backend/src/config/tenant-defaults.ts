@@ -45,6 +45,7 @@ export const DEFAULT_PRICE_LIST = {
   addOns: [
     [BookingAddOn.NIGHT_DIVE, 20],
     [BookingAddOn.PERSONAL_INSTRUCTOR, 100],
+    [BookingAddOn.TRANSFER, 15],
   ] as [BookingAddOn, number][],
   divePacks: [
     { diveCount: 5, price: 200 },

@@ -40,6 +40,10 @@ export interface CustomerFormValues {
   notes: string;
   medicalCertNumber: string;
   medicalCertExpiry: string;
+  medicalCertIssuedAt: string;
+  medicalCertValidDays: string;
+  insuranceIssuedAt: string;
+  insuranceValidDays: string;
   insuranceProvider: string;
   insurancePolicyNumber: string;
   insuranceExpiry: string;
@@ -212,8 +216,17 @@ export function CustomerForm({
             <input name="medicalCertNumber" maxLength={60} defaultValue={initial.medicalCertNumber} className={control} />
           </label>
           <label className={label}>
+            {t("Issue date")}
+            <input type="date" name="medicalCertIssuedAt" defaultValue={initial.medicalCertIssuedAt} className={control} />
+          </label>
+          <label className={label}>
+            {t("Valid for (days)")}
+            <input type="number" name="medicalCertValidDays" min={1} max={3660} step={1} placeholder="365" defaultValue={initial.medicalCertValidDays} className={control} />
+          </label>
+          <label className={label}>
             {t("Expiry date")}
             <input type="date" name="medicalCertExpiry" defaultValue={initial.medicalCertExpiry} className={control} />
+            <span className="mt-1 block text-xs font-normal text-zinc-500">{t("Used when there is no issue date and validity.")}</span>
           </label>
         </div>
       </section>
@@ -236,8 +249,17 @@ export function CustomerForm({
             <input name="insurancePolicyNumber" maxLength={60} defaultValue={initial.insurancePolicyNumber} className={control} />
           </label>
           <label className={label}>
+            {t("Issue date")}
+            <input type="date" name="insuranceIssuedAt" defaultValue={initial.insuranceIssuedAt} className={control} />
+          </label>
+          <label className={label}>
+            {t("Valid for (days)")}
+            <input type="number" name="insuranceValidDays" min={1} max={3660} step={1} placeholder="365" defaultValue={initial.insuranceValidDays} className={control} />
+          </label>
+          <label className={label}>
             {t("Expiry date")}
             <input type="date" name="insuranceExpiry" defaultValue={initial.insuranceExpiry} className={control} />
+            <span className="mt-1 block text-xs font-normal text-zinc-500">{t("Used when there is no issue date and validity.")}</span>
           </label>
           <label className={label}>
             {t("Waiver signed on")}

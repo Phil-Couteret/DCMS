@@ -147,7 +147,7 @@ describe('admin-only areas', () => {
 describe('dive packs and add-on prices', () => {
   it('start from the defaults, are saved with the price list, and kept when left out', async () => {
     const pricing = await ok('GET', '/settings/pricing', admin);
-    expect(pricing.addOns).toEqual({ nightDive: 20, personalInstructor: 100 });
+    expect(pricing.addOns).toEqual({ nightDive: 20, personalInstructor: 100, transfer: 15 });
     expect(pricing.divePacks).toEqual([
       { diveCount: 5, price: 200 },
       { diveCount: 10, price: 380 },
@@ -161,7 +161,8 @@ describe('dive packs and add-on prices', () => {
       addOns: { nightDive: 25, personalInstructor: 90 },
       divePacks: [{ diveCount: 10, price: 370 }, { diveCount: 3, price: 120 }],
     });
-    expect(saved.addOns).toEqual({ nightDive: 25, personalInstructor: 90 });
+    // The transfer, left out, keeps its price.
+    expect(saved.addOns).toEqual({ nightDive: 25, personalInstructor: 90, transfer: 15 });
     expect(saved.divePacks).toEqual([
       { diveCount: 3, price: 120 },
       { diveCount: 10, price: 370 },

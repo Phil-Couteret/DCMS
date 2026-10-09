@@ -351,6 +351,13 @@ model Customer {
   insurancePolicyNumber String?
   insuranceExpiry       DateTime?
   insuranceVerifiedAt   DateTime?
+  // Issue dates and how many days each is valid for: the expiry is the last
+  // day of that period (issue date + days − 1), used instead of the expiry
+  // field when both are set.
+  medicalCertIssuedAt   DateTime?
+  medicalCertValidDays  Int?
+  insuranceIssuedAt     DateTime?
+  insuranceValidDays    Int?
   // A signed liability waiver: accepted instead of dive insurance.
   waiverSignedAt        DateTime?
   // ownEquipment: brings a full set; the tank is always the center's.
@@ -495,6 +502,7 @@ model FunDiveTier {
 enum BookingAddOn {
   NIGHT_DIVE
   PERSONAL_INSTRUCTOR
+  TRANSFER
 }
 
 // The price of each add-on: the night dive surcharge (per diver) and the
@@ -745,6 +753,8 @@ model Booking {
   // How many days the customer said they are staying (asked at the
   // first-dive insurance check), to suggest the insurance that covers it.
   plannedStayDays  Int?
+  // Where the customer is picked up, with the TRANSFER add-on.
+  transferPickup   String?
   // Where the booking takes place. Set from its boat when not given
   // (trigger booking_location, migration add_location_to_resources).
   locationId       String?

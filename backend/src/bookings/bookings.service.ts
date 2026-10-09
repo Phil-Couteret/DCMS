@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
-import { ActivityType, BookingSource, BookingStatus, TimeSlot } from '../generated/prisma/enums.js';
+import { ActivityType, BookingAddOn, BookingSource, BookingStatus, TimeSlot } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usableBono } from '../bonos/bono-rules.js';
 import { accountForCustomer } from '../users/accounts.js';
@@ -88,7 +88,8 @@ export class BookingsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         await assertReferences(tx, dto);
-        const { bonoCode, ...fields } = dto;
+        const { bonoCode, transferPickup, ...rest } = dto;
+        const fields = { ...rest, transferPickup: dto.addOns?.includes(BookingAddOn.TRANSFER) ? transferPickup?.trim() || null : null };
         const bonoId = bonoCode ? (await usableBono(tx, bonoCode, date)).id : null;
         if (dto.boatId) {
           if (SEAT_HOLDING.includes(status)) {
@@ -136,7 +137,15 @@ export class BookingsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         await assertReferences(tx, dto);
-        const { bonoCode, ...fields } = dto;
+        const { bonoCode, transferPickup, ...rest } = dto;
+        // The pickup goes with the transfer: dropping it clears the pickup.
+        const keepsTransfer = (dto.addOns ?? current.addOns).includes(BookingAddOn.TRANSFER);
+        const fields = {
+          ...rest,
+          ...(!keepsTransfer
+            ? { transferPickup: null }
+            : transferPickup !== undefined && { transferPickup: transferPickup?.trim() || null }),
+        };
         const bonoId = await bonoChange(tx, current, bonoCode, date);
         const placement: Prisma.BookingUncheckedUpdateInput = { boatId, shoreTime, ...(await this.relock(current, dto)) };
         const onShoreTrip = current.trip?.isShore ?? false;

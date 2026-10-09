@@ -1108,6 +1108,15 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
                     />
                   </td>
                 </tr>
+                <tr>
+                  <td className={`${td} font-medium text-zinc-900`}>
+                    {t("Transfer")}
+                    <span className="block text-xs font-normal text-zinc-500">{t("Per booking: picking the customer up.")}</span>
+                  </td>
+                  <td className={td}>
+                    <PriceField currency={pricing.currency} name="addOn_transfer" value={pricing.addOns.transfer} label={t("Transfer fee")} />
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

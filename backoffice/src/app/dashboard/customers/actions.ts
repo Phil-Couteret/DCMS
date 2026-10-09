@@ -85,6 +85,21 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
   const totalDives = count(formData, "totalDives");
   const loyaltyPoints = count(formData, "loyaltyPoints");
   const medicalCertExpiry = text(formData, "medicalCertExpiry");
+  // Issue date and days valid (whole days, 1 to 3660); null when left empty.
+  const dates = {} as Record<"medicalCertIssuedAt" | "insuranceIssuedAt", string | null>;
+  const days = {} as Record<"medicalCertValidDays" | "insuranceValidDays", number | null>;
+  for (const [issued, valid, what] of [
+    ["medicalCertIssuedAt", "medicalCertValidDays", "medical certificate"],
+    ["insuranceIssuedAt", "insuranceValidDays", "insurance"],
+  ] as const) {
+    const issue = text(formData, issued);
+    if (issue && !ISO_DATE.test(issue)) return { error: t(`Enter a valid ${what} issue date`) };
+    const raw = text(formData, valid);
+    const n = Number(raw);
+    if (raw && !(/^\d{1,4}$/.test(raw) && n >= 1 && n <= 3660)) return { error: t(`The ${what} validity is a number of days, from 1 to 3660`) };
+    dates[issued] = issue || null;
+    days[valid] = raw ? n : null;
+  }
   const insuranceExpiry = text(formData, "insuranceExpiry");
   const waiverSignedAt = text(formData, "waiverSignedAt");
   const ownEquipment = formData.get("ownEquipment") === "on";
@@ -153,6 +168,8 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
     isApproved: formData.get("isApproved") === "on",
     medicalCertNumber: text(formData, "medicalCertNumber") || null,
     medicalCertExpiry: medicalCertExpiry || null,
+    ...dates,
+    ...days,
     insuranceProvider: text(formData, "insuranceProvider") || null,
     insurancePolicyNumber: text(formData, "insurancePolicyNumber") || null,
     insuranceExpiry: insuranceExpiry || null,

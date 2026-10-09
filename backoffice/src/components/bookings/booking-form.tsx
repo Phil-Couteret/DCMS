@@ -43,6 +43,7 @@ export interface BookingFormValues {
   bonoCode: string;
   bonoLocked: boolean; // its use is counted on the booking's invoice
   addOns: BookingAddOn[];
+  transferPickup: string;
 }
 
 const MAX_MATCHES = 8;
@@ -197,6 +198,7 @@ export function BookingForm({
   sites,
   partners,
   cancelHref,
+  transferPrice,
 }: {
   bookingId?: string;
   initial: BookingFormValues;
@@ -205,6 +207,7 @@ export function BookingForm({
   sites: (DiveSiteOption & { isShore?: boolean })[];
   partners: { id: string; name: string }[]; // active ones, plus the booking's own
   cancelHref: string;
+  transferPrice?: string; // the transfer fee, formatted
 }) {
   const t = useT();
   const [state, onSubmit, pending] = useFormAction<BookingFormState>(saveBooking, null);
@@ -213,6 +216,7 @@ export function BookingForm({
   // Boat or shore: discovery dives and Open Water courses default to shore.
   const [place, setPlace] = useState(initial.place);
   const [timeSlot, setTimeSlot] = useState<TimeSlot>(initial.timeSlot);
+  const [transfer, setTransfer] = useState(initial.addOns.includes("TRANSFER"));
   const shoreSites = sites.filter((s) => s.isShore);
   const shoreTimes = SHORE_START_TIMES[timeSlot];
   // A customer created by a submit whose booking then failed.
@@ -482,12 +486,34 @@ export function BookingForm({
             <div className="mt-1 flex flex-wrap gap-x-6 gap-y-2">
               {ADD_ONS.map((a) => (
                 <label key={a.key} className="flex items-center gap-2 text-sm text-zinc-800">
-                  <input type="checkbox" name="addOns" value={a.key} defaultChecked={initial.addOns.includes(a.key)} className="size-4" />
-                  {t(a.label)}
-                  <span className="text-xs text-zinc-500">({t(a.hint).toLowerCase()})</span>
+                  <input
+                    type="checkbox"
+                    name="addOns"
+                    value={a.key}
+                    defaultChecked={initial.addOns.includes(a.key)}
+                    onChange={a.key === "TRANSFER" ? (e) => setTransfer(e.target.checked) : undefined}
+                    className="size-4"
+                  />
+                  {t(a.question ?? a.label)}
+                  <span className="text-xs text-zinc-500">
+                    ({a.key === "TRANSFER" && transferPrice ? t("{price} per booking", { price: transferPrice }) : t(a.hint).toLowerCase()})
+                  </span>
                 </label>
               ))}
             </div>
+            {transfer && (
+              <label className={`${label} mt-3 sm:w-2/3`}>
+                {t("Pickup point")}
+                <input
+                  name="transferPickup"
+                  maxLength={200}
+                  defaultValue={initial.transferPickup}
+                  placeholder={t("e.g. Hotel Elba Castillo, reception")}
+                  className={control}
+                />
+                <span className="mt-1 block text-xs font-normal text-zinc-500">{t("Where the customer is picked up. Shown on the invoice.")}</span>
+              </label>
+            )}
           </fieldset>
           <label className={label}>
             {t("Government bono")}

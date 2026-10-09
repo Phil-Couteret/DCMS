@@ -85,16 +85,19 @@ export interface DivePack {
   price: number;
 }
 
-// Add-ons: the night dive surcharge is per diver, the personal instructor
-// fee per booking. The pricing API's keys are in ADD_ON_KEYS.
+// Add-ons: the night dive surcharge is per diver; the personal instructor
+// fee and the transfer (a pickup, as the original's transfer fee) per
+// booking. The pricing API's keys are in ADD_ON_KEYS.
 export const ADD_ON_NAMES: Record<BookingAddOn, string> = {
   [BookingAddOn.NIGHT_DIVE]: 'Night dive surcharge',
   [BookingAddOn.PERSONAL_INSTRUCTOR]: 'Personal instructor',
+  [BookingAddOn.TRANSFER]: 'Transfer',
 };
 
 export const ADD_ON_KEYS = {
   nightDive: BookingAddOn.NIGHT_DIVE,
   personalInstructor: BookingAddOn.PERSONAL_INSTRUCTOR,
+  transfer: BookingAddOn.TRANSFER,
 } as const satisfies Record<string, BookingAddOn>;
 
 export const PER_DIVER_ADD_ONS: BookingAddOn[] = [BookingAddOn.NIGHT_DIVE];

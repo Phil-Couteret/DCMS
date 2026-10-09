@@ -80,7 +80,13 @@ async function Expiry({ iso, today, soon }: { iso: string | null; today: string;
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       {formatBookingDate(iso)}
-      {day < today ? <Pill tone="red">{t("Expired")}</Pill> : day <= soon ? <Pill tone="amber">{t("Expires soon")}</Pill> : null}
+      {day < today ? (
+        <Pill tone="red">{t("Expired")}</Pill>
+      ) : day <= soon ? (
+        <Pill tone="amber">{t("Expires soon")}</Pill>
+      ) : (
+        <Pill tone="green">{t("Valid")}</Pill>
+      )}
     </span>
   );
 }
@@ -179,8 +185,21 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const declared = selfDeclaredCert(bookings);
   const today = centerNow(timeZone).isoDate;
   const soon = new Date(Date.parse(`${today}T00:00:00Z`) + EXPIRY_WARNING_DAYS * 86_400_000).toISOString().slice(0, 10);
-  const hasMedical = Boolean(customer.medicalCertNumber || customer.medicalCertExpiry);
-  const hasInsurance = Boolean(customer.insuranceProvider || customer.insurancePolicyNumber || customer.insuranceExpiry);
+  const hasMedical = Boolean(customer.medicalCertNumber || customer.medicalCertValidUntil || customer.medicalCertIssuedAt);
+  const hasInsurance = Boolean(
+    customer.insuranceProvider || customer.insurancePolicyNumber || customer.insuranceValidUntil || customer.insuranceIssuedAt,
+  );
+  // Issue date, validity and the expiry they give (or the expiry recorded).
+  const validityRows = (issuedAt: string | null, validDays: number | null, validUntil: string | null) => (
+    <>
+      <Row label={t("Issued")}>{issuedAt ? formatBookingDate(issuedAt) : <span className="text-zinc-500">{t("Not recorded")}</span>}</Row>
+      {validDays !== null && <Row label={t("Valid for")}>{t(validDays === 1 ? "1 day" : "{count} days", { count: validDays })}</Row>}
+      <Row label={t("Expires")}>
+        <Expiry iso={validUntil} today={today} soon={soon} />
+        {issuedAt && validDays !== null && <span className="block text-xs text-zinc-500">{t("Worked out from the issue date and validity.")}</span>}
+      </Row>
+    </>
+  );
   const idField = { customerId: customer.id };
 
   return (
@@ -405,9 +424,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                     <span className="text-zinc-500">{t("Not recorded")}</span>
                   )}
                 </Row>
-                <Row label={t("Expires")}>
-                  <Expiry iso={customer.medicalCertExpiry} today={today} soon={soon} />
-                </Row>
+                {validityRows(customer.medicalCertIssuedAt, customer.medicalCertValidDays, customer.medicalCertValidUntil)}
                 <Row label={t("Status")}>
                   <span className="flex flex-wrap items-start justify-between gap-2">
                     <Verified at={customer.medicalCertVerifiedAt} />
@@ -443,9 +460,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                     <span className="text-zinc-500">{t("Not recorded")}</span>
                   )}
                 </Row>
-                <Row label={t("Expires")}>
-                  <Expiry iso={customer.insuranceExpiry} today={today} soon={soon} />
-                </Row>
+                {validityRows(customer.insuranceIssuedAt, customer.insuranceValidDays, customer.insuranceValidUntil)}
                 <Row label={t("Status")}>
                   <span className="flex flex-wrap items-start justify-between gap-2">
                     <Verified at={customer.insuranceVerifiedAt} />

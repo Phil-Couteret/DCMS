@@ -86,6 +86,13 @@ export class CreateBookingDto {
   @IsEnum(BookingAddOn, { each: true })
   addOns?: BookingAddOn[];
 
+  // Where the customer is picked up, with the TRANSFER add-on; kept only
+  // while the booking has it. null clears it on update.
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  transferPickup?: string | null;
+
   // The days the customer says they are staying, asked at the first-dive
   // insurance check; suggests the insurance period on the Stays page.
   @IsOptional()

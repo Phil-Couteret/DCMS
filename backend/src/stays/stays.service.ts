@@ -43,6 +43,7 @@ import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
+import { insuranceValidUntil } from '../customers/validity.js';
 import { QuoteBookingDto } from './dto/quote-booking.dto.js';
 import { UpdateStayCostDto } from './dto/update-stay-cost.dto.js';
 
@@ -84,6 +85,7 @@ const BOOKING_SELECT = {
   shoreTime: true,
   locationId: true,
   plannedStayDays: true,
+  transferPickup: true,
   bonoId: true,
   bono: { select: { code: true, type: true, discountValue: true } },
   addOns: true,
@@ -101,6 +103,8 @@ const CUSTOMER_SELECT = {
   lastName: true,
   customerType: true,
   insuranceExpiry: true,
+  insuranceIssuedAt: true,
+  insuranceValidDays: true,
   waiverSignedAt: true,
   user: { select: { email: true } },
 } satisfies Prisma.CustomerSelect;
@@ -111,9 +115,11 @@ type StayCostRow = Prisma.StayCostGetPayload<object>;
 const money = (v: Decimal | number) => new D(v).toFixed(2);
 
 // How a customer is covered for diving until a day: dive insurance valid
-// that day, or a signed waiver. null: neither.
-function diveCover(customer: { insuranceExpiry: Date | null; waiverSignedAt: Date | null }, until: string) {
-  if (customer.insuranceExpiry && isoDay(customer.insuranceExpiry) >= until) return 'insured' as const;
+// that day (validity.ts), or a signed waiver. null: neither.
+type Insurable = Parameters<typeof insuranceValidUntil>[0] & { waiverSignedAt: Date | null };
+function diveCover(customer: Insurable, until: string) {
+  const valid = insuranceValidUntil(customer);
+  if (valid && isoDay(valid) >= until) return 'insured' as const;
   if (customer.waiverSignedAt) return 'waiver' as const;
   return null;
 }
@@ -137,7 +143,7 @@ function stayInsurance(
   const declared = Math.max(0, ...bookings.map((b) => b.plannedStayDays ?? 0)) || null;
   return {
     cover, // insured, waiver, added (an insurance cost in the stay), or null
-    insuranceExpiry: customer.insuranceExpiry ? isoDay(customer.insuranceExpiry) : null,
+    insuranceExpiry: insuranceValidUntil(customer) ? isoDay(insuranceValidUntil(customer)!) : null,
     waiverSignedAt: customer.waiverSignedAt ? isoDay(customer.waiverSignedAt) : null,
     offer:
       cover === null
@@ -509,6 +515,7 @@ export class StaysService {
       shoreTime: null,
       locationId: null,
       plannedStayDays: dto.plannedStayDays ?? null,
+      transferPickup: dto.transferPickup ?? null,
       bonoId: null,
       bono,
       addOns: dto.addOns ?? [],
@@ -525,7 +532,7 @@ export class StaysService {
     const last = addDays(isoDay(together[0].date), STAY_DAYS);
     const inStay = (stay?.row && draft.stayId === stay.row.id) || date <= last;
     const stayBookings = inStay ? together.filter((b) => b === draft || isoDay(b.date) <= last || (stay?.row && b.stayId === stay.row.id)) : [draft];
-    const fallback = { id: '', firstName: '', lastName: '', customerType: CustomerType.TOURIST, insuranceExpiry: null, waiverSignedAt: null, user: { email: '' } };
+    const fallback = { id: '', firstName: '', lastName: '', customerType: CustomerType.TOURIST, insuranceExpiry: null, insuranceIssuedAt: null, insuranceValidDays: null, waiverSignedAt: null, user: { email: '' } };
     const who = customer ?? fallback;
     const priced = priceStay(who, stayBookings, [], prices);
     const line = priced.lines.find((l) => l.booking === draft)!;
@@ -581,7 +588,7 @@ export class StaysService {
       stayChange: stayChange && !stayChange.equals(net) ? money(stayChange) : null,
       insurance: {
         check: insuranceCheck,
-        insuranceExpiry: customer?.insuranceExpiry ? isoDay(customer.insuranceExpiry) : null,
+        insuranceExpiry: customer && insuranceValidUntil(customer) ? isoDay(insuranceValidUntil(customer)!) : null,
         waiverSignedAt: customer?.waiverSignedAt ? isoDay(customer.waiverSignedAt) : null,
         // The insurance that covers the declared stay, to sell with it.
         suggestion: (() => {

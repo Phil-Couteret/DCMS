@@ -10,6 +10,8 @@ const customer = (customerType: CustomerType) => ({
   firstName: 'Ana',
   lastName: 'Diaz',
   insuranceExpiry: null,
+  insuranceIssuedAt: null,
+  insuranceValidDays: null,
   waiverSignedAt: null,
   customerType,
   user: { email: 'ana@example.com' },
@@ -32,6 +34,7 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     shoreTime: null,
     locationId: null,
     plannedStayDays: null,
+    transferPickup: null,
     pricePerDiver: null,
     equipmentPrice: null,
     addOnPrices: null,
@@ -248,7 +251,7 @@ describe('prices locked at booking time', () => {
     ...SEEDED_PRICES,
     activities: { ...SEEDED_PRICES.activities, SNORKELING: 30 },
     equipment: { ...SEEDED_PRICES.equipment, regulator: 14 },
-    addOns: { NIGHT_DIVE: 25, PERSONAL_INSTRUCTOR: 120 },
+    addOns: { NIGHT_DIVE: 25, PERSONAL_INSTRUCTOR: 120, TRANSFER: 15 },
     funDiveTiers: SEEDED_PRICES.funDiveTiers.map((t) => ({ ...t, tourist: t.tourist + 4 })),
   };
   const lockedAt = (prices: typeof DEC, extra: Record<string, unknown>) => ({

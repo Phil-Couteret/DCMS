@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookingForm } from "@/components/bookings/booking-form";
-import { ApiError, getBoats, getBooking, getCustomers, getDiveSites, getPartners } from "@/lib/api";
+import { ApiError, getBoats, getBooking, getCustomers, getDiveSites, getPartners, getPricing } from "@/lib/api";
 import { parseGuestNotes } from "@/lib/bookings";
+import { money } from "@/lib/billing";
 import { customerOption } from "@/lib/customers";
 import { getT } from "@/lib/i18n/server";
 
@@ -22,7 +23,13 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
-  const [customers, boats, sites, partners] = await Promise.all([getCustomers(), getBoats(), getDiveSites(), getPartners()]);
+  const [customers, boats, sites, partners, pricing] = await Promise.all([
+    getCustomers(),
+    getBoats(),
+    getDiveSites(),
+    getPartners(),
+    getPricing().catch(() => null),
+  ]);
   // The booking's own boat stays selectable even if it is no longer active.
   const boatOptions = boats.filter((b) => b.status === "active" || b.id === booking.boatId);
   const guest = parseGuestNotes(booking.notes);
@@ -55,6 +62,7 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
           bonoCode: booking.bono?.code ?? "",
           bonoLocked: booking.bonoUsed,
           addOns: booking.addOns,
+          transferPickup: booking.transferPickup ?? "",
           bookingSource: booking.bookingSource,
           partnerId: booking.partnerId ?? "",
           status: booking.status,
@@ -65,6 +73,7 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
         boats={boatOptions}
         sites={sites}
         partners={partners.filter((p) => p.isActive || p.id === booking.partnerId)}
+        transferPrice={pricing ? money(pricing.addOns.transfer, pricing.currency) : undefined}
         cancelHref={detailHref}
       />
     </main>

@@ -399,7 +399,12 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
     return { error: t("Two tiers start at the same number of dives") };
   }
 
-  const addOns = { nightDive: price(text(formData, "addOn_nightDive")), personalInstructor: price(text(formData, "addOn_personalInstructor")) };
+  const addOns = {
+    nightDive: price(text(formData, "addOn_nightDive")),
+    personalInstructor: price(text(formData, "addOn_personalInstructor")),
+    transfer: price(text(formData, "addOn_transfer")),
+  };
+  if (addOns.transfer == null) return { error: t("Transfer fee: enter a price such as 15") };
   if (addOns.nightDive == null) return { error: t("Night dive surcharge: enter a price such as 20") };
   if (addOns.personalInstructor == null) return { error: t("Personal instructor fee: enter a price such as 100") };
 
@@ -441,7 +446,7 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
       activities,
       equipment,
       funDiveTiers,
-      addOns: { nightDive: addOns.nightDive, personalInstructor: addOns.personalInstructor },
+      addOns: { nightDive: addOns.nightDive, personalInstructor: addOns.personalInstructor, transfer: addOns.transfer },
       divePacks: divePacks.sort((a, b) => a.diveCount - b.diveCount),
       insurance,
     });

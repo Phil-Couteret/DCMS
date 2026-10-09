@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BookingForm } from "@/components/bookings/booking-form";
-import { getBoats, getCustomers, getDiveSites, getPartners } from "@/lib/api";
+import { getBoats, getCustomers, getDiveSites, getPartners, getPricing } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
+import { money } from "@/lib/billing";
 import { customerOption } from "@/lib/customers";
 import { centerLocale } from "@/lib/center";
 import { getT } from "@/lib/i18n/server";
@@ -21,7 +22,13 @@ export default async function NewBookingPage({
   // ?customer=<id> preselects the customer, e.g. from their profile.
   const customer = typeof params.customer === "string" && UUID.test(params.customer) ? params.customer : "";
 
-  const [customers, boats, sites, partners] = await Promise.all([getCustomers(), getBoats(), getDiveSites(), getPartners()]);
+  const [customers, boats, sites, partners, pricing] = await Promise.all([
+    getCustomers(),
+    getBoats(),
+    getDiveSites(),
+    getPartners(),
+    getPricing().catch(() => null),
+  ]);
   const activeBoats = boats.filter((b) => b.status === "active");
 
   return (
@@ -54,6 +61,7 @@ export default async function NewBookingPage({
             bonoCode: "",
             bonoLocked: false,
             addOns: [],
+            transferPickup: "",
             bookingSource: "WALK_IN",
             partnerId: "",
             status: "CONFIRMED",
@@ -64,6 +72,7 @@ export default async function NewBookingPage({
           boats={activeBoats}
           sites={sites}
           partners={partners.filter((p) => p.isActive)}
+          transferPrice={pricing ? money(pricing.addOns.transfer, pricing.currency) : undefined}
           cancelHref="/dashboard/bookings"
         />
       )}

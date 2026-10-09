@@ -145,11 +145,13 @@ export class PricingService {
           ]
         : []),
       ...(dto.addOns
-        ? (Object.entries(ADD_ON_KEYS) as [keyof typeof ADD_ON_KEYS, BookingAddOn][]).map(([key, addOn]) =>
+        ? (Object.entries(ADD_ON_KEYS) as [keyof typeof ADD_ON_KEYS, BookingAddOn][])
+            .filter(([key]) => dto.addOns![key] !== undefined)
+            .map(([key, addOn]) =>
             this.prisma.addOnPrice.upsert({
               where: { tenantId_addOn: { tenantId, addOn } },
-              create: { addOn, price: dto.addOns![key] },
-              update: { price: dto.addOns![key] },
+              create: { addOn, price: dto.addOns![key]! },
+              update: { price: dto.addOns![key]! },
             }),
           )
         : []),

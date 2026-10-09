@@ -43,6 +43,7 @@ export interface Booking {
   bonoUsed: boolean; // the bono's discount is on the booking's invoice
   addOns: BookingAddOn[];
   plannedStayDays: number | null; // the stay length the customer declared at the insurance check
+  transferPickup: string | null; // where the TRANSFER add-on picks the customer up
 }
 
 export type Language = "EN" | "ES" | "DE" | "FR";
@@ -68,6 +69,14 @@ export interface Customer {
   medicalCertNumber: string | null;
   medicalCertExpiry: string | null;
   medicalCertVerifiedAt: string | null;
+  // Issue date and days valid: together they set the expiry, as
+  // medicalCertValidUntil / insuranceValidUntil (the expiry field otherwise).
+  medicalCertIssuedAt: string | null;
+  medicalCertValidDays: number | null;
+  medicalCertValidUntil: string | null;
+  insuranceIssuedAt: string | null;
+  insuranceValidDays: number | null;
+  insuranceValidUntil: string | null;
   insuranceProvider: string | null;
   insurancePolicyNumber: string | null;
   insuranceExpiry: string | null;
@@ -220,6 +229,7 @@ export interface BookingQuoteInput {
   addOns: BookingAddOn[];
   bonoCode?: string;
   plannedStayDays?: number;
+  transferPickup?: string;
 }
 
 export interface BookingQuote {
@@ -460,6 +470,7 @@ export interface BookingData {
   bonoCode: string | null; // a government bono's code; "" removes it
   addOns: BookingAddOn[];
   plannedStayDays?: number | null;
+  transferPickup?: string | null; // kept only with the TRANSFER add-on
 }
 
 export function createBooking(data: BookingData) {
@@ -609,6 +620,10 @@ export interface CustomerData {
   isApproved?: boolean;
   medicalCertNumber?: string | null;
   medicalCertExpiry?: string | null;
+  medicalCertIssuedAt?: string | null;
+  medicalCertValidDays?: number | null;
+  insuranceIssuedAt?: string | null;
+  insuranceValidDays?: number | null;
   medicalCertVerifiedAt?: string | null;
   insuranceProvider?: string | null;
   insurancePolicyNumber?: string | null;
@@ -1425,7 +1440,7 @@ export interface PriceList {
   activities: Record<ActivityPriceKey, number | null>; // null: no price, cannot be invoiced
   equipment: Record<EquipmentPriceKey, number>;
   funDiveTiers: FunDiveTier[]; // ascending, the first at 1
-  addOns: { nightDive: number; personalInstructor: number }; // per diver; per booking
+  addOns: { nightDive: number; personalInstructor: number; transfer: number }; // per diver; per booking; per booking
   divePacks: DivePack[]; // ascending diveCount
   insurance: InsuranceOption[]; // shortest first
 }
@@ -1446,7 +1461,7 @@ export interface DivePack {
   price: number; // per diver, for all the dives
 }
 
-export type BookingAddOn = "NIGHT_DIVE" | "PERSONAL_INSTRUCTOR";
+export type BookingAddOn = "NIGHT_DIVE" | "PERSONAL_INSTRUCTOR" | "TRANSFER";
 
 export interface Pricing extends PriceList {
   currency: string;

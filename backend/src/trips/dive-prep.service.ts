@@ -8,6 +8,7 @@ import {
   TimeSlot,
   TripStatus,
 } from '../generated/prisma/enums.js';
+import { insuranceValidUntil, medicalCertValidUntil, VALIDITY_SELECT } from '../customers/validity.js';
 import { tripAtLocation } from './location-filter.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SEAT_HOLDING, tripCapacity, tripIssues } from './trip-rules.js';
@@ -23,8 +24,7 @@ const PREP_CUSTOMER = {
     country: true,
     centerSkillLevel: true,
     isApproved: true,
-    medicalCertExpiry: true,
-    insuranceExpiry: true,
+    ...VALIDITY_SELECT,
     ownEquipment: true,
     tankSize: true,
     bcdSize: true,
@@ -352,8 +352,10 @@ function withWarnings(booking: PrepBooking, date: Date) {
   const c = booking.customer;
   const warnings: string[] = [];
   if (!c.isApproved) warnings.push('Not approved for booking');
-  if (c.medicalCertExpiry && c.medicalCertExpiry < date) warnings.push('Medical certificate expired');
-  if (c.insuranceExpiry && c.insuranceExpiry < date) warnings.push('Insurance expired');
+  const medical = medicalCertValidUntil(c);
+  const insurance = insuranceValidUntil(c);
+  if (medical && medical < date) warnings.push('Medical certificate expired');
+  if (insurance && insurance < date) warnings.push('Insurance expired');
   if (CERTIFIED_ACTIVITIES.includes(booking.activityType) && c.certifications.length === 0) {
     warnings.push('No certification recorded');
   }

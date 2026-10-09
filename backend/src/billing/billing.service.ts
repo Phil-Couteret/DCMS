@@ -174,6 +174,7 @@ export class BillingService {
         bonoId: true,
         bono: { select: { code: true, type: true, discountValue: true } },
         addOns: true,
+        transferPickup: true,
         pricePerDiver: true,
         equipmentPrice: true,
         addOnPrices: true,

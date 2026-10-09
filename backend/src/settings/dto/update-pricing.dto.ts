@@ -67,6 +67,8 @@ export class FunDiveTierDto {
 }
 
 export class AddOnPricesDto {
+  // Left out, the transfer price stays as it is.
+  @IsOptional() @Price() transfer?: number; // per booking
   @Price() nightDive: number; // per diver
   @Price() personalInstructor: number; // per booking
 }

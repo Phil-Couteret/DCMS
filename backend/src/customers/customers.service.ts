@@ -18,12 +18,22 @@ import { accountForCustomer, customerAccount } from '../users/accounts.js';
 import { deleteCustomerFolder } from './document-storage.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
+import { insuranceValidUntil, medicalCertValidUntil } from './validity.js';
 
-// Customers are returned with their account's email flattened in.
+// Customers are returned with their account's email flattened in, and how
+// long their medical certificate and insurance are valid (see validity.ts).
 const WITH_EMAIL = { user: { select: { email: true } } } satisfies Prisma.CustomerInclude;
 
-function withEmail<T extends { user: { email: string } }>({ user, ...customer }: T) {
-  return { ...customer, email: user.email };
+function withEmail<T extends { user: { email: string } } & Parameters<typeof medicalCertValidUntil>[0] & Parameters<typeof insuranceValidUntil>[0]>({
+  user,
+  ...customer
+}: T) {
+  return {
+    ...customer,
+    email: user.email,
+    medicalCertValidUntil: medicalCertValidUntil(customer),
+    insuranceValidUntil: insuranceValidUntil(customer),
+  };
 }
 
 type Tx = Prisma.TransactionClient;
@@ -297,6 +307,8 @@ const DATE_FIELDS = [
   'insuranceExpiry',
   'insuranceVerifiedAt',
   'waiverSignedAt',
+  'medicalCertIssuedAt',
+  'insuranceIssuedAt',
 ] as const;
 
 function toData(dto: Omit<UpdateCustomerDto, 'email'>): Prisma.CustomerUncheckedUpdateInput {
@@ -315,8 +327,8 @@ function toData(dto: Omit<UpdateCustomerDto, 'email'>): Prisma.CustomerUnchecked
 // A verification covers the details staff checked: when any of them changes,
 // it is cleared, unless the same request sets it.
 const VERIFIED_DETAILS = {
-  medicalCertVerifiedAt: ['medicalCertNumber', 'medicalCertExpiry'],
-  insuranceVerifiedAt: ['insuranceProvider', 'insurancePolicyNumber', 'insuranceExpiry'],
+  medicalCertVerifiedAt: ['medicalCertNumber', 'medicalCertExpiry', 'medicalCertIssuedAt', 'medicalCertValidDays'],
+  insuranceVerifiedAt: ['insuranceProvider', 'insurancePolicyNumber', 'insuranceExpiry', 'insuranceIssuedAt', 'insuranceValidDays'],
 } as const;
 
 type VerifiedDetail = (typeof VERIFIED_DETAILS)[keyof typeof VERIFIED_DETAILS][number];
@@ -327,9 +339,9 @@ const VERIFIED_DETAILS_SELECT = Object.fromEntries(
 
 function staleVerifications(
   dto: Omit<UpdateCustomerDto, 'email'>,
-  current: Record<VerifiedDetail, string | Date | null>,
+  current: Record<VerifiedDetail, string | number | Date | null>,
 ) {
-  const same = (a: string | null, b: string | Date | null) =>
+  const same = (a: string | number | null, b: string | number | Date | null) =>
     a === null ? b === null : b instanceof Date ? new Date(a).getTime() === b.getTime() : a === b;
   const cleared: Partial<Record<keyof typeof VERIFIED_DETAILS, null>> = {};
   for (const [verifiedAt, details] of Object.entries(VERIFIED_DETAILS) as [

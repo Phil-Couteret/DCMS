@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -105,6 +106,17 @@ export class CreateCustomerDto {
   @IsDateString()
   medicalCertVerifiedAt?: string | null;
 
+  // Issue date and days valid: together they set the expiry (validity.ts).
+  @IsOptional()
+  @IsDateString()
+  medicalCertIssuedAt?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(3660)
+  medicalCertValidDays?: number | null;
+
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -122,6 +134,16 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsDateString()
   insuranceVerifiedAt?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  insuranceIssuedAt?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(3660)
+  insuranceValidDays?: number | null;
 
   // When the customer signed the liability waiver, accepted instead of dive
   // insurance; null: not signed.

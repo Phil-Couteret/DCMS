@@ -23,14 +23,16 @@ type Decimal = Prisma.Decimal;
 // instructor once. Not discounted by a bono, and paid by the customer even
 // when a partner pays the activity.
 export function addOnLines(
-  booking: { addOns: BookingAddOn[]; participantCount: number },
+  booking: { addOns: BookingAddOn[]; participantCount: number; transferPickup?: string | null },
   prices: PriceList,
 ): InvoiceItemDto[] {
   return booking.addOns.map((addOn) => {
     const quantity = PER_DIVER_ADD_ONS.includes(addOn) ? booking.participantCount : 1;
     const unitPrice = prices.addOns[addOn];
+    // A transfer says where from, when known.
+    const pickup = addOn === 'TRANSFER' && booking.transferPickup ? ` (pickup: ${booking.transferPickup})` : '';
     return {
-      description: ADD_ON_NAMES[addOn],
+      description: ADD_ON_NAMES[addOn] + pickup,
       quantity,
       unitPrice,
       total: new D(unitPrice).times(quantity).toNumber(),
