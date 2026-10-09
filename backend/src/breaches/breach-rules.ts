@@ -14,6 +14,12 @@ export const DATA_TYPES = [
   'medical_data',
 ] as const;
 
+// Kinds of breach, as the original register had them.
+export const BREACH_TYPES = ['unauthorized_access', 'data_loss', 'data_disclosure', 'data_modification', 'other'] as const;
+
+// How the people affected were told of a breach.
+export const NOTIFY_METHODS = ['email', 'phone', 'letter', 'in_person', 'public_notice', 'other'] as const;
+
 export const STATUS_ORDER: BreachStatus[] = [
   BreachStatus.DETECTED,
   BreachStatus.ASSESSED,

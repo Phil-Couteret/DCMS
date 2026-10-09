@@ -8,15 +8,33 @@ import {
   createEquipment,
   deleteEquipment,
   getEquipmentItem,
+  importEquipment,
   updateEquipment,
+  type ImportResult,
   type EquipmentCondition,
   type EquipmentData,
   type EquipmentStatus,
 } from "@/lib/api";
 import { CONDITIONS, EQUIPMENT_STATUSES, MAINTENANCE_TYPES, STATUS_ACTIONS, STATUS_LABELS } from "@/lib/equipment";
+import { csvUpload } from "@/lib/csv-upload";
 import { getT } from "@/lib/i18n/server";
 
 export type FormState = { error?: string; ok?: boolean } | null;
+export type EquipmentImportState = { error?: string; result?: ImportResult } | null;
+
+// Rental equipment from a CSV file (Import CSV).
+export async function importEquipmentCsv(_prev: EquipmentImportState, formData: FormData): Promise<EquipmentImportState> {
+  const t = await getT();
+  const upload = csvUpload(formData);
+  if ("error" in upload) return { error: t(upload.error) };
+  try {
+    const result = await importEquipment(upload.form);
+    revalidatePath("/dashboard/equipment");
+    return { result };
+  } catch (e) {
+    return { error: message(e, t("The file could not be imported")) };
+  }
+}
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

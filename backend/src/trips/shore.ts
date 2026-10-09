@@ -7,7 +7,8 @@ import { SEAT_HOLDING } from './trip-rules.js';
 // Shore trips: discovery dives, courses and night dives from a beach,
 // harbour or pool, with no boat. As in the original system ("Mole" slots), a
 // shore session lasts an hour and one starts every 30 minutes, so the times
-// overlap: 09:30–10:30, 10:00–11:00, … in the morning.
+// overlap: 09:30–10:30, 10:00–11:00, … in the morning. 10:15 is one more
+// morning start, the usual time for shore discovery dives.
 
 type Tx = Prisma.TransactionClient;
 
@@ -25,7 +26,7 @@ function starts(from: string, last: string) {
 // The start times of each slot's shore sessions (the last one ends at
 // 13:00, 18:00 and 21:30).
 export const SHORE_START_TIMES: Record<TimeSlot, string[]> = {
-  [TimeSlot.MORNING]: starts('09:30', '12:00'),
+  [TimeSlot.MORNING]: [...starts('09:30', '12:00'), '10:15'].sort(),
   [TimeSlot.AFTERNOON]: starts('14:00', '17:00'),
   [TimeSlot.NIGHT]: starts('19:00', '20:30'),
 };

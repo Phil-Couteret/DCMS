@@ -1308,26 +1308,37 @@ enum BreachStatus {
 // the authority within 72 hours of detectedAt; one still DETECTED or ASSESSED
 // after that, and not reported, is overdue.
 model DataBreach {
-  id                  String         @id @default(uuid())
-  tenantId            String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
-  tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  title               String
-  detectedAt          DateTime
-  severity            BreachSeverity
-  status              BreachStatus   @default(DETECTED)
-  description         String         @db.Text
+  id                      String         @id @default(uuid())
+  tenantId                String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant                  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  title                   String
+  detectedAt              DateTime
+  severity                BreachSeverity
+  status                  BreachStatus   @default(DETECTED)
+  description             String         @db.Text
   // Array of data type keys, e.g. ["customer_data", "medical_data"].
-  affectedDataTypes   Json
-  estimatedAffected   Int?
-  reportedToAuthority Boolean        @default(false)
-  reportedAt          DateTime?
-  authorityReference  String?
-  resolutionDetails   String?        @db.Text
-  resolutionDate      DateTime?
-  createdById         String
-  createdBy           User           @relation(fields: [createdById], references: [id])
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  affectedDataTypes       Json
+  estimatedAffected       Int?
+  reportedToAuthority     Boolean        @default(false)
+  reportedAt              DateTime?
+  authorityReference      String?
+  resolutionDetails       String?        @db.Text
+  resolutionDate          DateTime?
+  // What kind of breach (unauthorized_access, data_loss…), when it happened
+  // (it may be found later), its cause and the measures taken.
+  breachType              String?
+  occurredAt              DateTime?
+  rootCause               String?        @db.Text
+  containmentMeasures     String?        @db.Text
+  mitigationMeasures      String?        @db.Text
+  // The people affected told of it (GDPR Art. 34): when and how.
+  customersNotified       Boolean        @default(false)
+  customersNotifiedAt     DateTime?
+  customersNotifiedMethod String?
+  createdById             String
+  createdBy               User           @relation(fields: [createdById], references: [id])
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
 
   @@index([status])
   @@index([detectedAt])

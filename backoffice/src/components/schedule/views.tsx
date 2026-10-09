@@ -8,7 +8,7 @@ import {
   TripStatusActions,
 } from "@/components/schedule/trip-forms";
 import { Button } from "@/components/ui/button";
-import type { Booking, Staff, TripDetail, TripListItem, TripStatus } from "@/lib/api";
+import type { BoatsNeededDay, Booking, Staff, TripDetail, TripListItem, TripStatus } from "@/lib/api";
 import { ACTIVITY_LABELS, STATUS_LABELS as BOOKING_STATUS_LABELS, parseGuestNotes } from "@/lib/bookings";
 import { equipmentSummary } from "@/lib/dive-prep";
 import type { T } from "@/lib/i18n/core";
@@ -87,16 +87,48 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   );
 }
 
+// A day's boat needs: "2 boats needed", in red with a warning when its boat
+// trips cannot seat every confirmed diver (not for days gone by). The title
+// gives each slot.
+async function BoatsNeededNote({ need, past = false, compact = false }: { need: BoatsNeededDay | undefined; past?: boolean; compact?: boolean }) {
+  const tr = await getT();
+  if (!need || need.boatsNeeded === 0) return null;
+  const boats = (n: number) => (n === 1 ? tr("1 boat needed") : tr("{count} boats needed", { count: n }));
+  const detail = need.slots
+    .map((s) =>
+      [
+        `${tr(SLOT_NAMES[s.timeSlot])}: ${s.divers === 1 ? tr("1 diver") : tr("{count} divers", { count: s.divers })}`,
+        boats(s.boatsNeeded),
+        s.trips === 0 ? tr("no boat trip planned yet") : tr("{count} seats on the trips planned", { count: s.tripSeats }),
+        ...(s.unseated > 0 ? [tr("{count} more than the fleet seats", { count: s.unseated })] : []),
+      ].join(" · "),
+    )
+    .join("\n");
+  const warn = need.short && !past;
+  const text = boats(need.boatsNeeded);
+  return (
+    <span
+      title={detail}
+      className={`relative block truncate ${compact ? "text-[0.65rem]" : "text-xs"} ${warn ? "font-semibold text-red-700" : "text-zinc-500"}`}
+    >
+      {warn ? `⚠ ${text}` : text}
+      {warn && <span className="sr-only"> · {tr("the trips planned cannot seat every confirmed diver")}</span>}
+    </span>
+  );
+}
+
 export async function MonthView({
   anchor,
   today,
   trips,
   href,
+  needs,
 }: {
   anchor: string;
   today: string;
   trips: TripListItem[];
   href: HrefFor;
+  needs?: Map<string, BoatsNeededDay>;
 }) {
   const tr = await getT();
   const { days, leadingBlanks } = monthDays(anchor);
@@ -133,6 +165,7 @@ export async function MonthView({
               <span className={`text-xs ${isToday ? "font-bold text-[#0096c7]" : "text-zinc-700"}`}>
                 {Number(day.slice(8))}
               </span>
+              <BoatsNeededNote need={needs?.get(day)} past={day < today} compact />
               {boatThenShore(dayTrips).map((t) => (
                 <Link
                   key={t.id}
@@ -194,11 +227,13 @@ export async function WeekView({
   today,
   trips,
   href,
+  needs,
 }: {
   days: string[];
   today: string;
   trips: TripListItem[];
   href: HrefFor;
+  needs?: Map<string, BoatsNeededDay>;
 }) {
   const tr = await getT();
   const byDay = tripsByDay(trips);
@@ -222,6 +257,9 @@ export async function WeekView({
             >
               {formatDayLabel(day, "weekday")}
             </Link>
+            <div className="text-center">
+              <BoatsNeededNote need={needs?.get(day)} past={day < today} />
+            </div>
             {dayTrips.length === 0 ? (
               <p className="py-4 text-center text-xs text-zinc-400">{tr("No trips")}</p>
             ) : (

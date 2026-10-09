@@ -62,3 +62,21 @@ export function tripIssues(trip: TripShape) {
   }
   return issues;
 }
+
+// Crew a boat takes out besides the divers: a captain and a guide.
+export const BOAT_CREW = 2;
+
+// How many boats it takes to seat so many divers, filling the largest boats
+// first, each with its crew aboard. More than the fleet can seat: one boat
+// per boat there is, plus the divers still without a seat.
+export function boatsNeeded(divers: number, capacities: number[]) {
+  if (divers <= 0) return { boats: 0, unseated: 0 };
+  let left = divers;
+  let boats = 0;
+  for (const capacity of [...capacities].sort((a, b) => b - a)) {
+    if (left <= 0) break;
+    boats += 1;
+    left -= Math.max(0, capacity - BOAT_CREW);
+  }
+  return { boats, unseated: Math.max(0, left) };
+}

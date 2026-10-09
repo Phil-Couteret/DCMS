@@ -102,7 +102,7 @@ describe('shore bookings', () => {
   it('need a shore site, a valid start time, and either a boat or a shore time', async () => {
     expect((await call('POST', '/bookings', shoreBooking())).data.message).toMatch(/no shore dive site/);
     shoreSiteId = (await ok('POST', '/dive-sites', site(`Harbour ${run}`, true))).id;
-    expect((await call('POST', '/bookings', shoreBooking({ shoreTime: '10:15' }))).data.message).toMatch(/starts at 09:30, 10:00/);
+    expect((await call('POST', '/bookings', shoreBooking({ shoreTime: '10:20' }))).data.message).toMatch(/starts at 09:30, 10:00, 10:15, 10:30/);
     expect((await call('POST', '/bookings', shoreBooking({ shoreTime: '15:00' }))).status).toBe(400); // an afternoon time
     expect((await call('POST', '/bookings', shoreBooking({ boatId }))).data.message).toMatch(/not both/);
     expect((await call('POST', '/bookings', shoreBooking({ shoreTime: undefined }))).status).toBe(400);

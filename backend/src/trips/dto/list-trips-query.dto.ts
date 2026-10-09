@@ -15,3 +15,15 @@ export class ListTripsQueryDto {
   @IsUUID()
   locationId?: string;
 }
+
+export class BoatsNeededQueryDto {
+  @IsDateString()
+  from: string;
+
+  @IsDateString()
+  to: string;
+
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
+}

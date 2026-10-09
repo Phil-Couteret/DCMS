@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { canMove, isOverdue, reportingDeadline, STATUS_ORDER } from './breach-rules.js';
 import { ChangeStatusDto } from './dto/change-status.dto.js';
 import { CreateBreachDto } from './dto/create-breach.dto.js';
+import { NotifyCustomersDto } from './dto/notify-customers.dto.js';
 import { UpdateBreachDto } from './dto/update-breach.dto.js';
 
 const SELECT = {
@@ -21,6 +22,14 @@ const SELECT = {
   authorityReference: true,
   resolutionDetails: true,
   resolutionDate: true,
+  breachType: true,
+  occurredAt: true,
+  rootCause: true,
+  containmentMeasures: true,
+  mitigationMeasures: true,
+  customersNotified: true,
+  customersNotifiedAt: true,
+  customersNotifiedMethod: true,
   createdAt: true,
   updatedAt: true,
   createdBy: { select: { id: true, name: true, email: true } },
@@ -47,6 +56,23 @@ const label = (status: BreachStatus) => status.charAt(0) + status.slice(1).toLow
 
 const trimmed = (v: string | null | undefined) => v?.trim() || null;
 
+// When the incident happened: not in the future, not after it was detected.
+function occurred(value: string, detectedAt: Date, now: Date) {
+  const at = instant(value, 'When it happened', null, now);
+  if (at > detectedAt) throw new BadRequestException('A breach cannot have happened after it was detected');
+  return at;
+}
+
+// The optional details, as given (null clears one).
+function details(dto: CreateBreachDto | UpdateBreachDto) {
+  return {
+    ...(dto.breachType !== undefined && { breachType: dto.breachType }),
+    ...(dto.rootCause !== undefined && { rootCause: trimmed(dto.rootCause) }),
+    ...(dto.containmentMeasures !== undefined && { containmentMeasures: trimmed(dto.containmentMeasures) }),
+    ...(dto.mitigationMeasures !== undefined && { mitigationMeasures: trimmed(dto.mitigationMeasures) }),
+  };
+}
+
 @Injectable()
 export class BreachesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -70,10 +96,13 @@ export class BreachesService {
 
   async create(dto: CreateBreachDto, createdById: string) {
     const now = new Date();
+    const detectedAt = instant(dto.detectedAt, 'The detection time', null, now);
     const row = await this.prisma.dataBreach.create({
       data: {
         title: dto.title.trim(),
-        detectedAt: instant(dto.detectedAt, 'The detection time', null, now),
+        detectedAt,
+        ...details(dto),
+        occurredAt: dto.occurredAt ? occurred(dto.occurredAt, detectedAt, now) : null,
         severity: dto.severity,
         description: dto.description.trim(),
         affectedDataTypes: dto.affectedDataTypes,
@@ -96,6 +125,20 @@ export class BreachesService {
     if (dto.estimatedAffected !== undefined) data.estimatedAffected = dto.estimatedAffected;
     const detectedAt = dto.detectedAt ? instant(dto.detectedAt, 'The detection time', null, now) : current.detectedAt;
     if (dto.detectedAt) data.detectedAt = detectedAt;
+    Object.assign(data, details(dto));
+    if (dto.occurredAt !== undefined) data.occurredAt = dto.occurredAt ? occurred(dto.occurredAt, detectedAt, now) : null;
+    else if (dto.detectedAt && current.occurredAt && current.occurredAt > detectedAt) {
+      throw new BadRequestException('A breach cannot have happened after it was detected');
+    }
+
+    const notifying = dto.customersNotifiedAt !== undefined || dto.customersNotifiedMethod !== undefined;
+    if (notifying && !current.customersNotified) {
+      throw new BadRequestException('Record the customer notification with Notify customers');
+    }
+    if (dto.customersNotifiedAt !== undefined) {
+      data.customersNotifiedAt = instant(dto.customersNotifiedAt, 'The notification date', detectedAt, now);
+    }
+    if (dto.customersNotifiedMethod !== undefined) data.customersNotifiedMethod = dto.customersNotifiedMethod;
 
     const reporting = dto.reportedAt !== undefined || dto.authorityReference !== undefined;
     if (reporting && !current.reportedToAuthority) {
@@ -122,7 +165,8 @@ export class BreachesService {
     if (dto.detectedAt) {
       const reportedAt = (data.reportedAt as Date | undefined) ?? current.reportedAt;
       const resolvedAt = (data.resolutionDate as Date | undefined) ?? current.resolutionDate;
-      if ((reportedAt && reportedAt < detectedAt) || (resolvedAt && resolvedAt < detectedAt)) {
+      const notifiedAt = (data.customersNotifiedAt as Date | undefined) ?? current.customersNotifiedAt;
+      if ((reportedAt && reportedAt < detectedAt) || (resolvedAt && resolvedAt < detectedAt) || (notifiedAt && notifiedAt < detectedAt)) {
         throw new BadRequestException('The detection time must come before the report and resolution dates');
       }
     }
@@ -166,6 +210,21 @@ export class BreachesService {
 
     // Guarded by the current status, so two moves at once cannot both apply.
     const { count } = await this.prisma.dataBreach.updateMany({ where: { id, status: current.status }, data });
+    if (count === 0) throw new ConflictException('The breach changed meanwhile; reload and try again');
+    return this.findOne(id);
+  }
+
+  // The people affected have been told (GDPR Art. 34): records when and how.
+  // Recorded once; corrections go through an edit.
+  async notifyCustomers(id: string, dto: NotifyCustomersDto) {
+    const now = new Date();
+    const current = await this.row(id);
+    if (current.customersNotified) throw new ConflictException('The customers have already been notified; edit the breach to correct it');
+    const notifiedAt = dto.notifiedAt ? instant(dto.notifiedAt, 'The notification date', current.detectedAt, now) : now;
+    const { count } = await this.prisma.dataBreach.updateMany({
+      where: { id, customersNotified: false },
+      data: { customersNotified: true, customersNotifiedAt: notifiedAt, customersNotifiedMethod: dto.method },
+    });
     if (count === 0) throw new ConflictException('The breach changed meanwhile; reload and try again');
     return this.findOne(id);
   }

@@ -490,6 +490,15 @@ export interface DashboardOverview {
     shoreTime: string | null;
   }[];
   revenue: { month: string; monthStart: string; trend: { date: string; amount: string }[] } | null;
+  // Admins only (null for others), cancellations and no-shows left out:
+  // bookings and divers per day over the last 30 days; this month's bookings
+  // valued at their own prices, before tax, by activity ("EXTRAS": equipment
+  // and add-ons); and the year's top 10 customers by dives.
+  bookingTrend: { date: string; bookings: number; divers: number }[] | null;
+  valueByActivity: { activityType: string; amount: string }[] | null;
+  valueMonthStart?: string;
+  topCustomers: { customer: { id: string; firstName: string; lastName: string; customerType: CustomerType }; dives: number; bookings: number; lastDate: string | null }[] | null;
+  topYear?: number;
 }
 
 export function getDashboardOverview(locationId?: string) {
@@ -1215,6 +1224,28 @@ export function linkBooking(tripId: string, bookingId: string, opts: { reassignB
     method: "POST",
     body: JSON.stringify(opts),
   });
+}
+
+// Boats needed per day for the confirmed boat divers, by slot, and whether
+// the boat trips planned can seat them (short).
+export interface BoatsNeededDay {
+  date: string;
+  boatsNeeded: number; // the most any slot needs
+  short: boolean; // some slot has more divers than its trips seat
+  slots: {
+    timeSlot: TimeSlot;
+    divers: number;
+    boatsNeeded: number;
+    unseated: number; // more divers than the whole fleet seats
+    trips: number;
+    tripSeats: number;
+    short: boolean;
+  }[];
+}
+
+export function getBoatsNeeded(from: string, to: string, locationId?: string) {
+  const params = new URLSearchParams({ from, to, ...(locationId && { locationId }) });
+  return apiFetch<BoatsNeededDay[]>(`/trips/boats-needed?${params}`);
 }
 
 // Clear all: every diver off the trip.
@@ -2020,6 +2051,14 @@ export interface DataBreach {
   authorityReference: string | null;
   resolutionDetails: string | null;
   resolutionDate: string | null;
+  breachType: string | null; // BREACH_TYPE_LABELS keys
+  occurredAt: string | null; // when it happened, if known (not after detectedAt)
+  rootCause: string | null;
+  containmentMeasures: string | null;
+  mitigationMeasures: string | null;
+  customersNotified: boolean; // the people affected have been told
+  customersNotifiedAt: string | null;
+  customersNotifiedMethod: string | null; // NOTIFY_METHOD_LABELS keys
   createdAt: string;
   updatedAt: string;
   createdBy: { id: string; name: string | null; email: string };
@@ -2034,14 +2073,22 @@ export interface BreachData {
   description: string;
   affectedDataTypes: string[];
   estimatedAffected: number | null;
+  breachType: string | null;
+  occurredAt: string | null; // ISO instant
+  rootCause: string | null;
+  containmentMeasures: string | null;
+  mitigationMeasures: string | null;
 }
 
-// Edits; the reporting fields once reported, the resolution fields once resolved.
+// Edits; the reporting fields once reported, the resolution fields once
+// resolved, the customer notification once recorded.
 export interface BreachUpdate extends BreachData {
   reportedAt?: string;
   authorityReference?: string | null;
   resolutionDetails?: string;
   resolutionDate?: string;
+  customersNotifiedAt?: string;
+  customersNotifiedMethod?: string;
 }
 
 export interface BreachStatusChange {
@@ -2066,6 +2113,14 @@ export function updateBreach(id: string, data: BreachUpdate) {
 
 export function changeBreachStatus(id: string, data: BreachStatusChange) {
   return apiFetch<DataBreach>(`/breaches/${id}/status`, { method: "POST", body: JSON.stringify(data) });
+}
+
+// The people affected have been told: how, and when (now when left out).
+export function notifyBreachCustomers(id: string, method: string, notifiedAt?: string) {
+  return apiFetch<DataBreach>(`/breaches/${id}/notify-customers`, {
+    method: "POST",
+    body: JSON.stringify({ method, ...(notifiedAt && { notifiedAt }) }),
+  });
 }
 
 export function deleteBreach(id: string) {
@@ -2176,6 +2231,11 @@ export function deleteTank(id: string) {
 // form: "file" (the CSV) and optionally "locationId".
 export function importTanks(form: FormData) {
   return apiFetch<ImportResult>("/tanks/import", { method: "POST", body: form });
+}
+
+// form: "file" (the CSV).
+export function importEquipment(form: FormData) {
+  return apiFetch<ImportResult>("/equipment/import", { method: "POST", body: form });
 }
 
 // form: "file" (the CSV).

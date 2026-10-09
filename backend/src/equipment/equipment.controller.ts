@@ -3,6 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  UploadedFile,
+  UseInterceptors,
   Param,
   ParseEnumPipe,
   ParseUUIDPipe,
@@ -11,7 +14,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
+import type { UploadedFileData } from '../common/csv.js';
 import { EquipmentStatus } from '../generated/prisma/enums.js';
 import { CreateEquipmentDto } from './dto/create-equipment.dto.js';
 import { CreateMaintenanceLogDto } from './dto/create-maintenance-log.dto.js';
@@ -32,6 +37,14 @@ export class EquipmentController {
     status?: EquipmentStatus,
   ) {
     return this.equipment.findAll({ type, size, status });
+  }
+
+  // multipart/form-data: "file", the CSV (at most 2 MB).
+  @Post('import')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2_000_000, files: 1 } }))
+  import(@UploadedFile() file: UploadedFileData | undefined) {
+    return this.equipment.import(file);
   }
 
   @Get(':id')

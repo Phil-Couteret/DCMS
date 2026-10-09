@@ -7,6 +7,7 @@ import {
   changeBreachStatus,
   createBreach,
   deleteBreach,
+  notifyBreachCustomers,
   updateBreach,
   type BreachData,
   type BreachSeverity,
@@ -14,7 +15,7 @@ import {
   type BreachStatusChange,
   type BreachUpdate,
 } from "@/lib/api";
-import { BREACH_SEVERITIES, BREACH_STATUSES, DATA_TYPE_LABELS } from "@/lib/breaches";
+import { BREACH_SEVERITIES, BREACH_STATUSES, BREACH_TYPE_LABELS, DATA_TYPE_LABELS, NOTIFY_METHOD_LABELS } from "@/lib/breaches";
 import { centerLocale } from "@/lib/center";
 import { centerLocalToUtc } from "@/lib/center-time";
 import type { T } from "@/lib/i18n/core";
@@ -58,7 +59,24 @@ function breachData(t: T, timeZone: string, formData: FormData): BreachData | st
     return t("People affected must be a whole number");
   }
   if (affectedDataTypes.some((d) => !(d in DATA_TYPE_LABELS))) return t("Choose data types from the list");
-  return { title, detectedAt, severity, description, affectedDataTypes, estimatedAffected };
+  const breachType = text(formData, "breachType") || null;
+  if (breachType && !(breachType in BREACH_TYPE_LABELS)) return t("Choose a type of breach from the list");
+  const occurredAt = instant(timeZone, formData, "occurredAt");
+  if (occurredAt === undefined) return t("Enter a valid date for when it happened");
+  if (occurredAt && occurredAt > detectedAt) return t("A breach cannot have happened after it was detected");
+  return {
+    title,
+    detectedAt,
+    severity,
+    description,
+    affectedDataTypes,
+    estimatedAffected,
+    breachType,
+    occurredAt,
+    rootCause: text(formData, "rootCause") || null,
+    containmentMeasures: text(formData, "containmentMeasures") || null,
+    mitigationMeasures: text(formData, "mitigationMeasures") || null,
+  };
 }
 
 export async function saveBreach(_prev: BreachFormState, formData: FormData): Promise<BreachFormState> {
@@ -86,6 +104,14 @@ export async function saveBreach(_prev: BreachFormState, formData: FormData): Pr
         if (!resolutionDetails) return { error: t("Describe how the breach was resolved") };
         update.resolutionDate = resolutionDate;
         update.resolutionDetails = resolutionDetails;
+      }
+      if (formData.has("customersNotifiedAt")) {
+        const notifiedAt = instant(timeZone, formData, "customersNotifiedAt");
+        if (!notifiedAt) return { error: t("Enter when the customers were notified") };
+        const method = text(formData, "customersNotifiedMethod");
+        if (!(method in NOTIFY_METHOD_LABELS)) return { error: t("Choose how the customers were notified") };
+        update.customersNotifiedAt = notifiedAt;
+        update.customersNotifiedMethod = method;
       }
       await updateBreach(id, update);
     } else {
@@ -122,6 +148,25 @@ export async function moveBreach(_prev: BreachFormState, formData: FormData): Pr
     await changeBreachStatus(id, change);
   } catch (e) {
     return fail(e, t("The status could not be changed"));
+  }
+  revalidatePath("/dashboard/breaches");
+  return { ok: true };
+}
+
+// The people affected have been told: records how, and when (now when left
+// empty).
+export async function notifyCustomersAction(_prev: BreachFormState, formData: FormData): Promise<BreachFormState> {
+  const t = await getT();
+  const id = text(formData, "breachId");
+  const method = text(formData, "method");
+  if (!(method in NOTIFY_METHOD_LABELS)) return { error: t("Choose how the customers were notified") };
+  const { timeZone } = await centerLocale();
+  const notifiedAt = instant(timeZone, formData, "notifiedAt");
+  if (notifiedAt === undefined) return { error: t("Enter a valid notification date") };
+  try {
+    await notifyBreachCustomers(id, method, notifiedAt ?? undefined);
+  } catch (e) {
+    return fail(e, t("The notification could not be recorded"));
   }
   revalidatePath("/dashboard/breaches");
   return { ok: true };

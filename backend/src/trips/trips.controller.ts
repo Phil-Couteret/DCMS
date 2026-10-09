@@ -14,7 +14,7 @@ import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
 import { CreateTripDto } from './dto/create-trip.dto.js';
 import { LinkBookingDto } from './dto/link-booking.dto.js';
-import { ListTripsQueryDto } from './dto/list-trips-query.dto.js';
+import { BoatsNeededQueryDto, ListTripsQueryDto } from './dto/list-trips-query.dto.js';
 import { UpdateTripDto } from './dto/update-trip.dto.js';
 import { TripsService } from './trips.service.js';
 
@@ -26,6 +26,13 @@ export class TripsController {
   @Get()
   findAll(@Query() query: ListTripsQueryDto) {
     return this.trips.findAll(query);
+  }
+
+  // Boats needed per day and slot for the confirmed boat divers, and
+  // whether the boat trips planned can seat them.
+  @Get('boats-needed')
+  boatsNeeded(@Query() query: BoatsNeededQueryDto) {
+    return this.trips.boatsNeeded(query);
   }
 
   @Get(':id')

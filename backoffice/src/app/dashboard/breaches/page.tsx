@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
-import { BreachForm, DeleteBreachButton, StatusActions } from "@/components/breaches/forms";
+import { BreachForm, DeleteBreachButton, NotifyCustomersForm, StatusActions } from "@/components/breaches/forms";
 import { RoutedDialog, RoutedSheet } from "@/components/routed-panel";
 import { Button } from "@/components/ui/button";
 import { getBreaches, type BreachStatus, type DataBreach } from "@/lib/api";
@@ -12,6 +12,8 @@ import {
   hoursLeft,
   SEVERITY_LABELS,
   SEVERITY_STYLES,
+  BREACH_TYPE_LABELS,
+  NOTIFY_METHOD_LABELS,
 } from "@/lib/breaches";
 import { centerDateTime } from "@/lib/center-time";
 import { centerLocale } from "@/lib/center";
@@ -106,6 +108,10 @@ async function Details({ breach, editHref }: { breach: DataBreach; editHref: str
         <Pill className={SEVERITY_STYLES[breach.severity]}>{t("{severity} severity", { severity: t(SEVERITY_LABELS[breach.severity]) })}</Pill>
       </div>
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label={t("Type of breach")}>
+          {breach.breachType ? t(BREACH_TYPE_LABELS[breach.breachType] ?? breach.breachType) : t("Not yet known")}
+        </Field>
+        <Field label={t("Happened")}>{breach.occurredAt ? centerDateTime(timeZone, breach.occurredAt) : t("Not yet known")}</Field>
         <Field label={t("Detected")}>{centerDateTime(timeZone, breach.detectedAt)}</Field>
         <Field label={t("Report deadline")}>
           <Deadline breach={breach} />
@@ -115,6 +121,22 @@ async function Details({ breach, editHref }: { breach: DataBreach; editHref: str
         <div className="sm:col-span-2">
           <Field label={t("Description")}>{breach.description}</Field>
         </div>
+        {(
+          [
+            ["rootCause", "Root cause"],
+            ["containmentMeasures", "Containment measures"],
+            ["mitigationMeasures", "Mitigation measures"],
+          ] as const
+        ).map(([key, title]) => (
+          <div key={key} className="sm:col-span-2">
+            <Field label={t(title)}>{breach[key] ?? <span className="text-zinc-500">{t("Not recorded")}</span>}</Field>
+          </div>
+        ))}
+        <Field label={t("Customers notified")}>
+          {breach.customersNotified && breach.customersNotifiedAt
+            ? `${centerDateTime(timeZone, breach.customersNotifiedAt)} · ${t(NOTIFY_METHOD_LABELS[breach.customersNotifiedMethod ?? ""] ?? breach.customersNotifiedMethod ?? "")}`
+            : t("No")}
+        </Field>
         <Field label={t("Reported to the authority")}>
           {breach.reportedToAuthority && breach.reportedAt ? centerDateTime(timeZone, breach.reportedAt) : t("No")}
         </Field>
@@ -137,6 +159,12 @@ async function Details({ breach, editHref }: { breach: DataBreach; editHref: str
         </Button>
         {breach.status === "DETECTED" && <DeleteBreachButton breach={breach} />}
       </div>
+      {!breach.customersNotified && (
+        <section className="space-y-3 border-t border-zinc-200 pt-4">
+          <h3 className="font-semibold text-zinc-900">{t("Notify customers")}</h3>
+          <NotifyCustomersForm breach={breach} />
+        </section>
+      )}
       {breach.status !== "RESOLVED" && (
         <section className="space-y-3 border-t border-zinc-200 pt-4">
           <h3 className="font-semibold text-zinc-900">{t("Move forward")}</h3>

@@ -2,7 +2,7 @@ import { centerLocale } from "@/lib/center";
 import { centerNow } from "@/lib/center-time";
 import Link from "next/link";
 import { ConditionBadge, EquipmentStatusBadge } from "@/components/equipment/badges";
-import { DeleteEquipmentButton, EquipmentForm } from "@/components/equipment/equipment-form";
+import { DeleteEquipmentButton, EquipmentForm, ImportEquipmentForm } from "@/components/equipment/equipment-form";
 import { EquipmentStatusActions } from "@/components/equipment/status-actions";
 import { RoutedDialog } from "@/components/routed-panel";
 import { TanksPanel } from "./tanks-panel";
@@ -113,17 +113,43 @@ export default async function EquipmentPage({
   // The banner covers the whole inventory, not only the filtered rows.
   const overdue = (all ?? []).filter((i) => isOverdue(i, today));
   const dueSoon = (all ?? []).filter((i) => isDueSoon(i, today));
-  const editing = open && open !== "new" ? all?.find((i) => i.id === open) : undefined;
+  const editing = open && open !== "new" && open !== "import" ? all?.find((i) => i.id === open) : undefined;
+  // The KPI cards count the inventory in service.
+  const inService = (all ?? []).filter((i) => i.status !== "DECOMMISSIONED");
 
   return (
     <main className="space-y-6 p-6 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900">{t("Equipment")}</h1>
-        <Button nativeButton={false} render={<Link href={withDialog("new")} prefetch={false} scroll={false} />}>
-          {t("New equipment")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" nativeButton={false} render={<Link href={withDialog("import")} prefetch={false} scroll={false} />}>
+            {t("Import CSV")}
+          </Button>
+          <Button nativeButton={false} render={<Link href={withDialog("new")} prefetch={false} scroll={false} />}>
+            {t("New equipment")}
+          </Button>
+        </div>
       </div>
       <EquipmentTabs current="equipment" />
+
+      {all && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {(
+            [
+              [t("Total items"), inService.length, t("Decommissioned items left out"), "text-zinc-900"],
+              [t("Available"), inService.filter((i) => i.status === "AVAILABLE").length, t("Ready to rent"), "text-green-700"],
+              [t("In maintenance"), inService.filter((i) => i.status === "MAINTENANCE").length, t("Out of service for now"), "text-amber-700"],
+              [t("Overdue maintenance"), overdue.length, t("Past their next maintenance date"), overdue.length > 0 ? "text-red-700" : "text-zinc-900"],
+            ] as const
+          ).map(([name, value, hint, tone]) => (
+            <div key={name} className="rounded-xl bg-white p-4 ring-1 ring-zinc-200">
+              <p className="text-xs font-medium text-zinc-500">{name}</p>
+              <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
+              <p className="mt-0.5 text-xs text-zinc-500">{hint}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {overdue.length > 0 && (
         <Alert className="border-amber-300 bg-amber-50 text-amber-900">
@@ -296,6 +322,11 @@ export default async function EquipmentPage({
             </TableBody>
           </Table>
         </div>
+      )}
+      {open === "import" && (
+        <RoutedDialog wide closeHref={listHref} title={t("Import equipment from CSV")}>
+          <ImportEquipmentForm closeHref={listHref} />
+        </RoutedDialog>
       )}
       {open && (open === "new" || editing) && (
         <RoutedDialog wide closeHref={listHref} title={editing ? t("Edit {name}", { name: `${t(typeLabel(editing.type))} · ${editing.brand}` }) : t("New equipment")}>

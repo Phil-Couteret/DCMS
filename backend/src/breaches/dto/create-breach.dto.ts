@@ -14,7 +14,7 @@ import {
   Min,
 } from 'class-validator';
 import { BreachSeverity } from '../../generated/prisma/enums.js';
-import { DATA_TYPES } from '../breach-rules.js';
+import { BREACH_TYPES, DATA_TYPES } from '../breach-rules.js';
 
 export class CreateBreachDto {
   @IsString()
@@ -46,4 +46,29 @@ export class CreateBreachDto {
   @Min(0)
   @Max(100_000_000)
   estimatedAffected?: number | null;
+
+  // The details below are optional; null clears one on update.
+  @IsOptional()
+  @IsIn(BREACH_TYPES)
+  breachType?: string | null;
+
+  // When the incident itself happened, if known: not after it was detected.
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  occurredAt?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
+  rootCause?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
+  containmentMeasures?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
+  mitigationMeasures?: string | null;
 }

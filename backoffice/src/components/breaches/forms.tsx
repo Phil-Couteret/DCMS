@@ -2,10 +2,18 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { moveBreach, removeBreach, saveBreach, type BreachFormState } from "@/app/dashboard/breaches/actions";
+import { moveBreach, notifyCustomersAction, removeBreach, saveBreach, type BreachFormState } from "@/app/dashboard/breaches/actions";
 import { Button } from "@/components/ui/button";
 import type { BreachStatus, DataBreach } from "@/lib/api";
-import { BREACH_SEVERITIES, BREACH_STATUS_LABELS, DATA_TYPE_LABELS, nextStatuses, SEVERITY_LABELS } from "@/lib/breaches";
+import {
+  BREACH_SEVERITIES,
+  BREACH_STATUS_LABELS,
+  BREACH_TYPE_LABELS,
+  DATA_TYPE_LABELS,
+  nextStatuses,
+  NOTIFY_METHOD_LABELS,
+  SEVERITY_LABELS,
+} from "@/lib/breaches";
 import { centerDateTimeInput } from "@/lib/center-time";
 import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
@@ -69,6 +77,29 @@ export function BreachForm({
           </select>
         </label>
       </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className={label}>
+          {t("Type of breach")}
+          <select name="breachType" defaultValue={breach?.breachType ?? ""} className={control}>
+            <option value="">{t("Not yet known")}</option>
+            {Object.entries(BREACH_TYPE_LABELS).map(([key, name]) => (
+              <option key={key} value={key}>
+                {t(name)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={label}>
+          {t("Happened at (center time)")}
+          <input
+            type="datetime-local"
+            name="occurredAt"
+            defaultValue={breach?.occurredAt ? centerDateTimeInput(timeZone, breach.occurredAt) : ""}
+            className={control}
+          />
+          <span className={hint}>{t("If known: it may have happened before it was detected.")}</span>
+        </label>
+      </div>
       <label className={label}>
         {t("Description")}
         <textarea
@@ -98,6 +129,19 @@ export function BreachForm({
           ))}
         </div>
       </fieldset>
+      {(
+        [
+          ["rootCause", "Root cause", "What made it possible."],
+          ["containmentMeasures", "Containment measures", "What was done to stop it."],
+          ["mitigationMeasures", "Mitigation measures", "What was done to limit the harm, and to prevent it happening again."],
+        ] as const
+      ).map(([name, title, help]) => (
+        <label key={name} className={label}>
+          {t(title)}
+          <textarea name={name} rows={2} maxLength={20000} defaultValue={breach?.[name] ?? ""} className={control} />
+          <span className={hint}>{t(help)}</span>
+        </label>
+      ))}
       <label className={`${label} sm:w-1/2`}>
         {t("People affected (estimate)")}
         <input
@@ -133,6 +177,34 @@ export function BreachForm({
                 defaultValue={breach.authorityReference ?? ""}
                 className={control}
               />
+            </label>
+          </div>
+        </fieldset>
+      )}
+
+      {breach?.customersNotified && (
+        <fieldset className="space-y-4 border-t border-zinc-200 pt-4">
+          <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Customer notification")}</legend>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className={label}>
+              {t("Notified at (center time)")}
+              <input
+                type="datetime-local"
+                name="customersNotifiedAt"
+                required
+                defaultValue={breach.customersNotifiedAt ? centerDateTimeInput(timeZone, breach.customersNotifiedAt) : ""}
+                className={control}
+              />
+            </label>
+            <label className={label}>
+              {t("How")}
+              <select name="customersNotifiedMethod" required defaultValue={breach.customersNotifiedMethod ?? "email"} className={control}>
+                {Object.entries(NOTIFY_METHOD_LABELS).map(([key, name]) => (
+                  <option key={key} value={key}>
+                    {t(name)}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
         </fieldset>
@@ -260,6 +332,44 @@ export function StatusActions({ breach }: { breach: DataBreach }) {
         <MoveForm key={`${breach.status}-${to}`} breach={breach} to={to} />
       ))}
     </div>
+  );
+}
+
+// Notify customers: records that the people affected have been told of the
+// breach (GDPR Art. 34), how, and when.
+export function NotifyCustomersForm({ breach }: { breach: DataBreach }) {
+  const t = useT();
+  const [state, onSubmit, pending] = useFormAction<BreachFormState>(notifyCustomersAction, null);
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg p-4 ring-1 ring-zinc-200">
+      <input type="hidden" name="breachId" value={breach.id} />
+      <p className="text-sm text-zinc-600">
+        {t("Required when the breach is likely to put people at high risk: tell them what happened and what to do.")}
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className={label}>
+          {t("How")}
+          <select name="method" defaultValue="email" className={control}>
+            {Object.entries(NOTIFY_METHOD_LABELS).map(([key, name]) => (
+              <option key={key} value={key}>
+                {t(name)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={label}>
+          {t("Notified at (center time)")}
+          <input type="datetime-local" name="notifiedAt" className={control} />
+          <span className={hint}>{t("Leave empty for now.")}</span>
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" size="sm" variant="outline" disabled={pending}>
+          {pending ? t("Saving…") : t("Notify customers")}
+        </Button>
+        <Status state={state} />
+      </div>
+    </form>
   );
 }
 

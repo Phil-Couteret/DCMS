@@ -5,6 +5,7 @@ import { DaySummary, DayView, MonthView, TripDetailBody, WeekView } from "@/comp
 import { Button } from "@/components/ui/button";
 import {
   getBoats,
+  getBoatsNeeded,
   getBookings,
   getDiveSites,
   getStaff,
@@ -99,7 +100,7 @@ export default async function SchedulePage({
   const closeHref = scheduleHref(base);
   const { from, to } = viewRange(view, anchor);
 
-  const [tripsResult, panelResult, formResult] = await Promise.allSettled([
+  const [tripsResult, panelResult, formResult, needsResult] = await Promise.allSettled([
     getTrips(from, to, location).then(async (trips) => ({
       trips,
       // The day view shows full detail, which the list does not carry.
@@ -107,7 +108,10 @@ export default async function SchedulePage({
     })),
     tripId ? loadTripPanel(tripId) : Promise.resolve(null),
     newTripDate ? Promise.all([getBoats(location), getDiveSites(location)]) : Promise.resolve(null),
+    // Boats needed per day (month and week views); left out if it fails.
+    view === "day" ? Promise.resolve([]) : getBoatsNeeded(from, to, location),
   ]);
+  const needs = new Map(needsResult.status === "fulfilled" ? needsResult.value.map((n) => [n.date, n]) : []);
 
   const dayTrips =
     day && view === "month" && tripsResult.status === "fulfilled"
@@ -167,13 +171,14 @@ export default async function SchedulePage({
           {tr("Trips could not be loaded: {error}", { error: errorMessage(tripsResult.reason, tr) })}
         </p>
       ) : view === "month" ? (
-        <MonthView anchor={anchor} today={today} trips={tripsResult.value.trips} href={href} />
+        <MonthView anchor={anchor} today={today} trips={tripsResult.value.trips} href={href} needs={needs} />
       ) : view === "week" ? (
         <WeekView
           days={Array.from({ length: 7 }, (_, i) => addDays(anchor, i))}
           today={today}
           trips={tripsResult.value.trips}
           href={href}
+          needs={needs}
         />
       ) : (
         <DayView trips={tripsResult.value.details} href={href} />

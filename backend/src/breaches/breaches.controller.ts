@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { BreachesService } from './breaches.service.js';
 import { ChangeStatusDto } from './dto/change-status.dto.js';
 import { CreateBreachDto } from './dto/create-breach.dto.js';
+import { NotifyCustomersDto } from './dto/notify-customers.dto.js';
 import { UpdateBreachDto } from './dto/update-breach.dto.js';
 
 // The GDPR data breach register. Admins only.
@@ -48,6 +49,12 @@ export class BreachesController {
   @HttpCode(200)
   changeStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ChangeStatusDto) {
     return this.breaches.changeStatus(id, dto);
+  }
+
+  @Post(':id/notify-customers')
+  @HttpCode(200)
+  notifyCustomers(@Param('id', ParseUUIDPipe) id: string, @Body() dto: NotifyCustomersDto) {
+    return this.breaches.notifyCustomers(id, dto);
   }
 
   @Delete(':id')

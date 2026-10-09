@@ -1,5 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
+import { NOTIFY_METHODS } from '../breach-rules.js';
 import { CreateBreachDto } from './create-breach.dto.js';
 
 // The status moves through POST /breaches/:id/status. The reporting fields
@@ -23,4 +24,13 @@ export class UpdateBreachDto extends PartialType(CreateBreachDto) {
   @IsOptional()
   @IsISO8601({ strict: true })
   resolutionDate?: string;
+
+  // Corrections to the customer notification, once recorded.
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  customersNotifiedAt?: string;
+
+  @IsOptional()
+  @IsIn(NOTIFY_METHODS)
+  customersNotifiedMethod?: string;
 }

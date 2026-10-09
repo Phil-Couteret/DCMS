@@ -4,16 +4,109 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { csvDate, csvRecords, type ImportResult, type UploadedFileData } from '../common/csv.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EquipmentStatus } from '../generated/prisma/enums.js';
+import { EquipmentCondition, EquipmentStatus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateEquipmentDto } from './dto/create-equipment.dto.js';
 import { CreateMaintenanceLogDto } from './dto/create-maintenance-log.dto.js';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto.js';
 
+// CSV import columns, each with the header names it is known by (compared
+// loosely: "Serial Number" = "serial_number" = "serialNumber").
+const COLUMNS = {
+  type: ['type'],
+  brand: ['brand', 'make'],
+  model: ['model'],
+  size: ['size'],
+  serialNumber: ['serialNumber', 'serial', 'serialNo'],
+  purchaseDate: ['purchaseDate', 'purchased', 'bought'],
+  purchaseCost: ['purchaseCost', 'cost', 'price'],
+  condition: ['condition'],
+};
+const REQUIRED = ['type', 'brand', 'purchaseDate', 'purchaseCost'] as const;
+const TEXT_MAX = 100;
+
+// "120", "120.50", "120,50" or "€ 1 200,50" → 1200.5; undefined when not an
+// amount of at most two decimals.
+function csvAmount(value: string) {
+  const text = value.replace(/[€\s]/g, '');
+  const normal = /^\d{1,8}([.,]\d{1,2})?$/.test(text) ? text.replace(',', '.') : undefined;
+  return normal === undefined ? undefined : Number(normal);
+}
+
 @Injectable()
 export class EquipmentService {
   constructor(private readonly prisma: PrismaService) {}
+
+  // Rental equipment from a CSV file: one item per row. Rows whose serial
+  // number is already on record are skipped; rows with a problem are listed
+  // with it. Every valid row is imported, or (on a clash) none.
+  async import(file: UploadedFileData | undefined): Promise<ImportResult> {
+    const { columns, records } = csvRecords(file);
+    for (const name of REQUIRED) {
+      if (!COLUMNS[name].some((a) => columns.has(a.toLowerCase()))) throw new BadRequestException(`The CSV file needs a ${name} column`);
+    }
+    const known = new Set(
+      (await this.prisma.equipment.findMany({ where: { serialNumber: { not: null } }, select: { serialNumber: true } })).map((e) =>
+        e.serialNumber!.toLowerCase(),
+      ),
+    );
+    const result: ImportResult = { imported: 0, skipped: [], errors: [] };
+    const rows: Prisma.EquipmentCreateManyInput[] = [];
+    for (const r of records) {
+      const problems: string[] = [];
+      const text = (name: keyof typeof COLUMNS, label: string) => {
+        const value = r.get(...COLUMNS[name]);
+        if (value && value.length > TEXT_MAX) problems.push(`${label} is over ${TEXT_MAX} characters`);
+        return value;
+      };
+      const type = text('type', 'type')?.toLowerCase();
+      const brand = text('brand', 'brand');
+      const model = text('model', 'model');
+      const size = text('size', 'size');
+      const serialNumber = text('serialNumber', 'serial number');
+      if (!type) problems.push('type is missing');
+      if (!brand) problems.push('brand is missing');
+      const dateText = r.get(...COLUMNS.purchaseDate);
+      const purchaseDate = dateText ? csvDate(dateText) : undefined;
+      if (!dateText) problems.push('purchase date is missing');
+      else if (!purchaseDate) problems.push(`purchase date "${dateText}" is not a date (DD/MM/YYYY or YYYY-MM-DD)`);
+      const costText = r.get(...COLUMNS.purchaseCost);
+      const purchaseCost = costText ? csvAmount(costText) : undefined;
+      if (!costText) problems.push('purchase cost is missing');
+      else if (purchaseCost === undefined) problems.push(`purchase cost "${costText}" is not an amount such as 120 or 120.50`);
+      const conditionText = r.get(...COLUMNS.condition)?.toUpperCase();
+      if (conditionText && !(conditionText in EquipmentCondition)) {
+        problems.push(`condition "${conditionText}" is not EXCELLENT, GOOD, FAIR or POOR`);
+      }
+      if (problems.length > 0) {
+        result.errors.push({ line: r.line, message: problems.join('; ') });
+        continue;
+      }
+      if (serialNumber && known.has(serialNumber.toLowerCase())) {
+        result.skipped.push({ line: r.line, reason: `serial number ${serialNumber} is already on record` });
+        continue;
+      }
+      if (serialNumber) known.add(serialNumber.toLowerCase());
+      rows.push({
+        type: type!,
+        brand: brand!,
+        model: model ?? null,
+        size: size ?? null,
+        serialNumber: serialNumber ?? null,
+        purchaseDate: new Date(purchaseDate!),
+        purchaseCost: purchaseCost!,
+        ...(conditionText && { condition: conditionText as EquipmentCondition }),
+      });
+    }
+    try {
+      result.imported = (await this.prisma.equipment.createMany({ data: rows })).count;
+    } catch (e) {
+      throw mapError(e);
+    }
+    return result;
+  }
 
   findAll(filters: { type?: string; size?: string; status?: EquipmentStatus } = {}) {
     return this.prisma.equipment.findMany({

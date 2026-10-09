@@ -17,7 +17,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
 import { assertShoreStart, lockShoreSlot, shoreSite } from './shore.js';
-import { ROLE_STAFF_TYPES, SEAT_HOLDING, tripCapacity, tripIssues } from './trip-rules.js';
+import { BOAT_CREW, boatsNeeded, ROLE_STAFF_TYPES, SEAT_HOLDING, tripCapacity, tripIssues } from './trip-rules.js';
 import { CreateTripDto } from './dto/create-trip.dto.js';
 import { UpdateTripDto } from './dto/update-trip.dto.js';
 
@@ -80,6 +80,73 @@ export class TripsService {
       include: LIST_INCLUDE,
       orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }, { isShore: 'asc' }, { startTime: 'asc' }, { createdAt: 'asc' }],
     });
+  }
+
+  // For each day and slot with boat divers: how many confirmed divers there
+  // are, how many boats that takes (the largest active boats first, each with
+  // its crew), and whether the boat trips planned have seats for them all.
+  // A trip's seats are its limit with a captain and a guide aboard, or its
+  // crew if larger.
+  async boatsNeeded(range: { from: string; to: string; locationId?: string }) {
+    const from = startOfUtcDay(range.from);
+    const to = startOfUtcDay(range.to);
+    if (from > to) throw new BadRequestException('from must not be after to');
+    if (to.getTime() - from.getTime() > 62 * 86_400_000) throw new BadRequestException('At most 62 days at a time');
+    const atLocation = range.locationId ? { locationId: range.locationId } : {};
+    const [bookings, boats, trips] = await Promise.all([
+      this.prisma.booking.groupBy({
+        by: ['date', 'timeSlot'],
+        where: { date: { gte: from, lte: to }, status: BookingStatus.CONFIRMED, boatId: { not: null }, ...atLocation },
+        _sum: { participantCount: true },
+      }),
+      this.prisma.boat.findMany({ where: { status: 'active', ...atLocation }, select: { capacity: true } }),
+      this.prisma.trip.findMany({
+        where: { date: { gte: from, lte: to }, isShore: false, status: { not: TripStatus.CANCELLED }, ...tripAtLocation(range.locationId) },
+        select: {
+          date: true,
+          timeSlot: true,
+          maxDivers: true,
+          boat: { select: { capacity: true } },
+          _count: { select: { staff: true } },
+        },
+      }),
+    ]);
+    const capacities = boats.map((b) => b.capacity);
+    const key = (date: Date, slot: TimeSlot) => `${date.toISOString().slice(0, 10)}|${slot}`;
+    const seats = new Map<string, { trips: number; seats: number }>();
+    for (const t of trips) {
+      const k = key(t.date, t.timeSlot);
+      const entry = seats.get(k) ?? { trips: 0, seats: 0 };
+      entry.trips += 1;
+      entry.seats += Math.max(0, Math.min(t.maxDivers, t.boat!.capacity - Math.max(BOAT_CREW, t._count.staff)));
+      seats.set(k, entry);
+    }
+    const days = new Map<string, { date: string; slots: { timeSlot: TimeSlot; divers: number; boatsNeeded: number; unseated: number; trips: number; tripSeats: number; short: boolean }[] }>();
+    for (const g of bookings) {
+      const divers = g._sum.participantCount ?? 0;
+      if (divers === 0) continue;
+      const date = g.date.toISOString().slice(0, 10);
+      const planned = seats.get(key(g.date, g.timeSlot)) ?? { trips: 0, seats: 0 };
+      const need = boatsNeeded(divers, capacities);
+      const day = days.get(date) ?? { date, slots: [] };
+      day.slots.push({
+        timeSlot: g.timeSlot,
+        divers,
+        boatsNeeded: need.boats,
+        unseated: need.unseated, // more divers than the fleet can seat
+        trips: planned.trips,
+        tripSeats: planned.seats,
+        short: divers > planned.seats,
+      });
+      days.set(date, day);
+    }
+    const order = Object.values(TimeSlot);
+    return [...days.values()]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((d) => {
+        const slots = d.slots.sort((a, b) => order.indexOf(a.timeSlot) - order.indexOf(b.timeSlot));
+        return { ...d, slots, boatsNeeded: Math.max(...slots.map((s) => s.boatsNeeded)), short: slots.some((s) => s.short) };
+      });
   }
 
   // With what still stops the trip from leaving, and its seats.

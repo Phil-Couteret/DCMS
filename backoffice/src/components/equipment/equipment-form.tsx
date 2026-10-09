@@ -2,12 +2,65 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { removeEquipment, saveEquipment, type FormState } from "@/app/dashboard/equipment/actions";
+import { importEquipmentCsv, removeEquipment, saveEquipment, type EquipmentImportState, type FormState } from "@/app/dashboard/equipment/actions";
+import { ImportResultView } from "@/components/import-result";
 import { Button } from "@/components/ui/button";
 import type { Equipment } from "@/lib/api";
 import { CONDITIONS, CONDITION_LABELS, EQUIPMENT_STATUSES, EQUIPMENT_TYPES, STATUS_LABELS, typeLabel } from "@/lib/equipment";
 import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
+
+// Import CSV: rental equipment, one item per row (tanks have their own).
+export function ImportEquipmentForm({ closeHref }: { closeHref: string }) {
+  const t = useT();
+  const [state, onSubmit, pending] = useFormAction<EquipmentImportState>(importEquipmentCsv, null);
+  if (state?.result) {
+    return (
+      <div className="space-y-4">
+        <ImportResultView result={state.result} noun={["item", "items"]} />
+        <Button nativeButton={false} render={<Link href={closeHref} prefetch={false} scroll={false} />}>
+          {t("Done")}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={onSubmit} className="space-y-4 text-sm">
+      <div className="space-y-2 text-zinc-700">
+        <p>
+          {t("A CSV file with a header row and these columns:")}{" "}
+          <span className="font-mono text-xs">type, brand, model, size, serialNumber, purchaseDate, purchaseCost, condition</span>
+        </p>
+        <ul className="list-disc space-y-1 pl-5 text-zinc-600">
+          <li>{t("Required: type, brand, purchaseDate and purchaseCost. The others can be left empty.")}</li>
+          <li>{t("Type: wetsuit, bcd, regulator, mask, fins, boots, weights, computer… Dates: DD/MM/YYYY or YYYY-MM-DD. Cost: 450 or 450.50, before tax.")}</li>
+          <li>{t("Condition: EXCELLENT (the default), GOOD, FAIR or POOR. New items are Available.")}</li>
+          <li>{t("Items whose serial number is already on record are skipped. Commas or semicolons between columns both work.")}</li>
+        </ul>
+        <a href="/templates/equipment-import.csv" download className="inline-block font-medium text-[#0077b6] underline">
+          {t("Download the template")}
+        </a>
+      </div>
+      <label className={label}>
+        {t("CSV file")}
+        <input type="file" name="file" required accept=".csv,text/csv" className={`${control} file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-2 file:py-1`} />
+      </label>
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? t("Importing…") : t("Import")}
+        </Button>
+        <Button variant="outline" nativeButton={false} render={<Link href={closeHref} prefetch={false} scroll={false} />}>
+          {t("Cancel")}
+        </Button>
+        {state?.error && (
+          <p role="alert" className="text-sm text-destructive">
+            {state.error}
+          </p>
+        )}
+      </div>
+    </form>
+  );
+}
 
 const label = "block text-sm font-medium text-zinc-700";
 const control =

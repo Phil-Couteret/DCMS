@@ -1,0 +1,4 @@
+type,brand,model,size,serialNumber,purchaseDate,purchaseCost,condition
+regulator,Apeks,XTX50,,REG-0101,15/03/2025,450.00,EXCELLENT
+bcd,Scubapro,Hydros Pro,M,BCD-2207,2024-06-01,399,GOOD
+wetsuit,Bare,Velocity 5mm,L,,2024-06-01,"189,50",FAIR

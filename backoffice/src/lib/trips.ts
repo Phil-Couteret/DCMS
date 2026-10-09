@@ -163,7 +163,8 @@ export function scheduleHref(q: ScheduleQuery) {
 }
 
 // Shore trips (beach, harbour, pool; no boat): an hour-long session starts
-// every 30 minutes, as the API's SHORE_START_TIMES.
+// every 30 minutes, as the API's SHORE_START_TIMES, plus 10:15 in the morning
+// (the usual time for shore discovery dives).
 function shoreStarts(from: string, last: string) {
   const out: string[] = [];
   const toMin = (v: string) => Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
@@ -174,7 +175,7 @@ function shoreStarts(from: string, last: string) {
 }
 
 export const SHORE_START_TIMES: Record<TimeSlot, string[]> = {
-  MORNING: shoreStarts("09:30", "12:00"),
+  MORNING: [...shoreStarts("09:30", "12:00"), "10:15"].sort(),
   AFTERNOON: shoreStarts("14:00", "17:00"),
   NIGHT: shoreStarts("19:00", "20:30"),
 };

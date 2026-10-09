@@ -45,6 +45,49 @@ const M = { top: 16, right: 84, bottom: 28, left: 64 };
 
 // Revenue per day over the period, with a crosshair readout.
 export function RevenueTrend({ points, currency }: { points: { date: string; amount: number }[]; currency: string }) {
+  const t = useT();
+  return (
+    <LineTrend
+      points={points}
+      format={(v, compact) => money(v, currency, compact)}
+      title={(from, to, latest) =>
+        t("Revenue per day, {from} to {to}; latest {amount}. Use the left and right arrow keys to read each day.", { from, to, amount: latest })
+      }
+      valueHeading={t("Revenue")}
+    />
+  );
+}
+
+// Bookings per day over the period: the same chart, counting.
+export function BookingTrend({ points }: { points: { date: string; bookings: number; divers: number }[] }) {
+  const t = useT();
+  return (
+    <LineTrend
+      points={points.map((p) => ({ date: p.date, amount: p.bookings, note: t(p.divers === 1 ? "1 diver" : "{count} divers", { count: p.divers }) }))}
+      format={(v) => new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 }).format(v)}
+      title={(from, to, latest) =>
+        t("Bookings per day, {from} to {to}; latest {count}. Use the left and right arrow keys to read each day.", { from, to, count: latest })
+      }
+      valueHeading={t("Bookings")}
+      noteHeading={t("Divers")}
+    />
+  );
+}
+
+// One series per day, with a crosshair readout and a table view.
+function LineTrend({
+  points,
+  format,
+  title,
+  valueHeading,
+  noteHeading,
+}: {
+  points: { date: string; amount: number; note?: string }[];
+  format: (value: number, compact?: boolean) => string;
+  title: (from: string, to: string, latest: string) => string;
+  valueHeading: string;
+  noteHeading?: string;
+}) {
   const [active, setActive] = useState<number | null>(null);
   const titleId = useId();
   const t = useT();
@@ -96,18 +139,12 @@ export function RevenueTrend({ points, currency }: { points: { date: string; amo
           onFocus={() => setActive((a) => a ?? last)}
           onBlur={() => setActive(null)}
         >
-          <title id={titleId}>
-            {t("Revenue per day, {from} to {to}; latest {amount}. Use the left and right arrow keys to read each day.", {
-              from: shortDate(points[0].date),
-              to: shortDate(points[last].date),
-              amount: money(points[last].amount, currency),
-            })}
-          </title>
+          <title id={titleId}>{title(shortDate(points[0].date), shortDate(points[last].date), format(points[last].amount))}</title>
           {geo.ticks.map((tick) => (
             <g key={tick}>
               <line x1={M.left} x2={W - M.right} y1={geo.y(tick)} y2={geo.y(tick)} stroke={GRID} strokeWidth={1} />
               <text x={M.left - 8} y={geo.y(tick)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill={INK_MUTED} className="tabular-nums">
-                {money(tick, currency, true)}
+                {format(tick, true)}
               </text>
             </g>
           ))}
@@ -121,7 +158,7 @@ export function RevenueTrend({ points, currency }: { points: { date: string; amo
           {/* The latest day: end dot (2px surface ring) and its value. */}
           <circle cx={geo.x(last)} cy={geo.y(points[last].amount)} r={5} fill={SERIES} stroke="#ffffff" strokeWidth={2} />
           <text x={geo.x(last) + 10} y={geo.y(points[last].amount)} dominantBaseline="middle" fontSize={12} fontWeight={600} fill="#18181b">
-            {money(points[last].amount, currency)}
+            {format(points[last].amount)}
           </text>
           {shown !== null && (
             <g pointerEvents="none">
@@ -152,9 +189,12 @@ export function RevenueTrend({ points, currency }: { points: { date: string; amo
           >
             <span className="flex items-center gap-1.5">
               <span aria-hidden="true" className="inline-block h-0.5 w-3 rounded" style={{ background: SERIES }} />
-              <span className="font-semibold tabular-nums text-zinc-900">{money(points[shown].amount, currency)}</span>
+              <span className="font-semibold tabular-nums text-zinc-900">{format(points[shown].amount)}</span>
             </span>
-            <span className="block text-xs text-zinc-500">{shortDate(points[shown].date)}</span>
+            <span className="block text-xs text-zinc-500">
+              {shortDate(points[shown].date)}
+              {points[shown].note ? ` · ${points[shown].note}` : ""}
+            </span>
           </div>
         )}
       </div>
@@ -165,14 +205,16 @@ export function RevenueTrend({ points, currency }: { points: { date: string; amo
             <thead className="sticky top-0 bg-zinc-50 text-left text-zinc-600">
               <tr>
                 <th className="px-3 py-1.5 font-medium">{t("Day")}</th>
-                <th className="px-3 py-1.5 text-right font-medium">{t("Revenue")}</th>
+                <th className="px-3 py-1.5 text-right font-medium">{valueHeading}</th>
+                {noteHeading && <th className="px-3 py-1.5 text-right font-medium">{noteHeading}</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {[...points].reverse().map((p) => (
                 <tr key={p.date}>
                   <td className="px-3 py-1.5">{shortDate(p.date)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{money(p.amount, currency)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{format(p.amount)}</td>
+                  {noteHeading && <td className="px-3 py-1.5 text-right tabular-nums text-zinc-500">{p.note}</td>}
                 </tr>
               ))}
             </tbody>
@@ -228,6 +270,49 @@ export function ActivityBars({ rows }: { rows: { label: string; count: number }[
                       ? t("booking · {share}% of all", { share })
                       : t("bookings · {share}% of all", { share })}
                   </span>
+                </span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// Amounts per category: one horizontal bar each, its amount at the tip.
+export function ValueBars({ rows, currency }: { rows: { label: string; amount: number }[]; currency: string }) {
+  const [hover, setHover] = useState<string | null>(null);
+  const t = useT();
+  const max = Math.max(1, ...rows.map((r) => r.amount));
+  const total = rows.reduce((n, r) => n + r.amount, 0);
+  return (
+    <ul className="space-y-2.5" aria-label={t("Booked value per activity")}>
+      {rows.map((r) => {
+        const share = total > 0 ? Math.round((r.amount / total) * 100) : 0;
+        return (
+          <li
+            key={r.label}
+            tabIndex={0}
+            className="grid grid-cols-[minmax(6rem,11rem)_1fr] items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-[#0077b6]/40"
+            aria-label={t("{activity}: {amount}, {share}%", { activity: r.label, amount: money(r.amount, currency), share })}
+            onPointerEnter={() => setHover(r.label)}
+            onPointerLeave={() => setHover(null)}
+            onFocus={() => setHover(r.label)}
+            onBlur={() => setHover(null)}
+          >
+            <span className="truncate text-sm text-zinc-700">{r.label}</span>
+            <span className="relative flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="block h-5 rounded-r transition-opacity"
+                style={{ width: `${Math.max(2, (r.amount / max) * 75)}%`, background: SERIES, opacity: hover && hover !== r.label ? 0.45 : 1 }}
+              />
+              <span className="text-sm font-medium whitespace-nowrap tabular-nums text-zinc-900">{money(r.amount, currency)}</span>
+              {hover === r.label && (
+                <span className="pointer-events-none absolute -top-8 left-0 z-10 whitespace-nowrap rounded-md bg-white px-2 py-1 text-xs shadow-md ring-1 ring-zinc-200">
+                  <span className="font-semibold text-zinc-900">{money(r.amount, currency)}</span>{" "}
+                  <span className="text-zinc-500">{t("{share}% of all", { share })}</span>
                 </span>
               )}
             </span>

@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import Link from "next/link";
 import { auth } from "@/auth";
-import { ActivityBars, RevenueTrend } from "@/components/dashboard/charts";
+import { ActivityBars, BookingTrend, RevenueTrend, ValueBars } from "@/components/dashboard/charts";
 import { CheckInButton } from "@/components/dashboard/check-in-button";
 import { StatusBadge as BookingStatusBadge } from "@/components/bookings/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -230,6 +230,86 @@ export default async function DashboardPage() {
                   points={overview.revenue.trend.map((p) => ({ date: p.date, amount: Number(p.amount) }))}
                   currency={overview.currency}
                 />
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
+
+      {overview?.bookingTrend && isAdmin && (
+        <section aria-labelledby="insights" className="space-y-3">
+          <h2 id="insights" className="text-lg font-semibold text-zinc-900">{t("Bookings and customers")}</h2>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Booking trends")}</CardTitle>
+              <CardDescription>{t("Bookings per day over the last 30 days, by the day they take place; cancellations and no-shows left out.")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BookingTrend points={overview.bookingTrend} />
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("Revenue by activity")}</CardTitle>
+                <CardDescription>
+                  {t("This month's bookings ({month}) at their own prices, before tax. Fun dives billed with a stay get its volume rate, so invoices can differ.", {
+                    month: format(new Date(`${overview.valueMonthStart}T00:00:00`), "MMMM yyyy"),
+                  })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(overview.valueByActivity ?? []).length === 0 ? (
+                  <p className="text-sm text-zinc-500">{t("No bookings this month yet.")}</p>
+                ) : (
+                  <ValueBars
+                    currency={overview.currency}
+                    rows={overview.valueByActivity!.map((r) => ({
+                      label: r.activityType === "EXTRAS" ? t("Equipment and add-ons") : activity(r.activityType),
+                      amount: Number(r.amount),
+                    }))}
+                  />
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("Top customers")}</CardTitle>
+                <CardDescription>{t("By dives in {year} (snorkeling, cancellations and no-shows left out).", { year: overview.topYear ?? "" })}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(overview.topCustomers ?? []).length === 0 ? (
+                  <p className="text-sm text-zinc-500">{t("No dives this year yet.")}</p>
+                ) : (
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-zinc-200 text-xs text-zinc-500">
+                      <tr>
+                        <th className="py-1.5 pr-2 font-medium">#</th>
+                        <th className="py-1.5 pr-2 font-medium">{t("Customer")}</th>
+                        <th className="py-1.5 pr-2 text-right font-medium">{t("Dives")}</th>
+                        <th className="py-1.5 pr-2 text-right font-medium">{t("Bookings")}</th>
+                        <th className="py-1.5 text-right font-medium">{t("Last dive")}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {overview.topCustomers!.map((c, i) => (
+                        <tr key={c.customer.id}>
+                          <td className="py-1.5 pr-2 tabular-nums text-zinc-500">{i + 1}</td>
+                          <td className="py-1.5 pr-2">
+                            <Link href={`/dashboard/customers/${c.customer.id}`} prefetch={false} className="font-medium text-zinc-900 hover:underline">
+                              {c.customer.firstName} {c.customer.lastName}
+                            </Link>
+                          </td>
+                          <td className="py-1.5 pr-2 text-right font-medium tabular-nums">{c.dives}</td>
+                          <td className="py-1.5 pr-2 text-right tabular-nums text-zinc-600">{c.bookings}</td>
+                          <td className="py-1.5 text-right whitespace-nowrap text-zinc-600">
+                            {c.lastDate ? format(new Date(`${c.lastDate}T00:00:00`), "d MMM") : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </CardContent>
             </Card>
           </div>

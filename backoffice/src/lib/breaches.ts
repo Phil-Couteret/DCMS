@@ -51,3 +51,22 @@ export function nextStatuses(status: BreachStatus) {
 export function hoursLeft(deadline: string, now = Date.now()) {
   return Math.floor((new Date(deadline).getTime() - now) / 3_600_000);
 }
+
+// Kinds of breach: the keys the API accepts, as the original register had them.
+export const BREACH_TYPE_LABELS: Record<string, string> = {
+  unauthorized_access: "Unauthorized access",
+  data_loss: "Data loss",
+  data_disclosure: "Data disclosure",
+  data_modification: "Data modification",
+  other: "Other",
+};
+
+// How the people affected were told.
+export const NOTIFY_METHOD_LABELS: Record<string, string> = {
+  email: "Email",
+  phone: "Phone",
+  letter: "Letter",
+  in_person: "In person",
+  public_notice: "Public notice",
+  other: "Other",
+};
