@@ -15,6 +15,7 @@ import {
   type TimeSlot,
   type TripRole,
 } from "@/lib/api";
+import { getT } from "@/lib/i18n/server";
 import { TRIP_ROLES, TRIP_SLOTS } from "@/lib/trips";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,46 +43,56 @@ function ids(formData: FormData, ...names: string[]) {
 
 // Puts a diver's booking on a trip, moving it to the trip's boat if needed.
 export async function assignDiver(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const found = ids(formData, "tripId", "bookingId");
-  if (!found) return { error: "Unknown trip or booking" };
+  if (!found) return { error: t("Unknown trip or booking") };
   try {
     await linkBooking(found[0], found[1], { reassignBoat: true });
   } catch (e) {
-    return fail(e, "The diver could not be added");
+    return fail(e, t("The diver could not be added"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function unassignDiver(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const found = ids(formData, "tripId", "bookingId");
-  if (!found) return { error: "Unknown trip or booking" };
+  if (!found) return { error: t("Unknown trip or booking") };
   try {
     await unlinkBooking(found[0], found[1]);
   } catch (e) {
-    return fail(e, "The diver could not be removed");
+    return fail(e, t("The diver could not be removed"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function autoAssign(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const date = field(formData, "date");
   const timeSlot = field(formData, "timeSlot") as TimeSlot;
-  if (!ISO_DATE.test(date) || !TRIP_SLOTS.includes(timeSlot)) return { error: "Unknown date or time slot" };
+  if (!ISO_DATE.test(date) || !TRIP_SLOTS.includes(timeSlot)) return { error: t("Unknown date or time slot") };
   let result;
   try {
     result = await autoAssignDivePrep(date, timeSlot, field(formData, "location") || undefined);
   } catch (e) {
-    return fail(e, "Auto-assign failed");
+    return fail(e, t("Auto-assign failed"));
   }
   refresh();
   const skipped = result.skipped.length;
   return {
     ok: true,
     message:
-      `${result.assigned} booking${result.assigned === 1 ? "" : "s"} assigned` +
-      (skipped > 0 ? `; ${skipped} not placed: ${result.skipped.map((s) => `${s.customer} (${s.reason})`).join(", ")}` : "."),
+      skipped > 0
+        ? t(result.assigned === 1 ? "1 booking assigned; {skipped} not placed: {list}" : "{count} bookings assigned; {skipped} not placed: {list}", {
+            count: result.assigned,
+            skipped,
+            list: result.skipped.map((s) => `${s.customer} (${s.reason})`).join(", "),
+          })
+        : result.assigned === 1
+          ? t("1 booking assigned.")
+          : t("{count} bookings assigned.", { count: result.assigned }),
   };
 }
 
@@ -89,55 +100,59 @@ export async function autoAssign(_prev: ActionState, formData: FormData): Promis
 // boat trip takes as many divers as the boat has seats; crew are counted
 // against the boat when divers are added.
 export async function addTrip(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const date = field(formData, "date");
   const timeSlot = field(formData, "timeSlot") as TimeSlot;
   const boatId = field(formData, "boatId");
   const capacity = Number(field(formData, "capacity") || 10);
-  if (!ISO_DATE.test(date) || !TRIP_SLOTS.includes(timeSlot)) return { error: "Unknown date or time slot" };
-  if (boatId && !UUID.test(boatId)) return { error: "Unknown boat" };
+  if (!ISO_DATE.test(date) || !TRIP_SLOTS.includes(timeSlot)) return { error: t("Unknown date or time slot") };
+  if (boatId && !UUID.test(boatId)) return { error: t("Unknown boat") };
   try {
     await createTrip({ date, timeSlot, maxDivers: capacity > 0 ? capacity : 10, ...(boatId && { boatId }) });
   } catch (e) {
-    return fail(e, "The trip could not be created");
+    return fail(e, t("The trip could not be created"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function addCrew(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const found = ids(formData, "tripId", "staffId");
   const role = field(formData, "role") as TripRole;
-  if (!found) return { error: "Choose a staff member" };
-  if (!TRIP_ROLES.includes(role)) return { error: "Choose a role" };
+  if (!found) return { error: t("Choose a staff member") };
+  if (!TRIP_ROLES.includes(role)) return { error: t("Choose a role") };
   try {
     await assignStaff(found[0], found[1], role);
   } catch (e) {
-    return fail(e, "The staff member could not be added");
+    return fail(e, t("The staff member could not be added"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function removeCrew(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const found = ids(formData, "tripId", "staffId");
-  if (!found) return { error: "Unknown trip or staff member" };
+  if (!found) return { error: t("Unknown trip or staff member") };
   try {
     await removeStaff(found[0], found[1]);
   } catch (e) {
-    return fail(e, "The staff member could not be removed");
+    return fail(e, t("The staff member could not be removed"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function setPlannedSite(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const tripId = field(formData, "tripId");
   const siteId = field(formData, "siteId");
-  if (!UUID.test(tripId) || (siteId && !UUID.test(siteId))) return { error: "Unknown trip or site" };
+  if (!UUID.test(tripId) || (siteId && !UUID.test(siteId))) return { error: t("Unknown trip or site") };
   try {
     await updateTrip(tripId, { plannedSiteId: siteId || null });
   } catch (e) {
-    return fail(e, "The site could not be saved");
+    return fail(e, t("The site could not be saved"));
   }
   refresh();
   return { ok: true };
@@ -145,20 +160,21 @@ export async function setPlannedSite(_prev: ActionState, formData: FormData): Pr
 
 // Saves the post-dive report; with complete, also closes an active trip.
 export async function saveReport(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await getT();
   const tripId = field(formData, "tripId");
   const actualSiteId = field(formData, "actualSiteId");
   const entryTime = field(formData, "entryTime");
   const exitTime = field(formData, "exitTime");
   const complete = field(formData, "intent") === "complete";
-  if (!UUID.test(tripId) || (actualSiteId && !UUID.test(actualSiteId))) return { error: "Unknown trip or site" };
+  if (!UUID.test(tripId) || (actualSiteId && !UUID.test(actualSiteId))) return { error: t("Unknown trip or site") };
   if ((entryTime && !TIME.test(entryTime)) || (exitTime && !TIME.test(exitTime))) {
-    return { error: "Enter times as HH:mm" };
+    return { error: t("Enter times as HH:mm") };
   }
-  if (entryTime && exitTime && exitTime <= entryTime) return { error: "The exit time must be after the entry time" };
+  if (entryTime && exitTime && exitTime <= entryTime) return { error: t("The exit time must be after the entry time") };
   try {
     if (complete) {
       const current = await getTrip(tripId);
-      if (current.status !== "ACTIVE") return { error: "Only an active trip can be completed; start it first" };
+      if (current.status !== "ACTIVE") return { error: t("Only an active trip can be completed; start it first") };
     }
     await updateTrip(tripId, {
       // Left out when completing without one, so the planned site is taken.
@@ -169,8 +185,8 @@ export async function saveReport(_prev: ActionState, formData: FormData): Promis
       ...(complete && { status: "COMPLETED" as const }),
     });
   } catch (e) {
-    return fail(e, "The report could not be saved");
+    return fail(e, t("The report could not be saved"));
   }
   refresh();
-  return { ok: true, message: complete ? "Dive completed." : "Report saved." };
+  return { ok: true, message: complete ? t("Dive completed.") : t("Report saved.") };
 }

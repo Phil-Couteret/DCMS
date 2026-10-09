@@ -4,6 +4,7 @@ import { useState } from "react";
 import { changePassword, type PasswordState } from "@/app/dashboard/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/lib/i18n/client";
 import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/settings";
 import { useFormAction } from "@/lib/use-form-action";
 
@@ -13,20 +14,21 @@ const label = "block text-sm font-medium text-zinc-700";
 
 function ChangePasswordForm({ onDone }: { onDone: () => void }) {
   const [state, onSubmit, pending] = useFormAction<PasswordState>(changePassword, null);
+  const t = useT();
   if (state?.ok) {
     return (
       <div className="space-y-4">
         <p role="status" className="text-sm text-green-700">
-          Your password has been changed. Use it the next time you sign in.
+          {t("Your password has been changed. Use it the next time you sign in.")}
         </p>
-        <Button onClick={onDone}>Done</Button>
+        <Button onClick={onDone}>{t("Done")}</Button>
       </div>
     );
   }
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <label className={label}>
-        Current password
+        {t("Current password")}
         <input
           type="password"
           name="currentPassword"
@@ -37,7 +39,7 @@ function ChangePasswordForm({ onDone }: { onDone: () => void }) {
         />
       </label>
       <label className={label}>
-        New password
+        {t("New password")}
         <input
           type="password"
           name="password"
@@ -47,10 +49,10 @@ function ChangePasswordForm({ onDone }: { onDone: () => void }) {
           autoComplete="new-password"
           className={control}
         />
-        <span className="mt-1 block text-xs font-normal text-zinc-500">At least {PASSWORD_MIN} characters.</span>
+        <span className="mt-1 block text-xs font-normal text-zinc-500">{t("At least {count} characters.", { count: PASSWORD_MIN })}</span>
       </label>
       <label className={label}>
-        Confirm new password
+        {t("Confirm new password")}
         <input
           type="password"
           name="confirmPassword"
@@ -63,10 +65,10 @@ function ChangePasswordForm({ onDone }: { onDone: () => void }) {
       </label>
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Change password"}
+          {pending ? t("Saving…") : t("Change password")}
         </Button>
         <Button type="button" variant="outline" onClick={onDone}>
-          Cancel
+          {t("Cancel")}
         </Button>
       </div>
       {state?.error && (
@@ -83,6 +85,7 @@ export function ChangePasswordButton() {
   const [open, setOpen] = useState(false);
   // A fresh form, without the last result, each time the dialog opens.
   const [attempt, setAttempt] = useState(0);
+  const t = useT();
   return (
     <>
       <Button
@@ -94,13 +97,13 @@ export function ChangePasswordButton() {
           setOpen(true);
         }}
       >
-        Change password
+        {t("Change password")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Change password</DialogTitle>
-            <DialogDescription>Enter your current password and a new one.</DialogDescription>
+            <DialogTitle>{t("Change password")}</DialogTitle>
+            <DialogDescription>{t("Enter your current password and a new one.")}</DialogDescription>
           </DialogHeader>
           <ChangePasswordForm key={attempt} onDone={() => setOpen(false)} />
         </DialogContent>

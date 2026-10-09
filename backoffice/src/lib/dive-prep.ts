@@ -1,5 +1,6 @@
 import type { ComplianceTrip, PrepBooking, StaffType, TimeSlot, TripRole } from "@/lib/api";
 import { CERT_LABELS } from "@/lib/customers";
+import { translator, type T } from "@/lib/i18n/core";
 import { SLOT_NAMES } from "@/lib/trips";
 
 export const PREP_TABS = [
@@ -33,24 +34,27 @@ export function prepHref(q: { tab?: PrepTab; date: string; slot?: TimeSlot; loca
   return `/dashboard/dive-prep?${params}`;
 }
 
+// Leaves the English text as it is (the compliance CSV stays in English).
+const english = translator("en");
+
 // What to put in the diver's crate: their tank, and the rental sizes unless
 // they bring their own set.
-export function equipmentSummary(c: PrepBooking["customer"]) {
-  const tank = `Tank ${c.tankSize ?? "12L"}`;
-  if (c.ownEquipment) return `Own equipment · ${tank}`;
+export function equipmentSummary(c: PrepBooking["customer"], t: T = english) {
+  const tank = t("Tank {size}", { size: c.tankSize ?? "12L" });
+  if (c.ownEquipment) return t("Own equipment · {tank}", { tank });
   const sizes = [
     ["BCD", c.bcdSize],
     ["Wetsuit", c.wetsuitSize],
     ["Fins", c.finsSize],
     ["Boots", c.bootsSize],
   ]
-    .map(([name, size]) => `${name} ${size ?? "?"}`)
+    .map(([name, size]) => `${t(name as string)} ${size ?? "?"}`)
     .join(", ");
-  return `Rental: ${sizes} · ${tank}`;
+  return t("Rental: {sizes} · {tank}", { sizes, tank });
 }
 
-export function certificationLabel(cert: { agency: string; level: string } | null) {
-  return cert ? `${cert.agency} ${CERT_LABELS[cert.level] ?? cert.level}` : "No certification";
+export function certificationLabel(cert: { agency: string; level: string } | null, t: T = english) {
+  return cert ? `${cert.agency} ${CERT_LABELS[cert.level] ? t(CERT_LABELS[cert.level]) : cert.level}` : t("No certification");
 }
 
 function csvCell(value: string | number | null | undefined) {

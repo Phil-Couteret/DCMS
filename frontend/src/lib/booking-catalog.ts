@@ -35,6 +35,8 @@ export interface Prices {
   currency: string;
   activities: Record<Activity['priceKey'] | 'dmCert', number | null>;
   equipment: Record<(typeof EQUIPMENT)[number]['priceKey'] | 'fullPackage', number>;
+  addOns: { nightDive: number; personalInstructor: number }; // per diver; per booking
+  divePacks: { diveCount: number; price: number }[]; // fun dives, per diver
 }
 
 export function activityPrice(prices: Prices, activity: Activity) {

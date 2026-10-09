@@ -39,6 +39,7 @@ export interface Booking {
   partner: { id: string; name: string } | null;
   bono: { id: string; code: string; type: BonoType; discountValue: string; description: string } | null;
   bonoUsed: boolean; // the bono's discount is on the booking's invoice
+  addOns: BookingAddOn[];
 }
 
 export type Language = "EN" | "ES" | "DE" | "FR";
@@ -370,6 +371,7 @@ export interface BookingData {
   notes: string | null;
   status?: BookingStatus; // create only; later changes go through the status actions
   bonoCode: string | null; // a government bono's code; "" removes it
+  addOns: BookingAddOn[];
 }
 
 export function createBooking(data: BookingData) {
@@ -1257,7 +1259,16 @@ export interface PriceList {
   activities: Record<ActivityPriceKey, number | null>; // null: no price, cannot be invoiced
   equipment: Record<EquipmentPriceKey, number>;
   funDiveTiers: FunDiveTier[]; // ascending, the first at 1
+  addOns: { nightDive: number; personalInstructor: number }; // per diver; per booking
+  divePacks: DivePack[]; // ascending diveCount
 }
+
+export interface DivePack {
+  diveCount: number;
+  price: number; // per diver, for all the dives
+}
+
+export type BookingAddOn = "NIGHT_DIVE" | "PERSONAL_INSTRUCTOR";
 
 export interface Pricing extends PriceList {
   currency: string;
@@ -1367,6 +1378,17 @@ export interface TaxDeclaration {
   sales: { count: number; base: string; tax: string; discount: string; total: string };
   purchases: { count: number; base: string; tax: string; total: string };
   net: string; // positive: to pay; negative: to offset
+  entries: TaxDeclarationEntry[]; // each sale and purchase, by date
+}
+
+export interface TaxDeclarationEntry {
+  date: string; // YYYY-MM-DD
+  kind: "SALE" | "PURCHASE";
+  description: string;
+  net: string; // before tax, after any discount
+  taxRate: string; // percent, as charged
+  tax: string;
+  total: string;
 }
 
 export interface ExpenseData {
@@ -1462,6 +1484,7 @@ export interface StayBooking {
   equipment: { description: string; total: string }[];
   total: string;
   bono: { code: string; discount: string } | null; // a government bono on the activity
+  addOns: { description: string; total: string }[];
 }
 
 export interface Stay {
@@ -1474,7 +1497,19 @@ export interface Stay {
   unpriced: string[];
   bookings: StayBooking[];
   costs: StayCost[];
-  totals: { bookings: string; costs: string; subtotal: string; discount: string; tax: string; total: string };
+  totals: StayTotals;
+  // The dive pack that matches the stay's own fun dives, and the stay's
+  // totals when billed with it; null when none matches.
+  pack: { diveCount: number; price: string; divers: number; total: string; totals: StayTotals } | null;
+}
+
+export interface StayTotals {
+  bookings: string;
+  costs: string;
+  subtotal: string;
+  discount: string;
+  tax: string;
+  total: string;
 }
 
 export interface StayCostData {
@@ -1502,9 +1537,11 @@ export function deleteStayCost(id: string) {
   return apiFetch<StayCost>(`/stays/costs/${id}`, { method: "DELETE" });
 }
 
-export function billStay(customerId: string) {
+// usePack: the customer's fun dives at the matching dive pack's price.
+export function billStay(customerId: string, usePack = false) {
   return apiFetch<{ stayId: string; invoiceId: string; invoiceNumber: string }>(`/stays/customer/${customerId}/bill`, {
     method: "POST",
+    body: JSON.stringify({ usePack }),
   });
 }
 

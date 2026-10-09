@@ -12,15 +12,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
+import { AdminAuthGuard } from '../auth/admin-auth.guard.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
 import { CreateIncomeDto } from './dto/create-income.dto.js';
 import { assertIsoDate, FinancialService } from './financial.service.js';
 
 type User = { email: string };
 
+// Admins only: takings, expenses, closing days and tax returns.
 @Controller('financial')
-@UseGuards(StaffAuthGuard)
+@UseGuards(AdminAuthGuard)
 export class FinancialController {
   constructor(private readonly financial: FinancialService) {}
 

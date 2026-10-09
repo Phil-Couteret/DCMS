@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { BillingService, equipmentLines, lockCustomerStays, type Tx } from '../billing/billing.service.js';
+import { addOnLines, BillingService, equipmentLines, lockCustomerStays, type Tx } from '../billing/billing.service.js';
 import { InvoiceItemDto } from '../billing/dto/invoice-item.dto.js';
 import { bonoDiscount, useBonos } from '../bonos/bono-rules.js';
 import { ACTIVITY_NAMES, billedUnits, stayDivePrice, withDives, type PriceList } from '../config/catalogue.js';
@@ -62,6 +62,7 @@ const BOOKING_SELECT = {
   boat: { select: { name: true } },
   bonoId: true,
   bono: { select: { code: true, type: true, discountValue: true } },
+  addOns: true,
 } satisfies Prisma.BookingSelect;
 
 type StayBookingRow = Prisma.BookingGetPayload<{ select: typeof BOOKING_SELECT }>;
@@ -85,17 +86,42 @@ function shortDay(d: Date) {
   return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(d);
 }
 
+// The dive pack a stay can be billed with: when the customer's own fun dives
+// (not partner-paid), per diver, come to exactly a pack's number of dives,
+// and every one of those bookings is for the same number of divers. The pack
+// price is per diver.
+export function packOffer(bookings: StayBookingRow[], prices: PriceList) {
+  const own = bookings.filter((b) => b.activityType === ActivityType.FUN_DIVE && !partnerPaid(b));
+  const divers = new Set(own.map((b) => b.participantCount));
+  if (own.length === 0 || divers.size !== 1) return null;
+  const dives = own.reduce((n, b) => n + b.numberOfDives, 0);
+  const pack = prices.divePacks.find((p) => p.diveCount === dives);
+  if (!pack) return null;
+  const count = [...divers][0];
+  return { diveCount: pack.diveCount, price: pack.price, divers: count, total: new D(pack.price).times(count), bookingIds: own.map((b) => b.id) };
+}
+
+function partnerPaid(b: StayBookingRow) {
+  return b.partnerId !== null || b.bookingSource === BookingSource.PARTNER;
+}
+
 // Prices one customer's stay: every fun dive at the stay rate for the number
 // of fun dives in it (the dives of each fun dive booking added up, per diver,
 // so a booking for two counts its dives once), other activities at catalogue
-// price, equipment as booked. Partner bookings count toward the volume, but
-// their activity is the partner's to pay.
+// price, equipment and add-ons as booked. Partner bookings count toward the
+// volume, but their activity is the partner's to pay. With usePack, the
+// customer's fun dives are billed at the pack price instead (packOffer), each
+// booking carrying its share of it.
 export function priceStay(
   customer: StayCustomer,
   bookings: StayBookingRow[],
   costs: StayCostRow[],
   prices: PriceList,
+  usePack = false,
 ) {
+  const pack = packOffer(bookings, prices);
+  if (usePack && !pack) throw new BadRequestException('No dive pack matches the fun dives in this stay');
+  const packShares = usePack && pack ? packShareByBooking(bookings, pack) : null;
   const totalDives = bookings
     .filter((b) => b.activityType === ActivityType.FUN_DIVE)
     .reduce((n, b) => n + b.numberOfDives, 0);
@@ -103,21 +129,51 @@ export function priceStay(
   const unpriced = new Set<string>();
 
   const lines = bookings.map((b) => {
-    const partner = b.partnerId !== null || b.bookingSource === BookingSource.PARTNER;
+    const partner = partnerPaid(b);
     const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : prices.activities[b.activityType];
-    if (unit === null && !partner) unpriced.add(ACTIVITY_NAMES[b.activityType]);
-    const activityTotal = partner || unit === null ? new D(0) : new D(unit).times(billedUnits(b));
+    const share = packShares?.get(b.id);
+    if (unit === null && !partner && share === undefined) unpriced.add(ACTIVITY_NAMES[b.activityType]);
+    const activityTotal =
+      share ?? (partner || unit === null ? new D(0) : new D(unit).times(billedUnits(b)));
     const equipment = equipmentLines(b.notes, prices);
-    const total = activityTotal.plus(sum(equipment.map((e) => e.total)));
+    const addOns = addOnLines(b, prices);
+    const total = activityTotal.plus(sum([...equipment, ...addOns].map((e) => new D(e.total))));
     // A government bono discounts this booking's activity (not a partner's).
     const bono = partner ? null : b.bono;
     const discount = bono ? bonoDiscount(bono, activityTotal) : new D(0);
-    return { booking: b, partner, unit, activityTotal, equipment, total, bono, discount };
+    return { booking: b, partner, unit, activityTotal, equipment, addOns, total, bono, discount, inPack: share !== undefined };
   });
   const bookingsTotal = sum(lines.map((l) => l.total));
   const costsTotal = sum(costs.map((c) => c.total));
   const discount = sum(lines.map((l) => l.discount));
-  return { totalDives, pricePerDive, lines, unpriced: [...unpriced], bookingsTotal, costsTotal, discount };
+  return {
+    totalDives,
+    pricePerDive,
+    lines,
+    unpriced: [...unpriced],
+    bookingsTotal,
+    costsTotal,
+    discount,
+    pack,
+    usedPack: usePack ? pack : null,
+  };
+}
+
+// Each pack booking's share of the pack price, by its dives (the last takes
+// the rounding), so the shares add up to the pack total exactly.
+function packShareByBooking(bookings: StayBookingRow[], pack: NonNullable<ReturnType<typeof packOffer>>) {
+  const own = bookings.filter((b) => pack.bookingIds.includes(b.id));
+  const shares = new Map<string, Decimal>();
+  let left = pack.total;
+  own.forEach((b, i) => {
+    const share =
+      i === own.length - 1
+        ? left
+        : pack.total.times(b.numberOfDives).dividedBy(pack.diveCount).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    shares.set(b.id, share);
+    left = left.minus(share);
+  });
+  return shares;
 }
 
 @Injectable()
@@ -204,12 +260,13 @@ export class StaysService {
 
   // Ends the stay: one invoice for its bookings and extra costs, after which
   // its bookings cannot be invoiced again. Cancelling that invoice reopens it.
-  async bill(customerId: string) {
+  // usePack: bill the customer's fun dives at the matching dive pack's price.
+  async bill(customerId: string, usePack = false) {
     return this.prisma.$transaction(async (tx) => {
       await lockCustomerStays(tx, customerId);
       const stay = await this.openStay(tx, customerId);
       if (!stay) throw new NotFoundException('This customer has no open stay');
-      const priced = priceStay(stay.customer, stay.bookings, stay.costs, await this.pricing.current());
+      const priced = priceStay(stay.customer, stay.bookings, stay.costs, await this.pricing.current(), usePack);
       if (priced.unpriced.length > 0) {
         throw new UnprocessableEntityException(
           `No price is set for ${priced.unpriced.join(', ')}; set it in Settings → Pricing`,
@@ -290,8 +347,20 @@ export class StaysService {
 
   private present(stay: Awaited<ReturnType<StaysService['openStays']>>[number], taxRate: Decimal, prices: PriceList) {
     const priced = priceStay(stay.customer, stay.bookings, stay.costs, prices);
-    const subtotal = priced.bookingsTotal.plus(priced.costsTotal);
-    const tax = subtotal.minus(priced.discount).times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    const totals = (p: ReturnType<typeof priceStay>) => {
+      const subtotal = p.bookingsTotal.plus(p.costsTotal);
+      const tax = subtotal.minus(p.discount).times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
+      return {
+        bookings: money(p.bookingsTotal),
+        costs: money(p.costsTotal),
+        subtotal: money(subtotal),
+        discount: money(p.discount),
+        tax: money(tax),
+        total: money(subtotal.minus(p.discount).plus(tax)),
+      };
+    };
+    // The same stay billed with the matching dive pack, to offer as an option.
+    const withPack = priced.pack && priceStay(stay.customer, stay.bookings, stay.costs, prices, true);
     const { user, ...customer } = stay.customer;
     return {
       stayId: stay.row?.id ?? null,
@@ -315,18 +384,22 @@ export class StaysService {
         unitPrice: l.unit === null ? null : money(l.unit),
         activityTotal: money(l.activityTotal),
         equipment: l.equipment.map((e) => ({ description: e.description, total: money(e.total) })),
+        addOns: l.addOns.map((e) => ({ description: e.description, total: money(e.total) })),
         total: money(l.total),
         bono: l.bono && { code: l.bono.code, discount: money(l.discount) },
       })),
       costs: stay.costs.map((c) => ({ ...c, unitPrice: money(c.unitPrice), total: money(c.total) })),
-      totals: {
-        bookings: money(priced.bookingsTotal),
-        costs: money(priced.costsTotal),
-        subtotal: money(subtotal),
-        discount: money(priced.discount),
-        tax: money(tax),
-        total: money(subtotal.minus(priced.discount).plus(tax)),
-      },
+      totals: totals(priced),
+      pack:
+        priced.pack && withPack
+          ? {
+              diveCount: priced.pack.diveCount,
+              price: money(priced.pack.price),
+              divers: priced.pack.divers,
+              total: money(priced.pack.total),
+              totals: totals(withPack),
+            }
+          : null,
     };
   }
 }
@@ -340,8 +413,26 @@ function costDescription(category: StayCostCategory, description: string | undef
 
 function invoiceItems(priced: ReturnType<typeof priceStay>, costs: StayCostRow[]): InvoiceItemDto[] {
   const items: InvoiceItemDto[] = [];
+  const pack = priced.usedPack;
+  if (pack) {
+    // One line for the pack, in place of the fun dives it covers.
+    const days = priced.lines.filter((l) => l.inPack).map((l) => l.booking.date);
+    const first = shortDay(days[0]);
+    const last = shortDay(days[days.length - 1]);
+    items.push({
+      description: `${pack.diveCount}-dive pack · ${first === last ? first : `${first} – ${last}`}`,
+      quantity: pack.divers,
+      unitPrice: pack.price,
+      total: pack.total.toNumber(),
+      type: 'activity',
+    });
+  }
   for (const l of priced.lines) {
     const when = `${shortDay(l.booking.date)} ${SLOT_NAMES[l.booking.timeSlot]}`;
+    if (l.inPack) {
+      for (const e of [...l.equipment, ...l.addOns]) items.push({ ...e, description: `${e.description} · ${when}` });
+      continue;
+    }
     const name = withDives(l.booking);
     const rate =
       l.booking.activityType === ActivityType.FUN_DIVE && !l.partner
@@ -355,7 +446,7 @@ function invoiceItems(priced: ReturnType<typeof priceStay>, costs: StayCostRow[]
       total: new D(unitPrice).times(billedUnits(l.booking)).toNumber(),
       type: 'activity',
     });
-    for (const e of l.equipment) items.push({ ...e, description: `${e.description} · ${when}` });
+    for (const e of [...l.equipment, ...l.addOns]) items.push({ ...e, description: `${e.description} · ${when}` });
   }
   for (const c of costs) {
     items.push({

@@ -22,6 +22,8 @@ import { money } from "@/lib/billing";
 import { centerLocale } from "@/lib/center";
 import { LOCATION_TYPE_LABELS, shortAddress } from "@/lib/locations";
 import { BOAT_STATUS_LABELS, SETTINGS_TABS, SITE_CERT_LEVELS, USER_ROLE_LABELS, type SettingsTab } from "@/lib/settings";
+import type { T } from "@/lib/i18n/core";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -40,10 +42,11 @@ function tabHref(tab: SettingsTab, extra: Record<string, string> = {}) {
   return `/dashboard/settings?${new URLSearchParams({ tab, ...extra })}`;
 }
 
-function LoadError({ what, reason }: { what: string; reason: unknown }) {
+// message: a translated text with a {reason} placeholder.
+function LoadError({ message, reason, t }: { message: string; reason: unknown; t: T }) {
   return (
     <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-      {what} could not be loaded: {reason instanceof Error ? reason.message : "unknown error"}
+      {message.replace("{reason}", reason instanceof Error ? reason.message : t("unknown error"))}
     </p>
   );
 }
@@ -64,56 +67,58 @@ function Panel({ title, description, action, children }: { title: string; descri
 }
 
 async function GeneralTab({ isAdmin }: { isAdmin: boolean }) {
+  const t = await getT();
   try {
     const settings = await getSettings();
     // Listed on the server so the form renders the same list it hydrates with.
     const timeZones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
     const currencies = Intl.supportedValuesOf("currency");
     return (
-      <Panel title="Center details" description="Name, contact details and how the center works.">
+      <Panel title={t("Center details")} description={t("Name, contact details and how the center works.")}>
         <GeneralForm settings={settings} isAdmin={isAdmin} timeZones={timeZones} currencies={currencies} />
       </Panel>
     );
   } catch (e) {
-    return <LoadError what="Settings" reason={e} />;
+    return <LoadError message={t("Settings could not be loaded: {reason}")} reason={e} t={t} />;
   }
 }
 
 async function BoatsTab({ open }: { open?: string }) {
+  const t = await getT();
   let boats;
   let locations: LocationRef[];
   try {
     [boats, locations] = await Promise.all([getBoats(), getLocations(true)]);
   } catch (e) {
-    return <LoadError what="Boats" reason={e} />;
+    return <LoadError message={t("Boats could not be loaded: {reason}")} reason={e} t={t} />;
   }
   const editing = open && open !== "new" ? boats.find((b) => b.id === open) : undefined;
   const closeHref = tabHref("boats");
   return (
     <Panel
-      title="Boats"
-      description="A boat with bookings or trips cannot be deleted; set it to inactive instead."
+      title={t("Boats")}
+      description={t("A boat with bookings or trips cannot be deleted; set it to inactive instead.")}
       action={
         <Button nativeButton={false} render={<Link href={tabHref("boats", { boat: "new" })} prefetch={false} scroll={false} />}>
-          Add boat
+          {t("Add boat")}
         </Button>
       }
     >
       {boats.length === 0 ? (
-        <p className="text-sm text-zinc-500">No boats yet.</p>
+        <p className="text-sm text-zinc-500">{t("No boats yet.")}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Registration</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead className="text-right">Capacity</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Insurance expiry</TableHead>
-                <TableHead>Next service</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("Name")}</TableHead>
+                <TableHead>{t("Registration")}</TableHead>
+                <TableHead>{t("Location")}</TableHead>
+                <TableHead className="text-right">{t("Capacity")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead>{t("Insurance expiry")}</TableHead>
+                <TableHead>{t("Next service")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -125,7 +130,7 @@ async function BoatsTab({ open }: { open?: string }) {
                     <LocationSelect kind="boat" id={b.id} name={b.name} current={b.location} locations={locations} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{b.capacity}</TableCell>
-                  <TableCell>{BOAT_STATUS_LABELS[b.status] ?? b.status}</TableCell>
+                  <TableCell>{BOAT_STATUS_LABELS[b.status] ? t(BOAT_STATUS_LABELS[b.status]) : b.status}</TableCell>
                   <TableCell>{b.insuranceExpiry ? formatBookingDate(b.insuranceExpiry) : "—"}</TableCell>
                   <TableCell>{b.nextServiceDate ? formatBookingDate(b.nextServiceDate) : "—"}</TableCell>
                   <TableCell>
@@ -136,7 +141,7 @@ async function BoatsTab({ open }: { open?: string }) {
                         nativeButton={false}
                         render={<Link href={tabHref("boats", { boat: b.id })} prefetch={false} scroll={false} />}
                       >
-                        Edit
+                        {t("Edit")}
                       </Button>
                       <DeleteButton kind="boat" id={b.id} name={b.name} />
                     </div>
@@ -148,7 +153,7 @@ async function BoatsTab({ open }: { open?: string }) {
         </div>
       )}
       {open && (open === "new" || editing) && (
-        <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit ${editing.name}` : "Add boat"}>
+        <RoutedDialog wide closeHref={closeHref} title={editing ? t("Edit {name}", { name: editing.name }) : t("Add boat")}>
           <BoatForm boat={editing ?? null} cancelHref={closeHref} locations={locations} />
         </RoutedDialog>
       )}
@@ -157,40 +162,41 @@ async function BoatsTab({ open }: { open?: string }) {
 }
 
 async function SitesTab({ open }: { open?: string }) {
+  const t = await getT();
   let sites;
   let locations: LocationRef[];
   try {
     [sites, locations] = await Promise.all([getDiveSites(), getLocations(true)]);
   } catch (e) {
-    return <LoadError what="Dive sites" reason={e} />;
+    return <LoadError message={t("Dive sites could not be loaded: {reason}")} reason={e} t={t} />;
   }
   const editing = open && open !== "new" ? sites.find((s) => s.id === open) : undefined;
   const closeHref = tabHref("sites");
   return (
     <Panel
-      title="Dive sites"
-      description="Shown on the public site. A site with dive logs cannot be deleted."
+      title={t("Dive sites")}
+      description={t("Shown on the public site. A site with dive logs cannot be deleted.")}
       action={
         <Button nativeButton={false} render={<Link href={tabHref("sites", { site: "new" })} prefetch={false} scroll={false} />}>
-          Add dive site
+          {t("Add dive site")}
         </Button>
       }
     >
       {sites.length === 0 ? (
-        <p className="text-sm text-zinc-500">No dive sites yet.</p>
+        <p className="text-sm text-zinc-500">{t("No dive sites yet.")}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Depth</TableHead>
-                <TableHead>Certification</TableHead>
-                <TableHead>Difficulty</TableHead>
-                <TableHead className="text-right">Travel</TableHead>
-                <TableHead className="text-right">Max divers</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("Name")}</TableHead>
+                <TableHead>{t("Location")}</TableHead>
+                <TableHead>{t("Depth")}</TableHead>
+                <TableHead>{t("Certification")}</TableHead>
+                <TableHead>{t("Difficulty")}</TableHead>
+                <TableHead className="text-right">{t("Travel")}</TableHead>
+                <TableHead className="text-right">{t("Max divers")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -203,9 +209,9 @@ async function SitesTab({ open }: { open?: string }) {
                   <TableCell className="tabular-nums">
                     {s.depthMin}–{s.depthMax} m
                   </TableCell>
-                  <TableCell>{SITE_CERT_LEVELS[s.requiredCertLevel] ?? s.requiredCertLevel}</TableCell>
+                  <TableCell>{SITE_CERT_LEVELS[s.requiredCertLevel] ? t(SITE_CERT_LEVELS[s.requiredCertLevel]) : s.requiredCertLevel}</TableCell>
                   <TableCell>{s.difficultyLevel}/5</TableCell>
-                  <TableCell className="text-right tabular-nums">{s.travelTimeMinutes} min</TableCell>
+                  <TableCell className="text-right tabular-nums">{t("{count} min", { count: s.travelTimeMinutes })}</TableCell>
                   <TableCell className="text-right tabular-nums">{s.maxDiversPerTrip}</TableCell>
                   <TableCell>
                     <div className="flex items-start justify-end gap-1">
@@ -215,7 +221,7 @@ async function SitesTab({ open }: { open?: string }) {
                         nativeButton={false}
                         render={<Link href={tabHref("sites", { site: s.id })} prefetch={false} scroll={false} />}
                       >
-                        Edit
+                        {t("Edit")}
                       </Button>
                       <DeleteButton kind="site" id={s.id} name={s.nameEn} />
                     </div>
@@ -227,7 +233,7 @@ async function SitesTab({ open }: { open?: string }) {
         </div>
       )}
       {open && (open === "new" || editing) && (
-        <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit ${editing.nameEn}` : "Add dive site"}>
+        <RoutedDialog wide closeHref={closeHref} title={editing ? t("Edit {name}", { name: editing.nameEn }) : t("Add dive site")}>
           <SiteForm site={editing ?? null} cancelHref={closeHref} locations={locations} />
         </RoutedDialog>
       )}
@@ -236,48 +242,49 @@ async function SitesTab({ open }: { open?: string }) {
 }
 
 async function LocationsTab({ open }: { open?: string }) {
+  const t = await getT();
   let locations;
   try {
     locations = await getLocations();
   } catch (e) {
-    return <LoadError what="Locations" reason={e} />;
+    return <LoadError message={t("Locations could not be loaded: {reason}")} reason={e} t={t} />;
   }
   const editing = open && open !== "new" ? locations.find((l) => l.id === open) : undefined;
   const closeHref = tabHref("locations");
   return (
     <Panel
-      title="Locations"
-      description="The places the center operates from. Boats, dive sites and bookings are assigned to one; the schedule and dive prep can be filtered by it."
+      title={t("Locations")}
+      description={t("The places the center operates from. Boats, dive sites and bookings are assigned to one; the schedule and dive prep can be filtered by it.")}
       action={
         <Button nativeButton={false} render={<Link href={tabHref("locations", { location: "new" })} prefetch={false} scroll={false} />}>
-          Add location
+          {t("Add location")}
         </Button>
       }
     >
       {locations.length === 0 ? (
-        <p className="text-sm text-zinc-500">No locations configured. Click &quot;Add location&quot; to create the first one.</p>
+        <p className="text-sm text-zinc-500">{t('No locations configured. Click "Add location" to create the first one.')}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Activity type</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Boats</TableHead>
-                <TableHead className="text-right">Dive sites</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("Name")}</TableHead>
+                <TableHead>{t("Activity type")}</TableHead>
+                <TableHead>{t("Address")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead className="text-right">{t("Boats")}</TableHead>
+                <TableHead className="text-right">{t("Dive sites")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {locations.map((l) => (
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.name}</TableCell>
-                  <TableCell>{LOCATION_TYPE_LABELS[l.type] ?? l.type}</TableCell>
-                  <TableCell>{shortAddress(l.address) ?? <span className="text-zinc-400">Not set</span>}</TableCell>
+                  <TableCell>{LOCATION_TYPE_LABELS[l.type] ? t(LOCATION_TYPE_LABELS[l.type]) : l.type}</TableCell>
+                  <TableCell>{shortAddress(l.address) ?? <span className="text-zinc-400">{t("Not set")}</span>}</TableCell>
                   <TableCell>
-                    {l.isActive ? <Badge variant="secondary">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
+                    {l.isActive ? <Badge variant="secondary">{t("Active")}</Badge> : <Badge variant="outline">{t("Inactive")}</Badge>}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{l.boatCount}</TableCell>
                   <TableCell className="text-right tabular-nums">{l.diveSiteCount}</TableCell>
@@ -289,13 +296,16 @@ async function LocationsTab({ open }: { open?: string }) {
                         nativeButton={false}
                         render={<Link href={tabHref("locations", { location: l.id })} prefetch={false} scroll={false} />}
                       >
-                        Edit
+                        {t("Edit")}
                       </Button>
                       <DeleteButton
                         kind="location"
                         id={l.id}
                         name={l.name}
-                        confirmText={`Delete ${l.name}? Its ${l.boatCount} boat(s) and ${l.diveSiteCount} dive site(s), and its bookings, are kept but no longer assigned to a location. This cannot be undone.`}
+                        confirmText={t(
+                          "Delete {name}? Its {boats} boat(s) and {sites} dive site(s), and its bookings, are kept but no longer assigned to a location. This cannot be undone.",
+                          { name: l.name, boats: l.boatCount, sites: l.diveSiteCount },
+                        )}
                       />
                     </div>
                   </TableCell>
@@ -306,7 +316,7 @@ async function LocationsTab({ open }: { open?: string }) {
         </div>
       )}
       {open && (open === "new" || editing) && (
-        <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit ${editing.name}` : "Add location"}>
+        <RoutedDialog wide closeHref={closeHref} title={editing ? t("Edit {name}", { name: editing.name }) : t("Add location")}>
           <LocationForm location={editing ?? null} cancelHref={closeHref} />
         </RoutedDialog>
       )}
@@ -315,40 +325,43 @@ async function LocationsTab({ open }: { open?: string }) {
 }
 
 async function BonosTab({ open }: { open?: string }) {
+  const t = await getT();
   let bonos;
   let currency: string;
   try {
     [bonos, { currency }] = await Promise.all([getBonos(), centerLocale()]);
   } catch (e) {
-    return <LoadError what="Bonos" reason={e} />;
+    return <LoadError message={t("Bonos could not be loaded: {reason}")} reason={e} t={t} />;
   }
   const editing = open && open !== "new" ? bonos.find((b) => b.id === open) : undefined;
   const closeHref = tabHref("bonos");
   const date = (iso: string) => formatBookingDate(iso.slice(0, 10));
   return (
     <Panel
-      title="Government bonos"
-      description="Discount codes, such as the Canary Islands government's bonos. Staff enter the code on a booking; the discount comes off the activity when it is invoiced, and that counts as a use."
+      title={t("Government bonos")}
+      description={t(
+        "Discount codes, such as the Canary Islands government's bonos. Staff enter the code on a booking; the discount comes off the activity when it is invoiced, and that counts as a use.",
+      )}
       action={
         <Button nativeButton={false} render={<Link href={tabHref("bonos", { bono: "new" })} prefetch={false} scroll={false} />}>
-          Add bono
+          {t("Add bono")}
         </Button>
       }
     >
       {bonos.length === 0 ? (
-        <p className="text-sm text-zinc-500">No bonos yet. Click &quot;Add bono&quot; to create the first one.</p>
+        <p className="text-sm text-zinc-500">{t('No bonos yet. Click "Add bono" to create the first one.')}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Discount</TableHead>
-                <TableHead>Valid</TableHead>
-                <TableHead className="text-right">Used</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("Code")}</TableHead>
+                <TableHead>{t("Description")}</TableHead>
+                <TableHead className="text-right">{t("Discount")}</TableHead>
+                <TableHead>{t("Valid")}</TableHead>
+                <TableHead className="text-right">{t("Used")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -362,7 +375,7 @@ async function BonosTab({ open }: { open?: string }) {
                       {b.type === "PERCENTAGE" ? `${Number(b.discountValue)}%` : money(b.discountValue, currency)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {date(b.validFrom)} – {b.validTo ? date(b.validTo) : "no end"}
+                      {date(b.validFrom)} – {b.validTo ? date(b.validTo) : t("no end")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {b.usageCount}
@@ -370,11 +383,11 @@ async function BonosTab({ open }: { open?: string }) {
                     </TableCell>
                     <TableCell>
                       {!b.isActive ? (
-                        <Badge variant="outline">Inactive</Badge>
+                        <Badge variant="outline">{t("Inactive")}</Badge>
                       ) : usedUp ? (
-                        <Badge variant="outline">Used up</Badge>
+                        <Badge variant="outline">{t("Used up")}</Badge>
                       ) : (
-                        <Badge variant="secondary">Active</Badge>
+                        <Badge variant="secondary">{t("Active")}</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -385,7 +398,7 @@ async function BonosTab({ open }: { open?: string }) {
                           nativeButton={false}
                           render={<Link href={tabHref("bonos", { bono: b.id })} prefetch={false} scroll={false} />}
                         >
-                          Edit
+                          {t("Edit")}
                         </Button>
                         <DeleteButton
                           kind="bono"
@@ -393,8 +406,11 @@ async function BonosTab({ open }: { open?: string }) {
                           name={b.code}
                           confirmText={
                             b._count.bookings > 0
-                              ? `${b.code} is on ${b._count.bookings} booking(s) and cannot be deleted; deactivate it instead. Try anyway?`
-                              : `Delete bono ${b.code}? This cannot be undone.`
+                              ? t("{code} is on {count} booking(s) and cannot be deleted; deactivate it instead. Try anyway?", {
+                                  code: b.code,
+                                  count: b._count.bookings,
+                                })
+                              : t("Delete bono {code}? This cannot be undone.", { code: b.code })
                           }
                         />
                       </div>
@@ -407,7 +423,7 @@ async function BonosTab({ open }: { open?: string }) {
         </div>
       )}
       {open && (open === "new" || editing) && (
-        <RoutedDialog wide closeHref={closeHref} title={editing ? `Edit bono ${editing.code}` : "Add bono"}>
+        <RoutedDialog wide closeHref={closeHref} title={editing ? t("Edit bono {code}", { code: editing.code }) : t("Add bono")}>
           <BonoForm bono={editing ?? null} currency={currency} cancelHref={closeHref} />
         </RoutedDialog>
       )}
@@ -416,49 +432,56 @@ async function BonosTab({ open }: { open?: string }) {
 }
 
 async function StaffTab() {
+  const t = await getT();
   const staff = await getStaff().catch(() => null);
   const active = staff?.filter((s) => s.status === "ACTIVE").length;
   return (
-    <Panel title="Staff" description="Staff members, their availability and qualifications are managed on the Staff page.">
+    <Panel title={t("Staff")} description={t("Staff members, their availability and qualifications are managed on the Staff page.")}>
       {staff && (
         <p className="text-sm text-zinc-700">
-          {staff.length} staff member{staff.length === 1 ? "" : "s"}, {active} active.
+          {staff.length === 1
+            ? t("1 staff member, {active} active.", { active: active ?? 0 })
+            : t("{count} staff members, {active} active.", { count: staff.length, active: active ?? 0 })}
         </p>
       )}
       <Button nativeButton={false} render={<Link href="/dashboard/staff" prefetch={false} />}>
-        Open Staff
+        {t("Open Staff")}
       </Button>
     </Panel>
   );
 }
 
 async function PricingTab({ canEdit }: { canEdit: boolean }) {
+  const t = await getT();
   let pricing;
   try {
     pricing = await getPricing();
   } catch (e) {
-    return <LoadError what="Pricing" reason={e} />;
+    return <LoadError message={t("Pricing could not be loaded: {reason}")} reason={e} t={t} />;
   }
   return <PricingForm pricing={pricing} canEdit={canEdit} />;
 }
 
 async function UsersTab({ open, password, selfId }: { open?: string; password?: string; selfId: string }) {
+  const t = await getT();
   let users;
   try {
     users = await getUsers();
   } catch (e) {
-    return <LoadError what="Users" reason={e} />;
+    return <LoadError message={t("Users could not be loaded: {reason}")} reason={e} t={t} />;
   }
   const editing = open && open !== "new" ? users.find((u) => u.id === open) : undefined;
   const resetting = password ? users.find((u) => u.id === password) : undefined;
   const closeHref = tabHref("users");
   return (
     <Panel
-      title="Users"
-      description="Login accounts. Admins and instructors sign in here; customers on the public site. A user with a staff or customer profile cannot be deleted."
+      title={t("Users")}
+      description={t(
+        "Login accounts. Admins and instructors sign in here; customers on the public site. A user with a staff or customer profile cannot be deleted.",
+      )}
       action={
         <Button nativeButton={false} render={<Link href={tabHref("users", { user: "new" })} prefetch={false} scroll={false} />}>
-          Add user
+          {t("Add user")}
         </Button>
       }
     >
@@ -466,12 +489,12 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Profile</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("Name")}</TableHead>
+              <TableHead>{t("Email")}</TableHead>
+              <TableHead>{t("Role")}</TableHead>
+              <TableHead>{t("Profile")}</TableHead>
+              <TableHead>{t("Created")}</TableHead>
+              <TableHead className="text-right">{t("Actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -482,14 +505,14 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">
                     {u.name ?? "—"}
-                    {self && <span className="ml-1.5 text-xs font-normal text-zinc-500">(you)</span>}
+                    {self && <span className="ml-1.5 text-xs font-normal text-zinc-500">{t("(you)")}</span>}
                   </TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
-                    {USER_ROLE_LABELS[u.role] ?? u.role}
-                    {!u.isActive && <span className="ml-1.5 text-xs text-red-700">(no access)</span>}
+                    {USER_ROLE_LABELS[u.role] ? t(USER_ROLE_LABELS[u.role]) : u.role}
+                    {!u.isActive && <span className="ml-1.5 text-xs text-red-700">{t("(no access)")}</span>}
                   </TableCell>
-                  <TableCell>{linked ?? "—"}</TableCell>
+                  <TableCell>{linked ? t(linked) : "—"}</TableCell>
                   <TableCell>{formatBookingDate(u.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-start justify-end gap-1">
@@ -499,7 +522,7 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
                         nativeButton={false}
                         render={<Link href={tabHref("users", { user: u.id })} prefetch={false} scroll={false} />}
                       >
-                        Edit
+                        {t("Edit")}
                       </Button>
                       <Button
                         size="sm"
@@ -507,16 +530,22 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
                         nativeButton={false}
                         render={<Link href={tabHref("users", { password: u.id })} prefetch={false} scroll={false} />}
                       >
-                        Password
+                        {t("Password")}
                       </Button>
                       {self || linked ? (
                         <Button
                           size="sm"
                           variant="ghost"
                           disabled
-                          title={self ? "You cannot delete your own account" : `Has a ${linked!.toLowerCase()} profile`}
+                          title={
+                            self
+                              ? t("You cannot delete your own account")
+                              : linked === "Staff"
+                                ? t("Has a staff profile")
+                                : t("Has a customer profile")
+                          }
                         >
-                          Delete
+                          {t("Delete")}
                         </Button>
                       ) : (
                         <DeleteButton kind="user" id={u.id} name={u.name ?? u.email} />
@@ -530,15 +559,15 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
         </Table>
       </div>
       {open && (open === "new" || editing) && (
-        <RoutedDialog closeHref={closeHref} title={editing ? `Edit ${editing.name ?? editing.email}` : "Add user"}>
+        <RoutedDialog closeHref={closeHref} title={editing ? t("Edit {name}", { name: editing.name ?? editing.email }) : t("Add user")}>
           <UserForm user={editing ?? null} isSelf={editing?.id === selfId} cancelHref={closeHref} />
         </RoutedDialog>
       )}
       {resetting && (
         <RoutedDialog
           closeHref={closeHref}
-          title="Set password"
-          description={`A new password for ${resetting.email}. They are not told; give it to them yourself.`}
+          title={t("Set password")}
+          description={t("A new password for {email}. They are not told; give it to them yourself.", { email: resetting.email })}
         >
           <UserPasswordForm user={resetting} cancelHref={closeHref} />
         </RoutedDialog>
@@ -555,25 +584,26 @@ export default async function SettingsPage({
   const params = await searchParams;
   const session = await auth();
   const isAdmin = session?.user?.role === "ADMIN";
+  const t = await getT();
   // Admin-only tabs are hidden from instructors; the API refuses them too.
-  const tabs = SETTINGS_TABS.filter((t) => !("adminOnly" in t) || isAdmin);
-  const tab = tabs.find((t) => t.key === one(params.tab))?.key ?? "general";
+  const tabs = SETTINGS_TABS.filter((x) => !("adminOnly" in x) || isAdmin);
+  const tab = tabs.find((x) => x.key === one(params.tab))?.key ?? "general";
 
   return (
     <main className="space-y-6 p-6 md:p-8">
-      <h1 className="text-2xl font-semibold text-zinc-900">Settings</h1>
-      <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto border-b border-zinc-200">
-        {tabs.map((t) => (
+      <h1 className="text-2xl font-semibold text-zinc-900">{t("Settings")}</h1>
+      <nav aria-label={t("Settings sections")} className="flex gap-1 overflow-x-auto border-b border-zinc-200">
+        {tabs.map((x) => (
           <Link
-            key={t.key}
-            href={tabHref(t.key)}
+            key={x.key}
+            href={tabHref(x.key)}
             prefetch={false}
-            aria-current={t.key === tab ? "page" : undefined}
+            aria-current={x.key === tab ? "page" : undefined}
             className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-              t.key === tab ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
+              x.key === tab ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
             }`}
           >
-            {t.label}
+            {t(x.label)}
           </Link>
         ))}
       </nav>

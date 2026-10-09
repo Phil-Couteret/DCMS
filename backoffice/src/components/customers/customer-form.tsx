@@ -14,6 +14,7 @@ import {
   SKILL_LEVEL_LABELS,
   TANK_SIZES,
 } from "@/lib/customers";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -55,9 +56,10 @@ export interface CustomerFormValues {
 
 // A size select that keeps a value outside the offered list.
 function SizeSelect({ name, value, options, disabled }: { name: string; value: string; options: string[]; disabled?: boolean }) {
+  const t = useT();
   return (
     <select name={name} defaultValue={value} disabled={disabled} className={control}>
-      <option value="">Not recorded</option>
+      <option value="">{t("Not recorded")}</option>
       {options.map((o) => (
         <option key={o} value={o}>
           {o}
@@ -79,6 +81,7 @@ export function CustomerForm({
   cancelHref: string;
   maxBirthdate: string;
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<CustomerFormState>(saveCustomer, null);
   const [ownEquipment, setOwnEquipment] = useState(initial.ownEquipment);
 
@@ -92,56 +95,56 @@ export function CustomerForm({
       <input type="hidden" name="tankSize_initial" value={initial.tankSize} />
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Details</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Details")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            First name
+            {t("First name")}
             <input name="firstName" required maxLength={100} defaultValue={initial.firstName} className={control} />
           </label>
           <label className={label}>
-            Last name
+            {t("Last name")}
             <input name="lastName" required maxLength={100} defaultValue={initial.lastName} className={control} />
           </label>
           <label className={label}>
-            Email
+            {t("Email")}
             <input type="email" name="email" required maxLength={254} defaultValue={initial.email} className={control} />
           </label>
           <label className={label}>
-            Phone (optional)
+            {t("Phone (optional)")}
             <input type="tel" name="phone" maxLength={40} defaultValue={initial.phone} className={control} />
           </label>
           <label className={label}>
-            Nationality (country code)
+            {t("Nationality (country code)")}
             <input
               name="country"
               required
               maxLength={60}
-              placeholder="ES, DE, GB…"
+              placeholder={t("ES, DE, GB…")}
               defaultValue={initial.country}
               className={control}
             />
           </label>
           <label className={label}>
-            Language
+            {t("Language")}
             <select name="language" defaultValue={initial.language} className={control}>
               {LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>
-                  {l.label}
+                  {t(l.label)}
                 </option>
               ))}
             </select>
           </label>
           <label className={label}>
-            Birthdate (optional)
+            {t("Birthdate (optional)")}
             <input type="date" name="birthdate" max={maxBirthdate} defaultValue={initial.birthdate} className={control} />
           </label>
           <label className={label}>
-            Gender (optional)
+            {t("Gender (optional)")}
             <select name="gender" defaultValue={initial.gender} className={control}>
-              <option value="">Not specified</option>
+              <option value="">{t("Not specified")}</option>
               {Object.entries(GENDER_LABELS).map(([value, text]) => (
                 <option key={value} value={value}>
-                  {text}
+                  {t(text)}
                 </option>
               ))}
               {initial.gender && !(initial.gender in GENDER_LABELS) && (
@@ -153,32 +156,32 @@ export function CustomerForm({
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Classification</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Classification")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Customer type
+            {t("Customer type")}
             <select name="customerType" defaultValue={initial.customerType} className={control}>
               {Object.entries(CUSTOMER_TYPE_LABELS).map(([value, text]) => (
                 <option key={value} value={value}>
-                  {text}
+                  {t(text)}
                 </option>
               ))}
             </select>
           </label>
           <label className={label}>
-            Center skill level
+            {t("Center skill level")}
             <select name="centerSkillLevel" defaultValue={initial.centerSkillLevel} className={control}>
-              <option value="">Not assessed</option>
+              <option value="">{t("Not assessed")}</option>
               {Object.entries(SKILL_LEVEL_LABELS).map(([value, text]) => (
                 <option key={value} value={value}>
-                  {text}
+                  {t(text)}
                 </option>
               ))}
             </select>
-            <span className="mt-1 block text-xs font-normal text-zinc-500">Staff&apos;s assessment in the water.</span>
+            <span className="mt-1 block text-xs font-normal text-zinc-500">{t("Staff's assessment in the water.")}</span>
           </label>
           <label className={label}>
-            Dives logged
+            {t("Dives logged")}
             <input
               type="number"
               name="totalDives"
@@ -192,59 +195,59 @@ export function CustomerForm({
           <label className={`${check} sm:self-center`}>
             <input type="checkbox" name="isApproved" defaultChecked={initial.isApproved} className="mt-0.5 size-4" />
             <span>
-              Approved for booking
-              <span className="block text-xs text-zinc-500">Unapproved customers cannot book online.</span>
+              {t("Approved for booking")}
+              <span className="block text-xs text-zinc-500">{t("Unapproved customers cannot book online.")}</span>
             </span>
           </label>
         </div>
-        <p className="text-xs text-zinc-500">Certifications are recorded on the customer&apos;s profile page.</p>
+        <p className="text-xs text-zinc-500">{t("Certifications are recorded on the customer's profile page.")}</p>
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Medical certificate (optional)</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Medical certificate (optional)")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Certificate number
+            {t("Certificate number")}
             <input name="medicalCertNumber" maxLength={60} defaultValue={initial.medicalCertNumber} className={control} />
           </label>
           <label className={label}>
-            Expiry date
+            {t("Expiry date")}
             <input type="date" name="medicalCertExpiry" defaultValue={initial.medicalCertExpiry} className={control} />
           </label>
         </div>
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Diving insurance (optional)</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Diving insurance (optional)")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label className={label}>
-            Provider
+            {t("Provider")}
             <input
               name="insuranceProvider"
               maxLength={100}
-              placeholder="e.g. DAN Europe"
+              placeholder={t("e.g. DAN Europe")}
               defaultValue={initial.insuranceProvider}
               className={control}
             />
           </label>
           <label className={label}>
-            Policy number
+            {t("Policy number")}
             <input name="insurancePolicyNumber" maxLength={60} defaultValue={initial.insurancePolicyNumber} className={control} />
           </label>
           <label className={label}>
-            Expiry date
+            {t("Expiry date")}
             <input type="date" name="insuranceExpiry" defaultValue={initial.insuranceExpiry} className={control} />
           </label>
         </div>
         {customerId && (
           <p className="text-xs text-zinc-500">
-            Changing the medical certificate or insurance details clears their verification.
+            {t("Changing the medical certificate or insurance details clears their verification.")}
           </p>
         )}
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Equipment preferences</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Equipment preferences")}</h2>
         <label className={check}>
           <input
             type="checkbox"
@@ -254,42 +257,42 @@ export function CustomerForm({
             className="mt-0.5 size-4"
           />
           <span>
-            Brings a complete set of their own equipment
-            <span className="block text-xs text-zinc-500">The tank is always provided by the center.</span>
+            {t("Brings a complete set of their own equipment")}
+            <span className="block text-xs text-zinc-500">{t("The tank is always provided by the center.")}</span>
           </span>
         </label>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <label className={label}>
-            Tank
+            {t("Tank")}
             <SizeSelect name="tankSize" value={initial.tankSize} options={TANK_SIZES} />
           </label>
           {RENTAL_SIZE_FIELDS.map((f) => (
             <label key={f.key} className={label}>
-              {f.label}
+              {t(f.label)}
               <SizeSelect name={f.key} value={initial[f.key]} options={GEAR_SIZES} disabled={ownEquipment} />
             </label>
           ))}
         </div>
-        {ownEquipment && <p className="text-xs text-zinc-500">Rental sizes are kept but not needed while this is ticked.</p>}
+        {ownEquipment && <p className="text-xs text-zinc-500">{t("Rental sizes are kept but not needed while this is ticked.")}</p>}
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Emergency contact (optional)</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Emergency contact (optional)")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label className={label}>
-            Name
+            {t("Name")}
             <input name="emergency_name" maxLength={100} defaultValue={initial.emergencyName} className={control} />
           </label>
           <label className={label}>
-            Phone
+            {t("Phone")}
             <input type="tel" name="emergency_phone" maxLength={40} defaultValue={initial.emergencyPhone} className={control} />
           </label>
           <label className={label}>
-            Relationship
+            {t("Relationship")}
             <input
               name="emergency_relationship"
               maxLength={60}
-              placeholder="e.g. Partner"
+              placeholder={t("e.g. Partner")}
               defaultValue={initial.emergencyRelationship}
               className={control}
             />
@@ -298,10 +301,10 @@ export function CustomerForm({
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Loyalty and notes</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Loyalty and notes")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Loyalty points
+            {t("Loyalty points")}
             <input
               type="number"
               name="loyaltyPoints"
@@ -313,12 +316,12 @@ export function CustomerForm({
             />
           </label>
           <label className={`${label} sm:col-span-2`}>
-            Notes (optional)
+            {t("Notes (optional)")}
             <textarea
               name="notes"
               rows={4}
               maxLength={2000}
-              placeholder="For staff only, e.g. medical remarks, preferences"
+              placeholder={t("For staff only, e.g. medical remarks, preferences")}
               defaultValue={initial.notes}
               className={control}
             />
@@ -328,10 +331,10 @@ export function CustomerForm({
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : customerId ? "Save changes" : "Create customer"}
+          {pending ? t("Saving…") : customerId ? t("Save changes") : t("Create customer")}
         </Button>
         <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} />}>
-          Cancel
+          {t("Cancel")}
         </Button>
         {state?.error && (
           <p role="alert" className="text-sm text-destructive">

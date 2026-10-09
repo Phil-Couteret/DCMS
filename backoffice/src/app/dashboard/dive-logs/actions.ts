@@ -6,6 +6,8 @@ import { ApiError, createDiveLog, reportIncident, type CreateDiveLogData, type I
 import { centerLocalToUtc } from "@/lib/center-time";
 import { SEVERITIES } from "@/lib/dive-logs";
 import { centerLocale } from "@/lib/center";
+import type { T } from "@/lib/i18n/core";
+import { getT } from "@/lib/i18n/server";
 
 export type FormState = { error?: string } | null;
 
@@ -18,15 +20,16 @@ function text(formData: FormData, name: string) {
 }
 
 // Optional whole numbers: empty means "not recorded", anything else must parse.
-function optionalInt(formData: FormData, name: string, label: string) {
+function optionalInt(formData: FormData, name: string, label: string, t: T) {
   const raw = text(formData, name);
   if (raw === "") return { value: undefined };
   const n = Number(raw);
-  return Number.isInteger(n) ? { value: n } : { error: `${label} must be a whole number` };
+  return Number.isInteger(n) ? { value: n } : { error: t("{field} must be a whole number", { field: t(label) }) };
 }
 
 export async function createLog(_prev: FormState, formData: FormData): Promise<FormState> {
   const { timeZone } = await centerLocale();
+  const t = await getT();
   const bookingId = text(formData, "bookingId");
   const siteId = text(formData, "siteId");
   const guideId = text(formData, "guideId");
@@ -34,17 +37,17 @@ export async function createLog(_prev: FormState, formData: FormData): Promise<F
   const entry = text(formData, "entryTime");
   const exit = text(formData, "exitTime");
 
-  if (!UUID.test(bookingId)) return { error: "Booking ID must be a booking reference (UUID)" };
-  if (!UUID.test(siteId)) return { error: "Choose a dive site" };
-  if (guideId && !UUID.test(guideId)) return { error: "Choose a guide" };
-  if (!ISO_DATE.test(date)) return { error: "Choose a date" };
-  if (!CLOCK.test(entry) || !CLOCK.test(exit)) return { error: "Enter entry and exit times" };
+  if (!UUID.test(bookingId)) return { error: t("Booking ID must be a booking reference (UUID)") };
+  if (!UUID.test(siteId)) return { error: t("Choose a dive site") };
+  if (guideId && !UUID.test(guideId)) return { error: t("Choose a guide") };
+  if (!ISO_DATE.test(date)) return { error: t("Choose a date") };
+  if (!CLOCK.test(entry) || !CLOCK.test(exit)) return { error: t("Enter entry and exit times") };
 
   // Times are entered as the center's wall-clock time.
   const entryTime = centerLocalToUtc(timeZone, date, entry);
   const exitTime = centerLocalToUtc(timeZone, date, exit);
   const duration = Math.round((exitTime.getTime() - entryTime.getTime()) / 60000);
-  if (duration <= 0) return { error: "Exit time must be after entry time" };
+  if (duration <= 0) return { error: t("Exit time must be after entry time") };
 
   const numbers: Record<string, string> = {
     maxDepth: "Max depth",
@@ -56,11 +59,11 @@ export async function createLog(_prev: FormState, formData: FormData): Promise<F
   };
   const parsed: Record<string, number | undefined> = {};
   for (const [name, label] of Object.entries(numbers)) {
-    const r = optionalInt(formData, name, label);
+    const r = optionalInt(formData, name, label, t);
     if (r.error) return { error: r.error };
     parsed[name] = r.value;
   }
-  if (parsed.maxDepth === undefined) return { error: "Enter the max depth" };
+  if (parsed.maxDepth === undefined) return { error: t("Enter the max depth") };
 
   const data: CreateDiveLogData = {
     bookingId,
@@ -84,20 +87,21 @@ export async function createLog(_prev: FormState, formData: FormData): Promise<F
   try {
     id = (await createDiveLog(data)).id;
   } catch (e) {
-    return { error: e instanceof ApiError ? e.message : "Could not create the dive log" };
+    return { error: e instanceof ApiError ? e.message : t("Could not create the dive log") };
   }
   revalidatePath("/dashboard/dive-logs");
   redirect(`/dashboard/dive-logs/${id}`);
 }
 
 export async function submitIncident(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getT();
   const logId = text(formData, "logId");
   const type = text(formData, "type");
   const severity = text(formData, "severity") as IncidentSeverity;
   const description = text(formData, "description");
   const actionsTaken = text(formData, "actionsTaken");
-  if (!type || !description || !actionsTaken) return { error: "Fill in type, description and actions taken" };
-  if (!SEVERITIES.includes(severity)) return { error: "Choose a severity" };
+  if (!type || !description || !actionsTaken) return { error: t("Fill in type, description and actions taken") };
+  if (!SEVERITIES.includes(severity)) return { error: t("Choose a severity") };
   try {
     await reportIncident(logId, {
       type,
@@ -107,7 +111,7 @@ export async function submitIncident(_prev: FormState, formData: FormData): Prom
       reportedToAuthorities: formData.get("reportedToAuthorities") === "on",
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? e.message : "Could not report the incident" };
+    return { error: e instanceof ApiError ? e.message : t("Could not report the incident") };
   }
   revalidatePath(`/dashboard/dive-logs/${logId}`);
   revalidatePath("/dashboard/dive-logs");

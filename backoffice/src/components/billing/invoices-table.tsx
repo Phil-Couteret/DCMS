@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { InvoiceListItem } from "@/lib/api";
 import { CANCELLABLE, money, formatDay } from "@/lib/billing";
+import { useT } from "@/lib/i18n/client";
 
 // Customer search runs in the browser over the invoices already loaded.
 export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListItem[]; filtered: boolean }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const rows = q
@@ -20,20 +22,20 @@ export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListIte
   return (
     <div className="space-y-4">
       <label className="block max-w-sm text-sm font-medium text-zinc-700">
-        Search by customer
+        {t("Search by customer")}
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. Ana Diaz"
+          placeholder={t("e.g. Ana Diaz")}
           className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
         />
       </label>
       {rows.length === 0 ? (
         <div className="rounded-xl bg-white p-10 text-center ring-1 ring-zinc-200">
-          <p className="font-medium text-zinc-900">No invoices found</p>
+          <p className="font-medium text-zinc-900">{t("No invoices found")}</p>
           <p className="mt-1 text-sm text-zinc-500">
-            {q || filtered ? "No invoice matches this search or filter." : "No invoices have been created yet."}
+            {q || filtered ? t("No invoice matches this search or filter.") : t("No invoices have been created yet.")}
           </p>
         </div>
       ) : (
@@ -41,12 +43,12 @@ export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListIte
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Invoice Number</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("Invoice Number")}</TableHead>
+                <TableHead>{t("Date")}</TableHead>
+                <TableHead>{t("Customer")}</TableHead>
+                <TableHead className="text-right">{t("Total")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -64,7 +66,7 @@ export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListIte
                   <TableCell>
                     <div className="flex items-start justify-end gap-2">
                       <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/dashboard/billing/${i.id}`} prefetch={false} />}>
-                        View
+                        {t("View")}
                       </Button>
                       {CANCELLABLE.includes(i.status) && <CancelInvoiceButton invoiceId={i.id} />}
                     </div>
@@ -76,7 +78,9 @@ export function InvoicesTable({ invoices, filtered }: { invoices: InvoiceListIte
         </div>
       )}
       <p className="text-xs text-zinc-500">
-        {rows.length} of {invoices.length} invoice{invoices.length === 1 ? "" : "s"}
+        {invoices.length === 1
+          ? t("{shown} of 1 invoice", { shown: rows.length })
+          : t("{shown} of {count} invoices", { shown: rows.length, count: invoices.length })}
       </p>
     </div>
   );

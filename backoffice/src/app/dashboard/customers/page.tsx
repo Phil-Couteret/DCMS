@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { getCustomers, type Customer } from "@/lib/api";
 import { countryName } from "@/lib/countries";
 import { LANGUAGES } from "@/lib/customers";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function CustomersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const t = await getT();
   const isAdmin = (await auth())?.user?.role === "ADMIN";
   const country = one(params.country) || undefined;
   const language = LANGUAGES.find((l) => l.code === one(params.language))?.code;
@@ -58,29 +60,29 @@ export default async function CustomersPage({
   return (
     <main className="space-y-6 p-6 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-zinc-900">Customers</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">{t("Customers")}</h1>
         <div className="flex gap-2">
           {isAdmin && (
             <Button variant="outline" nativeButton={false} render={<Link href={withImport} prefetch={false} scroll={false} />}>
-              Import CSV
+              {t("Import CSV")}
             </Button>
           )}
           <Button nativeButton={false} render={<Link href="/dashboard/customers/new" prefetch={false} />}>
-            New Customer
+            {t("New Customer")}
           </Button>
         </div>
       </div>
       {importing && (
-        <RoutedDialog wide closeHref={listHref} title="Import customers from CSV">
+        <RoutedDialog wide closeHref={listHref} title={t("Import customers from CSV")}>
           <ImportCustomersForm closeHref={listHref} />
         </RoutedDialog>
       )}
 
       <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-[repeat(2,minmax(0,16rem))_auto]">
         <label className="block text-sm font-medium text-zinc-700">
-          Country
+          {t("Country")}
           <select name="country" defaultValue={country ?? ""} className={control}>
-            <option value="">All countries</option>
+            <option value="">{t("All countries")}</option>
             {countries.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -89,21 +91,21 @@ export default async function CustomersPage({
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Language
+          {t("Language")}
           <select name="language" defaultValue={language ?? ""} className={control}>
-            <option value="">All languages</option>
+            <option value="">{t("All languages")}</option>
             {LANGUAGES.map((l) => (
               <option key={l.code} value={l.code}>
-                {l.label} ({l.code})
+                {t(l.label)} ({l.code})
               </option>
             ))}
           </select>
         </label>
         <div className="flex items-end gap-2">
-          <Button type="submit">Filter</Button>
+          <Button type="submit">{t("Filter")}</Button>
           {filtered && (
             <Link href="/dashboard/customers" prefetch={false} className="px-2 py-2 text-sm text-zinc-600 hover:text-zinc-900">
-              Clear
+              {t("Clear")}
             </Link>
           )}
         </div>
@@ -111,7 +113,7 @@ export default async function CustomersPage({
 
       {result.status === "rejected" ? (
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-          Customers could not be loaded: {String((result.reason as Error).message)}
+          {t("Customers could not be loaded: {error}", { error: String((result.reason as Error).message) })}
         </p>
       ) : (
         <CustomersTable customers={result.value} filtered={filtered} />

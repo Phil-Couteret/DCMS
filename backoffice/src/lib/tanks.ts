@@ -1,12 +1,13 @@
 import type { Tank, TankSize, TankStatus, TankTestState } from "@/lib/api";
+import type { T } from "@/lib/i18n/core";
 
 // Tanks (Equipment → Tanks). The API works out when each test is next due,
 // from the center's intervals (Settings → General).
 
-// "year", "5 years", "18 months".
-export function interval(months: number) {
-  if (months % 12 === 0) return months === 12 ? "year" : `${months / 12} years`;
-  return months === 1 ? "month" : `${months} months`;
+// "year", "5 years", "18 months", translated with t.
+export function interval(months: number, t: T) {
+  if (months % 12 === 0) return months === 12 ? t("year") : t("{count} years", { count: months / 12 });
+  return months === 1 ? t("month") : t("{count} months", { count: months });
 }
 
 export const TANK_SIZES: TankSize[] = ["10L", "12L", "15L", "Nitrox12L", "Nitrox15L"];

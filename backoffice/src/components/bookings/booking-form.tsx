@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { saveBooking, type BookingFormState } from "@/app/dashboard/bookings/actions";
 import { Button } from "@/components/ui/button";
-import type { Boat, BookingStatus, DiveSiteOption, Language, TimeSlot } from "@/lib/api";
+import type { Boat, BookingAddOn, BookingStatus, DiveSiteOption, Language, TimeSlot } from "@/lib/api";
+import { ADD_ONS } from "@/lib/add-ons";
 import { ACTIVITY_LABELS, EQUIPMENT_ITEMS, SLOT_LABELS, SOURCE_LABELS, SOURCES } from "@/lib/bookings";
 import { LANGUAGES } from "@/lib/customers";
+import { useT } from "@/lib/i18n/client";
 import { TRIP_SLOTS } from "@/lib/trips";
 import { useFormAction } from "@/lib/use-form-action";
 
@@ -37,6 +39,7 @@ export interface BookingFormValues {
   notes: string;
   bonoCode: string;
   bonoLocked: boolean; // its use is counted on the booking's invoice
+  addOns: BookingAddOn[];
 }
 
 const MAX_MATCHES = 8;
@@ -50,6 +53,7 @@ function CustomerPicker({
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const selected = customers.find((c) => c.id === selectedId);
   const matches = useMemo(() => {
@@ -63,7 +67,7 @@ function CustomerPicker({
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-zinc-50 px-3 py-2 ring-1 ring-zinc-200">
         <span className="text-sm text-zinc-900">{selected.label}</span>
         <Button type="button" size="sm" variant="ghost" onClick={() => onSelect("")}>
-          Change
+          {t("Change")}
         </Button>
       </div>
     );
@@ -71,12 +75,12 @@ function CustomerPicker({
   return (
     <div>
       <label className={label}>
-        Search by name, email or phone
+        {t("Search by name, email or phone")}
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. Garcia"
+          placeholder={t("e.g. Garcia")}
           className={control}
           autoComplete="off"
         />
@@ -84,7 +88,7 @@ function CustomerPicker({
       {query.trim() && (
         <ul className="mt-2 divide-y divide-zinc-100 rounded-md ring-1 ring-zinc-200">
           {matches.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-zinc-500">No customer matches. Use “New customer” instead.</li>
+            <li className="px-3 py-2 text-sm text-zinc-500">{t("No customer matches. Use “New customer” instead.")}</li>
           ) : (
             matches.map((c) => (
               <li key={c.id}>
@@ -121,6 +125,7 @@ export function BookingForm({
   partners: { id: string; name: string }[]; // active ones, plus the booking's own
   cancelHref: string;
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<BookingFormState>(saveBooking, null);
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [customerId, setCustomerId] = useState(initial.customerId);
@@ -157,13 +162,13 @@ export function BookingForm({
 
       <section className={section}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold text-zinc-900">Customer</h2>
-          <div className="flex gap-1" role="group" aria-label="Customer">
+          <h2 className="font-semibold text-zinc-900">{t("Customer")}</h2>
+          <div className="flex gap-1" role="group" aria-label={t("Customer")}>
             <Button type="button" size="sm" variant={mode === "existing" ? "default" : "outline"} onClick={() => setMode("existing")}>
-              Existing customer
+              {t("Existing customer")}
             </Button>
             <Button type="button" size="sm" variant={mode === "new" ? "default" : "outline"} onClick={() => setMode("new")}>
-              New customer
+              {t("New customer")}
             </Button>
           </div>
         </div>
@@ -172,86 +177,87 @@ export function BookingForm({
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className={label}>
-              First name
+              {t("First name")}
               <input name="new_firstName" required maxLength={100} className={control} />
             </label>
             <label className={label}>
-              Last name
+              {t("Last name")}
               <input name="new_lastName" required maxLength={100} className={control} />
             </label>
             <label className={label}>
-              Email
+              {t("Email")}
               <input type="email" name="new_email" required maxLength={254} className={control} />
             </label>
             <label className={label}>
-              Phone (optional)
+              {t("Phone (optional)")}
               <input type="tel" name="new_phone" maxLength={40} className={control} />
             </label>
             <label className={label}>
-              Country code
+              {t("Country code")}
               <input name="new_country" required maxLength={60} placeholder="ES, DE, GB…" className={control} />
             </label>
             <label className={label}>
-              Language
+              {t("Language")}
               <select name="new_language" defaultValue={"EN" satisfies Language} className={control}>
                 {LANGUAGES.map((l) => (
                   <option key={l.code} value={l.code}>
-                    {l.label}
+                    {t(l.label)}
                   </option>
                 ))}
               </select>
             </label>
             <p className="text-xs text-zinc-500 sm:col-span-2">
-              The customer is saved with the booking. Their full profile can be completed later.
+              {t("The customer is saved with the booking. Their full profile can be completed later.")}
             </p>
           </div>
         )}
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Dive</h2>
+        <h2 className="font-semibold text-zinc-900">{t("Dive")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <label className={label}>
-            Activity
+            {t("Activity")}
             <select name="activityType" defaultValue={initial.activityType} required className={control}>
               {Object.entries(ACTIVITY_LABELS).map(([value, text]) => (
                 <option key={value} value={value}>
-                  {text}
+                  {t(text)}
                 </option>
               ))}
             </select>
           </label>
           <label className={label}>
-            Date
+            {t("Date")}
             <input type="date" name="date" required defaultValue={initial.date} className={control} />
           </label>
           <label className={label}>
-            Time slot
+            {t("Time slot")}
             <select name="timeSlot" defaultValue={initial.timeSlot} className={control}>
               {TRIP_SLOTS.map((s) => (
                 <option key={s} value={s}>
-                  {SLOT_LABELS[s]}
+                  {t(SLOT_LABELS[s])}
                 </option>
               ))}
             </select>
           </label>
           <label className={label}>
-            Boat
+            {t("Boat")}
             <select name="boatId" required defaultValue={initial.boatId} className={control}>
               <option value="" disabled>
-                Choose…
+                {t("Choose…")}
               </option>
               {boats.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name} ({b.capacity} places){b.status !== "active" ? ` · ${b.status}` : ""}
+                  {t("{name} ({capacity} places)", { name: b.name, capacity: b.capacity })}
+                  {b.status !== "active" ? ` · ${b.status}` : ""}
                 </option>
               ))}
             </select>
           </label>
           <label className={label}>
-            Dive site
+            {t("Dive site")}
             <select name="siteId" defaultValue={initial.siteId} className={control}>
-              <option value="">Not assigned yet</option>
+              <option value="">{t("Not assigned yet")}</option>
               {sites.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nameEn}
@@ -260,7 +266,7 @@ export function BookingForm({
             </select>
           </label>
           <label className={label}>
-            Participants
+            {t("Participants")}
             <input
               type="number"
               name="participantCount"
@@ -272,7 +278,7 @@ export function BookingForm({
             />
           </label>
           <label className={label}>
-            Number of dives
+            {t("Number of dives")}
             <input
               type="number"
               name="numberOfDives"
@@ -283,41 +289,55 @@ export function BookingForm({
               defaultValue={initial.numberOfDives}
               className={control}
             />
-            <span className="mt-1 block text-xs font-normal text-zinc-500">Fun dives are billed per dive and count toward the stay rate.</span>
+            <span className="mt-1 block text-xs font-normal text-zinc-500">
+              {t("Fun dives are billed per dive and count toward the stay rate.")}
+            </span>
           </label>
+          <fieldset className="sm:col-span-2">
+            <legend className="text-sm font-medium text-zinc-700">{t("Add-ons")}</legend>
+            <div className="mt-1 flex flex-wrap gap-x-6 gap-y-2">
+              {ADD_ONS.map((a) => (
+                <label key={a.key} className="flex items-center gap-2 text-sm text-zinc-800">
+                  <input type="checkbox" name="addOns" value={a.key} defaultChecked={initial.addOns.includes(a.key)} className="size-4" />
+                  {t(a.label)}
+                  <span className="text-xs text-zinc-500">({t(a.hint).toLowerCase()})</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <label className={label}>
-            Government bono
+            {t("Government bono")}
             <input
               name="bonoCode"
               maxLength={40}
               pattern="[A-Za-z0-9][A-Za-z0-9\-]{1,39}"
-              title="The bono's code: letters, digits and dashes"
+              title={t("The bono's code: letters, digits and dashes")}
               autoComplete="off"
               defaultValue={initial.bonoCode}
               readOnly={initial.bonoLocked}
-              placeholder="None"
+              placeholder={t("None")}
               className={`${control} uppercase placeholder:normal-case${initial.bonoLocked ? " bg-zinc-50 text-zinc-500" : ""}`}
             />
             <span className="mt-1 block text-xs font-normal text-zinc-500">
               {initial.bonoLocked
-                ? "Applied on this booking's invoice; cancel the invoice to change it."
-                : "The code of a government bono (Settings → Bonos). Its discount is applied when the booking is invoiced."}
+                ? t("Applied on this booking's invoice; cancel the invoice to change it.")
+                : t("The code of a government bono (Settings → Bonos). Its discount is applied when the booking is invoiced.")}
             </span>
           </label>
           <label className={label}>
-            Source
+            {t("Source")}
             <select name="bookingSource" defaultValue={initial.bookingSource} className={control}>
               {SOURCES.map((s) => (
                 <option key={s} value={s}>
-                  {SOURCE_LABELS[s]}
+                  {t(SOURCE_LABELS[s])}
                 </option>
               ))}
             </select>
           </label>
           <label className={label}>
-            Partner (partner bookings)
+            {t("Partner (partner bookings)")}
             <select name="partnerId" defaultValue={initial.partnerId} className={control}>
-              <option value="">None</option>
+              <option value="">{t("None")}</option>
               {partners.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -327,20 +347,20 @@ export function BookingForm({
           </label>
           {!bookingId && (
             <label className={label}>
-              Status
+              {t("Status")}
               <select name="status" defaultValue={initial.status} className={control}>
-                <option value="CONFIRMED">Confirmed</option>
-                <option value="PENDING">Pending (not checked in)</option>
+                <option value="CONFIRMED">{t("Confirmed")}</option>
+                <option value="PENDING">{t("Pending (not checked in)")}</option>
               </select>
             </label>
           )}
         </div>
-        <p className="text-xs text-zinc-500">The boat must have room for these participants in that slot.</p>
+        <p className="text-xs text-zinc-500">{t("The boat must have room for these participants in that slot.")}</p>
       </section>
 
       <section className={section}>
-        <h2 className="font-semibold text-zinc-900">Rental equipment</h2>
-        <p className="text-xs text-zinc-500">One set per booking. The invoice charges the items ticked here.</p>
+        <h2 className="font-semibold text-zinc-900">{t("Rental equipment")}</h2>
+        <p className="text-xs text-zinc-500">{t("One set per booking. The invoice charges the items ticked here.")}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {EQUIPMENT_ITEMS.map((item) => (
             <div key={item.key} className="flex items-center gap-3">
@@ -352,17 +372,17 @@ export function BookingForm({
                   checked={equipment.has(item.key)}
                   onChange={(e) => toggle(item.key, e.target.checked)}
                 />
-                {item.label}
+                {t(item.label)}
               </label>
               {item.sizes && (
                 <select
                   name={`size_${item.key}`}
-                  aria-label={`${item.label} size`}
+                  aria-label={t("{item} size", { item: t(item.label) })}
                   defaultValue={initialSizes[item.key] ?? ""}
                   disabled={!equipment.has(item.key)}
                   className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm disabled:opacity-40"
                 >
-                  <option value="">Size…</option>
+                  <option value="">{t("Size…")}</option>
                   {item.sizes.map((s) => (
                     <option key={s} value={s}>
                       {s}
@@ -377,23 +397,23 @@ export function BookingForm({
 
       <section className={section}>
         <label className={label}>
-          Notes (optional)
+          {t("Notes (optional)")}
           <textarea name="notes" rows={3} maxLength={2000} defaultValue={initial.notes} className={control} />
         </label>
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending || (mode === "existing" && !customerId)}>
-          {pending ? "Saving…" : bookingId ? "Save changes" : "Create booking"}
+          {pending ? t("Saving…") : bookingId ? t("Save changes") : t("Create booking")}
         </Button>
         <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} />}>
-          Cancel
+          {t("Cancel")}
         </Button>
-        {mode === "existing" && !customerId && <p className="text-sm text-zinc-500">Choose a customer first.</p>}
+        {mode === "existing" && !customerId && <p className="text-sm text-zinc-500">{t("Choose a customer first.")}</p>}
         {state?.error && (
           <p role="alert" className="text-sm text-destructive">
             {state.error}
-            {state.createdCustomer && " The new customer was saved and is now selected."}
+            {state.createdCustomer && ` ${t("The new customer was saved and is now selected.")}`}
           </p>
         )}
       </div>

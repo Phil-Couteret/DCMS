@@ -36,6 +36,7 @@ import {
   SKILL_LEVEL_LABELS,
 } from "@/lib/customers";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -72,26 +73,28 @@ function Pill({ tone, children, title }: { tone: keyof typeof PILL_TONES; childr
 }
 
 // An expiry date with a badge when it has passed or is close.
-function Expiry({ iso, today, soon }: { iso: string | null; today: string; soon: string }) {
-  if (!iso) return <span className="text-zinc-500">Not recorded</span>;
+async function Expiry({ iso, today, soon }: { iso: string | null; today: string; soon: string }) {
+  const t = await getT();
+  if (!iso) return <span className="text-zinc-500">{t("Not recorded")}</span>;
   const day = iso.slice(0, 10);
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       {formatBookingDate(iso)}
-      {day < today ? <Pill tone="red">Expired</Pill> : day <= soon ? <Pill tone="amber">Expires soon</Pill> : null}
+      {day < today ? <Pill tone="red">{t("Expired")}</Pill> : day <= soon ? <Pill tone="amber">{t("Expires soon")}</Pill> : null}
     </span>
   );
 }
 
-function Verified({ at, by }: { at: string | null; by?: string | null }) {
-  if (!at) return <Pill tone="zinc">Not verified</Pill>;
+async function Verified({ at, by }: { at: string | null; by?: string | null }) {
+  const t = await getT();
+  if (!at) return <Pill tone="zinc">{t("Not verified")}</Pill>;
   const when = dateTime.format(new Date(at));
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Pill tone="green">Verified</Pill>
+      <Pill tone="green">{t("Verified")}</Pill>
       <span className="text-xs text-zinc-500">
         {when}
-        {by && ` by ${by}`}
+        {by && ` ${t("by {name}", { name: by })}`}
       </span>
     </span>
   );
@@ -100,18 +103,19 @@ function Verified({ at, by }: { at: string | null; by?: string | null }) {
 // emergencyContact is free-form JSON. The name, phone and relationship the
 // form edits come first; other keys follow as label/value pairs, and anything
 // that is not an object is shown as text.
-function EmergencyContact({ value }: { value: unknown }) {
-  if (value === null || value === undefined) return <>Not given</>;
+async function EmergencyContact({ value }: { value: unknown }) {
+  const t = await getT();
+  if (value === null || value === undefined) return <>{t("Not given")}</>;
   if (typeof value === "object" && !Array.isArray(value)) {
     const { name, phone, relationship, ...others } = value as Record<string, unknown>;
     const str = (v: unknown) => (typeof v === "string" && v !== "" ? v : null);
     const entries = Object.entries(others);
-    if (!str(name) && !str(phone) && !str(relationship) && entries.length === 0) return <>Not given</>;
+    if (!str(name) && !str(phone) && !str(relationship) && entries.length === 0) return <>{t("Not given")}</>;
     return (
       <ul className="space-y-0.5">
         {(str(name) || str(relationship)) && (
           <li>
-            {str(name) ?? "Name not given"}
+            {str(name) ?? t("Name not given")}
             {str(relationship) && <span className="text-zinc-500"> ({str(relationship)})</span>}
           </li>
         )}
@@ -121,7 +125,7 @@ function EmergencyContact({ value }: { value: unknown }) {
               {str(phone)}
             </a>
           ) : (
-            <span className="text-zinc-500">No phone given</span>
+            <span className="text-zinc-500">{t("No phone given")}</span>
           )}
         </li>
         {entries.map(([k, v]) => (
@@ -149,6 +153,7 @@ const dateTime = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "shor
 
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { timeZone } = await centerLocale();
+  const t = await getT();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -181,7 +186,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   return (
     <main className="space-y-6 p-6 md:p-8">
       <Link href="/dashboard/customers" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← All customers
+        {t("← All customers")}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -190,8 +195,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             {customer.firstName} {customer.lastName}
           </h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
-            Customer since {dateTime.format(new Date(customer.createdAt))}
-            {!customer.isApproved && <Pill tone="amber">Not approved</Pill>}
+            {t("Customer since {date}", { date: dateTime.format(new Date(customer.createdAt)) })}
+            {!customer.isApproved && <Pill tone="amber">{t("Not approved")}</Pill>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -200,10 +205,10 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             nativeButton={false}
             render={<Link href={`/dashboard/bookings/new?customer=${customer.id}`} prefetch={false} />}
           >
-            New Booking
+            {t("New Booking")}
           </Button>
           <Button nativeButton={false} render={<Link href={`/dashboard/customers/${customer.id}/edit`} prefetch={false} />}>
-            Edit
+            {t("Edit")}
           </Button>
         </div>
       </div>
@@ -211,31 +216,31 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Profile</CardTitle>
+            <CardTitle>{t("Profile")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="divide-y divide-zinc-100">
-              <Row label="First name">{customer.firstName}</Row>
-              <Row label="Last name">{customer.lastName}</Row>
-              <Row label="Email">
+              <Row label={t("First name")}>{customer.firstName}</Row>
+              <Row label={t("Last name")}>{customer.lastName}</Row>
+              <Row label={t("Email")}>
                 <a href={`mailto:${customer.email}`} className="hover:underline">
                   {customer.email}
                 </a>
               </Row>
-              <Row label="Phone">{customer.phone ?? "Not given"}</Row>
-              <Row label="Nationality">{countryLabel(customer.country)}</Row>
-              <Row label="Language">{LANGUAGE_LABELS[customer.language] ?? customer.language}</Row>
-              <Row label="Birthdate">
-                {customer.birthdate ? formatBookingDate(customer.birthdate, "long") : "Not given"}
+              <Row label={t("Phone")}>{customer.phone ?? t("Not given")}</Row>
+              <Row label={t("Nationality")}>{countryLabel(customer.country)}</Row>
+              <Row label={t("Language")}>{LANGUAGE_LABELS[customer.language] ? t(LANGUAGE_LABELS[customer.language]) : customer.language}</Row>
+              <Row label={t("Birthdate")}>
+                {customer.birthdate ? formatBookingDate(customer.birthdate, "long") : t("Not given")}
               </Row>
-              <Row label="Gender">
-                {customer.gender ? (GENDER_LABELS[customer.gender] ?? customer.gender) : "Not specified"}
+              <Row label={t("Gender")}>
+                {customer.gender ? (GENDER_LABELS[customer.gender] ? t(GENDER_LABELS[customer.gender]) : customer.gender) : t("Not specified")}
               </Row>
-              <Row label="Emergency contact">
+              <Row label={t("Emergency contact")}>
                 <EmergencyContact value={customer.emergencyContact} />
               </Row>
-              <Row label="Loyalty points">{customer.loyaltyPoints}</Row>
-              <Row label="Last updated">{dateTime.format(new Date(customer.updatedAt))}</Row>
+              <Row label={t("Loyalty points")}>{customer.loyaltyPoints}</Row>
+              <Row label={t("Last updated")}>{dateTime.format(new Date(customer.updatedAt))}</Row>
             </dl>
           </CardContent>
         </Card>
@@ -243,30 +248,30 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Classification</CardTitle>
+              <CardTitle>{t("Classification")}</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="divide-y divide-zinc-100">
-                <Row label="Customer type">{CUSTOMER_TYPE_LABELS[customer.customerType] ?? customer.customerType}</Row>
-                <Row label="Skill level">
+                <Row label={t("Customer type")}>{CUSTOMER_TYPE_LABELS[customer.customerType] ? t(CUSTOMER_TYPE_LABELS[customer.customerType]) : customer.customerType}</Row>
+                <Row label={t("Skill level")}>
                   {customer.centerSkillLevel ? (
-                    SKILL_LEVEL_LABELS[customer.centerSkillLevel]
+                    t(SKILL_LEVEL_LABELS[customer.centerSkillLevel])
                   ) : (
-                    <span className="text-zinc-500">Not assessed</span>
+                    <span className="text-zinc-500">{t("Not assessed")}</span>
                   )}
                 </Row>
-                <Row label="Dives logged">{customer.totalDives}</Row>
-                <Row label="Online booking">
+                <Row label={t("Dives logged")}>{customer.totalDives}</Row>
+                <Row label={t("Online booking")}>
                   <span className="flex flex-wrap items-start justify-between gap-2">
-                    {customer.isApproved ? <Pill tone="green">Approved</Pill> : <Pill tone="amber">Not approved</Pill>}
+                    {customer.isApproved ? <Pill tone="green">{t("Approved")}</Pill> : <Pill tone="amber">{t("Not approved")}</Pill>}
                     <ActionButton
                       action={setApproval}
                       fields={{ ...idField, approve: String(!customer.isApproved) }}
-                      pendingLabel="Saving…"
+                      pendingLabel={t("Saving…")}
                       variant={customer.isApproved ? "outline" : "default"}
-                      confirm={customer.isApproved ? "Revoke this customer's approval to book online?" : undefined}
+                      confirm={customer.isApproved ? t("Revoke this customer's approval to book online?") : undefined}
                     >
-                      {customer.isApproved ? "Revoke" : "Approve"}
+                      {customer.isApproved ? t("Revoke") : t("Approve")}
                     </ActionButton>
                   </span>
                 </Row>
@@ -276,18 +281,18 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
 
           <Card>
             <CardHeader>
-              <CardTitle>Equipment preferences</CardTitle>
+              <CardTitle>{t("Equipment preferences")}</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="divide-y divide-zinc-100">
-                <Row label="Own equipment">
-                  {customer.ownEquipment ? "Brings a complete set (tank from the center)" : "Rents from the center"}
+                <Row label={t("Own equipment")}>
+                  {customer.ownEquipment ? t("Brings a complete set (tank from the center)") : t("Rents from the center")}
                 </Row>
-                <Row label="Tank">{customer.tankSize ?? <span className="text-zinc-500">Not recorded</span>}</Row>
+                <Row label={t("Tank")}>{customer.tankSize ?? <span className="text-zinc-500">{t("Not recorded")}</span>}</Row>
                 {!customer.ownEquipment &&
                   RENTAL_SIZE_FIELDS.map((f) => (
-                    <Row key={f.key} label={f.label}>
-                      {customer[f.key] ?? <span className="text-zinc-500">Not recorded</span>}
+                    <Row key={f.key} label={t(f.label)}>
+                      {customer[f.key] ?? <span className="text-zinc-500">{t("Not recorded")}</span>}
                     </Row>
                   ))}
               </dl>
@@ -298,27 +303,27 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
 
       <Card>
         <CardHeader>
-          <CardTitle>Certifications</CardTitle>
-          <CardDescription>Recorded by staff from the diver&apos;s card.</CardDescription>
+          <CardTitle>{t("Certifications")}</CardTitle>
+          <CardDescription>{t("Recorded by staff from the diver's card.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {certsResult.status === "rejected" ? (
             <p role="alert" className="text-sm text-red-700">
-              Certifications could not be loaded: {String((certsResult.reason as Error).message)}
+              {t("Certifications could not be loaded: {error}", { error: String((certsResult.reason as Error).message) })}
             </p>
           ) : certs.length === 0 ? (
-            <p className="text-sm text-zinc-500">None recorded yet.</p>
+            <p className="text-sm text-zinc-500">{t("None recorded yet.")}</p>
           ) : (
             <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Certification</TableHead>
-                    <TableHead>Card number</TableHead>
-                    <TableHead>Issued</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("Certification")}</TableHead>
+                    <TableHead>{t("Card number")}</TableHead>
+                    <TableHead>{t("Issued")}</TableHead>
+                    <TableHead>{t("Expires")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead className="text-right">{t("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -327,13 +332,13 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                     return (
                       <TableRow key={c.id}>
                         <TableCell className="font-medium">
-                          {CERT_LABELS[c.level] ?? c.level}
+                          {CERT_LABELS[c.level] ? t(CERT_LABELS[c.level]) : c.level}
                           <span className="font-normal text-zinc-500"> · {c.agency}</span>
                         </TableCell>
                         <TableCell className="font-mono text-xs">{c.cardNumber ?? "—"}</TableCell>
                         <TableCell>{c.issueDate ? formatBookingDate(c.issueDate) : "—"}</TableCell>
                         <TableCell>
-                          {c.expiryDate ? <Expiry iso={c.expiryDate} today={today} soon={soon} /> : "No expiry"}
+                          {c.expiryDate ? <Expiry iso={c.expiryDate} today={today} soon={soon} /> : t("No expiry")}
                         </TableCell>
                         <TableCell>
                           <Verified at={c.verifiedAt} by={c.verifiedBy} />
@@ -343,20 +348,20 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                             <ActionButton
                               action={setCertificationVerified}
                               fields={{ ...certFields, verified: String(!c.verifiedAt) }}
-                              pendingLabel="Saving…"
+                              pendingLabel={t("Saving…")}
                               variant={c.verifiedAt ? "ghost" : "outline"}
                             >
-                              {c.verifiedAt ? "Unverify" : "Verify"}
+                              {c.verifiedAt ? t("Unverify") : t("Verify")}
                             </ActionButton>
                             <ActionButton
                               action={removeCertification}
                               fields={certFields}
-                              pendingLabel="Removing…"
+                              pendingLabel={t("Removing…")}
                               variant="ghost"
                               className="text-destructive"
-                              confirm={`Remove ${c.agency} ${CERT_LABELS[c.level] ?? c.level}? This cannot be undone.`}
+                              confirm={t("Remove {certification}? This cannot be undone.", { certification: `${c.agency} ${CERT_LABELS[c.level] ? t(CERT_LABELS[c.level]) : c.level}` })}
                             >
-                              Remove
+                              {t("Remove")}
                             </ActionButton>
                           </div>
                         </TableCell>
@@ -370,14 +375,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           {declared && !certs.some((c) => c.level === declared.level) && (
             <div className="rounded-lg bg-amber-50 p-4 ring-1 ring-amber-200">
               <p className="text-sm font-medium text-amber-900">
-                {CERT_LABELS[declared.level] ?? declared.level}
+                {CERT_LABELS[declared.level] ? t(CERT_LABELS[declared.level]) : declared.level}
                 <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
-                  Self-declared
+                  {t("Self-declared")}
                 </span>
               </p>
               <p className="mt-1 text-xs text-amber-800">
-                Stated by the customer when booking online on {dateTime.format(new Date(declared.booking.createdAt))}.
-                Not verified: check the certification card before the dive.
+                {t("Stated by the customer when booking online on {date}.", { date: dateTime.format(new Date(declared.booking.createdAt)) })}{" "}
+                {t("Not verified: check the certification card before the dive.")}
               </p>
             </div>
           )}
@@ -388,75 +393,75 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Medical certificate</CardTitle>
+            <CardTitle>{t("Medical certificate")}</CardTitle>
           </CardHeader>
           <CardContent>
             {hasMedical ? (
               <dl className="divide-y divide-zinc-100">
-                <Row label="Number">
+                <Row label={t("Number")}>
                   {customer.medicalCertNumber ? (
                     <span className="font-mono">{customer.medicalCertNumber}</span>
                   ) : (
-                    <span className="text-zinc-500">Not recorded</span>
+                    <span className="text-zinc-500">{t("Not recorded")}</span>
                   )}
                 </Row>
-                <Row label="Expires">
+                <Row label={t("Expires")}>
                   <Expiry iso={customer.medicalCertExpiry} today={today} soon={soon} />
                 </Row>
-                <Row label="Status">
+                <Row label={t("Status")}>
                   <span className="flex flex-wrap items-start justify-between gap-2">
                     <Verified at={customer.medicalCertVerifiedAt} />
                     <ActionButton
                       action={setDocumentVerified}
                       fields={{ ...idField, kind: "medical", verified: String(!customer.medicalCertVerifiedAt) }}
-                      pendingLabel="Saving…"
+                      pendingLabel={t("Saving…")}
                       variant={customer.medicalCertVerifiedAt ? "ghost" : "outline"}
                     >
-                      {customer.medicalCertVerifiedAt ? "Unverify" : "Verify"}
+                      {customer.medicalCertVerifiedAt ? t("Unverify") : t("Verify")}
                     </ActionButton>
                   </span>
                 </Row>
               </dl>
             ) : (
-              <p className="text-sm text-zinc-500">Not recorded. Add it with Edit.</p>
+              <p className="text-sm text-zinc-500">{t("Not recorded. Add it with Edit.")}</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Diving insurance</CardTitle>
+            <CardTitle>{t("Diving insurance")}</CardTitle>
           </CardHeader>
           <CardContent>
             {hasInsurance ? (
               <dl className="divide-y divide-zinc-100">
-                <Row label="Provider">{customer.insuranceProvider ?? <span className="text-zinc-500">Not recorded</span>}</Row>
-                <Row label="Policy number">
+                <Row label={t("Provider")}>{customer.insuranceProvider ?? <span className="text-zinc-500">{t("Not recorded")}</span>}</Row>
+                <Row label={t("Policy number")}>
                   {customer.insurancePolicyNumber ? (
                     <span className="font-mono">{customer.insurancePolicyNumber}</span>
                   ) : (
-                    <span className="text-zinc-500">Not recorded</span>
+                    <span className="text-zinc-500">{t("Not recorded")}</span>
                   )}
                 </Row>
-                <Row label="Expires">
+                <Row label={t("Expires")}>
                   <Expiry iso={customer.insuranceExpiry} today={today} soon={soon} />
                 </Row>
-                <Row label="Status">
+                <Row label={t("Status")}>
                   <span className="flex flex-wrap items-start justify-between gap-2">
                     <Verified at={customer.insuranceVerifiedAt} />
                     <ActionButton
                       action={setDocumentVerified}
                       fields={{ ...idField, kind: "insurance", verified: String(!customer.insuranceVerifiedAt) }}
-                      pendingLabel="Saving…"
+                      pendingLabel={t("Saving…")}
                       variant={customer.insuranceVerifiedAt ? "ghost" : "outline"}
                     >
-                      {customer.insuranceVerifiedAt ? "Unverify" : "Verify"}
+                      {customer.insuranceVerifiedAt ? t("Unverify") : t("Verify")}
                     </ActionButton>
                   </span>
                 </Row>
               </dl>
             ) : (
-              <p className="text-sm text-zinc-500">Not recorded. Add it with Edit.</p>
+              <p className="text-sm text-zinc-500">{t("Not recorded. Add it with Edit.")}</p>
             )}
           </CardContent>
         </Card>
@@ -464,40 +469,40 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
 
       <Card>
         <CardHeader>
-          <CardTitle>Notes</CardTitle>
-          <CardDescription>For staff only.</CardDescription>
+          <CardTitle>{t("Notes")}</CardTitle>
+          <CardDescription>{t("For staff only.")}</CardDescription>
         </CardHeader>
         <CardContent>
           {customer.notes ? (
             <p className="whitespace-pre-line text-sm text-zinc-900">{customer.notes}</p>
           ) : (
-            <p className="text-sm text-zinc-500">No notes.</p>
+            <p className="text-sm text-zinc-500">{t("No notes.")}</p>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Documents</CardTitle>
-          <CardDescription>Medical certificates, insurance and certification cards the diver has provided.</CardDescription>
+          <CardTitle>{t("Documents")}</CardTitle>
+          <CardDescription>{t("Medical certificates, insurance and certification cards the diver has provided.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {docsResult.status === "rejected" ? (
             <p role="alert" className="text-sm text-red-700">
-              Documents could not be loaded: {String((docsResult.reason as Error).message)}
+              {t("Documents could not be loaded: {error}", { error: String((docsResult.reason as Error).message) })}
             </p>
           ) : docsResult.value.length === 0 ? (
-            <p className="text-sm text-zinc-500">No documents uploaded yet.</p>
+            <p className="text-sm text-zinc-500">{t("No documents uploaded yet.")}</p>
           ) : (
             <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Document</TableHead>
-                    <TableHead>File</TableHead>
-                    <TableHead className="text-right">Size</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("Document")}</TableHead>
+                    <TableHead>{t("File")}</TableHead>
+                    <TableHead className="text-right">{t("Size")}</TableHead>
+                    <TableHead>{t("Uploaded")}</TableHead>
+                    <TableHead className="text-right">{t("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -505,29 +510,29 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                     const href = `/dashboard/customers/${customer.id}/documents/${d.id}`;
                     return (
                       <TableRow key={d.id}>
-                        <TableCell className="font-medium">{DOCUMENT_TYPE_LABELS[d.type]}</TableCell>
+                        <TableCell className="font-medium">{t(DOCUMENT_TYPE_LABELS[d.type])}</TableCell>
                         <TableCell className="max-w-72">
                           <a href={href} target="_blank" rel="noopener" className="block truncate text-[#0077b6] hover:underline" title={d.filename}>
                             {d.filename}
                           </a>
-                          <span className="text-xs text-zinc-500">{d.mimeType === "application/pdf" ? "PDF" : "Photo"}</span>
+                          <span className="text-xs text-zinc-500">{d.mimeType === "application/pdf" ? "PDF" : t("Photo")}</span>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{fileSize(d.size)}</TableCell>
                         <TableCell>{formatBookingDate(d.uploadedAt)}</TableCell>
                         <TableCell>
                           <div className="flex items-start justify-end gap-1">
                             <Button size="sm" variant="outline" nativeButton={false} render={<a href={`${href}?download=1`} />}>
-                              Download
+                              {t("Download")}
                             </Button>
                             <ActionButton
                               action={removeDocument}
                               fields={{ ...idField, documentId: d.id }}
-                              pendingLabel="Deleting…"
+                              pendingLabel={t("Deleting…")}
                               variant="ghost"
                               className="text-destructive"
-                              confirm={`Delete ${d.filename}? This cannot be undone.`}
+                              confirm={t("Delete {name}? This cannot be undone.", { name: d.filename })}
                             >
-                              Delete
+                              {t("Delete")}
                             </ActionButton>
                           </div>
                         </TableCell>
@@ -545,23 +550,23 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <Separator />
 
       <section aria-labelledby="dives" className="space-y-3">
-        <h2 id="dives" className="text-lg font-semibold text-zinc-900">Dive history</h2>
+        <h2 id="dives" className="text-lg font-semibold text-zinc-900">{t("Dive history")}</h2>
         {historyResult.status === "rejected" ? (
           <p role="alert" className="text-sm text-red-700">
-            Dive history could not be loaded: {String((historyResult.reason as Error).message)}
+            {t("Dive history could not be loaded: {error}", { error: String((historyResult.reason as Error).message) })}
           </p>
         ) : historyResult.value.length === 0 ? (
-          <p className="text-sm text-zinc-500">No logged dives yet.</p>
+          <p className="text-sm text-zinc-500">{t("No logged dives yet.")}</p>
         ) : (
           <div className="overflow-hidden rounded-xl bg-white ring-1 ring-zinc-200">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Log</TableHead>
-                  <TableHead>Site</TableHead>
-                  <TableHead className="text-right">Max depth</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
+                  <TableHead>{t("Date")}</TableHead>
+                  <TableHead>{t("Log")}</TableHead>
+                  <TableHead>{t("Site")}</TableHead>
+                  <TableHead className="text-right">{t("Max depth")}</TableHead>
+                  <TableHead className="text-right">{t("Duration")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -581,21 +586,21 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       </section>
 
       <section aria-labelledby="bookings" className="space-y-3">
-        <h2 id="bookings" className="text-lg font-semibold text-zinc-900">Booking history</h2>
+        <h2 id="bookings" className="text-lg font-semibold text-zinc-900">{t("Booking history")}</h2>
         {bookingsResult.status === "rejected" ? (
           <p role="alert" className="text-sm text-red-700">
-            Bookings could not be loaded: {String((bookingsResult.reason as Error).message)}
+            {t("Bookings could not be loaded: {error}", { error: String((bookingsResult.reason as Error).message) })}
           </p>
         ) : recentBookings.length === 0 ? (
-          <p className="text-sm text-zinc-500">No bookings yet.</p>
+          <p className="text-sm text-zinc-500">{t("No bookings yet.")}</p>
         ) : (
           <div className="overflow-hidden rounded-xl bg-white ring-1 ring-zinc-200">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Activity</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>{t("Date")}</TableHead>
+                  <TableHead>{t("Activity")}</TableHead>
+                  <TableHead>{t("Status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -606,7 +611,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                         {formatBookingDate(b.date)}
                       </Link>
                     </TableCell>
-                    <TableCell>{ACTIVITY_LABELS[b.activityType] ?? b.activityType}</TableCell>
+                    <TableCell>{ACTIVITY_LABELS[b.activityType] ? t(ACTIVITY_LABELS[b.activityType]) : b.activityType}</TableCell>
                     <TableCell>
                       <StatusBadge status={b.status} />
                     </TableCell>

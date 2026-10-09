@@ -20,6 +20,7 @@ import {
   type Language,
   type SkillLevel,
 } from "@/lib/api";
+import { getT } from "@/lib/i18n/server";
 import {
   CERT_AGENCIES,
   CERT_LABELS,
@@ -70,6 +71,7 @@ function size(formData: FormData, name: string, options: string[]) {
 
 // Creates or updates a customer, then opens their profile.
 export async function saveCustomer(_prev: CustomerFormState, formData: FormData): Promise<CustomerFormState> {
+  const t = await getT();
   const id = text(formData, "customerId");
   const firstName = text(formData, "firstName");
   const lastName = text(formData, "lastName");
@@ -86,30 +88,30 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
   const insuranceExpiry = text(formData, "insuranceExpiry");
   const ownEquipment = formData.get("ownEquipment") === "on";
 
-  if (!firstName || !lastName) return { error: "Enter a first and last name" };
-  if (!email) return { error: "Enter an email address" };
-  if (!country) return { error: "Enter a country" };
-  if (!LANGUAGES.some((l) => l.code === language)) return { error: "Choose a language" };
-  if (birthdate && !ISO_DATE.test(birthdate)) return { error: "Enter a valid birthdate" };
+  if (!firstName || !lastName) return { error: t("Enter a first and last name") };
+  if (!email) return { error: t("Enter an email address") };
+  if (!country) return { error: t("Enter a country") };
+  if (!LANGUAGES.some((l) => l.code === language)) return { error: t("Choose a language") };
+  if (birthdate && !ISO_DATE.test(birthdate)) return { error: t("Enter a valid birthdate") };
   if (gender && !(gender in GENDER_LABELS) && gender !== text(formData, "gender_initial")) {
-    return { error: "Choose a gender" };
+    return { error: t("Choose a gender") };
   }
-  if (!(customerType in CUSTOMER_TYPE_LABELS)) return { error: "Choose a customer type" };
-  if (skill && !(skill in SKILL_LEVEL_LABELS)) return { error: "Choose a skill level" };
-  if (totalDives === null) return { error: "Dives logged must be a whole number, 0 or more" };
-  if (loyaltyPoints === null) return { error: "Loyalty points must be a whole number, 0 or more" };
-  if (medicalCertExpiry && !ISO_DATE.test(medicalCertExpiry)) return { error: "Enter a valid medical certificate expiry" };
-  if (insuranceExpiry && !ISO_DATE.test(insuranceExpiry)) return { error: "Enter a valid insurance expiry" };
+  if (!(customerType in CUSTOMER_TYPE_LABELS)) return { error: t("Choose a customer type") };
+  if (skill && !(skill in SKILL_LEVEL_LABELS)) return { error: t("Choose a skill level") };
+  if (totalDives === null) return { error: t("Dives logged must be a whole number, 0 or more") };
+  if (loyaltyPoints === null) return { error: t("Loyalty points must be a whole number, 0 or more") };
+  if (medicalCertExpiry && !ISO_DATE.test(medicalCertExpiry)) return { error: t("Enter a valid medical certificate expiry") };
+  if (insuranceExpiry && !ISO_DATE.test(insuranceExpiry)) return { error: t("Enter a valid insurance expiry") };
 
   // With their own equipment, the rental size fields are disabled and not
   // sent: the sizes on record are kept.
   const tank = size(formData, "tankSize", TANK_SIZES);
-  if (tank.error) return { error: tank.error };
+  if (tank.error) return { error: t(tank.error) };
   const sizes: Partial<CustomerData> = {};
   if (!ownEquipment) {
     for (const f of RENTAL_SIZE_FIELDS) {
       const s = size(formData, f.key, GEAR_SIZES);
-      if (s.error) return { error: `${f.label}: ${s.error.toLowerCase()}` };
+      if (s.error) return { error: t("{item}: choose a size from the list", { item: t(f.label) }) };
       sizes[f.key] = s.value;
     }
   }
@@ -123,7 +125,7 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
         emergencyContact = { ...(current as Record<string, unknown>) };
       }
     } catch (e) {
-      return fail(e, "The customer could not be loaded");
+      return fail(e, t("The customer could not be loaded"));
     }
   }
   for (const key of ["name", "phone", "relationship"]) {
@@ -162,7 +164,7 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
   try {
     savedId = (id ? await updateCustomer(id, data) : await createCustomer(data)).id;
   } catch (e) {
-    return fail(e, "The customer could not be saved");
+    return fail(e, t("The customer could not be saved"));
   }
   refresh(savedId);
   redirect(`/dashboard/customers/${savedId}`);
@@ -170,12 +172,13 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
 
 // Approves or revokes online booking, from the list or the profile.
 export async function setApproval(_prev: CustomerActionState, formData: FormData): Promise<CustomerActionState> {
+  const t = await getT();
   const id = text(formData, "customerId");
-  if (!UUID.test(id)) return { error: "Unknown customer" };
+  if (!UUID.test(id)) return { error: t("Unknown customer") };
   try {
     await updateCustomer(id, { isApproved: text(formData, "approve") === "true" });
   } catch (e) {
-    return fail(e, "The approval could not be changed");
+    return fail(e, t("The approval could not be changed"));
   }
   refresh(id);
   return { ok: true };
@@ -186,32 +189,34 @@ export async function setDocumentVerified(
   _prev: CustomerActionState,
   formData: FormData,
 ): Promise<CustomerActionState> {
+  const t = await getT();
   const id = text(formData, "customerId");
   const kind = text(formData, "kind");
-  if (!UUID.test(id)) return { error: "Unknown customer" };
-  if (kind !== "medical" && kind !== "insurance") return { error: "Unknown document" };
+  if (!UUID.test(id)) return { error: t("Unknown customer") };
+  if (kind !== "medical" && kind !== "insurance") return { error: t("Unknown document") };
   const value = text(formData, "verified") === "true" ? new Date().toISOString() : null;
   try {
     await updateCustomer(id, kind === "medical" ? { medicalCertVerifiedAt: value } : { insuranceVerifiedAt: value });
   } catch (e) {
-    return fail(e, "The verification could not be saved");
+    return fail(e, t("The verification could not be saved"));
   }
   refresh(id);
   return { ok: true };
 }
 
 export async function addCertification(_prev: CustomerActionState, formData: FormData): Promise<CustomerActionState> {
+  const t = await getT();
   const id = text(formData, "customerId");
   const agency = text(formData, "agency");
   const level = text(formData, "level");
   const issueDate = text(formData, "issueDate");
   const expiryDate = text(formData, "expiryDate");
-  if (!UUID.test(id)) return { error: "Unknown customer" };
-  if (!CERT_AGENCIES.includes(agency)) return { error: "Choose the agency" };
-  if (!level || level === "none" || !(level in CERT_LABELS)) return { error: "Choose the level" };
-  if (issueDate && !ISO_DATE.test(issueDate)) return { error: "Enter a valid issue date" };
-  if (expiryDate && !ISO_DATE.test(expiryDate)) return { error: "Enter a valid expiry date" };
-  if (issueDate && expiryDate && expiryDate < issueDate) return { error: "The expiry date is before the issue date" };
+  if (!UUID.test(id)) return { error: t("Unknown customer") };
+  if (!CERT_AGENCIES.includes(agency)) return { error: t("Choose the agency") };
+  if (!level || level === "none" || !(level in CERT_LABELS)) return { error: t("Choose the level") };
+  if (issueDate && !ISO_DATE.test(issueDate)) return { error: t("Enter a valid issue date") };
+  if (expiryDate && !ISO_DATE.test(expiryDate)) return { error: t("Enter a valid expiry date") };
+  if (issueDate && expiryDate && expiryDate < issueDate) return { error: t("The expiry date is before the issue date") };
   try {
     await createCustomerCertification(id, {
       agency,
@@ -221,7 +226,7 @@ export async function addCertification(_prev: CustomerActionState, formData: For
       expiryDate: expiryDate || null,
     });
   } catch (e) {
-    return fail(e, "The certification could not be added");
+    return fail(e, t("The certification could not be added"));
   }
   refresh(id);
   return { ok: true };
@@ -231,13 +236,14 @@ export async function setCertificationVerified(
   _prev: CustomerActionState,
   formData: FormData,
 ): Promise<CustomerActionState> {
+  const t = await getT();
   const id = text(formData, "customerId");
   const certId = text(formData, "certId");
-  if (!UUID.test(id) || !UUID.test(certId)) return { error: "Unknown certification" };
+  if (!UUID.test(id) || !UUID.test(certId)) return { error: t("Unknown certification") };
   try {
     await updateCustomerCertification(id, certId, { verified: text(formData, "verified") === "true" });
   } catch (e) {
-    return fail(e, "The verification could not be saved");
+    return fail(e, t("The verification could not be saved"));
   }
   refresh(id);
   return { ok: true };
@@ -247,13 +253,14 @@ export async function removeCertification(
   _prev: CustomerActionState,
   formData: FormData,
 ): Promise<CustomerActionState> {
+  const t = await getT();
   const id = text(formData, "customerId");
   const certId = text(formData, "certId");
-  if (!UUID.test(id) || !UUID.test(certId)) return { error: "Unknown certification" };
+  if (!UUID.test(id) || !UUID.test(certId)) return { error: t("Unknown certification") };
   try {
     await deleteCustomerCertification(id, certId);
   } catch (e) {
-    return fail(e, "The certification could not be removed");
+    return fail(e, t("The certification could not be removed"));
   }
   refresh(id);
   return { ok: true };
@@ -264,33 +271,35 @@ export type DocumentUploadState = { error?: string; uploaded?: number } | null;
 // A document for the customer's record (PDF or photo, at most 10 MB). The
 // API decides the file's type from its contents.
 export async function uploadDocument(_prev: DocumentUploadState, formData: FormData): Promise<DocumentUploadState> {
+  const t = await getT();
   const id = text(formData, "customerId");
   const type = text(formData, "type") as CustomerDocumentType;
   const file = formData.get("file");
-  if (!UUID.test(id)) return { error: "Unknown customer" };
-  if (!DOCUMENT_TYPES.includes(type)) return { error: "Choose what the document is" };
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose a file" };
-  if (file.size > MAX_DOCUMENT_BYTES) return { error: "The file is over 10 MB" };
+  if (!UUID.test(id)) return { error: t("Unknown customer") };
+  if (!DOCUMENT_TYPES.includes(type)) return { error: t("Choose what the document is") };
+  if (!(file instanceof File) || file.size === 0) return { error: t("Choose a file") };
+  if (file.size > MAX_DOCUMENT_BYTES) return { error: t("The file is over 10 MB") };
   const form = new FormData();
   form.set("type", type);
   form.set("file", file, file.name);
   try {
     await uploadCustomerDocument(id, form);
   } catch (e) {
-    return fail(e, "The document could not be uploaded");
+    return fail(e, t("The document could not be uploaded"));
   }
   refresh(id);
   return { uploaded: Date.now() };
 }
 
 export async function removeDocument(_prev: CustomerActionState, formData: FormData): Promise<CustomerActionState> {
+  const t = await getT();
   const id = text(formData, "customerId");
   const documentId = text(formData, "documentId");
-  if (!UUID.test(id) || !UUID.test(documentId)) return { error: "Unknown document" };
+  if (!UUID.test(id) || !UUID.test(documentId)) return { error: t("Unknown document") };
   try {
     await deleteCustomerDocument(id, documentId);
   } catch (e) {
-    return fail(e, "The document could not be deleted");
+    return fail(e, t("The document could not be deleted"));
   }
   refresh(id);
   return { ok: true };
@@ -299,14 +308,15 @@ export async function removeDocument(_prev: CustomerActionState, formData: FormD
 export type CustomerImportState = { error?: string; result?: ImportResult } | null;
 
 export async function importCustomersCsv(_prev: CustomerImportState, formData: FormData): Promise<CustomerImportState> {
+  const t = await getT();
   const upload = csvUpload(formData);
-  if ("error" in upload) return upload;
+  if ("error" in upload) return { error: t(upload.error) };
   try {
     const result = await importCustomers(upload.form);
     revalidatePath("/dashboard/customers");
     return { result };
   } catch (e) {
-    return { error: e instanceof ApiError ? e.message : "The file could not be imported" };
+    return { error: e instanceof ApiError ? e.message : t("The file could not be imported") };
   }
 }
 

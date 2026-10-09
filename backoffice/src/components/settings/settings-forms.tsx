@@ -39,13 +39,15 @@ import {
   USER_ROLES,
 } from "@/lib/settings";
 import { interval } from "@/lib/tanks";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
 const label = "block text-sm font-medium text-zinc-700";
 
-function Status({ state, saved = "Saved." }: { state: SettingsFormState; saved?: string }) {
+function Status({ state, saved }: { state: SettingsFormState; saved?: string }) {
+  const t = useT();
   if (state?.error) {
     return (
       <p role="alert" className="text-sm text-destructive">
@@ -56,7 +58,7 @@ function Status({ state, saved = "Saved." }: { state: SettingsFormState; saved?:
   if (state?.ok) {
     return (
       <p role="status" className="text-sm text-green-700">
-        {saved}
+        {saved ?? t("Saved.")}
       </p>
     );
   }
@@ -74,32 +76,33 @@ export function GeneralForm({
   timeZones: string[];
   currencies: string[];
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveGeneral, null);
   return (
     <form onSubmit={onSubmit} className="max-w-2xl space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Center name
+          {t("Center name")}
           <input name="name" required maxLength={120} defaultValue={settings.name} className={control} />
         </label>
         <label className={label}>
-          Legal name (optional)
+          {t("Legal name (optional)")}
           <input name="legalName" maxLength={160} defaultValue={settings.legalName ?? ""} className={control} />
         </label>
         <label className={`${label} sm:col-span-2`}>
-          Address
+          {t("Address")}
           <textarea name="address" rows={3} maxLength={300} defaultValue={settings.address ?? ""} className={control} />
         </label>
         <label className={label}>
-          Phone
+          {t("Phone")}
           <input type="tel" name="phone" maxLength={40} defaultValue={settings.phone ?? ""} className={control} />
         </label>
         <label className={label}>
-          Email
+          {t("Email")}
           <input type="email" name="email" maxLength={254} defaultValue={settings.email ?? ""} className={control} />
         </label>
         <label className={label}>
-          Website
+          {t("Website")}
           <input
             type="url"
             name="website"
@@ -111,17 +114,17 @@ export function GeneralForm({
         </label>
       </div>
       <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
-        <legend className="pt-4 text-sm font-semibold text-zinc-900">Tax</legend>
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Tax")}</legend>
         <p className="text-xs text-zinc-500">
-          Added to net prices on new invoices. Invoices already issued keep the tax they were created with.
+          {t("Added to net prices on new invoices. Invoices already issued keep the tax they were created with.")}
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Tax name
+            {t("Tax name")}
             <input name="taxName" required maxLength={20} defaultValue={settings.taxName} className={control} />
           </label>
           <label className={label}>
-            Tax rate (%)
+            {t("Tax rate (%)")}
             <input
               type="number"
               name="taxRate"
@@ -139,20 +142,32 @@ export function GeneralForm({
         <CenterAdminFields settings={settings} timeZones={timeZones} currencies={currencies} />
       ) : (
         <dl className="grid grid-cols-1 gap-x-4 gap-y-2 border-t border-zinc-200 pt-4 text-sm sm:grid-cols-2">
-          <ReadOnly label="Time zone" value={settings.timeZone} />
-          <ReadOnly label="Currency" value={settings.currency} />
-          <ReadOnly label="Default language" value={LANGUAGE_LABELS[settings.defaultLanguage] ?? settings.defaultLanguage} />
-          <ReadOnly label="Invoice numbers" value={`${settings.invoicePrefix}-YYYY-0001 · partners ${settings.partnerInvoicePrefix}-YYYY-0001`} />
+          <ReadOnly label={t("Time zone")} value={settings.timeZone} />
+          <ReadOnly label={t("Currency")} value={settings.currency} />
           <ReadOnly
-            label="Tank tests"
-            value={`visual every ${interval(settings.visualInspectionIntervalMonths)} · hydrostatic every ${interval(settings.hydrostaticTestIntervalMonths)}`}
+            label={t("Default language")}
+            value={LANGUAGE_LABELS[settings.defaultLanguage] ? t(LANGUAGE_LABELS[settings.defaultLanguage]) : settings.defaultLanguage}
           />
-          <p className="text-xs text-zinc-500 sm:col-span-2">Only an admin can change these, and the branding.</p>
+          <ReadOnly
+            label={t("Invoice numbers")}
+            value={t("{prefix}-YYYY-0001 · partners {partnerPrefix}-YYYY-0001", {
+              prefix: settings.invoicePrefix,
+              partnerPrefix: settings.partnerInvoicePrefix,
+            })}
+          />
+          <ReadOnly
+            label={t("Tank tests")}
+            value={t("visual every {visual} · hydrostatic every {hydrostatic}", {
+              visual: interval(settings.visualInspectionIntervalMonths, t),
+              hydrostatic: interval(settings.hydrostaticTestIntervalMonths, t),
+            })}
+          />
+          <p className="text-xs text-zinc-500 sm:col-span-2">{t("Only an admin can change these, and the branding.")}</p>
         </dl>
       )}
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+          {pending ? t("Saving…") : t("Save")}
         </Button>
         <Status state={state} />
       </div>
@@ -170,12 +185,12 @@ function ReadOnly({ label: name, value }: { label: string; value: string }) {
 }
 
 // A colour picker that can also be left unset (the site's default colour).
-function ColourField({ name, title, value }: { name: string; title: string; value: string | null }) {
+function ColourField({ name, title, toggle, value }: { name: string; title: string; toggle: string; value: string | null }) {
   const [on, setOn] = useState(value !== null);
   return (
     <div className={label}>
       <span className="flex items-center gap-2">
-        <input type="checkbox" name={`${name}On`} checked={on} onChange={(e) => setOn(e.target.checked)} aria-label={`Use a ${title.toLowerCase()}`} />
+        <input type="checkbox" name={`${name}On`} checked={on} onChange={(e) => setOn(e.target.checked)} aria-label={toggle} />
         {title}
       </span>
       <input type="color" name={name} defaultValue={value ?? "#0077b6"} disabled={!on} aria-label={title} className="mt-1 h-9 w-20 rounded-md border border-zinc-300 disabled:opacity-40" />
@@ -194,18 +209,20 @@ function CenterAdminFields({
   timeZones: string[];
   currencies: string[];
 }) {
+  const t = useT();
   const zones = timeZones.includes(settings.timeZone) ? timeZones : [settings.timeZone, ...timeZones];
   return (
     <>
       <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
-        <legend className="pt-4 text-sm font-semibold text-zinc-900">Region</legend>
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Region")}</legend>
         <p className="text-xs text-zinc-500">
-          The time zone sets the center&apos;s days (closing a day, &quot;today&quot;, invoice years) and the times staff enter.
-          The currency applies to prices and new invoices; invoices already issued keep theirs.
+          {t(
+            'The time zone sets the center\'s days (closing a day, "today", invoice years) and the times staff enter. The currency applies to prices and new invoices; invoices already issued keep theirs.',
+          )}
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label className={label}>
-            Time zone
+            {t("Time zone")}
             <select name="timeZone" defaultValue={settings.timeZone} className={control}>
               {zones.map((z) => (
                 <option key={z} value={z}>
@@ -215,7 +232,7 @@ function CenterAdminFields({
             </select>
           </label>
           <label className={label}>
-            Currency
+            {t("Currency")}
             <select name="currency" defaultValue={settings.currency} className={control}>
               {currencies.map((c) => (
                 <option key={c} value={c}>
@@ -225,54 +242,55 @@ function CenterAdminFields({
             </select>
           </label>
           <label className={label}>
-            Default language
+            {t("Default language")}
             <select name="defaultLanguage" defaultValue={settings.defaultLanguage} className={control}>
               {LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>
-                  {l.label}
+                  {t(l.label)}
                 </option>
               ))}
             </select>
-            <span className="mt-1 block text-xs font-normal text-zinc-500">For new customers and the public site.</span>
+            <span className="mt-1 block text-xs font-normal text-zinc-500">{t("For new customers and the public site.")}</span>
           </label>
         </div>
       </fieldset>
       <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
-        <legend className="pt-4 text-sm font-semibold text-zinc-900">Public site branding</legend>
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Public site branding")}</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label className={`${label} sm:col-span-3`}>
-            Logo URL (optional)
+            {t("Logo URL (optional)")}
             <input type="url" name="logoUrl" maxLength={500} placeholder="https://" defaultValue={settings.logoUrl ?? ""} className={control} />
           </label>
-          <ColourField name="primaryColor" title="Main colour" value={settings.primaryColor} />
-          <ColourField name="accentColor" title="Accent colour" value={settings.accentColor} />
+          <ColourField name="primaryColor" title={t("Main colour")} toggle={t("Use a main colour")} value={settings.primaryColor} />
+          <ColourField name="accentColor" title={t("Accent colour")} toggle={t("Use an accent colour")} value={settings.accentColor} />
         </div>
       </fieldset>
       <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
-        <legend className="pt-4 text-sm font-semibold text-zinc-900">Invoice numbers</legend>
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Invoice numbers")}</legend>
         <p className="text-xs text-zinc-500">
-          Each series runs PREFIX-YEAR-0001, 0002… without gaps, and starts again each year. A new prefix applies to the next
-          invoice; the count continues.
+          {t(
+            "Each series runs PREFIX-YEAR-0001, 0002… without gaps, and starts again each year. A new prefix applies to the next invoice; the count continues.",
+          )}
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Customer invoices
+            {t("Customer invoices")}
             <input name="invoicePrefix" required maxLength={10} pattern="[A-Za-z0-9]{1,10}" defaultValue={settings.invoicePrefix} className={`${control} uppercase`} />
           </label>
           <label className={label}>
-            Partner invoices
+            {t("Partner invoices")}
             <input name="partnerInvoicePrefix" required maxLength={10} pattern="[A-Za-z0-9]{1,10}" defaultValue={settings.partnerInvoicePrefix} className={`${control} uppercase`} />
           </label>
         </div>
       </fieldset>
       <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
-        <legend className="pt-4 text-sm font-semibold text-zinc-900">Tank tests</legend>
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Tank tests")}</legend>
         <p className="text-xs text-zinc-500">
-          How long after its last test each cylinder test falls due (Equipment → Tanks). Follow the rules where the center operates.
+          {t("How long after its last test each cylinder test falls due (Equipment → Tanks). Follow the rules where the center operates.")}
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Visual inspection every (months)
+            {t("Visual inspection every (months)")}
             <input
               type="number"
               name="visualInspectionIntervalMonths"
@@ -285,7 +303,7 @@ function CenterAdminFields({
             />
           </label>
           <label className={label}>
-            Hydrostatic test every (months)
+            {t("Hydrostatic test every (months)")}
             <input
               type="number"
               name="hydrostaticTestIntervalMonths"
@@ -317,18 +335,19 @@ export function DeleteButton({
   name: string;
   confirmText?: string;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(REMOVE[kind], null);
   return (
     <form
       action={action}
       onSubmit={(e) => {
-        if (!window.confirm(confirmText ?? `Delete ${name}? This cannot be undone.`)) e.preventDefault();
+        if (!window.confirm(confirmText ?? t("Delete {name}? This cannot be undone.", { name }))) e.preventDefault();
       }}
       className="flex flex-col items-end gap-1"
     >
       <input type="hidden" name="id" value={id} />
       <Button type="submit" size="sm" variant="ghost" className="text-destructive" disabled={pending}>
-        {pending ? "Deleting…" : "Delete"}
+        {pending ? t("Deleting…") : t("Delete")}
       </Button>
       {state?.error && (
         <p role="alert" className="max-w-56 text-right text-xs text-destructive">
@@ -340,13 +359,14 @@ export function DeleteButton({
 }
 
 function FormActions({ pending, state, cancelHref, create }: { pending: boolean; state: SettingsFormState; cancelHref: string; create: boolean }) {
+  const t = useT();
   return (
     <div className="flex flex-wrap items-center gap-3 pt-2">
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : create ? "Create" : "Save changes"}
+        {pending ? t("Saving…") : create ? t("Create") : t("Save changes")}
       </Button>
       <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
-        Cancel
+        {t("Cancel")}
       </Button>
       <Status state={state} />
     </div>
@@ -362,6 +382,7 @@ export function BoatForm({
   cancelHref: string;
   locations: LocationRef[];
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveBoat, null);
   // An unknown stored status stays selectable so saving does not change it.
   const statuses = boat && !BOAT_STATUSES.includes(boat.status) ? [...BOAT_STATUSES, boat.status] : BOAT_STATUSES;
@@ -371,21 +392,21 @@ export function BoatForm({
       <input type="hidden" name="status_initial" value={boat?.status ?? ""} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Name
+          {t("Name")}
           <input name="name" required maxLength={100} defaultValue={boat?.name} className={control} />
         </label>
         <label className={label}>
-          Registration number
+          {t("Registration number")}
           <input name="registrationNumber" required maxLength={60} defaultValue={boat?.registrationNumber} className={control} />
         </label>
         <label className={label}>
-          Capacity (divers)
+          {t("Capacity (divers)")}
           <input type="number" name="capacity" required min={1} step={1} defaultValue={boat?.capacity ?? 10} className={control} />
         </label>
         <label className={label}>
-          Location
+          {t("Location")}
           <select name="locationId" defaultValue={boat?.locationId ?? ""} className={control}>
-            <option value="">Not assigned</option>
+            <option value="">{t("Not assigned")}</option>
             {locationOptions(locations, boat?.location ?? null).map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -394,17 +415,17 @@ export function BoatForm({
           </select>
         </label>
         <label className={label}>
-          Status
+          {t("Status")}
           <select name="status" defaultValue={boat?.status ?? "active"} className={control}>
             {statuses.map((s) => (
               <option key={s} value={s}>
-                {BOAT_STATUS_LABELS[s] ?? s}
+                {BOAT_STATUS_LABELS[s] ? t(BOAT_STATUS_LABELS[s]) : s}
               </option>
             ))}
           </select>
         </label>
         <label className={label}>
-          Length in m (optional)
+          {t("Length in m (optional)")}
           <input
             type="number"
             name="length"
@@ -416,32 +437,32 @@ export function BoatForm({
           />
         </label>
         <label className={label}>
-          Engine (optional)
+          {t("Engine (optional)")}
           <input name="engine" maxLength={100} defaultValue={boat?.engine ?? ""} className={control} />
         </label>
         <label className={label}>
-          Insurance expiry
+          {t("Insurance expiry")}
           <input type="date" name="insuranceExpiry" defaultValue={boat?.insuranceExpiry?.slice(0, 10) ?? ""} className={control} />
         </label>
         <label className={label}>
-          Last service
+          {t("Last service")}
           <input type="date" name="lastServiceDate" defaultValue={boat?.lastServiceDate?.slice(0, 10) ?? ""} className={control} />
         </label>
         <label className={label}>
-          Next service
+          {t("Next service")}
           <input type="date" name="nextServiceDate" defaultValue={boat?.nextServiceDate?.slice(0, 10) ?? ""} className={control} />
         </label>
       </div>
-      <p className="text-xs text-zinc-500">Online bookings are only placed on active boats.</p>
+      <p className="text-xs text-zinc-500">{t("Online bookings are only placed on active boats.")}</p>
       <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!boat} />
     </form>
   );
 }
 
 const TRANSLATIONS = [
-  { suffix: "Es", name: "Spanish" },
-  { suffix: "De", name: "German" },
-  { suffix: "Fr", name: "French" },
+  { suffix: "Es", nameLabel: "Name (Spanish)", descriptionLabel: "Description (Spanish)" },
+  { suffix: "De", nameLabel: "Name (German)", descriptionLabel: "Description (German)" },
+  { suffix: "Fr", nameLabel: "Name (French)", descriptionLabel: "Description (French)" },
 ] as const;
 
 export function SiteForm({
@@ -453,6 +474,7 @@ export function SiteForm({
   cancelHref: string;
   locations: LocationRef[];
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveSite, null);
   const lists = {
     marineLife: stringsOnly(site?.marineLife).join(", "),
@@ -471,13 +493,13 @@ export function SiteForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Name (English)
+          {t("Name (English)")}
           <input name="nameEn" required maxLength={120} defaultValue={site?.nameEn} className={control} />
         </label>
         <label className={label}>
-          Location
+          {t("Location")}
           <select name="locationId" defaultValue={site?.locationId ?? ""} className={control}>
-            <option value="">Not assigned</option>
+            <option value="">{t("Not assigned")}</option>
             {locationOptions(locations, site?.location ?? null).map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -488,33 +510,33 @@ export function SiteForm({
 
         <div className="grid grid-cols-2 gap-4">
           <label className={label}>
-            Latitude
+            {t("Latitude")}
             <input type="number" name="latitude" required min={-90} max={90} step="any" defaultValue={site?.latitude} className={control} />
           </label>
           <label className={label}>
-            Longitude
+            {t("Longitude")}
             <input type="number" name="longitude" required min={-180} max={180} step="any" defaultValue={site?.longitude} className={control} />
           </label>
         </div>
         <label className={`${label} sm:col-span-2`}>
-          Description (English)
+          {t("Description (English)")}
           <textarea name="descriptionEn" required rows={3} maxLength={2000} defaultValue={site?.descriptionEn} className={control} />
         </label>
       </div>
 
       <details className="rounded-lg p-3 ring-1 ring-zinc-200">
         <summary className="cursor-pointer text-sm font-medium text-zinc-700">
-          Translations for the public site (left empty, the English text is used)
+          {t("Translations for the public site (left empty, the English text is used)")}
         </summary>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {TRANSLATIONS.map(({ suffix, name }) => (
+          {TRANSLATIONS.map(({ suffix, nameLabel, descriptionLabel }) => (
             <div key={suffix} className="space-y-2 sm:col-span-2">
               <label className={label}>
-                Name ({name})
+                {t(nameLabel)}
                 <input name={`name${suffix}`} maxLength={120} defaultValue={site?.[`name${suffix}`]} className={control} />
               </label>
               <label className={label}>
-                Description ({name})
+                {t(descriptionLabel)}
                 <textarea name={`description${suffix}`} rows={2} maxLength={2000} defaultValue={site?.[`description${suffix}`]} className={control} />
               </label>
             </div>
@@ -524,25 +546,25 @@ export function SiteForm({
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <label className={label}>
-          Min depth (m)
+          {t("Min depth (m)")}
           <input type="number" name="depthMin" required min={0} step={1} defaultValue={site?.depthMin} className={control} />
         </label>
         <label className={label}>
-          Max depth (m)
+          {t("Max depth (m)")}
           <input type="number" name="depthMax" required min={0} step={1} defaultValue={site?.depthMax} className={control} />
         </label>
         <label className={label}>
-          Certification needed
+          {t("Certification needed")}
           <select name="requiredCertLevel" defaultValue={site?.requiredCertLevel ?? 0} className={control}>
             {SITE_CERT_LEVELS.map((name, i) => (
               <option key={name} value={i}>
-                {name}
+                {t(name)}
               </option>
             ))}
           </select>
         </label>
         <label className={label}>
-          Difficulty (1–5)
+          {t("Difficulty (1–5)")}
           <select name="difficultyLevel" defaultValue={site?.difficultyLevel ?? 1} className={control}>
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
@@ -552,24 +574,24 @@ export function SiteForm({
           </select>
         </label>
         <label className={label}>
-          Travel time (min)
+          {t("Travel time (min)")}
           <input type="number" name="travelTimeMinutes" required min={0} step={1} defaultValue={site?.travelTimeMinutes} className={control} />
         </label>
         <label className={label}>
-          Max divers per trip
+          {t("Max divers per trip")}
           <input type="number" name="maxDiversPerTrip" required min={1} step={1} defaultValue={site?.maxDiversPerTrip ?? 10} className={control} />
         </label>
         <label className={label}>
-          Visibility (m, optional)
+          {t("Visibility (m, optional)")}
           <input type="number" name="typicalVisibility" min={0} step={1} defaultValue={site?.typicalVisibility ?? ""} className={control} />
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className={label}>
-            Water °C min
+            {t("Water °C min")}
             <input type="number" name="tempMin" step={1} defaultValue={temp?.min ?? ""} className={control} />
           </label>
           <label className={label}>
-            max
+            {t("max")}
             <input type="number" name="tempMax" step={1} defaultValue={temp?.max ?? ""} className={control} />
           </label>
         </div>
@@ -577,23 +599,23 @@ export function SiteForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Typical current
+          {t("Typical current")}
           <input name="typicalCurrent" maxLength={100} placeholder="none" defaultValue={site?.typicalCurrent ?? ""} className={control} />
         </label>
         <label className={label}>
-          Access
+          {t("Access")}
           <input name="accessibility" maxLength={100} placeholder="boat_only" defaultValue={site?.accessibility ?? ""} className={control} />
         </label>
         {(
           [
-            ["marineLife", "Marine life"],
-            ["pointsOfInterest", "Points of interest"],
-            ["bestSeason", "Best season"],
-            ["facilities", "Facilities"],
+            ["marineLife", "Marine life (comma-separated)"],
+            ["pointsOfInterest", "Points of interest (comma-separated)"],
+            ["bestSeason", "Best season (comma-separated)"],
+            ["facilities", "Facilities (comma-separated)"],
           ] as const
         ).map(([key, text]) => (
           <label key={key} className={label}>
-            {text} (comma-separated)
+            {t(text)}
             <input name={key} maxLength={1000} defaultValue={lists[key]} className={control} />
           </label>
         ))}
@@ -605,10 +627,11 @@ export function SiteForm({
 
 // New password and confirmation fields.
 function PasswordFields({ autoFocus }: { autoFocus?: boolean }) {
+  const t = useT();
   return (
     <>
       <label className={label}>
-        Password
+        {t("Password")}
         <input
           type="password"
           name="password"
@@ -619,10 +642,10 @@ function PasswordFields({ autoFocus }: { autoFocus?: boolean }) {
           autoFocus={autoFocus}
           className={control}
         />
-        <span className="mt-1 block text-xs font-normal text-zinc-500">At least {PASSWORD_MIN} characters.</span>
+        <span className="mt-1 block text-xs font-normal text-zinc-500">{t("At least {count} characters.", { count: PASSWORD_MIN })}</span>
       </label>
       <label className={label}>
-        Confirm password
+        {t("Confirm password")}
         <input
           type="password"
           name="confirmPassword"
@@ -641,41 +664,42 @@ function PasswordFields({ autoFocus }: { autoFocus?: boolean }) {
 // the password is set on create and afterwards with UserPasswordForm. Your
 // own role is shown but cannot be changed.
 export function UserForm({ user, isSelf, cancelHref }: { user: User | null; isSelf: boolean; cancelHref: string }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveUser, null);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {user && <input type="hidden" name="userId" value={user.id} />}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Name
+          {t("Name")}
           <input name="name" maxLength={120} defaultValue={user?.name ?? ""} className={control} />
         </label>
         <label className={label}>
-          Email
+          {t("Email")}
           {user ? (
             <input value={user.email} readOnly disabled className={`${control} bg-zinc-50 text-zinc-500`} />
           ) : (
             <>
               <input type="email" name="email" required maxLength={254} autoComplete="off" className={control} />
               <span className="mt-1 block text-xs font-normal text-zinc-500">
-                Someone who already works at another center gets access here with their existing account and password.
+                {t("Someone who already works at another center gets access here with their existing account and password.")}
               </span>
             </>
           )}
         </label>
         <label className={label}>
-          Role
+          {t("Role")}
           <select name="role" required defaultValue={user?.role ?? "INSTRUCTOR"} disabled={isSelf} className={control}>
             {USER_ROLES.map((r) => (
               <option key={r} value={r}>
-                {USER_ROLE_LABELS[r]}
+                {t(USER_ROLE_LABELS[r])}
               </option>
             ))}
           </select>
           <span className="mt-1 block text-xs font-normal text-zinc-500">
             {isSelf
-              ? "You cannot change your own role."
-              : "The role in this center. Admins can also manage users. Customers cannot sign in to the backoffice."}
+              ? t("You cannot change your own role.")
+              : t("The role in this center. Admins can also manage users. Customers cannot sign in to the backoffice.")}
           </span>
         </label>
         {/* A disabled select is not submitted; the action still needs a valid role to check. */}
@@ -685,9 +709,9 @@ export function UserForm({ user, isSelf, cancelHref }: { user: User | null; isSe
             <input type="hidden" name="activeShown" value="1" />
             <input type="checkbox" name="isActive" defaultChecked={user.isActive} className="mt-0.5" />
             <span>
-              Access to this center
+              {t("Access to this center")}
               <span className="block text-xs font-normal text-zinc-500">
-                Unticked, the account cannot sign in here; its other centers are not affected.
+                {t("Unticked, the account cannot sign in here; its other centers are not affected.")}
               </span>
             </span>
           </label>
@@ -701,15 +725,16 @@ export function UserForm({ user, isSelf, cancelHref }: { user: User | null; isSe
 
 // An admin setting another user's (or their own) password, without the old one.
 export function UserPasswordForm({ user, cancelHref }: { user: User; cancelHref: string }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(resetUserPassword, null);
   if (state?.ok) {
     return (
       <div className="space-y-4">
         <p role="status" className="text-sm text-green-700">
-          The password for {user.email} has been changed.
+          {t("The password for {email} has been changed.", { email: user.email })}
         </p>
         <Button nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
-          Done
+          {t("Done")}
         </Button>
       </div>
     );
@@ -720,10 +745,10 @@ export function UserPasswordForm({ user, cancelHref }: { user: User; cancelHref:
       <PasswordFields autoFocus />
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Set password"}
+          {pending ? t("Saving…") : t("Set password")}
         </Button>
         <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
-          Cancel
+          {t("Cancel")}
         </Button>
         <Status state={state} />
       </div>
@@ -751,6 +776,7 @@ function PriceField({
   optional?: boolean;
   currency: string;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center justify-end gap-1.5">
       <input
@@ -759,8 +785,8 @@ function PriceField({
         inputMode="decimal"
         required={!optional}
         pattern="\d{1,5}([.,]\d{1,2})?"
-        title={`A price from 0 to ${MAX_PRICE}, with at most 2 decimals`}
-        placeholder={optional ? "No price" : undefined}
+        title={t("A price from 0 to {max}, with at most 2 decimals", { max: MAX_PRICE })}
+        placeholder={optional ? t("No price") : undefined}
         defaultValue={value === null ? "" : String(value)}
         className={priceInput}
       />
@@ -786,8 +812,11 @@ type TierRow = FunDiveTier & { id: number };
 
 // The whole price list, saved in one go. Instructors see it read-only.
 export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: boolean }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(savePricing, null);
   const [tiers, setTiers] = useState<TierRow[]>(() => pricing.funDiveTiers.map((t) => ({ ...t, id: nextTierId++ })));
+  const [packs, setPacks] = useState(() => pricing.divePacks.map((p) => ({ ...p, id: nextTierId++ })));
+  const funDive = pricing.activities.funDive;
   const tax = `${pricing.taxName} (${pricing.taxRate.toLocaleString("en-GB", { maximumFractionDigits: 2 })}%)`;
   const itemsTotal = Object.keys(EQUIPMENT_PRICE_LABELS).reduce(
     (sum, k) => sum + pricing.equipment[k as keyof typeof EQUIPMENT_PRICE_LABELS],
@@ -807,33 +836,38 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <p className="rounded-lg bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-zinc-200">
-        Net prices in euros; {tax} is added on invoices (set in the General tab). A saved change applies to the next
-        invoice and to the public site at once. Invoices already issued keep their prices.
-        {!canEdit && " Only admins can change prices."}
+        {t(
+          "Net prices in euros; {tax} is added on invoices (set in the General tab). A saved change applies to the next invoice and to the public site at once. Invoices already issued keep their prices.",
+          { tax },
+        )}
+        {!canEdit && ` ${t("Only admins can change prices.")}`}
       </p>
       <fieldset disabled={!canEdit || pending} className="space-y-6">
-        <Card title="Activities" description="Per participant. An activity left empty has no price: its bookings cannot be invoiced and the public site hides it.">
+        <Card
+          title={t("Activities")}
+          description={t("Per participant. An activity left empty has no price: its bookings cannot be invoiced and the public site hides it.")}
+        >
           <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
             <table className="w-full text-sm">
               <thead className="bg-zinc-50">
                 <tr>
-                  <th className={th}>Activity</th>
-                  <th className={thRight}>Net price</th>
+                  <th className={th}>{t("Activity")}</th>
+                  <th className={thRight}>{t("Net price")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
                 {(Object.entries(ACTIVITY_PRICE_LABELS) as [keyof typeof ACTIVITY_PRICE_LABELS, string][]).map(([key, name]) => (
                   <tr key={key}>
                     <td className={`${td} font-medium text-zinc-900`}>
-                      {name}
+                      {t(name)}
                       {key === "funDive" && (
                         <span className="block text-xs font-normal text-zinc-500">
-                          Booked and invoiced on its own. Fun dives billed with a stay use the tiers below.
+                          {t("Booked and invoiced on its own. Fun dives billed with a stay use the tiers below.")}
                         </span>
                       )}
                     </td>
                     <td className={td}>
-                      <PriceField currency={pricing.currency} name={`activity_${key}`} value={pricing.activities[key]} label={`${name} price`} optional />
+                      <PriceField currency={pricing.currency} name={`activity_${key}`} value={pricing.activities[key]} label={t("{item} price", { item: t(name) })} optional />
                     </td>
                   </tr>
                 ))}
@@ -842,33 +876,33 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
           </div>
         </Card>
 
-        <Card title="Rental equipment" description="Per booking, one set.">
+        <Card title={t("Rental equipment")} description={t("Per booking, one set.")}>
           <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
             <table className="w-full text-sm">
               <thead className="bg-zinc-50">
                 <tr>
-                  <th className={th}>Item</th>
-                  <th className={thRight}>Net price</th>
+                  <th className={th}>{t("Item")}</th>
+                  <th className={thRight}>{t("Net price")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
                 {(Object.entries(EQUIPMENT_PRICE_LABELS) as [keyof typeof EQUIPMENT_PRICE_LABELS, string][]).map(([key, name]) => (
                   <tr key={key}>
-                    <td className={`${td} font-medium text-zinc-900`}>{name}</td>
+                    <td className={`${td} font-medium text-zinc-900`}>{t(name)}</td>
                     <td className={td}>
-                      <PriceField currency={pricing.currency} name={`equipment_${key}`} value={pricing.equipment[key]} label={`${name} price`} />
+                      <PriceField currency={pricing.currency} name={`equipment_${key}`} value={pricing.equipment[key]} label={t("{item} price", { item: t(name) })} />
                     </td>
                   </tr>
                 ))}
                 <tr className="bg-sky-50/60">
                   <td className={`${td} font-medium text-zinc-900`}>
-                    Full package
+                    {t("Full package")}
                     <span className="block text-xs font-normal text-zinc-500">
-                      All five items together, instead of their sum (currently {money(itemsTotal, pricing.currency)}).
+                      {t("All five items together, instead of their sum (currently {amount}).", { amount: money(itemsTotal, pricing.currency) })}
                     </span>
                   </td>
                   <td className={td}>
-                    <PriceField currency={pricing.currency} name="equipment_fullPackage" value={pricing.equipment.fullPackage} label="Full package price" />
+                    <PriceField currency={pricing.currency} name="equipment_fullPackage" value={pricing.equipment.fullPackage} label={t("Full package price")} />
                   </td>
                 </tr>
               </tbody>
@@ -877,46 +911,48 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
         </Card>
 
         <Card
-          title="Fun dive volume tiers"
-          description="When a stay is billed, every fun dive in it is charged the rate of the highest tier its number of fun dives reaches, by customer type. The first tier starts at 1 dive."
+          title={t("Fun dive volume tiers")}
+          description={t(
+            "When a stay is billed, every fun dive in it is charged the rate of the highest tier its number of fun dives reaches, by customer type. The first tier starts at 1 dive.",
+          )}
         >
           <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
             <table className="w-full text-sm">
               <thead className="bg-zinc-50">
                 <tr>
-                  <th className={th}>From dives</th>
-                  <th className={thRight}>Tourist</th>
-                  <th className={thRight}>Local</th>
-                  <th className={thRight}>Recurrent</th>
+                  <th className={th}>{t("From dives")}</th>
+                  <th className={thRight}>{t("Tourist")}</th>
+                  <th className={thRight}>{t("Local")}</th>
+                  <th className={thRight}>{t("Recurrent")}</th>
                   <th className={thRight}>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t("Actions")}</span>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
-                {tiers.map((t, i) => (
-                  <tr key={t.id}>
+                {tiers.map((tier, i) => (
+                  <tr key={tier.id}>
                     <td className={td}>
                       <input
                         name="tierMin"
-                        aria-label={`Tier ${i + 1}: from dives`}
+                        aria-label={t("Tier {n}: from dives", { n: i + 1 })}
                         type="number"
                         required
                         min={1}
                         max={999}
                         step={1}
-                        defaultValue={t.minDives}
+                        defaultValue={tier.minDives}
                         className={`${priceInput} w-20 text-left`}
                       />
                     </td>
                     <td className={td}>
-                      <PriceField currency={pricing.currency} name="tierTourist" value={t.tourist} label={`Tier ${i + 1}: tourist rate`} />
+                      <PriceField currency={pricing.currency} name="tierTourist" value={tier.tourist} label={t("Tier {n}: tourist rate", { n: i + 1 })} />
                     </td>
                     <td className={td}>
-                      <PriceField currency={pricing.currency} name="tierLocal" value={t.local} label={`Tier ${i + 1}: local rate`} />
+                      <PriceField currency={pricing.currency} name="tierLocal" value={tier.local} label={t("Tier {n}: local rate", { n: i + 1 })} />
                     </td>
                     <td className={td}>
-                      <PriceField currency={pricing.currency} name="tierRecurrent" value={t.recurrent} label={`Tier ${i + 1}: recurrent rate`} />
+                      <PriceField currency={pricing.currency} name="tierRecurrent" value={tier.recurrent} label={t("Tier {n}: recurrent rate", { n: i + 1 })} />
                     </td>
                     <td className={`${td} text-right`}>
                       <Button
@@ -925,9 +961,9 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
                         variant="ghost"
                         className="text-destructive"
                         disabled={tiers.length <= 1}
-                        onClick={() => setTiers(tiers.filter((x) => x.id !== t.id))}
+                        onClick={() => setTiers(tiers.filter((x) => x.id !== tier.id))}
                       >
-                        Remove
+                        {t("Remove")}
                       </Button>
                     </td>
                   </tr>
@@ -936,16 +972,127 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
             </table>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={addTier}>
-            Add tier
+            {t("Add tier")}
           </Button>
+        </Card>
+
+        <Card
+          title={t("Dive packs")}
+          description={t(
+            "A fixed price for a number of fun dives, per diver. When a stay's own fun dives come to exactly a pack, billing the stay offers the pack price instead of the volume rate. The public site lists the packs.",
+          )}
+        >
+          {packs.length === 0 ? (
+            <p className="text-sm text-zinc-500">{t("No packs. Add one, for example 10 dives.")}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-50">
+                  <tr>
+                    <th className={th}>{t("Dives")}</th>
+                    <th className={thRight}>{t("Pack price")}</th>
+                    <th className={thRight}>{t("Per dive")}</th>
+                    <th className={thRight}>
+                      <span className="sr-only">{t("Actions")}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200">
+                  {packs.map((p, i) => (
+                    <tr key={p.id}>
+                      <td className={td}>
+                        <input
+                          name="packDives"
+                          aria-label={t("Pack {n}: number of dives", { n: i + 1 })}
+                          type="number"
+                          required
+                          min={2}
+                          max={100}
+                          step={1}
+                          defaultValue={p.diveCount}
+                          className={`${priceInput} w-20 text-left`}
+                        />
+                      </td>
+                      <td className={td}>
+                        <PriceField currency={pricing.currency} name="packPrice" value={p.price} label={t("Pack {n}: price", { n: i + 1 })} />
+                      </td>
+                      <td className={`${td} text-right tabular-nums text-zinc-500`}>
+                        {money(p.price / p.diveCount, pricing.currency)}
+                        {funDive !== null && p.price < funDive * p.diveCount && (
+                          <span className="block text-xs text-emerald-700">
+                            {t("saves {amount} on single fun dives", { amount: money(funDive * p.diveCount - p.price, pricing.currency) })}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`${td} text-right`}>
+                        <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => setPacks(packs.filter((x) => x.id !== p.id))}>
+                          {t("Remove")}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={packs.length >= 10}
+            onClick={() => {
+              const most = packs.reduce((n, p) => Math.max(n, p.diveCount), 0);
+              setPacks([...packs, { diveCount: most ? most + 5 : 5, price: 0, id: nextTierId++ }]);
+            }}
+          >
+            {t("Add pack")}
+          </Button>
+        </Card>
+
+        <Card title={t("Add-ons")} description={t("Ticked on a booking and billed with it, outside any government bono discount.")}>
+          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50">
+                <tr>
+                  <th className={th}>{t("Add-on")}</th>
+                  <th className={thRight}>{t("Net price")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                <tr>
+                  <td className={`${td} font-medium text-zinc-900`}>
+                    {t("Night dive surcharge")}
+                    <span className="block text-xs font-normal text-zinc-500">{t("Per diver.")}</span>
+                  </td>
+                  <td className={td}>
+                    <PriceField currency={pricing.currency} name="addOn_nightDive" value={pricing.addOns.nightDive} label={t("Night dive surcharge")} />
+                  </td>
+                </tr>
+                <tr>
+                  <td className={`${td} font-medium text-zinc-900`}>
+                    {t("Personal instructor")}
+                    <span className="block text-xs font-normal text-zinc-500">{t("Per booking.")}</span>
+                  </td>
+                  <td className={td}>
+                    <PriceField
+                      currency={pricing.currency}
+                      name="addOn_personalInstructor"
+                      value={pricing.addOns.personalInstructor}
+                      label={t("Personal instructor fee")}
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </Card>
       </fieldset>
       {canEdit && (
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save prices"}
+            {pending ? t("Saving…") : t("Save prices")}
           </Button>
-          <Status state={state} saved="Prices saved. They apply from the next invoice." />
+          <Status state={state} saved={t("Prices saved. They apply from the next invoice.")} />
         </div>
       )}
     </form>
@@ -955,6 +1102,7 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
 // Create (location null) or edit a location: its activity type, address and
 // contact details. Inactive locations are left out of selection lists.
 export function LocationForm({ location, cancelHref }: { location: Location | null; cancelHref: string }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveLocation, null);
   const a = location?.address ?? {};
   const c = location?.contactInfo ?? {};
@@ -963,59 +1111,59 @@ export function LocationForm({ location, cancelHref }: { location: Location | nu
       {location && <input type="hidden" name="locationId" value={location.id} />}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Location name
+          {t("Location name")}
           <input name="name" required maxLength={120} defaultValue={location?.name ?? ""} className={control} />
-          <span className="mt-1 block text-xs font-normal text-zinc-500">For example Caleta de Fuste, Las Playitas.</span>
+          <span className="mt-1 block text-xs font-normal text-zinc-500">{t("For example Caleta de Fuste, Las Playitas.")}</span>
         </label>
         <label className={label}>
-          Activity type
+          {t("Activity type")}
           <select name="type" defaultValue={location?.type ?? "DIVING"} className={control}>
-            {LOCATION_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {LOCATION_TYPE_LABELS[t]}
+            {LOCATION_TYPES.map((x) => (
+              <option key={x} value={x}>
+                {t(LOCATION_TYPE_LABELS[x])}
               </option>
             ))}
           </select>
         </label>
       </div>
       <fieldset className="space-y-3">
-        <legend className="text-sm font-semibold text-zinc-900">Address</legend>
+        <legend className="text-sm font-semibold text-zinc-900">{t("Address")}</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={`${label} sm:col-span-2`}>
-            Street
+            {t("Street")}
             <input name="street" maxLength={200} defaultValue={a.street ?? ""} className={control} />
           </label>
           <label className={label}>
-            City
+            {t("City")}
             <input name="city" maxLength={100} defaultValue={a.city ?? ""} className={control} />
           </label>
           <label className={label}>
-            Postal code
+            {t("Postal code")}
             <input name="postalCode" maxLength={20} defaultValue={a.postalCode ?? ""} className={control} />
           </label>
           <label className={label}>
-            Country
+            {t("Country")}
             <input name="country" maxLength={100} defaultValue={a.country ?? ""} className={control} />
           </label>
         </div>
       </fieldset>
       <fieldset className="space-y-3">
-        <legend className="text-sm font-semibold text-zinc-900">Contact</legend>
+        <legend className="text-sm font-semibold text-zinc-900">{t("Contact")}</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className={label}>
-            Phone
+            {t("Phone")}
             <input type="tel" name="phone" maxLength={40} defaultValue={c.phone ?? ""} className={control} />
           </label>
           <label className={label}>
-            Mobile
+            {t("Mobile")}
             <input type="tel" name="mobile" maxLength={40} defaultValue={c.mobile ?? ""} className={control} />
           </label>
           <label className={label}>
-            Email
+            {t("Email")}
             <input type="email" name="email" maxLength={254} defaultValue={c.email ?? ""} className={control} />
           </label>
           <label className={label}>
-            Website
+            {t("Website")}
             <input type="url" name="website" maxLength={300} placeholder="https://" defaultValue={c.website ?? ""} className={control} />
           </label>
         </div>
@@ -1023,8 +1171,8 @@ export function LocationForm({ location, cancelHref }: { location: Location | nu
       <label className="flex items-start gap-2 text-sm font-medium text-zinc-700">
         <input type="checkbox" name="isActive" defaultChecked={location?.isActive ?? true} className="mt-0.5" />
         <span>
-          Active location
-          <span className="block text-xs font-normal text-zinc-500">Inactive locations are hidden from selection lists.</span>
+          {t("Active location")}
+          <span className="block text-xs font-normal text-zinc-500">{t("Inactive locations are hidden from selection lists.")}</span>
         </span>
       </label>
       <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!location} />
@@ -1046,6 +1194,7 @@ export function LocationSelect({
   current: LocationRef | null;
   locations: LocationRef[];
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(assignLocation, null);
   return (
     <form action={action} className="flex flex-col gap-1">
@@ -1053,13 +1202,13 @@ export function LocationSelect({
       <input type="hidden" name="id" value={id} />
       <select
         name="locationId"
-        aria-label={`Location of ${name}`}
+        aria-label={t("Location of {name}", { name })}
         defaultValue={current?.id ?? ""}
         disabled={pending}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 outline-none focus:border-zinc-900 disabled:opacity-60"
       >
-        <option value="">Not assigned</option>
+        <option value="">{t("Not assigned")}</option>
         {locationOptions(locations, current).map((l) => (
           <option key={l.id} value={l.id}>
             {l.name}
@@ -1077,6 +1226,7 @@ export function LocationSelect({
 
 // A government bono: a code staff enter on bookings, and its discount.
 export function BonoForm({ bono, currency, cancelHref }: { bono: Bono | null; currency: string; cancelHref: string }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<SettingsFormState>(saveBono, null);
   const [type, setType] = useState(bono?.type ?? "PERCENTAGE");
   const used = bono?.usageCount ?? 0;
@@ -1085,32 +1235,32 @@ export function BonoForm({ bono, currency, cancelHref }: { bono: Bono | null; cu
       {bono && <input type="hidden" name="bonoId" value={bono.id} />}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Code
+          {t("Code")}
           <input
             name="code"
             required
             maxLength={40}
             pattern="[A-Za-z0-9][A-Za-z0-9\-]{1,39}"
-            title="Letters, digits and dashes"
+            title={t("Letters, digits and dashes")}
             autoComplete="off"
             defaultValue={bono?.code ?? ""}
             className={`${control} font-mono uppercase`}
           />
-          <span className="mt-1 block text-xs font-normal text-zinc-500">What staff enter on a booking, for example BONO-2026.</span>
+          <span className="mt-1 block text-xs font-normal text-zinc-500">{t("What staff enter on a booking, for example BONO-2026.")}</span>
         </label>
         <label className={label}>
-          Description
+          {t("Description")}
           <input name="description" required maxLength={200} defaultValue={bono?.description ?? ""} className={control} />
         </label>
         <label className={label}>
-          Discount
+          {t("Discount")}
           <select name="type" value={type} onChange={(e) => setType(e.target.value as Bono["type"])} className={control}>
-            <option value="PERCENTAGE">Percentage of the activity</option>
-            <option value="FIXED">Fixed amount off the activity</option>
+            <option value="PERCENTAGE">{t("Percentage of the activity")}</option>
+            <option value="FIXED">{t("Fixed amount off the activity")}</option>
           </select>
         </label>
         <label className={label}>
-          {type === "PERCENTAGE" ? "Percentage" : `Amount (${currency})`}
+          {type === "PERCENTAGE" ? t("Percentage") : t("Amount ({currency})", { currency })}
           <input
             type="number"
             name="discountValue"
@@ -1122,36 +1272,38 @@ export function BonoForm({ bono, currency, cancelHref }: { bono: Bono | null; cu
             className={control}
           />
           <span className="mt-1 block text-xs font-normal text-zinc-500">
-            {type === "PERCENTAGE" ? "Off the activity price, before tax." : "Off the activity price, before tax, up to the whole of it."}
+            {type === "PERCENTAGE" ? t("Off the activity price, before tax.") : t("Off the activity price, before tax, up to the whole of it.")}
           </span>
         </label>
         <label className={label}>
-          Valid from
+          {t("Valid from")}
           <input type="date" name="validFrom" required defaultValue={bono?.validFrom.slice(0, 10) ?? ""} className={control} />
         </label>
         <label className={label}>
-          Valid to
+          {t("Valid to")}
           <input type="date" name="validTo" defaultValue={bono?.validTo?.slice(0, 10) ?? ""} className={control} />
-          <span className="mt-1 block text-xs font-normal text-zinc-500">The booking&apos;s date must fall in this period. Empty: no end.</span>
+          <span className="mt-1 block text-xs font-normal text-zinc-500">{t("The booking's date must fall in this period. Empty: no end.")}</span>
         </label>
         <label className={label}>
-          Usage limit
+          {t("Usage limit")}
           <input
             type="number"
             name="usageLimit"
             min={Math.max(1, used)}
             step={1}
             defaultValue={bono?.usageLimit ?? ""}
-            placeholder="No limit"
+            placeholder={t("No limit")}
             className={control}
           />
           <span className="mt-1 block text-xs font-normal text-zinc-500">
-            Uses are counted when a booking is invoiced{bono ? `; ${used} so far` : ""}.
+            {bono
+              ? t("Uses are counted when a booking is invoiced; {count} so far.", { count: used })
+              : t("Uses are counted when a booking is invoiced.")}
           </span>
         </label>
         <label className="flex items-center gap-2 self-center text-sm font-medium text-zinc-700">
           <input type="checkbox" name="isActive" defaultChecked={bono?.isActive ?? true} className="size-4" />
-          Active (can be entered on bookings)
+          {t("Active (can be entered on bookings)")}
         </label>
       </div>
       <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!bono} />

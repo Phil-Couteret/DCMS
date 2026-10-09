@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { ApiError, getInvoice, getSettings, type InvoiceStatus, type Payment } from "@/lib/api";
 import { money, formatDateTime, formatDay, METHOD_LABELS, PAYMENT_STATUS_STYLES } from "@/lib/billing";
 import { centerLocale } from "@/lib/center";
+import type { T } from "@/lib/i18n/core";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -22,17 +24,17 @@ const STEPS: { key: InvoiceStatus; label: string }[] = [
   { key: "PAID", label: "Paid" },
 ];
 
-function Progress({ status }: { status: InvoiceStatus }) {
+function Progress({ status, t }: { status: InvoiceStatus; t: T }) {
   if (status === "CANCELLED") {
     return (
       <p className="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-900 ring-1 ring-red-200">
-        This invoice was cancelled. Its number is kept on record.
+        {t("This invoice was cancelled. Its number is kept on record.")}
       </p>
     );
   }
   const current = STEPS.findIndex((s) => s.key === status);
   return (
-    <ol className="flex flex-wrap items-center gap-2 text-sm" aria-label="Invoice status">
+    <ol className="flex flex-wrap items-center gap-2 text-sm" aria-label={t("Invoice status")}>
       {STEPS.map((s, i) => {
         // A fully paid invoice may skip "Partially paid"; show it as passed.
         const done = i < current;
@@ -44,7 +46,7 @@ function Progress({ status }: { status: InvoiceStatus }) {
                 here ? "bg-zinc-900 text-white" : done ? "bg-zinc-200 text-zinc-700" : "bg-white text-zinc-400 ring-1 ring-zinc-200"
               }`}
             >
-              {s.label}
+              {t(s.label)}
             </span>
             {i < STEPS.length - 1 && <span className="text-zinc-300">→</span>}
           </li>
@@ -60,6 +62,7 @@ function refundable(p: Payment) {
 }
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { timeZone } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
@@ -73,7 +76,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   }
   const c = invoice.currency;
   // The tax name comes from the center settings; the page still loads if they do not.
-  const taxName = (await getSettings().catch(() => null))?.taxName ?? "Tax";
+  const taxName = (await getSettings().catch(() => null))?.taxName ?? t("Tax");
   const hasSucceeded = invoice.payments.some((p) => p.status === "SUCCEEDED");
   const cancellable = (invoice.status === "DRAFT" || invoice.status === "SENT") && !hasSucceeded;
   const canPay = invoice.status !== "PAID" && invoice.status !== "CANCELLED" && Number(invoice.balance) > 0;
@@ -81,7 +84,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   return (
     <main className="space-y-6 p-6 md:p-8">
       <Link href="/dashboard/billing" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← All invoices
+        {t("← All invoices")}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -94,13 +97,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <Link href={`/dashboard/customers/${invoice.customer.id}`} prefetch={false} className="hover:underline">
               {invoice.customer.firstName} {invoice.customer.lastName}
             </Link>{" "}
-            · Issued {formatDay(invoice.createdAt)} · Due {formatDay(invoice.dueDate)} ·{" "}
+            · {t("Issued {date}", { date: formatDay(invoice.createdAt) })} · {t("Due {date}", { date: formatDay(invoice.dueDate) })} ·{" "}
             {invoice.bookingId ? (
               <Link href={`/dashboard/bookings/${invoice.bookingId}`} prefetch={false} className="hover:underline">
-                Booking
+                {t("Booking")}
               </Link>
             ) : (
-              "Stay bill"
+              t("Stay bill")
             )}
           </p>
         </div>
@@ -111,21 +114,21 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <Progress status={invoice.status} />
+      <Progress status={invoice.status} t={t} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Line items</CardTitle>
+            <CardTitle>{t("Line items")}</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit price</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>{t("Description")}</TableHead>
+                  <TableHead className="text-right">{t("Qty")}</TableHead>
+                  <TableHead className="text-right">{t("Unit price")}</TableHead>
+                  <TableHead className="text-right">{t("Total")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -142,7 +145,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={3} className="text-right">Subtotal</TableCell>
+                  <TableCell colSpan={3} className="text-right">{t("Subtotal")}</TableCell>
                   <TableCell className="text-right tabular-nums">{money(invoice.subtotal, c)}</TableCell>
                 </TableRow>
               </TableFooter>
@@ -152,12 +155,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
         <Card>
           <CardHeader>
-            <CardTitle>Totals</CardTitle>
+            <CardTitle>{t("Totals")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-zinc-500">Subtotal</dt>
+                <dt className="text-zinc-500">{t("Subtotal")}</dt>
                 <dd className="tabular-nums">{money(invoice.subtotal, c)}</dd>
               </div>
               <div className="flex justify-between">
@@ -165,19 +168,19 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 <dd className="tabular-nums">{money(invoice.tax, c)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-zinc-500">Discount</dt>
+                <dt className="text-zinc-500">{t("Discount")}</dt>
                 <dd className="tabular-nums">{Number(invoice.discount) > 0 ? `−${money(invoice.discount, c)}` : money(0, c)}</dd>
               </div>
               <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-semibold">
-                <dt>Total</dt>
+                <dt>{t("Total")}</dt>
                 <dd className="tabular-nums">{money(invoice.total, c)}</dd>
               </div>
               <div className="flex justify-between pt-2">
-                <dt className="text-zinc-500">Paid (after refunds)</dt>
+                <dt className="text-zinc-500">{t("Paid (after refunds)")}</dt>
                 <dd className="tabular-nums">{money(invoice.amountPaid, c)}</dd>
               </div>
               <div className="flex justify-between font-medium">
-                <dt>Balance</dt>
+                <dt>{t("Balance")}</dt>
                 <dd className="tabular-nums">{money(invoice.balance, c)}</dd>
               </div>
             </dl>
@@ -187,11 +190,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
       <Card>
         <CardHeader>
-          <CardTitle>Payments</CardTitle>
+          <CardTitle>{t("Payments")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {invoice.payments.length === 0 ? (
-            <p className="text-sm text-zinc-500">No payments yet.</p>
+            <p className="text-sm text-zinc-500">{t("No payments yet.")}</p>
           ) : (
             <ul className="divide-y divide-zinc-100">
               {invoice.payments.map((p) => (
@@ -199,9 +202,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <span className="font-semibold tabular-nums">{money(p.amount, p.currency)}</span>
-                      <span>{METHOD_LABELS[p.method]}</span>
-                      <Badge className={PAYMENT_STATUS_STYLES[p.status]}>{p.status.toLowerCase()}</Badge>
-                      <span className="text-zinc-500">{p.paidAt ? `Paid ${formatDateTime(timeZone, p.paidAt)}` : "Not paid yet"}</span>
+                      <span>{t(METHOD_LABELS[p.method])}</span>
+                      <Badge className={PAYMENT_STATUS_STYLES[p.status]}>{t(p.status.toLowerCase())}</Badge>
+                      <span className="text-zinc-500">{p.paidAt ? t("Paid {date}", { date: formatDateTime(timeZone, p.paidAt) }) : t("Not paid yet")}</span>
                       {p.stripePaymentId && <span className="font-mono text-xs text-zinc-500">{p.stripePaymentId}</span>}
                     </div>
                     {p.status === "SUCCEEDED" && Number(refundable(p)) > 0 && (
@@ -212,7 +215,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                     <ul className="mt-2 space-y-1 border-l-2 border-zinc-200 pl-4 text-sm text-zinc-600">
                       {p.refunds.map((r) => (
                         <li key={r.id}>
-                          Refund <span className="font-medium tabular-nums">−{money(r.amount, p.currency)}</span> · {r.reason} ·{" "}
+                          {t("Refund")} <span className="font-medium tabular-nums">−{money(r.amount, p.currency)}</span> · {r.reason} ·{" "}
                           {formatDateTime(timeZone, r.processedAt)}
                         </li>
                       ))}

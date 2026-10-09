@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addStayCost, ApiError, billStay, deleteStayCost, updateStayCost, type StayCostCategory } from "@/lib/api";
+import { getT } from "@/lib/i18n/server";
 import { STAY_COST_CATEGORIES } from "@/lib/stays";
 
 export type StayFormState = { error?: string; ok?: boolean } | null;
@@ -28,6 +29,7 @@ function money(raw: string) {
 
 // Adds a cost (no costId) or replaces one.
 export async function saveCostAction(_prev: StayFormState, formData: FormData): Promise<StayFormState> {
+  const t = await getT();
   const customerId = text(formData, "customerId");
   const costId = text(formData, "costId");
   const date = text(formData, "date");
@@ -37,43 +39,45 @@ export async function saveCostAction(_prev: StayFormState, formData: FormData): 
   const unitPrice = money(text(formData, "unitPrice"));
   const notes = text(formData, "notes");
 
-  if (!UUID.test(customerId) || (costId && !UUID.test(costId))) return { error: "Unknown stay" };
-  if (!ISO_DATE.test(date)) return { error: "Choose a date" };
-  if (!STAY_COST_CATEGORIES.includes(category)) return { error: "Choose a category" };
-  if (!description && category !== "BEVERAGES") return { error: "Enter a description" };
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) return { error: "Enter a quantity from 1 to 999" };
-  if (unitPrice === null) return { error: "Enter the unit price in euros, e.g. 2.50" };
+  if (!UUID.test(customerId) || (costId && !UUID.test(costId))) return { error: t("Unknown stay") };
+  if (!ISO_DATE.test(date)) return { error: t("Choose a date") };
+  if (!STAY_COST_CATEGORIES.includes(category)) return { error: t("Choose a category") };
+  if (!description && category !== "BEVERAGES") return { error: t("Enter a description") };
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) return { error: t("Enter a quantity from 1 to 999") };
+  if (unitPrice === null) return { error: t("Enter the unit price in euros, e.g. 2.50") };
 
   const data = { date, category, description: description || undefined, quantity, unitPrice, notes };
   try {
     await (costId ? updateStayCost(costId, data) : addStayCost(customerId, data));
   } catch (e) {
-    return fail(e, "Could not save the cost");
+    return fail(e, t("Could not save the cost"));
   }
   revalidatePath("/dashboard/stays");
   return { ok: true };
 }
 
 export async function deleteCostAction(_prev: StayFormState, formData: FormData): Promise<StayFormState> {
+  const t = await getT();
   const costId = text(formData, "costId");
-  if (!UUID.test(costId)) return { error: "Unknown cost" };
+  if (!UUID.test(costId)) return { error: t("Unknown cost") };
   try {
     await deleteStayCost(costId);
   } catch (e) {
-    return fail(e, "Could not delete the cost");
+    return fail(e, t("Could not delete the cost"));
   }
   revalidatePath("/dashboard/stays");
   return { ok: true };
 }
 
 export async function billStayAction(_prev: StayFormState, formData: FormData): Promise<StayFormState> {
+  const t = await getT();
   const customerId = text(formData, "customerId");
-  if (!UUID.test(customerId)) return { error: "Unknown stay" };
+  if (!UUID.test(customerId)) return { error: t("Unknown stay") };
   let invoiceId: string;
   try {
-    invoiceId = (await billStay(customerId)).invoiceId;
+    invoiceId = (await billStay(customerId, formData.get("usePack") === "1")).invoiceId;
   } catch (e) {
-    return fail(e, "Could not bill the stay");
+    return fail(e, t("Could not bill the stay"));
   }
   revalidatePath("/dashboard/stays");
   revalidatePath("/dashboard/billing");

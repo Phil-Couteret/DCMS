@@ -51,10 +51,14 @@
       "computer": "Tauchcomputer",
       "fullPackage": "Komplettpaket",
       "fullPackageNote": "Alles oben Genannte",
-      "fiveDives": "5er-Tauchpaket",
-      "tenDives": "10er-Tauchpaket"
+      "divePack": "{count}er-Tauchpaket",
+      "nightDive": "Nachttauchgang-Zuschlag",
+      "personalInstructor": "Privatlehrer"
     },
-    "unavailable": "Die Preise sind gerade nicht verfügbar. Bitte versuche es später erneut."
+    "unavailable": "Die Preise sind gerade nicht verfügbar. Bitte versuche es später erneut.",
+    "extras": "Extras",
+    "perDiver": "pro Taucher",
+    "perBooking": "pro Buchung"
   },
   "booking": {
     "title": "Tauchgang buchen",

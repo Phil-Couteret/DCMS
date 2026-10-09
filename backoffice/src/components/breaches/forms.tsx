@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { BreachStatus, DataBreach } from "@/lib/api";
 import { BREACH_SEVERITIES, BREACH_STATUS_LABELS, DATA_TYPE_LABELS, nextStatuses, SEVERITY_LABELS } from "@/lib/breaches";
 import { centerDateTimeInput } from "@/lib/center-time";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -35,18 +36,19 @@ export function BreachForm({
   cancelHref: string;
   timeZone: string;
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<BreachFormState>(saveBreach, null);
   const selected = new Set(breach?.affectedDataTypes ?? []);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {breach && <input type="hidden" name="breachId" value={breach.id} />}
       <label className={label}>
-        Title
+        {t("Title")}
         <input name="title" required maxLength={200} defaultValue={breach?.title ?? ""} className={control} />
       </label>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={label}>
-          Detected at (center time)
+          {t("Detected at (center time)")}
           <input
             type="datetime-local"
             name="detectedAt"
@@ -54,21 +56,21 @@ export function BreachForm({
             defaultValue={breach ? centerDateTimeInput(timeZone, breach.detectedAt) : ""}
             className={control}
           />
-          <span className={hint}>When the center became aware of it. The 72-hour deadline runs from here.</span>
+          <span className={hint}>{t("When the center became aware of it. The 72-hour deadline runs from here.")}</span>
         </label>
         <label className={label}>
-          Severity
+          {t("Severity")}
           <select name="severity" required defaultValue={breach?.severity ?? "MEDIUM"} className={control}>
             {BREACH_SEVERITIES.map((s) => (
               <option key={s} value={s}>
-                {SEVERITY_LABELS[s]}
+                {t(SEVERITY_LABELS[s])}
               </option>
             ))}
           </select>
         </label>
       </div>
       <label className={label}>
-        Description
+        {t("Description")}
         <textarea
           name="description"
           required
@@ -77,10 +79,10 @@ export function BreachForm({
           defaultValue={breach?.description ?? ""}
           className={control}
         />
-        <span className={hint}>What happened, how it was found, and what was done to contain it.</span>
+        <span className={hint}>{t("What happened, how it was found, and what was done to contain it.")}</span>
       </label>
       <fieldset>
-        <legend className={label}>Affected data</legend>
+        <legend className={label}>{t("Affected data")}</legend>
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {Object.entries(DATA_TYPE_LABELS).map(([key, name]) => (
             <label key={key} className="flex items-center gap-2 text-sm text-zinc-800">
@@ -91,13 +93,13 @@ export function BreachForm({
                 defaultChecked={selected.has(key)}
                 className="h-4 w-4 rounded border-zinc-300"
               />
-              {name}
+              {t(name)}
             </label>
           ))}
         </div>
       </fieldset>
       <label className={`${label} sm:w-1/2`}>
-        People affected (estimate)
+        {t("People affected (estimate)")}
         <input
           type="number"
           name="estimatedAffected"
@@ -106,15 +108,15 @@ export function BreachForm({
           defaultValue={breach?.estimatedAffected ?? ""}
           className={control}
         />
-        <span className={hint}>Leave empty if not known yet.</span>
+        <span className={hint}>{t("Leave empty if not known yet.")}</span>
       </label>
 
       {breach?.reportedToAuthority && (
         <fieldset className="space-y-4 border-t border-zinc-200 pt-4">
-          <legend className="pt-4 text-sm font-semibold text-zinc-900">Report to the authority</legend>
+          <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Report to the authority")}</legend>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className={label}>
-              Reported at (center time)
+              {t("Reported at (center time)")}
               <input
                 type="datetime-local"
                 name="reportedAt"
@@ -124,7 +126,7 @@ export function BreachForm({
               />
             </label>
             <label className={label}>
-              Authority reference
+              {t("Authority reference")}
               <input
                 name="authorityReference"
                 maxLength={200}
@@ -138,9 +140,9 @@ export function BreachForm({
 
       {breach?.status === "RESOLVED" && (
         <fieldset className="space-y-4 border-t border-zinc-200 pt-4">
-          <legend className="pt-4 text-sm font-semibold text-zinc-900">Resolution</legend>
+          <legend className="pt-4 text-sm font-semibold text-zinc-900">{t("Resolution")}</legend>
           <label className={`${label} sm:w-1/2`}>
-            Resolved at (center time)
+            {t("Resolved at (center time)")}
             <input
               type="datetime-local"
               name="resolutionDate"
@@ -150,7 +152,7 @@ export function BreachForm({
             />
           </label>
           <label className={label}>
-            Resolution details
+            {t("Resolution details")}
             <textarea
               name="resolutionDetails"
               required
@@ -165,10 +167,10 @@ export function BreachForm({
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : breach ? "Save changes" : "Record breach"}
+          {pending ? t("Saving…") : breach ? t("Save changes") : t("Record breach")}
         </Button>
         <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
-          Cancel
+          {t("Cancel")}
         </Button>
         <Status state={state} />
       </div>
@@ -192,12 +194,13 @@ const MOVE_COPY: Record<Exclude<BreachStatus, "DETECTED">, { button: string; hel
 };
 
 function MoveForm({ breach, to }: { breach: DataBreach; to: Exclude<BreachStatus, "DETECTED"> }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<BreachFormState>(moveBreach, null);
   const copy = MOVE_COPY[to];
   return (
     <form
       onSubmit={(e) => {
-        if (!window.confirm(`Move "${breach.title}" to ${BREACH_STATUS_LABELS[to]}? Statuses only move forward.`)) {
+        if (!window.confirm(t("Move \"{title}\" to {status}? Statuses only move forward.", { title: breach.title, status: t(BREACH_STATUS_LABELS[to]) }))) {
           e.preventDefault();
           return;
         }
@@ -207,39 +210,39 @@ function MoveForm({ breach, to }: { breach: DataBreach; to: Exclude<BreachStatus
     >
       <input type="hidden" name="breachId" value={breach.id} />
       <input type="hidden" name="status" value={to} />
-      <p className="text-sm text-zinc-600">{copy.help}</p>
+      <p className="text-sm text-zinc-600">{t(copy.help)}</p>
       {to === "REPORTED" && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className={label}>
-            Reported at (center time)
+            {t("Reported at (center time)")}
             <input type="datetime-local" name="reportedAt" className={control} />
-            <span className={hint}>Leave empty for now.</span>
+            <span className={hint}>{t("Leave empty for now.")}</span>
           </label>
           <label className={label}>
-            Authority reference
-            <input name="authorityReference" maxLength={200} placeholder="e.g. AEPD case number" className={control} />
+            {t("Authority reference")}
+            <input name="authorityReference" maxLength={200} placeholder={t("e.g. AEPD case number")} className={control} />
           </label>
         </div>
       )}
       {to === "RESOLVED" && (
         <>
           <label className={label}>
-            Resolution details
+            {t("Resolution details")}
             <textarea name="resolutionDetails" required rows={3} maxLength={20000} className={control} />
             {!breach.reportedToAuthority && (
-              <span className={hint}>Not reported to the authority: include why reporting was not required.</span>
+              <span className={hint}>{t("Not reported to the authority: include why reporting was not required.")}</span>
             )}
           </label>
           <label className={`${label} sm:w-1/2`}>
-            Resolved at (center time)
+            {t("Resolved at (center time)")}
             <input type="datetime-local" name="resolutionDate" className={control} />
-            <span className={hint}>Leave empty for now.</span>
+            <span className={hint}>{t("Leave empty for now.")}</span>
           </label>
         </>
       )}
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="sm" variant={to === "RESOLVED" ? "default" : "outline"} disabled={pending}>
-          {pending ? "Saving…" : copy.button}
+          {pending ? t("Saving…") : t(copy.button)}
         </Button>
         <Status state={state} />
       </div>
@@ -262,18 +265,19 @@ export function StatusActions({ breach }: { breach: DataBreach }) {
 
 // Only while Detected: a breach logged by mistake.
 export function DeleteBreachButton({ breach }: { breach: DataBreach }) {
+  const t = useT();
   const [state, action, pending] = useActionState<BreachFormState, FormData>(removeBreach, null);
   return (
     <form
       action={action}
       onSubmit={(e) => {
-        if (!window.confirm(`Delete "${breach.title}"? Only do this for a breach recorded by mistake.`)) e.preventDefault();
+        if (!window.confirm(t("Delete \"{title}\"? Only do this for a breach recorded by mistake.", { title: breach.title }))) e.preventDefault();
       }}
       className="flex flex-col items-start gap-1"
     >
       <input type="hidden" name="id" value={breach.id} />
       <Button type="submit" size="sm" variant="ghost" className="text-destructive" disabled={pending}>
-        {pending ? "Deleting…" : "Delete"}
+        {pending ? t("Deleting…") : t("Delete")}
       </Button>
       <Status state={state} />
     </form>

@@ -59,6 +59,12 @@ export const CONDITION_STYLES: Record<EquipmentCondition, string> = {
 
 export const MAINTENANCE_TYPES = ["routine", "repair", "inspection"] as const;
 
+export const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
+  routine: "Routine",
+  repair: "Repair",
+  inspection: "Inspection",
+};
+
 // Status moves the backoffice offers for each current status.
 export const STATUS_ACTIONS: Record<EquipmentStatus, { to: EquipmentStatus; label: string }[]> = {
   AVAILABLE: [

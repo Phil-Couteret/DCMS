@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getDiveSites, getStaff } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function NewDiveLogPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { timeZone } = await centerLocale();
+  const t = await getT();
   const booking = (await searchParams).booking;
   const bookingId = typeof booking === "string" && UUID.test(booking) ? booking : undefined;
   const [sites, guides] = await Promise.all([getDiveSites(), getStaff({ type: "GUIDE", status: "ACTIVE" })]);
@@ -22,9 +24,9 @@ export default async function NewDiveLogPage({
   return (
     <main className="space-y-6 p-6 md:p-8">
       <Link href="/dashboard/dive-logs" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← All dive logs
+        ← {t("All dive logs")}
       </Link>
-      <h1 className="text-2xl font-semibold text-zinc-900">New dive log</h1>
+      <h1 className="text-2xl font-semibold text-zinc-900">{t("New dive log")}</h1>
       <Card className="max-w-3xl">
         <CardContent>
           <NewLogForm

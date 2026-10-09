@@ -37,6 +37,7 @@ import {
 } from "@/lib/dive-prep";
 import { formatDayLabel, ROLE_LABELS, SLOT_NAMES, TRIP_SLOTS } from "@/lib/trips";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -50,10 +51,12 @@ function one(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function LoadError({ what, reason }: { what: string; reason: unknown }) {
+// what is the whole sentence, with {error} where the reason goes.
+async function LoadError({ what, reason }: { what: string; reason: unknown }) {
+  const t = await getT();
   return (
     <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-      {what} could not be loaded: {reason instanceof Error ? reason.message : String(reason)}
+      {t(what, { error: reason instanceof Error ? reason.message : String(reason) })}
     </p>
   );
 }
@@ -62,7 +65,8 @@ function Pill({ className, children }: { className: string; children: React.Reac
   return <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ring-1 ${className}`}>{children}</span>;
 }
 
-function DiverLine({ b }: { b: PrepBooking }) {
+async function DiverLine({ b }: { b: PrepBooking }) {
+  const t = await getT();
   const c = b.customer;
   const skill = c.centerSkillLevel;
   return (
@@ -73,17 +77,17 @@ function DiverLine({ b }: { b: PrepBooking }) {
         </Link>
         {b.participantCount > 1 && <span className="text-zinc-500">+{b.participantCount - 1}</span>}
         <Pill className={skill ? SKILL_PILL[skill] : "bg-zinc-100 text-zinc-600 ring-zinc-200"}>
-          {skill ? SKILL_LEVEL_LABELS[skill] : "Not assessed"}
+          {skill ? t(SKILL_LEVEL_LABELS[skill]) : t("Not assessed")}
         </Pill>
-        <span className="text-xs text-zinc-500">{ACTIVITY_LABELS[b.activityType] ?? b.activityType}</span>
+        <span className="text-xs text-zinc-500">{ACTIVITY_LABELS[b.activityType] ? t(ACTIVITY_LABELS[b.activityType]) : b.activityType}</span>
       </p>
-      <p className="text-xs text-zinc-500">{equipmentSummary(c)}</p>
+      <p className="text-xs text-zinc-500">{equipmentSummary(c, t)}</p>
       {b.warnings.length > 0 && <p className="text-xs font-medium text-red-700">{b.warnings.join(" · ")}</p>}
     </div>
   );
 }
 
-function PrepControls({
+async function PrepControls({
   tab,
   date,
   slot,
@@ -96,14 +100,15 @@ function PrepControls({
   location?: string;
   locations: LocationRef[];
 }) {
+  const t = await getT();
   return (
     <form method="get" className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-zinc-200">
       {tab !== "prep" && <input type="hidden" name="tab" value={tab} />}
       {locations.length > 0 && (
         <label className="block text-sm font-medium text-zinc-700">
-          Location
+          {t("Location")}
           <select name="location" defaultValue={location ?? ""} className={control}>
-            <option value="">All locations</option>
+            <option value="">{t("All locations")}</option>
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -113,27 +118,28 @@ function PrepControls({
         </label>
       )}
       <label className="block text-sm font-medium text-zinc-700">
-        Date
+        {t("Date")}
         <input type="date" name="date" defaultValue={date} className={control} />
       </label>
       {tab === "prep" && (
         <label className="block text-sm font-medium text-zinc-700">
-          Time slot
+          {t("Time slot")}
           <select name="slot" defaultValue={slot} className={control}>
             {TRIP_SLOTS.map((s) => (
               <option key={s} value={s}>
-                {SLOT_NAMES[s]}
+                {t(SLOT_NAMES[s])}
               </option>
             ))}
           </select>
         </label>
       )}
-      <Button type="submit">Show</Button>
+      <Button type="submit">{t("Show")}</Button>
     </form>
   );
 }
 
-function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
+async function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
+  const t = await getT();
   const open = trip.status === "PLANNED" || trip.status === "ACTIVE";
   const { divers, crew, limit, available } = trip.capacity;
   const over = available < 0;
@@ -143,10 +149,10 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
     <article className={`space-y-4 rounded-xl bg-white p-5 ring-1 ${over ? "ring-2 ring-red-400" : "ring-zinc-200"}`}>
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-lg font-semibold text-zinc-900">{trip.boat?.name ?? "Shore dive"}</h3>
+          <h3 className="text-lg font-semibold text-zinc-900">{trip.boat?.name ?? t("Shore dive")}</h3>
           <p className="text-xs text-zinc-500">
-            {trip.boat ? `${trip.boat.capacity} places · ` : ""}
-            {crew} crew · room for {Math.max(0, limit)} divers
+            {trip.boat ? `${t("{count} places", { count: trip.boat.capacity })} · ` : ""}
+            {t("{crew} crew · room for {count} divers", { crew, count: Math.max(0, limit) })}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -156,7 +162,7 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
                 over ? "bg-red-100 text-red-800" : available === 0 ? "bg-amber-100 text-amber-900" : "bg-zinc-100 text-zinc-700"
               }`}
             >
-              {divers}/{Math.max(0, limit)} divers
+              {t("{divers}/{limit} divers", { divers, limit: Math.max(0, limit) })}
             </span>
             <TripStatusBadge status={trip.status} />
           </div>
@@ -173,9 +179,9 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
       )}
 
       <section className="space-y-2">
-        <h4 className="text-sm font-semibold text-zinc-900">1. Crew</h4>
+        <h4 className="text-sm font-semibold text-zinc-900">{t("1. Crew")}</h4>
         {trip.staff.length === 0 ? (
-          <p className="text-xs text-zinc-500">No crew yet.</p>
+          <p className="text-xs text-zinc-500">{t("No crew yet.")}</p>
         ) : (
           <ul className="divide-y divide-zinc-100 rounded-lg ring-1 ring-zinc-200">
             {trip.staff.map((s) => (
@@ -184,17 +190,17 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
                   <span className="font-medium text-zinc-900">
                     {s.staff.firstName} {s.staff.lastName}
                   </span>
-                  <span className="ml-2 text-xs text-zinc-500">{ROLE_LABELS[s.role]}</span>
+                  <span className="ml-2 text-xs text-zinc-500">{t(ROLE_LABELS[s.role])}</span>
                 </span>
                 {open && (
                   <ActionButton
                     action={removeCrew}
                     fields={{ tripId: trip.id, staffId: s.staffId }}
-                    pendingLabel="Removing…"
+                    pendingLabel={t("Removing…")}
                     variant="ghost"
                     size="xs"
                   >
-                    Remove
+                    {t("Remove")}
                   </ActionButton>
                 )}
               </li>
@@ -205,19 +211,19 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
       </section>
 
       <section className="space-y-2">
-        <h4 className="text-sm font-semibold text-zinc-900">2. Planned site</h4>
+        <h4 className="text-sm font-semibold text-zinc-900">{t("2. Planned site")}</h4>
         {open ? (
           <SiteForm tripId={trip.id} sites={prep.sites} current={trip.plannedSiteId} />
         ) : (
-          <p className="text-sm text-zinc-700">{trip.plannedSite?.nameEn ?? "Not decided"}</p>
+          <p className="text-sm text-zinc-700">{trip.plannedSite?.nameEn ?? t("Not decided")}</p>
         )}
         {open && trip.bookings.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
             {suggestions.length === 0 ? (
-              <span>No other site suits these divers (skill, certification, not dived in the last 3 days).</span>
+              <span>{t("No other site suits these divers (skill, certification, not dived in the last 3 days).")}</span>
             ) : (
               <>
-                <span>Suits these divers:</span>
+                <span>{t("Suits these divers:")}</span>
                 {suggestions.map((s) => (
                   <ActionButton
                     key={s.id}
@@ -237,9 +243,9 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
       </section>
 
       <section className="space-y-2">
-        <h4 className="text-sm font-semibold text-zinc-900">3. Divers</h4>
+        <h4 className="text-sm font-semibold text-zinc-900">{t("3. Divers")}</h4>
         {trip.bookings.length === 0 ? (
-          <p className="text-xs text-zinc-500">No divers yet. Add them from the unassigned list.</p>
+          <p className="text-xs text-zinc-500">{t("No divers yet. Add them from the unassigned list.")}</p>
         ) : (
           <ul className="divide-y divide-zinc-100 rounded-lg ring-1 ring-zinc-200">
             {trip.bookings.map((b) => (
@@ -253,7 +259,7 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
                     variant="ghost"
                     size="xs"
                   >
-                    Remove
+                    {t("Remove")}
                   </ActionButton>
                 )}
               </li>
@@ -266,16 +272,17 @@ function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
 }
 
 async function PreparationTab({ date, slot, location }: { date: string; slot: TimeSlot; location?: string }) {
+  const t = await getT();
   let prep: DivePrep;
   try {
     prep = await getDivePrep(date, slot, location);
   } catch (e) {
-    return <LoadError what="The preparation" reason={e} />;
+    return <LoadError what="The preparation could not be loaded: {error}" reason={e} />;
   }
-  const openTrips = prep.trips.filter((t) => t.status === "PLANNED" || t.status === "ACTIVE");
-  const assigned = prep.trips.reduce((n, t) => n + t.capacity.divers, 0);
+  const openTrips = prep.trips.filter((tr) => tr.status === "PLANNED" || tr.status === "ACTIVE");
+  const assigned = prep.trips.reduce((n, tr) => n + tr.capacity.divers, 0);
   const waiting = prep.unassigned.reduce((n, b) => n + b.participantCount, 0);
-  const room = openTrips.reduce((n, t) => n + Math.max(0, t.capacity.available), 0);
+  const room = openTrips.reduce((n, tr) => n + Math.max(0, tr.capacity.available), 0);
   const slotFields = { date, timeSlot: slot, ...(location && { location }) };
 
   return (
@@ -283,21 +290,26 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-white p-4 ring-1 ring-zinc-200">
         <div className="text-sm text-zinc-700">
           <p>
-            <span className="font-semibold text-zinc-900">{assigned + waiting}</span> confirmed divers:{" "}
-            {assigned} on trips, {waiting} waiting · room for {room} more on open trips
-            {waiting > room && <span className="font-medium text-red-700"> — {waiting - room} short</span>}
+            {t("{total} confirmed divers: {assigned} on trips, {waiting} waiting · room for {room} more on open trips", {
+              total: assigned + waiting,
+              assigned,
+              waiting,
+              room,
+            })}
+            {waiting > room && <span className="font-medium text-red-700"> — {t("{count} short", { count: waiting - room })}</span>}
           </p>
           {prep.pendingCount > 0 && (
             <p className="text-xs text-zinc-500">
-              {prep.pendingCount} pending booking{prep.pendingCount === 1 ? "" : "s"} not shown; confirm them in
-              Bookings to prepare them.
+              {prep.pendingCount === 1
+                ? t("1 pending booking not shown; confirm it in Bookings to prepare it.")
+                : t("{count} pending bookings not shown; confirm them in Bookings to prepare them.", { count: prep.pendingCount })}
             </p>
           )}
         </div>
         <div className="flex flex-wrap items-start gap-2">
-          {prep.unassigned.length > 0 && prep.trips.some((t) => t.status === "PLANNED") && (
-            <ActionButton action={autoAssign} fields={slotFields} pendingLabel="Assigning…" variant="default">
-              Auto-assign divers
+          {prep.unassigned.length > 0 && prep.trips.some((tr) => tr.status === "PLANNED") && (
+            <ActionButton action={autoAssign} fields={slotFields} pendingLabel={t("Assigning…")} variant="default">
+              {t("Auto-assign divers")}
             </ActionButton>
           )}
           {prep.boatsWithoutTrip.map((b) => (
@@ -305,14 +317,14 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
               key={b.id}
               action={addTrip}
               fields={{ ...slotFields, boatId: b.id, capacity: String(b.capacity) }}
-              pendingLabel="Adding…"
+              pendingLabel={t("Adding…")}
             >
               + {b.name}
             </ActionButton>
           ))}
           {!prep.hasShoreTrip && (
-            <ActionButton action={addTrip} fields={slotFields} pendingLabel="Adding…">
-              + Shore dive
+            <ActionButton action={addTrip} fields={slotFields} pendingLabel={t("Adding…")}>
+              + {t("Shore dive")}
             </ActionButton>
           )}
         </div>
@@ -320,39 +332,40 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
 
       {prep.trips.length === 0 ? (
         <p className="rounded-xl bg-white p-10 text-center text-sm text-zinc-500 ring-1 ring-zinc-200">
-          No trips in this slot yet. Add a boat or a shore dive above.
+          {t("No trips in this slot yet. Add a boat or a shore dive above.")}
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {prep.trips.map((t) => (
-            <TripCard key={t.id} trip={t} prep={prep} />
+          {prep.trips.map((tr) => (
+            <TripCard key={tr.id} trip={tr} prep={prep} />
           ))}
         </div>
       )}
 
       <section className="space-y-3 rounded-xl bg-white p-5 ring-1 ring-zinc-200">
-        <h3 className="font-semibold text-zinc-900">Unassigned divers ({prep.unassigned.length})</h3>
+        <h3 className="font-semibold text-zinc-900">{t("Unassigned divers ({count})", { count: prep.unassigned.length })}</h3>
         {prep.unassigned.length === 0 ? (
-          <p className="text-sm text-zinc-500">Every confirmed booking in this slot is on a trip.</p>
+          <p className="text-sm text-zinc-500">{t("Every confirmed booking in this slot is on a trip.")}</p>
         ) : (
           <ul className="divide-y divide-zinc-100">
             {prep.unassigned.map((b) => (
               <li key={b.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
                 <DiverLine b={b} />
                 <div className="flex flex-wrap items-start justify-end gap-1.5">
-                  {openTrips.length === 0 && <span className="text-xs text-zinc-500">No open trip</span>}
-                  {openTrips.map((t) => {
-                    const fits = t.capacity.available >= b.participantCount;
+                  {openTrips.length === 0 && <span className="text-xs text-zinc-500">{t("No open trip")}</span>}
+                  {openTrips.map((tr) => {
+                    const fits = tr.capacity.available >= b.participantCount;
                     return (
                       <ActionButton
-                        key={t.id}
+                        key={tr.id}
                         action={assignDiver}
-                        fields={{ tripId: t.id, bookingId: b.id }}
+                        fields={{ tripId: tr.id, bookingId: b.id }}
                         pendingLabel="…"
                         disabled={!fits}
                         size="xs"
                       >
-                        {t.boat?.name ?? "Shore"} ({fits ? `${t.capacity.available} left` : "full"})
+                        {tr.boat?.name ?? t("Shore")} (
+                        {fits ? t("{count} left", { count: tr.capacity.available }) : t("full")})
                       </ActionButton>
                     );
                   })}
@@ -367,51 +380,56 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
 }
 
 async function ReportTab({ date, location }: { date: string; location?: string }) {
+  const t = await getT();
   let trips, sites;
   try {
     [trips, sites] = await Promise.all([getTrips(date, date, location), getDiveSites(location)]);
   } catch (e) {
-    return <LoadError what="The trips" reason={e} />;
+    return <LoadError what="The trips could not be loaded: {error}" reason={e} />;
   }
-  const shown = trips.filter((t) => t.status !== "CANCELLED");
+  const shown = trips.filter((tr) => tr.status !== "CANCELLED");
   const siteOptions = sites.map((s) => ({ id: s.id, nameEn: s.nameEn, difficultyLevel: s.difficultyLevel }));
   if (shown.length === 0) {
-    return <p className="rounded-xl bg-white p-10 text-center text-sm text-zinc-500 ring-1 ring-zinc-200">No trips on this day.</p>;
+    return <p className="rounded-xl bg-white p-10 text-center text-sm text-zinc-500 ring-1 ring-zinc-200">{t("No trips on this day.")}</p>;
   }
   return (
     <div className="space-y-4">
       <p className="rounded-lg bg-sky-50 p-4 text-sm text-sky-900 ring-1 ring-sky-200">
-        After the boats return, record the actual site, entry and exit times and any notes for the marine authority,
-        then complete the dive. Completed dives go into the compliance report.
+        {t(
+          "After the boats return, record the actual site, entry and exit times and any notes for the marine authority, then complete the dive. Completed dives go into the compliance report.",
+        )}
       </p>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {shown.map((t) => (
+        {shown.map((trip) => (
           <article
-            key={t.id}
-            className={`space-y-3 rounded-xl bg-white p-5 ring-1 ${t.status === "COMPLETED" ? "ring-2 ring-green-400" : "ring-zinc-200"}`}
+            key={trip.id}
+            className={`space-y-3 rounded-xl bg-white p-5 ring-1 ${trip.status === "COMPLETED" ? "ring-2 ring-green-400" : "ring-zinc-200"}`}
           >
             <header className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <h3 className="font-semibold text-zinc-900">
-                  {SLOT_NAMES[t.timeSlot]} · {t.boat?.name ?? "Shore dive"}
+                  {t(SLOT_NAMES[trip.timeSlot])} · {trip.boat?.name ?? t("Shore dive")}
                 </h3>
                 <p className="text-xs text-zinc-500">
-                  {t._count.bookings} booking{t._count.bookings === 1 ? "" : "s"} · planned site{" "}
-                  {t.plannedSite?.nameEn ?? "not set"}
+                  {trip._count.bookings === 1
+                    ? t("1 booking · planned site {site}", { site: trip.plannedSite?.nameEn ?? t("not set") })
+                    : t("{count} bookings · planned site {site}", {
+                        count: trip._count.bookings,
+                        site: trip.plannedSite?.nameEn ?? t("not set"),
+                      })}
                 </p>
               </div>
-              <TripStatusBadge status={t.status} />
+              <TripStatusBadge status={trip.status} />
             </header>
-            {t.status === "PLANNED" ? (
+            {trip.status === "PLANNED" ? (
               <p className="text-sm text-zinc-500">
-                Not started yet.{" "}
-                <Link href={prepHref({ date, slot: t.timeSlot, location })} prefetch={false} className="underline">
-                  Prepare and start it
-                </Link>{" "}
-                before reporting.
+                {t("Not started yet.")}{" "}
+                <Link href={prepHref({ date, slot: trip.timeSlot, location })} prefetch={false} className="underline">
+                  {t("Prepare and start it before reporting.")}
+                </Link>
               </p>
             ) : (
-              <ReportForm trip={t} sites={siteOptions} />
+              <ReportForm trip={trip} sites={siteOptions} />
             )}
           </article>
         ))}
@@ -421,19 +439,21 @@ async function ReportTab({ date, location }: { date: string; location?: string }
 }
 
 async function ComplianceTab({ date }: { date: string }) {
+  const t = await getT();
   let report;
   try {
     report = await getComplianceReport(date);
   } catch (e) {
-    return <LoadError what="The compliance report" reason={e} />;
+    return <LoadError what="The compliance report could not be loaded: {error}" reason={e} />;
   }
   const people = (p: { firstName: string; lastName: string }) => `${p.firstName} ${p.lastName}`;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="text-sm text-zinc-600">
-          Completed dives only, with what Spanish regulations (RD 933/2021) require: site, times, crew and each
-          diver&apos;s gender, certification and nationality.
+          {t(
+            "Completed dives only, with what Spanish regulations (RD 933/2021) require: site, times, crew and each diver's gender, certification and nationality.",
+          )}
         </p>
         {report.trips.length > 0 && (
           <div className="flex gap-2">
@@ -442,35 +462,49 @@ async function ComplianceTab({ date }: { date: string }) {
               nativeButton={false}
               render={<a href={`/dashboard/dive-prep/compliance-csv?date=${date}`} download />}
             >
-              Download CSV
+              {t("Download CSV")}
             </Button>
             <PrintButton />
           </div>
         )}
       </div>
       <h2 className="hidden text-xl font-semibold print:block">
-        Dive compliance report · {formatDayLabel(date, "long")}
+        {t("Dive compliance report · {date}", { date: formatDayLabel(date, "long") })}
       </h2>
       {report.trips.length === 0 ? (
         <p className="rounded-xl bg-white p-10 text-center text-sm text-zinc-500 ring-1 ring-zinc-200">
-          No completed dives on this day. Complete dives in Post-dive reports to include them.
+          {t("No completed dives on this day. Complete dives in Post-dive reports to include them.")}
         </p>
       ) : (
-        report.trips.map((t, i) => (
-          <article key={t.id} className="space-y-4 rounded-xl bg-white p-5 ring-1 ring-zinc-200 print:break-inside-avoid print:ring-zinc-400">
+        report.trips.map((trip, i) => (
+          <article key={trip.id} className="space-y-4 rounded-xl bg-white p-5 ring-1 ring-zinc-200 print:break-inside-avoid print:ring-zinc-400">
             <h3 className="font-semibold text-zinc-900">
-              Dive {i + 1}: {SLOT_NAMES[t.timeSlot]} · {t.boat?.name ?? "Shore dive"}
+              {t("Dive {number}: {slot} · {boat}", {
+                number: i + 1,
+                slot: t(SLOT_NAMES[trip.timeSlot]),
+                boat: trip.boat?.name ?? t("Shore dive"),
+              })}
             </h3>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-4">
               {[
-                ["Planned site", t.plannedSite?.nameEn ?? "—"],
-                ["Actual site", t.actualSite?.nameEn ?? "—"],
-                ["Entry", t.entryTime ?? "—"],
-                ["Exit", t.exitTime ?? "—"],
-                ["Captain", t.captain ? people(t.captain) : t.boat ? "—" : "Shore dive"],
-                ["Guides", t.guides.length > 0 ? t.guides.map((g) => `${people(g)} (${ROLE_LABELS[g.role]})`).join(", ") : "—"],
-                ["Divers", String(t.totals.divers)],
-                ["Gender", `${t.totals.male} M · ${t.totals.female} F · ${t.totals.unspecified} unspecified`],
+                [t("Planned site"), trip.plannedSite?.nameEn ?? "—"],
+                [t("Actual site"), trip.actualSite?.nameEn ?? "—"],
+                [t("Entry"), trip.entryTime ?? "—"],
+                [t("Exit"), trip.exitTime ?? "—"],
+                [t("Captain"), trip.captain ? people(trip.captain) : trip.boat ? "—" : t("Shore dive")],
+                [
+                  t("Guides"),
+                  trip.guides.length > 0 ? trip.guides.map((g) => `${people(g)} (${t(ROLE_LABELS[g.role])})`).join(", ") : "—",
+                ],
+                [t("Divers"), String(trip.totals.divers)],
+                [
+                  t("Gender"),
+                  t("{male} M · {female} F · {unspecified} unspecified", {
+                    male: trip.totals.male,
+                    female: trip.totals.female,
+                    unspecified: trip.totals.unspecified,
+                  }),
+                ],
               ].map(([k, v]) => (
                 <div key={k}>
                   <dt className="text-xs text-zinc-500">{k}</dt>
@@ -481,27 +515,27 @@ async function ComplianceTab({ date }: { date: string }) {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-zinc-200 text-xs text-zinc-500">
                 <tr>
-                  <th className="py-1.5 font-medium">Diver</th>
-                  <th className="py-1.5 font-medium">Gender</th>
-                  <th className="py-1.5 font-medium">Certification</th>
-                  <th className="py-1.5 font-medium">Nationality</th>
+                  <th className="py-1.5 font-medium">{t("Diver")}</th>
+                  <th className="py-1.5 font-medium">{t("Gender")}</th>
+                  <th className="py-1.5 font-medium">{t("Certification")}</th>
+                  <th className="py-1.5 font-medium">{t("Nationality")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {t.divers.map((d) => (
+                {trip.divers.map((d) => (
                   <tr key={d.bookingId}>
                     <td className="py-1.5">
                       {d.name}
-                      {d.companions > 0 && <span className="text-zinc-500"> +{d.companions} (not named)</span>}
+                      {d.companions > 0 && <span className="text-zinc-500"> {t("+{count} (not named)", { count: d.companions })}</span>}
                     </td>
-                    <td className="py-1.5">{d.gender ? (GENDER_LABELS[d.gender] ?? d.gender) : "Not specified"}</td>
-                    <td className="py-1.5">{certificationLabel(d.certification)}</td>
+                    <td className="py-1.5">{d.gender ? (GENDER_LABELS[d.gender] ? t(GENDER_LABELS[d.gender]) : d.gender) : t("Not specified")}</td>
+                    <td className="py-1.5">{certificationLabel(d.certification, t)}</td>
                     <td className="py-1.5">{countryLabel(d.nationality)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {t.reportNotes && <p className="whitespace-pre-line text-sm text-zinc-700">Notes: {t.reportNotes}</p>}
+            {trip.reportNotes && <p className="whitespace-pre-line text-sm text-zinc-700">{t("Notes: {notes}", { notes: trip.reportNotes })}</p>}
           </article>
         ))
       )}
@@ -516,7 +550,8 @@ export default async function DivePrepPage({
 }) {
   const { timeZone } = await centerLocale();
   const params = await searchParams;
-  const tab = PREP_TABS.find((t) => t.key === one(params.tab))?.key ?? "prep";
+  const t = await getT();
+  const tab = PREP_TABS.find((pt) => pt.key === one(params.tab))?.key ?? "prep";
   const rawDate = one(params.date);
   const date = rawDate && ISO_DATE.test(rawDate) ? rawDate : centerNow(timeZone).isoDate;
   const slot = TRIP_SLOTS.find((s) => s === one(params.slot)) ?? "MORNING";
@@ -527,21 +562,21 @@ export default async function DivePrepPage({
   return (
     <main className="space-y-6 p-6 md:p-8">
       <div className="print:hidden">
-        <h1 className="text-2xl font-semibold text-zinc-900">Dive Prep</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">{t("Dive Prep")}</h1>
         <p className="mt-1 text-sm text-zinc-500">{formatDayLabel(date, "long")}</p>
       </div>
-      <nav aria-label="Dive prep sections" className="flex gap-1 overflow-x-auto border-b border-zinc-200 print:hidden">
-        {PREP_TABS.map((t) => (
+      <nav aria-label={t("Dive prep sections")} className="flex gap-1 overflow-x-auto border-b border-zinc-200 print:hidden">
+        {PREP_TABS.map((pt) => (
           <Link
-            key={t.key}
-            href={prepHref({ tab: t.key, date, slot, location })}
+            key={pt.key}
+            href={prepHref({ tab: pt.key, date, slot, location })}
             prefetch={false}
-            aria-current={t.key === tab ? "page" : undefined}
+            aria-current={pt.key === tab ? "page" : undefined}
             className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-              t.key === tab ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
+              pt.key === tab ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
             }`}
           >
-            {t.label}
+            {t(pt.label)}
           </Link>
         ))}
       </nav>

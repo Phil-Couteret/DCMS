@@ -14,13 +14,16 @@ export class PublicPricingController {
     private readonly config: TenantConfig,
   ) {}
 
-  // Catalogue prices, net of tax. The stay tiers are left out: they are not
-  // advertised.
+  // Catalogue prices, net of tax, with the dive packs and add-ons. The stay
+  // tiers are left out: they are not advertised.
   @Get('pricing')
   @UseGuards(OptionalJwtAuthGuard)
   async get() {
-    const [{ activities, equipment }, currency] = await Promise.all([this.pricing.view(), this.config.currency()]);
-    return { currency, activities, equipment };
+    const [{ activities, equipment, addOns, divePacks }, currency] = await Promise.all([
+      this.pricing.view(),
+      this.config.currency(),
+    ]);
+    return { currency, activities, equipment, addOns, divePacks };
   }
 
   // Name, contact details, branding (logo, colours) and regional settings.

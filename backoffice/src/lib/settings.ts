@@ -1,3 +1,5 @@
+import { translate, type T } from "@/lib/i18n/core";
+
 // Boat.status is free text in the API; online bookings only go on "active"
 // boats.
 export const BOAT_STATUSES = ["active", "maintenance", "inactive"];
@@ -37,11 +39,12 @@ export const USER_ROLE_LABELS: Record<string, string> = {
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 72;
 
-// Checks a new password and its confirmation; null when both are fine.
-export function newPasswordError(password: string, confirm: string) {
-  if (password.length < PASSWORD_MIN) return `The password must be at least ${PASSWORD_MIN} characters`;
-  if (password.length > PASSWORD_MAX) return `The password must be at most ${PASSWORD_MAX} characters`;
-  if (password !== confirm) return "The passwords do not match";
+// Checks a new password and its confirmation; null when both are fine. t
+// translates the message (English when left out).
+export function newPasswordError(password: string, confirm: string, t: T = (text, vars) => translate("en", text, vars)) {
+  if (password.length < PASSWORD_MIN) return t("The password must be at least {count} characters", { count: PASSWORD_MIN });
+  if (password.length > PASSWORD_MAX) return t("The password must be at most {count} characters", { count: PASSWORD_MAX });
+  if (password !== confirm) return t("The passwords do not match");
   return null;
 }
 

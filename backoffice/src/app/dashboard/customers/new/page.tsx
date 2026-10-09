@@ -2,17 +2,19 @@ import Link from "next/link";
 import { CustomerForm } from "@/components/customers/customer-form";
 import { centerLocale } from "@/lib/center";
 import { centerNow } from "@/lib/center-time";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewCustomerPage() {
   const { timeZone } = await centerLocale();
+  const t = await getT();
   return (
     <main className="max-w-4xl space-y-6 p-6 md:p-8">
       <Link href="/dashboard/customers" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← All customers
+        {t("← All customers")}
       </Link>
-      <h1 className="text-2xl font-semibold text-zinc-900">New customer</h1>
+      <h1 className="text-2xl font-semibold text-zinc-900">{t("New customer")}</h1>
       <CustomerForm
         initial={{
           firstName: "",

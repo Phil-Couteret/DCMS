@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  IsOptional,
   ArrayMinSize,
   IsArray,
   IsInt,
@@ -61,7 +62,22 @@ export class FunDiveTierDto {
   @Price() recurrent: number;
 }
 
-// The whole price list: every field is required, so a save replaces it.
+export class AddOnPricesDto {
+  @Price() nightDive: number; // per diver
+  @Price() personalInstructor: number; // per booking
+}
+
+export class DivePackDto {
+  @IsInt()
+  @Min(2)
+  @Max(100)
+  diveCount: number;
+
+  @Price() price: number; // per diver, for all the dives
+}
+
+// The whole price list: a save replaces it. Add-on prices and dive packs may
+// be left out, which keeps them as they are.
 export class UpdatePricingDto {
   @IsObject()
   @ValidateNested()
@@ -79,4 +95,18 @@ export class UpdatePricingDto {
   @ValidateNested({ each: true })
   @Type(() => FunDiveTierDto)
   funDiveTiers: FunDiveTierDto[];
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => AddOnPricesDto)
+  addOns?: AddOnPricesDto;
+
+  // An empty list removes every pack.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => DivePackDto)
+  divePacks?: DivePackDto[];
 }

@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import { logMaintenance, scheduleMaintenance, type FormState } from "@/app/dashboard/equipment/actions";
 import { Button } from "@/components/ui/button";
-import { MAINTENANCE_TYPES } from "@/lib/equipment";
+import { MAINTENANCE_TYPE_LABELS, MAINTENANCE_TYPES } from "@/lib/equipment";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -16,12 +17,13 @@ function Feedback({ state, success }: { state: FormState; success: string }) {
 }
 
 export function ScheduleForm({ equipmentId, current }: { equipmentId: string; current: string | null }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<FormState>(scheduleMaintenance, null);
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <input type="hidden" name="equipmentId" value={equipmentId} />
       <label className="block text-sm font-medium text-zinc-700">
-        Next maintenance
+        {t("Next maintenance")}
         <input
           type="date"
           name="nextMaintenance"
@@ -29,18 +31,19 @@ export function ScheduleForm({ equipmentId, current }: { equipmentId: string; cu
           className={control}
         />
       </label>
-      <p className="text-xs text-zinc-500">Leave empty and save to clear the schedule.</p>
+      <p className="text-xs text-zinc-500">{t("Leave empty and save to clear the schedule.")}</p>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save date"}
+          {pending ? t("Saving…") : t("Save date")}
         </Button>
-        <Feedback state={state} success="Saved." />
+        <Feedback state={state} success={t("Saved.")} />
       </div>
     </form>
   );
 }
 
 export function LogMaintenanceForm({ equipmentId, today, currency }: { equipmentId: string; today: string; currency: string }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<FormState>(logMaintenance, null);
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -52,40 +55,40 @@ export function LogMaintenanceForm({ equipmentId, today, currency }: { equipment
       <input type="hidden" name="equipmentId" value={equipmentId} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-zinc-700">
-          Date
+          {t("Date")}
           <input type="date" name="date" required max={today} defaultValue={today} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Type
+          {t("Type")}
           <select name="type" required defaultValue="routine" className={control}>
-            {MAINTENANCE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t[0].toUpperCase() + t.slice(1)}
+            {MAINTENANCE_TYPES.map((x) => (
+              <option key={x} value={x}>
+                {t(MAINTENANCE_TYPE_LABELS[x])}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Technician
+          {t("Technician")}
           <input name="technician" required maxLength={100} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Cost ({currency}, optional)
+          {t("Cost ({currency}, optional)", { currency })}
           <input name="cost" type="number" min="0" step="0.01" inputMode="decimal" className={control} />
         </label>
       </div>
       <label className="block text-sm font-medium text-zinc-700">
-        Notes (optional)
+        {t("Notes (optional)")}
         <textarea name="notes" rows={3} maxLength={2000} className={control} />
       </label>
       <p className="text-xs text-zinc-500">
-        Logging the newest entry sets last maintenance to its date and clears the next date, so schedule it again.
+        {t("Logging the newest entry sets last maintenance to its date and clears the next date, so schedule it again.")}
       </p>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Log maintenance"}
+          {pending ? t("Saving…") : t("Log maintenance")}
         </Button>
-        <Feedback state={state} success="Maintenance logged." />
+        <Feedback state={state} success={t("Maintenance logged.")} />
       </div>
     </form>
   );

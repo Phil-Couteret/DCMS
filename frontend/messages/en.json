@@ -51,10 +51,14 @@
       "computer": "Dive Computer",
       "fullPackage": "Full Package",
       "fullPackageNote": "All of the above",
-      "fiveDives": "5-Dive Pack",
-      "tenDives": "10-Dive Pack"
+      "divePack": "{count}-Dive Pack",
+      "nightDive": "Night dive surcharge",
+      "personalInstructor": "Personal instructor"
     },
-    "unavailable": "Prices are unavailable right now. Please try again later."
+    "unavailable": "Prices are unavailable right now. Please try again later.",
+    "extras": "Extras",
+    "perDiver": "per diver",
+    "perBooking": "per booking"
   },
   "booking": {
     "title": "Book Your Dive",

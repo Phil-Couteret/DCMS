@@ -4,6 +4,7 @@ import { CustomerForm } from "@/components/customers/customer-form";
 import { ApiError, getCustomer } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ function field(contact: unknown, key: string) {
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { timeZone } = await centerLocale();
+  const t = await getT();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -33,10 +35,10 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
   return (
     <main className="max-w-4xl space-y-6 p-6 md:p-8">
       <Link href={profileHref} prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← Back to profile
+        {t("← Back to profile")}
       </Link>
       <h1 className="text-2xl font-semibold text-zinc-900">
-        Edit {customer.firstName} {customer.lastName}
+        {t("Edit {name}", { name: `${customer.firstName} ${customer.lastName}` })}
       </h1>
       <CustomerForm
         customerId={id}

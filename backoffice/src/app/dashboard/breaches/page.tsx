@@ -15,12 +15,21 @@ import {
 } from "@/lib/breaches";
 import { centerDateTime } from "@/lib/center-time";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const th = "px-4 py-2 font-medium";
 const td = "px-4 py-2 align-top";
+
+// The empty list under each status filter.
+const EMPTY_LABELS: Record<BreachStatus, string> = {
+  DETECTED: "No detected breaches",
+  ASSESSED: "No assessed breaches",
+  REPORTED: "No reported breaches",
+  RESOLVED: "No resolved breaches",
+};
 
 function one(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -46,26 +55,27 @@ function Stat({ label, value, tone = "text-zinc-900" }: { label: string; value: 
 
 // The 72-hour deadline, and how it stands.
 async function Deadline({ breach }: { breach: DataBreach }) {
+  const t = await getT();
   const { timeZone } = await centerLocale();
   if (breach.overdue) {
     return (
       <>
         {centerDateTime(timeZone, breach.reportingDeadline)}
         <span className="mt-1 block">
-          <Pill className="bg-red-600 text-white">Overdue</Pill>
+          <Pill className="bg-red-600 text-white">{t("Overdue")}</Pill>
         </span>
       </>
     );
   }
   if (breach.reportedToAuthority || breach.status === "RESOLVED") {
-    return <span className="text-zinc-500">{breach.reportedToAuthority ? "Met" : "Not reported"}</span>;
+    return <span className="text-zinc-500">{breach.reportedToAuthority ? t("Met") : t("Not reported")}</span>;
   }
   const left = hoursLeft(breach.reportingDeadline);
   return (
     <>
       {centerDateTime(timeZone, breach.reportingDeadline)}
       <span className={`block text-xs ${left < 24 ? "font-medium text-amber-700" : "text-zinc-500"}`}>
-        {left < 1 ? "Less than 1 hour left" : `${left} h left`}
+        {left < 1 ? t("Less than 1 hour left") : t("{hours} h left", { hours: left })}
       </span>
     </>
   );
@@ -81,54 +91,55 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 async function Details({ breach, editHref }: { breach: DataBreach; editHref: string }) {
+  const t = await getT();
   const { timeZone } = await centerLocale();
-  const dataTypes = breach.affectedDataTypes.map((t) => DATA_TYPE_LABELS[t] ?? t);
+  const dataTypes = breach.affectedDataTypes.map((d) => (DATA_TYPE_LABELS[d] ? t(DATA_TYPE_LABELS[d]) : d));
   return (
     <>
       {breach.overdue && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-800 ring-1 ring-red-200">
-          Overdue: the 72-hour deadline to report this breach passed on {centerDateTime(timeZone, breach.reportingDeadline)}.
+          {t("Overdue: the 72-hour deadline to report this breach passed on {date}.", { date: centerDateTime(timeZone, breach.reportingDeadline) })}
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <Pill className={BREACH_STATUS_STYLES[breach.status]}>{BREACH_STATUS_LABELS[breach.status]}</Pill>
-        <Pill className={SEVERITY_STYLES[breach.severity]}>{SEVERITY_LABELS[breach.severity]} severity</Pill>
+        <Pill className={BREACH_STATUS_STYLES[breach.status]}>{t(BREACH_STATUS_LABELS[breach.status])}</Pill>
+        <Pill className={SEVERITY_STYLES[breach.severity]}>{t("{severity} severity", { severity: t(SEVERITY_LABELS[breach.severity]) })}</Pill>
       </div>
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Detected">{centerDateTime(timeZone, breach.detectedAt)}</Field>
-        <Field label="Report deadline">
+        <Field label={t("Detected")}>{centerDateTime(timeZone, breach.detectedAt)}</Field>
+        <Field label={t("Report deadline")}>
           <Deadline breach={breach} />
         </Field>
-        <Field label="Affected data">{dataTypes.length > 0 ? dataTypes.join(", ") : "Not yet known"}</Field>
-        <Field label="People affected">{breach.estimatedAffected?.toLocaleString("en-GB") ?? "Not yet known"}</Field>
+        <Field label={t("Affected data")}>{dataTypes.length > 0 ? dataTypes.join(", ") : t("Not yet known")}</Field>
+        <Field label={t("People affected")}>{breach.estimatedAffected?.toLocaleString("en-GB") ?? t("Not yet known")}</Field>
         <div className="sm:col-span-2">
-          <Field label="Description">{breach.description}</Field>
+          <Field label={t("Description")}>{breach.description}</Field>
         </div>
-        <Field label="Reported to the authority">
-          {breach.reportedToAuthority && breach.reportedAt ? centerDateTime(timeZone, breach.reportedAt) : "No"}
+        <Field label={t("Reported to the authority")}>
+          {breach.reportedToAuthority && breach.reportedAt ? centerDateTime(timeZone, breach.reportedAt) : t("No")}
         </Field>
-        <Field label="Authority reference">{breach.authorityReference ?? "—"}</Field>
+        <Field label={t("Authority reference")}>{breach.authorityReference ?? "—"}</Field>
         {breach.status === "RESOLVED" && (
           <>
-            <Field label="Resolved">{breach.resolutionDate ? centerDateTime(timeZone, breach.resolutionDate) : "—"}</Field>
+            <Field label={t("Resolved")}>{breach.resolutionDate ? centerDateTime(timeZone, breach.resolutionDate) : "—"}</Field>
             <div className="sm:col-span-2">
-              <Field label="Resolution">{breach.resolutionDetails ?? "—"}</Field>
+              <Field label={t("Resolution")}>{breach.resolutionDetails ?? "—"}</Field>
             </div>
           </>
         )}
-        <Field label="Recorded by">
+        <Field label={t("Recorded by")}>
           {breach.createdBy.name ?? breach.createdBy.email}, {centerDateTime(timeZone, breach.createdAt)}
         </Field>
       </dl>
       <div className="flex flex-wrap items-start gap-2">
         <Button size="sm" variant="outline" nativeButton={false} render={<Link href={editHref} prefetch={false} scroll={false} />}>
-          Edit details
+          {t("Edit details")}
         </Button>
         {breach.status === "DETECTED" && <DeleteBreachButton breach={breach} />}
       </div>
       {breach.status !== "RESOLVED" && (
         <section className="space-y-3 border-t border-zinc-200 pt-4">
-          <h3 className="font-semibold text-zinc-900">Move forward</h3>
+          <h3 className="font-semibold text-zinc-900">{t("Move forward")}</h3>
           <StatusActions breach={breach} />
         </section>
       )}
@@ -141,14 +152,15 @@ export default async function BreachesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getT();
   const { timeZone } = await centerLocale();
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
     return (
       <main className="space-y-6 p-6 md:p-8">
-        <h1 className="text-2xl font-semibold text-zinc-900">Data breaches</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">{t("Data breaches")}</h1>
         <p className="rounded-lg bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-zinc-200">
-          Only admins can see the data breach register.
+          {t("Only admins can see the data breach register.")}
         </p>
       </main>
     );
@@ -166,9 +178,9 @@ export default async function BreachesPage({
   } catch (e) {
     return (
       <main className="space-y-6 p-6 md:p-8">
-        <h1 className="text-2xl font-semibold text-zinc-900">Data breaches</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">{t("Data breaches")}</h1>
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-          Breaches could not be loaded: {e instanceof Error ? e.message : "unknown error"}
+          {t("Breaches could not be loaded: {error}", { error: e instanceof Error ? e.message : t("unknown error") })}
         </p>
       </main>
     );
@@ -184,10 +196,12 @@ export default async function BreachesPage({
       {overdue.length > 0 && (
         <div role="alert" className="rounded-xl bg-red-600 p-4 text-white shadow-sm">
           <p className="font-semibold">
-            {overdue.length === 1 ? "1 breach is" : `${overdue.length} breaches are`} past the 72-hour reporting deadline
+            {overdue.length === 1
+              ? t("1 breach is past the 72-hour reporting deadline")
+              : t("{count} breaches are past the 72-hour reporting deadline", { count: overdue.length })}
           </p>
           <p className="mt-1 text-sm text-red-50">
-            GDPR requires notifying the supervisory authority within 72 hours of detection. Report or assess:{" "}
+            {t("GDPR requires notifying the supervisory authority within 72 hours of detection. Report or assess:")}{" "}
             {overdue.map((b, i) => (
               <span key={b.id}>
                 {i > 0 && ", "}
@@ -202,26 +216,26 @@ export default async function BreachesPage({
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Data breaches</h1>
+          <h1 className="text-2xl font-semibold text-zinc-900">{t("Data breaches")}</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            The GDPR breach register: every personal data breach, whether or not it was reported.
+            {t("The GDPR breach register: every personal data breach, whether or not it was reported.")}
           </p>
         </div>
         <Button nativeButton={false} render={<Link href={href({ status, breach: "new" })} prefetch={false} scroll={false} />}>
-          Record a breach
+          {t("Record a breach")}
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat label="Total" value={all.length} />
-        <Stat label="Detected" value={count("DETECTED")} tone="text-red-700" />
-        <Stat label="Assessed" value={count("ASSESSED")} tone="text-amber-700" />
-        <Stat label="Reported" value={count("REPORTED")} tone="text-sky-700" />
-        <Stat label="Resolved" value={count("RESOLVED")} tone="text-green-700" />
-        <Stat label="Overdue" value={overdue.length} tone={overdue.length > 0 ? "text-red-700" : "text-zinc-900"} />
+        <Stat label={t("Total")} value={all.length} />
+        <Stat label={t("Detected")} value={count("DETECTED")} tone="text-red-700" />
+        <Stat label={t("Assessed")} value={count("ASSESSED")} tone="text-amber-700" />
+        <Stat label={t("Reported")} value={count("REPORTED")} tone="text-sky-700" />
+        <Stat label={t("Resolved")} value={count("RESOLVED")} tone="text-green-700" />
+        <Stat label={t("Overdue")} value={overdue.length} tone={overdue.length > 0 ? "text-red-700" : "text-zinc-900"} />
       </div>
 
-      <nav aria-label="Filter by status" className="flex gap-1 overflow-x-auto border-b border-zinc-200">
+      <nav aria-label={t("Filter by status")} className="flex gap-1 overflow-x-auto border-b border-zinc-200">
         {[undefined, ...BREACH_STATUSES].map((s) => (
           <Link
             key={s ?? "all"}
@@ -232,28 +246,28 @@ export default async function BreachesPage({
               s === status ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
             }`}
           >
-            {s ? BREACH_STATUS_LABELS[s] : "All"}
+            {s ? t(BREACH_STATUS_LABELS[s]) : t("All")}
           </Link>
         ))}
       </nav>
 
       {shown.length === 0 ? (
         <div className="rounded-xl bg-white p-10 text-center ring-1 ring-zinc-200">
-          <p className="font-medium text-zinc-900">{status ? `No ${BREACH_STATUS_LABELS[status].toLowerCase()} breaches` : "No breaches recorded"}</p>
-          {!status && <p className="mt-1 text-sm text-zinc-500">Record any personal data breach here as soon as it is detected.</p>}
+          <p className="font-medium text-zinc-900">{status ? t(EMPTY_LABELS[status]) : t("No breaches recorded")}</p>
+          {!status && <p className="mt-1 text-sm text-zinc-500">{t("Record any personal data breach here as soon as it is detected.")}</p>}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-zinc-200">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500">
               <tr>
-                <th className={th}>Breach</th>
-                <th className={th}>Severity</th>
-                <th className={th}>Status</th>
-                <th className={th}>Detected</th>
-                <th className={th}>Report deadline</th>
-                <th className={`${th} text-right`}>People affected</th>
-                <th className={th}>Authority</th>
+                <th className={th}>{t("Breach")}</th>
+                <th className={th}>{t("Severity")}</th>
+                <th className={th}>{t("Status")}</th>
+                <th className={th}>{t("Detected")}</th>
+                <th className={th}>{t("Report deadline")}</th>
+                <th className={`${th} text-right`}>{t("People affected")}</th>
+                <th className={th}>{t("Authority")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -270,10 +284,10 @@ export default async function BreachesPage({
                     </Link>
                   </td>
                   <td className={td}>
-                    <Pill className={SEVERITY_STYLES[b.severity]}>{SEVERITY_LABELS[b.severity]}</Pill>
+                    <Pill className={SEVERITY_STYLES[b.severity]}>{t(SEVERITY_LABELS[b.severity])}</Pill>
                   </td>
                   <td className={td}>
-                    <Pill className={BREACH_STATUS_STYLES[b.status]}>{BREACH_STATUS_LABELS[b.status]}</Pill>
+                    <Pill className={BREACH_STATUS_STYLES[b.status]}>{t(BREACH_STATUS_LABELS[b.status])}</Pill>
                   </td>
                   <td className={`${td} whitespace-nowrap`}>{centerDateTime(timeZone, b.detectedAt)}</td>
                   <td className={`${td} whitespace-nowrap`}>
@@ -282,9 +296,9 @@ export default async function BreachesPage({
                   <td className={`${td} text-right tabular-nums`}>{b.estimatedAffected?.toLocaleString("en-GB") ?? "—"}</td>
                   <td className={td}>
                     {b.reportedToAuthority ? (
-                      <Pill className="bg-green-100 text-green-900">{b.authorityReference ?? "Reported"}</Pill>
+                      <Pill className="bg-green-100 text-green-900">{b.authorityReference ?? t("Reported")}</Pill>
                     ) : (
-                      <span className="text-zinc-500">No</span>
+                      <span className="text-zinc-500">{t("No")}</span>
                     )}
                   </td>
                 </tr>
@@ -295,13 +309,13 @@ export default async function BreachesPage({
       )}
 
       {open === "new" && (
-        <RoutedDialog wide closeHref={listHref} title="Record a data breach" description="Record it as soon as it is detected; details can be completed later.">
+        <RoutedDialog wide closeHref={listHref} title={t("Record a data breach")} description={t("Record it as soon as it is detected; details can be completed later.")}>
           <BreachForm breach={null} cancelHref={listHref} timeZone={timeZone} />
         </RoutedDialog>
       )}
       {selected &&
         (editing ? (
-          <RoutedDialog wide closeHref={href({ status, breach: selected.id })} title={`Edit ${selected.title}`}>
+          <RoutedDialog wide closeHref={href({ status, breach: selected.id })} title={t("Edit {title}", { title: selected.title })}>
             <BreachForm breach={selected} cancelHref={href({ status, breach: selected.id })} timeZone={timeZone} />
           </RoutedDialog>
         ) : (

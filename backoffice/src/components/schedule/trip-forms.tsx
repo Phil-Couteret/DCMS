@@ -12,6 +12,7 @@ import {
 } from "@/app/dashboard/schedule/actions";
 import { Button } from "@/components/ui/button";
 import type { Boat, DiveSiteOption, Staff, TimeSlot, TripStatus } from "@/lib/api";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 import { ROLE_LABELS, SLOT_NAMES, TRIP_ROLES, TRIP_SLOTS, TRIP_TRANSITIONS } from "@/lib/trips";
 
@@ -39,6 +40,7 @@ export function TripStatusActions({
   startIssues?: string[];
 }) {
   const [state, action, pending] = useActionState<TripFormState, FormData>(changeTripStatus, null);
+  const tr = useT();
   const transitions = TRIP_TRANSITIONS[status];
   if (transitions.length === 0) return null;
   return (
@@ -56,14 +58,14 @@ export function TripStatusActions({
               size="sm"
               variant={t.to === "CANCELLED" ? "outline" : "default"}
               disabled={pending || notReady}
-              title={notReady ? `Not ready: ${startIssues!.join("; ")}` : undefined}
+              title={notReady ? tr("Not ready: {issues}", { issues: startIssues!.join("; ") }) : undefined}
               className={
                 notReady
                   ? "disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 disabled:opacity-100"
                   : undefined
               }
             >
-              {t.label}
+              {tr(t.label)}
             </Button>
           );
         })}
@@ -75,23 +77,24 @@ export function TripStatusActions({
 
 export function AssignStaffForm({ tripId, staff }: { tripId: string; staff: Staff[] }) {
   const [state, onSubmit, pending] = useFormAction<TripFormState>(assignStaffAction, null);
+  const t = useT();
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) form.current?.reset();
   }, [state]);
 
   if (staff.length === 0) {
-    return <p className="text-sm text-zinc-500">Every active staff member is already on this trip.</p>;
+    return <p className="text-sm text-zinc-500">{t("Every active staff member is already on this trip.")}</p>;
   }
   return (
     <form ref={form} onSubmit={onSubmit} className="space-y-2">
       <input type="hidden" name="tripId" value={tripId} />
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
         <label className="block text-sm font-medium text-zinc-700">
-          Staff member
+          {t("Staff member")}
           <select name="staffId" required defaultValue="" className={control}>
             <option value="" disabled>
-              Choose…
+              {t("Choose…")}
             </option>
             {staff.map((s) => (
               <option key={s.id} value={s.id}>
@@ -101,17 +104,17 @@ export function AssignStaffForm({ tripId, staff }: { tripId: string; staff: Staf
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Role
+          {t("Role")}
           <select name="role" defaultValue="GUIDE" className={control}>
             {TRIP_ROLES.map((r) => (
               <option key={r} value={r}>
-                {ROLE_LABELS[r]}
+                {t(ROLE_LABELS[r])}
               </option>
             ))}
           </select>
         </label>
         <Button type="submit" disabled={pending}>
-          {pending ? "Adding…" : "Add"}
+          {pending ? t("Adding…") : t("Add")}
         </Button>
       </div>
       <ErrorText state={state} />
@@ -121,12 +124,13 @@ export function AssignStaffForm({ tripId, staff }: { tripId: string; staff: Staf
 
 export function RemoveStaffButton({ tripId, staffId, name }: { tripId: string; staffId: string; name: string }) {
   const [state, action, pending] = useActionState<TripFormState, FormData>(removeStaffAction, null);
+  const t = useT();
   return (
     <form action={action} className="flex flex-col items-end gap-1">
       <input type="hidden" name="tripId" value={tripId} />
       <input type="hidden" name="staffId" value={staffId} />
-      <Button type="submit" size="xs" variant="ghost" disabled={pending} aria-label={`Remove ${name}`}>
-        {pending ? "Removing…" : "Remove"}
+      <Button type="submit" size="xs" variant="ghost" disabled={pending} aria-label={t("Remove {name}", { name })}>
+        {pending ? t("Removing…") : t("Remove")}
       </Button>
       <ErrorText state={state} className="text-right" />
     </form>
@@ -135,12 +139,13 @@ export function RemoveStaffButton({ tripId, staffId, name }: { tripId: string; s
 
 export function LinkBookingButton({ tripId, bookingId }: { tripId: string; bookingId: string }) {
   const [state, action, pending] = useActionState<TripFormState, FormData>(linkBookingAction, null);
+  const t = useT();
   return (
     <form action={action} className="flex flex-col items-end gap-1">
       <input type="hidden" name="tripId" value={tripId} />
       <input type="hidden" name="bookingId" value={bookingId} />
       <Button type="submit" size="xs" variant="outline" disabled={pending}>
-        {pending ? "Adding…" : "Add to trip"}
+        {pending ? t("Adding…") : t("Add to trip")}
       </Button>
       <ErrorText state={state} className="max-w-48 text-right" />
     </form>
@@ -161,6 +166,7 @@ export function NewTripForm({
 }) {
   const router = useRouter();
   const [state, onSubmit, pending] = useFormAction<TripFormState>(createTripAction, null);
+  const t = useT();
   useEffect(() => {
     if (state?.tripId) router.push(`${tripHrefPrefix}${state.tripId}`, { scroll: false });
   }, [state, router, tripHrefPrefix]);
@@ -169,34 +175,34 @@ export function NewTripForm({
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="block text-sm font-medium text-zinc-700">
-          Date
+          {t("Date")}
           <input type="date" name="date" required defaultValue={date} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Time slot
+          {t("Time slot")}
           <select name="timeSlot" defaultValue={"MORNING" satisfies TimeSlot} className={control}>
             {TRIP_SLOTS.map((s) => (
               <option key={s} value={s}>
-                {SLOT_NAMES[s]}
+                {t(SLOT_NAMES[s])}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Boat
+          {t("Boat")}
           <select name="boatId" defaultValue="" className={control}>
-            <option value="">No boat (shore dive)</option>
+            <option value="">{t("No boat (shore dive)")}</option>
             {boats.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.name} ({b.capacity} places)
+                {t("{boat} ({count} places)", { boat: b.name, count: b.capacity })}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Planned site
+          {t("Planned site")}
           <select name="plannedSiteId" defaultValue="" className={control}>
-            <option value="">Not decided</option>
+            <option value="">{t("Not decided")}</option>
             {sites.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nameEn}
@@ -205,17 +211,17 @@ export function NewTripForm({
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Max divers
+          {t("Max divers")}
           <input type="number" name="maxDivers" min={1} step={1} required defaultValue={10} className={control} />
         </label>
       </div>
       <label className="block text-sm font-medium text-zinc-700">
-        Notes (optional)
+        {t("Notes (optional)")}
         <textarea name="notes" rows={3} maxLength={1000} className={control} />
       </label>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Creating…" : "Create trip"}
+          {pending ? t("Creating…") : t("Create trip")}
         </Button>
         <ErrorText state={state} className="text-sm" />
       </div>

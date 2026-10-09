@@ -243,14 +243,54 @@ export class FinancialService {
     const [sales, expenses, { taxName, taxRate }] = await Promise.all([
       this.prisma.invoice.findMany({
         where: { status: ISSUED, createdAt: { gte: centerMidnight(from, tz), lt: centerMidnight(next, tz) } },
-        select: { subtotal: true, tax: true, discount: true, total: true },
+        select: {
+          invoiceNumber: true,
+          createdAt: true,
+          subtotal: true,
+          tax: true,
+          discount: true,
+          total: true,
+          customer: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'asc' },
       }),
       this.prisma.expense.findMany({
         where: { date: { gte: dateOnly(from), lt: dateOnly(next) } },
-        select: { amount: true, tax: true },
+        select: { date: true, category: true, description: true, amount: true, tax: true },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       }),
       this.settings.tax(),
     ]);
+    // Each sale and purchase, for the CSV and the printed declaration. Net is
+    // before tax (after any discount); the rate is the one actually charged.
+    const localDay = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+    const rate = (tax: Prisma.Decimal, net: Prisma.Decimal) => (net.isZero() ? money(taxRate) : money(tax.dividedBy(net).times(100)));
+    const entries = [
+      ...sales.map((i) => {
+        const net = new D(i.subtotal).minus(i.discount);
+        return {
+          date: localDay.format(i.createdAt),
+          kind: 'SALE' as const,
+          description: `Invoice ${i.invoiceNumber} · ${i.customer.firstName} ${i.customer.lastName}`,
+          net: money(net),
+          taxRate: rate(new D(i.tax), net),
+          tax: money(i.tax),
+          total: money(i.total),
+        };
+      }),
+      ...expenses.map((e) => {
+        const net = new D(e.amount).minus(e.tax);
+        return {
+          date: e.date.toISOString().slice(0, 10),
+          kind: 'PURCHASE' as const,
+          description: `Expense (${e.category.toLowerCase()}) · ${e.description}`,
+          net: money(net),
+          taxRate: rate(new D(e.tax), net),
+          tax: money(e.tax),
+          total: money(e.amount),
+        };
+      }),
+    ];
     const collected = sum(sales.map((s) => s.tax));
     const paidAmount = sum(expenses.map((e) => e.amount));
     const paid = sum(expenses.map((e) => e.tax));
@@ -264,7 +304,8 @@ export class FinancialService {
       taxRate: money(taxRate),
       sales: {
         count: sales.length,
-        base: money(sum(sales.map((s) => s.subtotal))),
+        // The taxed amount: subtotals less discounts (government bonos).
+        base: money(sum(sales.map((s) => new D(s.subtotal).minus(s.discount)))),
         tax: money(collected),
         discount: money(sum(sales.map((s) => s.discount))),
         total: money(sum(sales.map((s) => s.total))),
@@ -277,6 +318,7 @@ export class FinancialService {
       },
       // Positive: to pay. Negative: to offset against later quarters.
       net: money(net),
+      entries,
     };
   }
 }

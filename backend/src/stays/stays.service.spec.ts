@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { stayDivePrice } from '../config/catalogue.js';
 import { SEEDED_PRICES } from '../config/catalogue.fixture.js';
 import { ActivityType, BookingSource, CustomerType } from '../generated/prisma/enums.js';
-import { priceStay } from './stays.service.js';
+import { packOffer, priceStay } from './stays.service.js';
 
 const customer = (customerType: CustomerType) => ({
   id: 'c1',
@@ -25,6 +25,7 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     numberOfDives: 1,
     bonoId: null,
     bono: null,
+    addOns: [],
     status: 'CONFIRMED',
     bookingSource: BookingSource.DIRECT,
     notes: null,
@@ -171,5 +172,61 @@ describe('priceStay', () => {
     expect(priced.lines.map((l) => l.discount.toFixed(2))).toEqual(['17.60', '44.00', '0.00']);
     expect(priced.lines[2].bono).toBeNull();
     expect(priced.discount.toFixed(2)).toBe('61.60');
+  });
+
+  it('adds the night dive surcharge per diver and the personal instructor once, outside the bono', () => {
+    const bono = { code: 'B', type: 'PERCENTAGE', discountValue: '50' };
+    const priced = priceStay(
+      customer(CustomerType.LOCAL),
+      [booking(ActivityType.FUN_DIVE, { participantCount: 2, addOns: ['NIGHT_DIVE', 'PERSONAL_INSTRUCTOR'], bonoId: 'b', bono })],
+      [],
+      SEEDED_PRICES,
+    );
+    // 2 divers × 35 = 70; night 2 × 20 = 40; instructor 100.
+    expect(priced.lines[0].addOns.map((a) => [a.description, a.quantity, a.total])).toEqual([
+      ['Night dive surcharge', 2, 40],
+      ['Personal instructor', 1, 100],
+    ]);
+    expect(priced.bookingsTotal.toFixed(2)).toBe('210.00');
+    expect(priced.discount.toFixed(2)).toBe('35.00'); // half of the activity only
+  });
+});
+
+describe('dive packs', () => {
+  const fives = (n: number, extra?: Record<string, unknown>) =>
+    Array.from({ length: n }, () => booking(ActivityType.FUN_DIVE, extra));
+
+  it('are offered when the customer\'s own fun dives come to a pack exactly', () => {
+    expect(packOffer(fives(5), SEEDED_PRICES)).toMatchObject({ diveCount: 5, price: 200, divers: 1 });
+    expect(packOffer(fives(4), SEEDED_PRICES)).toBeNull();
+    // Dives per diver: 2 bookings of 5 dives for two divers = the 10-dive pack, twice.
+    const pair = packOffer(fives(2, { numberOfDives: 5, participantCount: 2 }), SEEDED_PRICES);
+    expect(pair).toMatchObject({ diveCount: 10, divers: 2 });
+    expect(pair!.total.toFixed(2)).toBe('760.00');
+    // Different numbers of divers: no pack.
+    expect(packOffer([...fives(4), booking(ActivityType.FUN_DIVE, { participantCount: 2 })], SEEDED_PRICES)).toBeNull();
+    // Partner dives are not the customer's to pay, so they do not count.
+    expect(packOffer([...fives(5), booking(ActivityType.FUN_DIVE, { partnerId: 'p' })], SEEDED_PRICES)).not.toBeNull();
+  });
+
+  it('replace the stay rate of the dives they cover, shared out by dives; extras stay', () => {
+    const stay = [
+      booking(ActivityType.FUN_DIVE, { numberOfDives: 2 }),
+      booking(ActivityType.FUN_DIVE, { numberOfDives: 1, addOns: ['NIGHT_DIVE'] }),
+      booking(ActivityType.SNORKELING),
+    ];
+    const atRate = priceStay(customer(CustomerType.TOURIST), [...stay, booking(ActivityType.FUN_DIVE, { numberOfDives: 2 })], [], SEEDED_PRICES);
+    expect(atRate.pack).toMatchObject({ diveCount: 5, price: 200 });
+    const priced = priceStay(customer(CustomerType.TOURIST), [...stay, booking(ActivityType.FUN_DIVE, { numberOfDives: 2 })], [], SEEDED_PRICES, true);
+    expect(priced.lines.map((l) => l.activityTotal.toFixed(2))).toEqual(['80.00', '40.00', '25.00', '80.00']);
+    expect(priced.lines.map((l) => l.inPack)).toEqual([true, true, false, true]);
+    expect(priced.bookingsTotal.toFixed(2)).toBe('245.00'); // 200 + snorkeling 25 + night 20
+    expect(() => priceStay(customer(CustomerType.TOURIST), stay, [], SEEDED_PRICES, true)).toThrow(/No dive pack/);
+  });
+
+  it('share an uneven price exactly', () => {
+    const prices = { ...SEEDED_PRICES, divePacks: [{ diveCount: 3, price: 100 }] };
+    const priced = priceStay(customer(CustomerType.TOURIST), fives(3), [], prices, true);
+    expect(priced.lines.map((l) => l.activityTotal.toFixed(2))).toEqual(['33.33', '33.33', '33.34']);
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useT } from "@/lib/i18n/client";
 
 // Dashboard charts, drawn by hand (no chart library): one series each, in the
 // backoffice's blue. Thin marks, hairline grid, the latest value labelled,
@@ -46,6 +47,7 @@ const M = { top: 16, right: 84, bottom: 28, left: 64 };
 export function RevenueTrend({ points, currency }: { points: { date: string; amount: number }[]; currency: string }) {
   const [active, setActive] = useState<number | null>(null);
   const titleId = useId();
+  const t = useT();
 
   const geo = useMemo(() => {
     const values = points.map((p) => p.amount);
@@ -95,14 +97,17 @@ export function RevenueTrend({ points, currency }: { points: { date: string; amo
           onBlur={() => setActive(null)}
         >
           <title id={titleId}>
-            Revenue per day, {shortDate(points[0].date)} to {shortDate(points[last].date)}; latest{" "}
-            {money(points[last].amount, currency)}. Use the left and right arrow keys to read each day.
+            {t("Revenue per day, {from} to {to}; latest {amount}. Use the left and right arrow keys to read each day.", {
+              from: shortDate(points[0].date),
+              to: shortDate(points[last].date),
+              amount: money(points[last].amount, currency),
+            })}
           </title>
-          {geo.ticks.map((t) => (
-            <g key={t}>
-              <line x1={M.left} x2={W - M.right} y1={geo.y(t)} y2={geo.y(t)} stroke={GRID} strokeWidth={1} />
-              <text x={M.left - 8} y={geo.y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill={INK_MUTED} className="tabular-nums">
-                {money(t, currency, true)}
+          {geo.ticks.map((tick) => (
+            <g key={tick}>
+              <line x1={M.left} x2={W - M.right} y1={geo.y(tick)} y2={geo.y(tick)} stroke={GRID} strokeWidth={1} />
+              <text x={M.left - 8} y={geo.y(tick)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill={INK_MUTED} className="tabular-nums">
+                {money(tick, currency, true)}
               </text>
             </g>
           ))}
@@ -154,13 +159,13 @@ export function RevenueTrend({ points, currency }: { points: { date: string; amo
         )}
       </div>
       <details className="text-sm">
-        <summary className="cursor-pointer text-zinc-600 hover:text-zinc-900">Show as table</summary>
+        <summary className="cursor-pointer text-zinc-600 hover:text-zinc-900">{t("Show as table")}</summary>
         <div className="mt-2 max-h-64 overflow-y-auto rounded-lg ring-1 ring-zinc-200">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-zinc-50 text-left text-zinc-600">
               <tr>
-                <th className="px-3 py-1.5 font-medium">Day</th>
-                <th className="px-3 py-1.5 text-right font-medium">Revenue</th>
+                <th className="px-3 py-1.5 font-medium">{t("Day")}</th>
+                <th className="px-3 py-1.5 text-right font-medium">{t("Revenue")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -181,10 +186,11 @@ export function RevenueTrend({ points, currency }: { points: { date: string; amo
 // Bookings per activity: one horizontal bar each, its count at the tip.
 export function ActivityBars({ rows }: { rows: { label: string; count: number }[] }) {
   const [hover, setHover] = useState<string | null>(null);
+  const t = useT();
   const max = Math.max(1, ...rows.map((r) => r.count));
   const total = rows.reduce((n, r) => n + r.count, 0);
   return (
-    <ul className="space-y-2.5" aria-label="Bookings per activity">
+    <ul className="space-y-2.5" aria-label={t("Bookings per activity")}>
       {rows.map((r) => {
         const share = total > 0 ? Math.round((r.count / total) * 100) : 0;
         return (
@@ -192,7 +198,11 @@ export function ActivityBars({ rows }: { rows: { label: string; count: number }[
             key={r.label}
             tabIndex={0}
             className="grid grid-cols-[minmax(6rem,9rem)_1fr] items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-[#0077b6]/40"
-            aria-label={`${r.label}: ${r.count} booking${r.count === 1 ? "" : "s"}, ${share}%`}
+            aria-label={
+              r.count === 1
+                ? t("{activity}: 1 booking, {share}%", { activity: r.label, share })
+                : t("{activity}: {count} bookings, {share}%", { activity: r.label, count: r.count, share })
+            }
             onPointerEnter={() => setHover(r.label)}
             onPointerLeave={() => setHover(null)}
             onFocus={() => setHover(r.label)}
@@ -214,7 +224,9 @@ export function ActivityBars({ rows }: { rows: { label: string; count: number }[
                 <span className="pointer-events-none absolute -top-8 left-0 z-10 whitespace-nowrap rounded-md bg-white px-2 py-1 text-xs shadow-md ring-1 ring-zinc-200">
                   <span className="font-semibold text-zinc-900">{r.count}</span>{" "}
                   <span className="text-zinc-500">
-                    booking{r.count === 1 ? "" : "s"} · {share}% of all
+                    {r.count === 1
+                      ? t("booking · {share}% of all", { share })
+                      : t("bookings · {share}% of all", { share })}
                   </span>
                 </span>
               )}

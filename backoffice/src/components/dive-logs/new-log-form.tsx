@@ -4,6 +4,7 @@ import { zoneLabel } from "@/lib/center-time";
 import { useState } from "react";
 import { createLog, type FormState } from "@/app/dashboard/dive-logs/actions";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -29,6 +30,7 @@ export function NewLogForm({
   timeZone: string;
   bookingId?: string;
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<FormState>(createLog, null);
   const [entry, setEntry] = useState("");
   const [exit, setExit] = useState("");
@@ -36,7 +38,7 @@ export function NewLogForm({
 
   const num = (name: string, text: string, unit: string, required = false) => (
     <label className={label}>
-      {text} ({unit}){required ? "" : ", optional"}
+      {required ? t("{label} ({unit})", { label: t(text), unit }) : t("{label} ({unit}), optional", { label: t(text), unit })}
       <input type="number" name={name} step="1" required={required} className={control} />
     </label>
   );
@@ -44,16 +46,16 @@ export function NewLogForm({
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <legend className="mb-2 text-sm font-semibold text-zinc-900">Dive</legend>
+        <legend className="mb-2 text-sm font-semibold text-zinc-900">{t("Dive")}</legend>
         <label className={`${label} sm:col-span-2`}>
-          Booking ID
-          <input name="bookingId" required defaultValue={bookingId} placeholder="Booking reference" className={`${control} font-mono`} />
+          {t("Booking ID")}
+          <input name="bookingId" required defaultValue={bookingId} placeholder={t("Booking reference")} className={`${control} font-mono`} />
         </label>
         <label className={label}>
-          Dive site
+          {t("Dive site")}
           <select name="siteId" required defaultValue="" className={control}>
             <option value="" disabled>
-              Choose a site…
+              {t("Choose a site…")}
             </option>
             {sites.map((s) => (
               <option key={s.id} value={s.id}>
@@ -63,9 +65,9 @@ export function NewLogForm({
           </select>
         </label>
         <label className={label}>
-          Guide (optional)
+          {t("Guide (optional)")}
           <select name="guideId" defaultValue="" className={control}>
-            <option value="">No guide</option>
+            <option value="">{t("No guide")}</option>
             {guides.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
@@ -74,34 +76,36 @@ export function NewLogForm({
           </select>
         </label>
         <label className={label}>
-          Date
+          {t("Date")}
           <input type="date" name="date" required max={today} defaultValue={today} className={control} />
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className={label}>
-            Entry
+            {t("Entry")}
             <input type="time" name="entryTime" required value={entry} onChange={(e) => setEntry(e.target.value)} className={control} />
           </label>
           <label className={label}>
-            Exit
+            {t("Exit")}
             <input type="time" name="exitTime" required value={exit} onChange={(e) => setExit(e.target.value)} className={control} />
           </label>
         </div>
         <p className="text-sm text-zinc-600 sm:col-span-2" aria-live="polite">
-          Duration:{" "}
+          {t("Duration:")}{" "}
           {duration === null ? (
             "—"
           ) : duration > 0 ? (
-            <span className="font-semibold text-zinc-900">{duration} min</span>
+            <span className="font-semibold text-zinc-900">{t("{count} min", { count: duration })}</span>
           ) : (
-            <span className="text-red-700">exit must be after entry</span>
+            <span className="text-red-700">{t("exit must be after entry")}</span>
           )}{" "}
-          <span className="text-xs text-zinc-500">· times in {zoneLabel(timeZone)} time ({timeZone})</span>
+          <span className="text-xs text-zinc-500">
+            · {t("times in {zone} time ({timeZone})", { zone: zoneLabel(timeZone), timeZone })}
+          </span>
         </p>
       </fieldset>
 
       <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <legend className="mb-2 text-sm font-semibold text-zinc-900">Measurements</legend>
+        <legend className="mb-2 text-sm font-semibold text-zinc-900">{t("Measurements")}</legend>
         {num("maxDepth", "Max depth", "m", true)}
         {num("avgDepth", "Average depth", "m")}
         {num("visibility", "Visibility", "m")}
@@ -111,17 +115,17 @@ export function NewLogForm({
       </fieldset>
 
       <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <legend className="mb-2 text-sm font-semibold text-zinc-900">Conditions</legend>
+        <legend className="mb-2 text-sm font-semibold text-zinc-900">{t("Conditions")}</legend>
         <label className={label}>
-          Weather (optional)
+          {t("Weather (optional)")}
           <input name="weatherConditions" maxLength={200} className={control} />
         </label>
         <label className={label}>
-          Sea (optional)
+          {t("Sea (optional)")}
           <input name="seaConditions" maxLength={200} className={control} />
         </label>
         <label className={`${label} sm:col-span-2`}>
-          Notes (optional)
+          {t("Notes (optional)")}
           <textarea name="notes" rows={3} maxLength={4000} className={control} />
         </label>
       </fieldset>
@@ -132,7 +136,7 @@ export function NewLogForm({
         </p>
       )}
       <Button type="submit" disabled={pending || (duration !== null && duration <= 0)}>
-        {pending ? "Creating…" : "Create dive log"}
+        {pending ? t("Creating…") : t("Create dive log")}
       </Button>
     </form>
   );

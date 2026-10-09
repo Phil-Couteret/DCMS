@@ -11,6 +11,7 @@ import {
   type ExpenseCategory,
 } from "@/lib/api";
 import { EXPENSE_CATEGORIES } from "@/lib/financial";
+import { getT } from "@/lib/i18n/server";
 
 export type FinancialFormState = { error?: string; ok?: boolean } | null;
 
@@ -39,6 +40,7 @@ function refresh() {
 }
 
 export async function addExpenseAction(_prev: FinancialFormState, formData: FormData): Promise<FinancialFormState> {
+  const t = await getT();
   const date = text(formData, "date");
   const category = text(formData, "category") as ExpenseCategory;
   const description = text(formData, "description");
@@ -47,61 +49,64 @@ export async function addExpenseAction(_prev: FinancialFormState, formData: Form
   const tax = rawTax === "" ? undefined : money(rawTax, { allowZero: true });
   const notes = text(formData, "notes");
 
-  if (!ISO_DATE.test(date)) return { error: "Choose a date" };
-  if (!EXPENSE_CATEGORIES.includes(category)) return { error: "Choose a category" };
-  if (!description) return { error: "Enter a description" };
-  if (amount === null) return { error: "Enter the amount in euros, e.g. 45.50" };
-  if (tax === null) return { error: "Enter the tax in euros, e.g. 2.98, or leave it empty" };
-  if (tax !== undefined && tax > amount) return { error: "The tax cannot be more than the amount" };
+  if (!ISO_DATE.test(date)) return { error: t("Choose a date") };
+  if (!EXPENSE_CATEGORIES.includes(category)) return { error: t("Choose a category") };
+  if (!description) return { error: t("Enter a description") };
+  if (amount === null) return { error: t("Enter the amount in euros, e.g. 45.50") };
+  if (tax === null) return { error: t("Enter the tax in euros, e.g. 2.98, or leave it empty") };
+  if (tax !== undefined && tax > amount) return { error: t("The tax cannot be more than the amount") };
 
   try {
     await addExpense({ date, category, description, amount, tax, notes: notes || undefined });
   } catch (e) {
-    return fail(e, "Could not save the expense");
+    return fail(e, t("Could not save the expense"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function addIncomeAction(_prev: FinancialFormState, formData: FormData): Promise<FinancialFormState> {
+  const t = await getT();
   const date = text(formData, "date");
   const description = text(formData, "description");
   const amount = money(text(formData, "amount"));
   const notes = text(formData, "notes");
 
-  if (!ISO_DATE.test(date)) return { error: "Choose a date" };
-  if (!description) return { error: "Enter a description" };
-  if (amount === null) return { error: "Enter the amount in euros, e.g. 25.00" };
+  if (!ISO_DATE.test(date)) return { error: t("Choose a date") };
+  if (!description) return { error: t("Enter a description") };
+  if (amount === null) return { error: t("Enter the amount in euros, e.g. 25.00") };
 
   try {
     await addManualIncome({ date, description, amount, notes: notes || undefined });
   } catch (e) {
-    return fail(e, "Could not save the income");
+    return fail(e, t("Could not save the income"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function deleteEntryAction(_prev: FinancialFormState, formData: FormData): Promise<FinancialFormState> {
+  const t = await getT();
   const id = text(formData, "id");
   const kind = text(formData, "kind");
-  if (!UUID.test(id) || (kind !== "expense" && kind !== "income")) return { error: "Unknown entry" };
+  if (!UUID.test(id) || (kind !== "expense" && kind !== "income")) return { error: t("Unknown entry") };
   try {
     await (kind === "expense" ? deleteExpense(id) : deleteManualIncome(id));
   } catch (e) {
-    return fail(e, "Could not delete the entry");
+    return fail(e, t("Could not delete the entry"));
   }
   refresh();
   return { ok: true };
 }
 
 export async function closeDayAction(_prev: FinancialFormState, formData: FormData): Promise<FinancialFormState> {
+  const t = await getT();
   const date = text(formData, "date");
-  if (!ISO_DATE.test(date)) return { error: "Choose a date" };
+  if (!ISO_DATE.test(date)) return { error: t("Choose a date") };
   try {
     await closeDay(date);
   } catch (e) {
-    return fail(e, "Could not close the day");
+    return fail(e, t("Could not close the day"));
   }
   refresh();
   revalidatePath(`/dashboard/financial/closed/${date}`);

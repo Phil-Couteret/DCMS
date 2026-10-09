@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
+import { BillStayDto } from './dto/bill-stay.dto.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
 import { UpdateStayCostDto } from './dto/update-stay-cost.dto.js';
 import { StaysService } from './stays.service.js';
@@ -31,8 +32,8 @@ export class StaysController {
   }
 
   @Post('customer/:customerId/bill')
-  bill(@Param('customerId', ParseUUIDPipe) customerId: string) {
-    return this.stays.bill(customerId);
+  bill(@Param('customerId', ParseUUIDPipe) customerId: string, @Body() dto: BillStayDto) {
+    return this.stays.bill(customerId, dto.usePack ?? false);
   }
 
   @Patch('costs/:id')

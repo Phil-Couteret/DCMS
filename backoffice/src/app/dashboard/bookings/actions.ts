@@ -1,5 +1,6 @@
 "use server";
 
+import { ADD_ONS } from "@/lib/add-ons";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -14,8 +15,17 @@ import {
   type Language,
   type TimeSlot,
 } from "@/lib/api";
-import { ACTIVITY_LABELS, buildNotes, EQUIPMENT_ITEMS, isAllowedTransition, SOURCES, STATUSES } from "@/lib/bookings";
+import {
+  ACTIVITY_LABELS,
+  buildNotes,
+  EQUIPMENT_ITEMS,
+  isAllowedTransition,
+  SOURCES,
+  STATUS_LABELS,
+  STATUSES,
+} from "@/lib/bookings";
 import { LANGUAGES } from "@/lib/customers";
+import { getT } from "@/lib/i18n/server";
 import { TRIP_SLOTS } from "@/lib/trips";
 
 export type StatusActionState = { error: string } | null;
@@ -26,18 +36,24 @@ export async function changeStatus(
 ): Promise<StatusActionState> {
   const id = String(formData.get("bookingId") ?? "");
   const to = String(formData.get("status") ?? "") as BookingStatus;
-  if (!STATUSES.includes(to)) return { error: "Unknown status" };
+  const t = await getT();
+  if (!STATUSES.includes(to)) return { error: t("Unknown status") };
 
   try {
     // Checked against the current status, not the one the page showed: the
     // booking may have moved since the page was rendered.
     const current = await getBooking(id);
     if (!isAllowedTransition(current.status, to)) {
-      return { error: `Cannot move a ${current.status.toLowerCase()} booking to ${to.toLowerCase()}` };
+      return {
+        error: t("Cannot move a booking from {from} to {to}", {
+          from: t(STATUS_LABELS[current.status]),
+          to: t(STATUS_LABELS[to]),
+        }),
+      };
     }
     await updateBookingStatus(id, to);
   } catch (e) {
-    return { error: e instanceof ApiError ? e.message : "Update failed" };
+    return { error: e instanceof ApiError ? e.message : t("Update failed") };
   }
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${id}`);
@@ -77,22 +93,23 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   const bookingSource = text(formData, "bookingSource");
   const partnerId = text(formData, "partnerId");
   const status = text(formData, "status") as BookingStatus;
+  const t = await getT();
 
-  if (!(activityType in ACTIVITY_LABELS)) return { error: "Choose an activity" };
-  if (!ISO_DATE.test(date)) return { error: "Choose a valid date" };
-  if (!TRIP_SLOTS.includes(timeSlot)) return { error: "Choose a time slot" };
-  if (!UUID.test(boatId)) return { error: "Choose a boat" };
-  if (siteId && !UUID.test(siteId)) return { error: "Choose a valid dive site" };
-  if (!Number.isInteger(participantCount) || participantCount < 1) return { error: "Participants must be at least 1" };
+  if (!(activityType in ACTIVITY_LABELS)) return { error: t("Choose an activity") };
+  if (!ISO_DATE.test(date)) return { error: t("Choose a valid date") };
+  if (!TRIP_SLOTS.includes(timeSlot)) return { error: t("Choose a time slot") };
+  if (!UUID.test(boatId)) return { error: t("Choose a boat") };
+  if (siteId && !UUID.test(siteId)) return { error: t("Choose a valid dive site") };
+  if (!Number.isInteger(participantCount) || participantCount < 1) return { error: t("Participants must be at least 1") };
   if (!Number.isInteger(numberOfDives) || numberOfDives < 1 || numberOfDives > 20) {
-    return { error: "The number of dives must be a whole number from 1 to 20" };
+    return { error: t("The number of dives must be a whole number from 1 to 20") };
   }
-  if (!SOURCES.includes(bookingSource as (typeof SOURCES)[number])) return { error: "Choose a source" };
-  if (partnerId && !UUID.test(partnerId)) return { error: "Choose a valid partner" };
+  if (!SOURCES.includes(bookingSource as (typeof SOURCES)[number])) return { error: t("Choose a source") };
+  if (partnerId && !UUID.test(partnerId)) return { error: t("Choose a valid partner") };
   // The partner is invoiced for partner bookings, so one must be named.
-  if (bookingSource === "PARTNER" && !partnerId) return { error: "Choose the partner who sold this booking" };
-  if (bookingSource !== "PARTNER" && partnerId) return { error: "Set the source to Partner, or choose no partner" };
-  if (!bookingId && status !== "PENDING" && status !== "CONFIRMED") return { error: "Choose a status" };
+  if (bookingSource === "PARTNER" && !partnerId) return { error: t("Choose the partner who sold this booking") };
+  if (bookingSource !== "PARTNER" && partnerId) return { error: t("Set the source to Partner, or choose no partner") };
+  if (!bookingId && status !== "PENDING" && status !== "CONFIRMED") return { error: t("Choose a status") };
 
   const chosen = new Set(formData.getAll("equipment").map(String));
   const equipment = EQUIPMENT_ITEMS.filter((item) => chosen.has(item.key)).map((item) => {
@@ -101,14 +118,14 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   });
 
   const bonoCode = text(formData, "bonoCode").toUpperCase();
-  if (bonoCode && !/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(bonoCode)) return { error: "A bono code is letters, digits and dashes" };
+  if (bonoCode && !/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(bonoCode)) return { error: t("A bono code is letters, digits and dashes") };
 
   let previousNotes: string | null = null;
   if (bookingId) {
     try {
       previousNotes = (await getBooking(bookingId)).notes;
     } catch (e) {
-      return { error: message(e, "The booking could not be loaded") };
+      return { error: message(e, t("The booking could not be loaded")) };
     }
   }
 
@@ -120,10 +137,10 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     const email = text(formData, "new_email");
     const country = text(formData, "new_country");
     const language = text(formData, "new_language") as Language;
-    if (!firstName || !lastName) return { error: "Enter the new customer's first and last name" };
-    if (!email) return { error: "Enter the new customer's email" };
-    if (!country) return { error: "Enter the new customer's country" };
-    if (!LANGUAGES.some((l) => l.code === language)) return { error: "Choose the new customer's language" };
+    if (!firstName || !lastName) return { error: t("Enter the new customer's first and last name") };
+    if (!email) return { error: t("Enter the new customer's email") };
+    if (!country) return { error: t("Enter the new customer's country") };
+    if (!LANGUAGES.some((l) => l.code === language)) return { error: t("Choose the new customer's language") };
     try {
       const customer = await createCustomer({
         firstName,
@@ -139,10 +156,10 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
       createdCustomer = { id: customer.id, label: `${customer.firstName} ${customer.lastName} · ${customer.email}` };
       revalidatePath("/dashboard/customers");
     } catch (e) {
-      return { error: message(e, "The customer could not be created") };
+      return { error: message(e, t("The customer could not be created")) };
     }
   } else if (!UUID.test(customerId)) {
-    return { error: "Choose a customer" };
+    return { error: t("Choose a customer") };
   }
 
   const data: BookingData = {
@@ -159,13 +176,14 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     notes: buildNotes(previousNotes, equipment, text(formData, "notes")),
     ...(!bookingId && { status }),
     bonoCode: bonoCode || (bookingId ? "" : null),
+    addOns: ADD_ONS.map((a) => a.key).filter((k) => formData.getAll("addOns").includes(k)),
   };
 
   let savedId: string;
   try {
     savedId = (bookingId ? await updateBooking(bookingId, data) : await createBooking(data)).id;
   } catch (e) {
-    return { error: message(e, "The booking could not be saved"), createdCustomer };
+    return { error: message(e, t("The booking could not be saved")), createdCustomer };
   }
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${savedId}`);

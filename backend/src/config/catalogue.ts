@@ -1,4 +1,4 @@
-import { ActivityType, CustomerType } from '../generated/prisma/enums.js';
+import { ActivityType, BookingAddOn, CustomerType } from '../generated/prisma/enums.js';
 
 // What the center sells. The prices are in the database (ActivityPrice,
 // EquipmentPrice, FunDiveTier), edited in Settings → Pricing and read
@@ -55,7 +55,29 @@ export interface PriceList {
   equipment: Record<EquipmentKey, number>;
   fullPackage: number;
   funDiveTiers: FunDiveTier[]; // ascending minDives, the first at 1
+  addOns: Record<BookingAddOn, number>;
+  divePacks: DivePack[]; // ascending diveCount
 }
+
+// A fixed price for so many fun dives, per diver.
+export interface DivePack {
+  diveCount: number;
+  price: number;
+}
+
+// Add-ons: the night dive surcharge is per diver, the personal instructor
+// fee per booking. The pricing API's keys are in ADD_ON_KEYS.
+export const ADD_ON_NAMES: Record<BookingAddOn, string> = {
+  [BookingAddOn.NIGHT_DIVE]: 'Night dive surcharge',
+  [BookingAddOn.PERSONAL_INSTRUCTOR]: 'Personal instructor',
+};
+
+export const ADD_ON_KEYS = {
+  nightDive: BookingAddOn.NIGHT_DIVE,
+  personalInstructor: BookingAddOn.PERSONAL_INSTRUCTOR,
+} as const satisfies Record<string, BookingAddOn>;
+
+export const PER_DIVER_ADD_ONS: BookingAddOn[] = [BookingAddOn.NIGHT_DIVE];
 
 const TIER_RATE = {
   [CustomerType.TOURIST]: 'tourist',

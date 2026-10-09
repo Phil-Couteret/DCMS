@@ -1,3 +1,5 @@
+import { auth } from "@/auth";
+import { ADD_ON_LABELS } from "@/lib/add-ons";
 import { centerLocale } from "@/lib/center";
 import { money } from "@/lib/billing";
 import Link from "next/link";
@@ -7,7 +9,8 @@ import { StatusBadge } from "@/components/bookings/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, getBooking } from "@/lib/api";
-import { ACTIVITY_LABELS, equipmentLabel, formatBookingDate, parseGuestNotes, SLOT_LABELS } from "@/lib/bookings";
+import { ACTIVITY_LABELS, equipmentLabel, formatBookingDate, parseGuestNotes, SLOT_LABELS, SOURCE_LABELS } from "@/lib/bookings";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +36,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { currency } = await centerLocale();
+  const t = await getT();
+  // Partner pages are for admins.
+  const isAdmin = (await auth())?.user?.role === "ADMIN";
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 
@@ -48,16 +54,16 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   return (
     <main className="space-y-6 p-6 md:p-8">
       <Link href="/dashboard/bookings" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← All bookings
+        ← {t("All bookings")}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">
-            {ACTIVITY_LABELS[booking.activityType] ?? booking.activityType}
+            {ACTIVITY_LABELS[booking.activityType] ? t(ACTIVITY_LABELS[booking.activityType]) : booking.activityType}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {formatBookingDate(booking.date, "long")} · {SLOT_LABELS[booking.timeSlot] ?? booking.timeSlot}
+            {formatBookingDate(booking.date, "long")} · {SLOT_LABELS[booking.timeSlot] ? t(SLOT_LABELS[booking.timeSlot]) : booking.timeSlot}
           </p>
         </div>
         <div className="flex items-start gap-3">
@@ -68,7 +74,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             nativeButton={false}
             render={<Link href={`/dashboard/bookings/${booking.id}/edit`} prefetch={false} />}
           >
-            Edit
+            {t("Edit")}
           </Button>
         </div>
       </div>
@@ -76,40 +82,51 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Booking</CardTitle>
+            <CardTitle>{t("Booking")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="divide-y divide-zinc-100">
-              <Row label="Reference">
+              <Row label={t("Reference")}>
                 <span className="break-all font-mono text-xs">{booking.id}</span>
               </Row>
-              <Row label="Customer">
+              <Row label={t("Customer")}>
                 {booking.customer.firstName} {booking.customer.lastName}
               </Row>
-              <Row label="Participants">{booking.participantCount}</Row>
-              <Row label="Dives">{booking.numberOfDives}</Row>
+              <Row label={t("Participants")}>{booking.participantCount}</Row>
+              <Row label={t("Dives")}>{booking.numberOfDives}</Row>
+              {booking.addOns.length > 0 && <Row label={t("Add-ons")}>{booking.addOns.map((a) => t(ADD_ON_LABELS[a])).join(", ")}</Row>}
               {booking.bono && (
-                <Row label="Government bono">
+                <Row label={t("Government bono")}>
                   {booking.bono.code} ·{" "}
-                  {booking.bono.type === "PERCENTAGE"
-                    ? `${Number(booking.bono.discountValue)}% off`
-                    : `${money(booking.bono.discountValue, currency)} off`}{" "}
-                  the activity
+                  {t("{discount} off the activity", {
+                    discount:
+                      booking.bono.type === "PERCENTAGE"
+                        ? `${Number(booking.bono.discountValue)}%`
+                        : money(booking.bono.discountValue, currency),
+                  })}
                   <span className="block text-xs text-zinc-500">
-                    {booking.bonoUsed ? "Applied on the invoice" : "Applied when the booking is invoiced"} · {booking.bono.description}
+                    {booking.bonoUsed ? t("Applied on the invoice") : t("Applied when the booking is invoiced")} · {booking.bono.description}
                   </span>
                 </Row>
               )}
-              <Row label="Boat">{booking.boat ? `${booking.boat.name} (capacity ${booking.boat.capacity})` : "—"}</Row>
-              <Row label="Dive site">{booking.site?.nameEn ?? "Not assigned"}</Row>
-              <Row label="Source">
-                {booking.bookingSource.replace("_", " ").toLowerCase()}
+              <Row label={t("Boat")}>
+                {booking.boat ? t("{name} (capacity {capacity})", { name: booking.boat.name, capacity: booking.boat.capacity }) : "—"}
+              </Row>
+              <Row label={t("Dive site")}>{booking.site?.nameEn ?? t("Not assigned")}</Row>
+              <Row label={t("Source")}>
+                {SOURCE_LABELS[booking.bookingSource]
+                  ? t(SOURCE_LABELS[booking.bookingSource])
+                  : booking.bookingSource.replace("_", " ").toLowerCase()}
                 {booking.partner && (
                   <>
                     {" · "}
-                    <Link href={`/dashboard/partners/${booking.partner.id}`} prefetch={false} className="hover:underline">
-                      {booking.partner.name}
-                    </Link>
+                    {isAdmin ? (
+                      <Link href={`/dashboard/partners/${booking.partner.id}`} prefetch={false} className="hover:underline">
+                        {booking.partner.name}
+                      </Link>
+                    ) : (
+                      booking.partner.name
+                    )}
                   </>
                 )}
               </Row>
@@ -119,32 +136,36 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
         <Card>
           <CardHeader>
-            <CardTitle>Notes</CardTitle>
+            <CardTitle>{t("Notes")}</CardTitle>
           </CardHeader>
           <CardContent>
             {guest ? (
               <dl className="divide-y divide-zinc-100">
-                <Row label="Certification">
-                  {guest.certificationLevel ? CERT_LABELS[guest.certificationLevel] ?? guest.certificationLevel : "Not given"}
+                <Row label={t("Certification")}>
+                  {guest.certificationLevel
+                    ? CERT_LABELS[guest.certificationLevel]
+                      ? t(CERT_LABELS[guest.certificationLevel])
+                      : guest.certificationLevel
+                    : t("Not given")}
                 </Row>
-                <Row label="Equipment">
+                <Row label={t("Equipment")}>
                   {guest.selectedEquipment.length > 0 ? (
                     <ul className="space-y-0.5">
                       {guest.selectedEquipment.map((item) => (
-                        <li key={item}>{equipmentLabel(item)}</li>
+                        <li key={item}>{equipmentLabel(item, t)}</li>
                       ))}
                     </ul>
                   ) : (
-                    "None"
+                    t("None")
                   )}
                 </Row>
-                <Row label="Quoted total">
+                <Row label={t("Quoted total")}>
                   {guest.totalPrice !== null
                     ? money(guest.totalPrice, currency)
                     : "—"}
                 </Row>
                 {guest.staffNotes && (
-                  <Row label="Staff notes">
+                  <Row label={t("Staff notes")}>
                     <span className="whitespace-pre-wrap">{guest.staffNotes}</span>
                   </Row>
                 )}
@@ -152,7 +173,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             ) : booking.notes ? (
               <p className="whitespace-pre-wrap text-sm text-zinc-900">{booking.notes}</p>
             ) : (
-              <p className="text-sm text-zinc-500">No notes.</p>
+              <p className="text-sm text-zinc-500">{t("No notes.")}</p>
             )}
           </CardContent>
         </Card>

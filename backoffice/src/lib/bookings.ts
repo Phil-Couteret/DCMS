@@ -1,4 +1,5 @@
 import type { BookingStatus } from "@/lib/api";
+import type { T } from "@/lib/i18n/core";
 
 export const STATUSES: BookingStatus[] = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
 
@@ -117,10 +118,12 @@ export const EQUIPMENT_ITEMS: { key: string; label: string; sizes: string[] | nu
   { key: "computer", label: "Dive Computer", sizes: null },
 ];
 
-// "wetsuit:M" -> "Wetsuit (M)", "regulator" -> "Regulator".
-export function equipmentLabel(item: string) {
+// "wetsuit:M" -> "Wetsuit (M)", "regulator" -> "Regulator". Pass t to get the
+// item name in the user's language.
+export function equipmentLabel(item: string, t: T = (text) => text) {
   const [key, size] = item.split(":");
-  const name = EQUIPMENT_ITEMS.find((e) => e.key === key)?.label ?? key;
+  const known = EQUIPMENT_ITEMS.find((e) => e.key === key)?.label;
+  const name = known ? t(known) : key;
   return size ? `${name} (${size})` : name;
 }
 

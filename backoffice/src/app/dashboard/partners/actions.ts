@@ -13,6 +13,7 @@ import {
   updatePartner,
   type PartnerCredentials,
 } from "@/lib/api";
+import { getT } from "@/lib/i18n/server";
 
 // credentials: the API key and the one-time secret, shown once by the page.
 export type PartnerFormState = {
@@ -48,6 +49,7 @@ function refresh(partnerId?: string) {
 // Creates a partner (no partnerId) or updates one. A new partner's
 // credentials come back in the state, to be shown once.
 export async function savePartnerAction(_prev: PartnerFormState, formData: FormData): Promise<PartnerFormState> {
+  const t = await getT();
   const partnerId = text(formData, "partnerId");
   const data = {
     name: text(formData, "name"),
@@ -58,12 +60,12 @@ export async function savePartnerAction(_prev: PartnerFormState, formData: FormD
     isActive: formData.get("isActive") === "on",
     notes: text(formData, "notes") || null,
   };
-  if (partnerId && !UUID.test(partnerId)) return { error: "Unknown partner" };
-  if (!data.name) return { error: "Enter the partner's name" };
-  if (!data.companyName) return { error: "Enter the company name" };
-  if (!EMAIL.test(data.contactEmail)) return { error: "Enter a valid contact email" };
+  if (partnerId && !UUID.test(partnerId)) return { error: t("Unknown partner") };
+  if (!data.name) return { error: t("Enter the partner's name") };
+  if (!data.companyName) return { error: t("Enter the company name") };
+  if (!EMAIL.test(data.contactEmail)) return { error: t("Enter a valid contact email") };
   if (data.commissionRate === null || data.commissionRate > 100) {
-    return { error: "Enter the commission as a percentage from 0 to 100, e.g. 15" };
+    return { error: t("Enter the commission as a percentage from 0 to 100, e.g. 15") };
   }
   const values = { ...data, commissionRate: data.commissionRate };
 
@@ -77,74 +79,79 @@ export async function savePartnerAction(_prev: PartnerFormState, formData: FormD
     refresh();
     return { ok: true, partnerId: partner.id, credentials: { apiKey, apiSecret } };
   } catch (e) {
-    return fail(e, "Could not save the partner");
+    return fail(e, t("Could not save the partner"));
   }
 }
 
 export async function regenerateCredentialsAction(_prev: PartnerFormState, formData: FormData): Promise<PartnerFormState> {
+  const t = await getT();
   const partnerId = text(formData, "partnerId");
-  if (!UUID.test(partnerId)) return { error: "Unknown partner" };
+  if (!UUID.test(partnerId)) return { error: t("Unknown partner") };
   try {
     const credentials = await regeneratePartnerCredentials(partnerId);
     refresh(partnerId);
     return { ok: true, partnerId, credentials };
   } catch (e) {
-    return fail(e, "Could not create new credentials");
+    return fail(e, t("Could not create new credentials"));
   }
 }
 
 export async function deletePartnerAction(_prev: PartnerFormState, formData: FormData): Promise<PartnerFormState> {
+  const t = await getT();
   const partnerId = text(formData, "partnerId");
-  if (!UUID.test(partnerId)) return { error: "Unknown partner" };
+  if (!UUID.test(partnerId)) return { error: t("Unknown partner") };
   try {
     await deletePartner(partnerId);
   } catch (e) {
-    return fail(e, "Could not delete the partner");
+    return fail(e, t("Could not delete the partner"));
   }
   refresh();
   redirect("/dashboard/partners");
 }
 
 export async function createPartnerInvoiceAction(_prev: PartnerFormState, formData: FormData): Promise<PartnerFormState> {
+  const t = await getT();
   const partnerId = text(formData, "partnerId");
   const from = text(formData, "from");
   const to = text(formData, "to");
-  if (!UUID.test(partnerId)) return { error: "Unknown partner" };
-  if (!ISO_DATE.test(from) || !ISO_DATE.test(to)) return { error: "Choose the period" };
+  if (!UUID.test(partnerId)) return { error: t("Unknown partner") };
+  if (!ISO_DATE.test(from) || !ISO_DATE.test(to)) return { error: t("Choose the period") };
   let invoiceId: string;
   try {
     invoiceId = (await createPartnerInvoice(partnerId, from, to)).id;
   } catch (e) {
-    return fail(e, "Could not create the invoice");
+    return fail(e, t("Could not create the invoice"));
   }
   refresh(partnerId);
   redirect(`/dashboard/partners/invoices/${invoiceId}`);
 }
 
 export async function recordPartnerPaymentAction(_prev: PartnerFormState, formData: FormData): Promise<PartnerFormState> {
+  const t = await getT();
   const invoiceId = text(formData, "invoiceId");
   const paidAmount = decimal(text(formData, "paidAmount"));
-  if (!UUID.test(invoiceId)) return { error: "Unknown invoice" };
-  if (paidAmount === null) return { error: "Enter the total paid so far in euros, e.g. 191.00" };
+  if (!UUID.test(invoiceId)) return { error: t("Unknown invoice") };
+  if (paidAmount === null) return { error: t("Enter the total paid so far in euros, e.g. 191.00") };
   try {
     const invoice = await recordPartnerPayment(invoiceId, paidAmount);
     refresh(invoice.partnerId);
     revalidatePath(`/dashboard/partners/invoices/${invoiceId}`);
   } catch (e) {
-    return fail(e, "Could not record the payment");
+    return fail(e, t("Could not record the payment"));
   }
   return { ok: true };
 }
 
 export async function cancelPartnerInvoiceAction(_prev: PartnerFormState, formData: FormData): Promise<PartnerFormState> {
+  const t = await getT();
   const invoiceId = text(formData, "invoiceId");
-  if (!UUID.test(invoiceId)) return { error: "Unknown invoice" };
+  if (!UUID.test(invoiceId)) return { error: t("Unknown invoice") };
   try {
     const invoice = await cancelPartnerInvoice(invoiceId);
     refresh(invoice.partnerId);
     revalidatePath(`/dashboard/partners/invoices/${invoiceId}`);
   } catch (e) {
-    return fail(e, "Could not cancel the invoice");
+    return fail(e, t("Could not cancel the invoice"));
   }
   return { ok: true };
 }

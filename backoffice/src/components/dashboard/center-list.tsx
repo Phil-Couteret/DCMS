@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { CenterChoice } from "@/auth";
 import { chooseCenter, switchCenter, type CenterChoiceState } from "@/lib/centers";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const ROLE_LABELS: Record<string, string> = { ADMIN: "Admin", INSTRUCTOR: "Instructor" };
@@ -25,6 +26,7 @@ export function CenterList({
   currentTenantId?: string | null;
 }) {
   const router = useRouter();
+  const tr = useT();
   const [state, onSubmit, pending] = useFormAction<CenterChoiceState>(
     mode === "login" ? chooseCenter : switchCenter,
     null,
@@ -50,11 +52,11 @@ export function CenterList({
               <span className="block truncate font-medium text-zinc-900">{t.name}</span>
               <span className="block truncate text-xs text-zinc-500">
                 {t.slug}
-                {!t.member && " · not a member: your entry is logged"}
+                {!t.member && ` · ${tr("not a member: your entry is logged")}`}
               </span>
             </span>
             <span className="shrink-0 text-xs text-zinc-500">
-              {current ? "Current" : (ROLE_LABELS[t.role] ?? t.role)}
+              {current ? tr("Current") : ROLE_LABELS[t.role] ? tr(ROLE_LABELS[t.role]) : t.role}
             </span>
           </button>
         );
@@ -67,9 +69,9 @@ export function CenterList({
           disabled={busy || (mode === "switch" && currentTenantId === null)}
           className={`${item} border-dashed`}
         >
-          <span className="font-medium text-zinc-900">Superadmin console</span>
+          <span className="font-medium text-zinc-900">{tr("Superadmin console")}</span>
           <span className="text-xs text-zinc-500">
-            {mode === "switch" && currentTenantId === null ? "Current" : "Platform"}
+            {mode === "switch" && currentTenantId === null ? tr("Current") : tr("Platform")}
           </span>
         </button>
       )}
@@ -78,7 +80,7 @@ export function CenterList({
           {state.error}
         </p>
       )}
-      {busy && <p className="text-sm text-zinc-500">Opening…</p>}
+      {busy && <p className="text-sm text-zinc-500">{tr("Opening…")}</p>}
     </form>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 import type { InvitationPreview } from "@/lib/platform";
 import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/settings";
 import { useFormAction } from "@/lib/use-form-action";
@@ -14,14 +15,15 @@ const control =
 // confirms with its current password.
 export function AcceptForm({ token, invitation }: { token: string; invitation: InvitationPreview }) {
   const [state, onSubmit, pending] = useFormAction<AcceptState>(acceptAction, null);
+  const t = useT();
   if (state?.signInUrl) {
     return (
       <div className="mt-6 space-y-4">
         <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          You have joined {invitation.tenant.name}. Sign in with {invitation.email}.
+          {t("You have joined {center}. Sign in with {email}.", { center: invitation.tenant.name, email: invitation.email })}
         </p>
         <Button nativeButton={false} render={<a href={state.signInUrl} />}>
-          Sign in
+          {t("Sign in")}
         </Button>
       </div>
     );
@@ -33,21 +35,24 @@ export function AcceptForm({ token, invitation }: { token: string; invitation: I
         <>
           <input type="hidden" name="existing" value="1" />
           <p className="text-sm text-zinc-600">
-            {invitation.email} already has an account. Confirm with its password to add {invitation.tenant.name} to it.
+            {t("{email} already has an account. Confirm with its password to add {center} to it.", {
+              email: invitation.email,
+              center: invitation.tenant.name,
+            })}
           </p>
           <label className={label}>
-            Current password
+            {t("Current password")}
             <input type="password" name="currentPassword" required autoComplete="current-password" className={control} />
           </label>
         </>
       ) : (
         <>
           <label className={label}>
-            Your name
+            {t("Your name")}
             <input name="name" required maxLength={120} defaultValue={invitation.name ?? ""} autoComplete="name" className={control} />
           </label>
           <label className={label}>
-            Password
+            {t("Password")}
             <input
               type="password"
               name="password"
@@ -57,10 +62,10 @@ export function AcceptForm({ token, invitation }: { token: string; invitation: I
               autoComplete="new-password"
               className={control}
             />
-            <span className="mt-1 block text-xs font-normal text-zinc-500">At least {PASSWORD_MIN} characters.</span>
+            <span className="mt-1 block text-xs font-normal text-zinc-500">{t("At least {count} characters.", { count: PASSWORD_MIN })}</span>
           </label>
           <label className={label}>
-            Confirm password
+            {t("Confirm password")}
             <input type="password" name="confirmPassword" required maxLength={PASSWORD_MAX} autoComplete="new-password" className={control} />
           </label>
         </>
@@ -71,7 +76,7 @@ export function AcceptForm({ token, invitation }: { token: string; invitation: I
         </p>
       )}
       <Button type="submit" disabled={pending} className="w-full">
-        {pending ? "Joining…" : `Join ${invitation.tenant.name}`}
+        {pending ? t("Joining…") : t("Join {center}", { center: invitation.tenant.name })}
       </Button>
     </form>
   );

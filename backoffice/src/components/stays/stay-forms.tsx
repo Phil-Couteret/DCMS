@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { StayCost, StayCostCategory } from "@/lib/api";
 import { money } from "@/lib/billing";
 import { STAY_COST_CATEGORIES, STAY_COST_LABELS } from "@/lib/stays";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -37,6 +38,7 @@ function CostForm({
   currency: string;
   onDone: () => void;
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<StayFormState>(saveCostAction, null);
   const [category, setCategory] = useState<StayCostCategory>(cost?.category ?? "INSURANCE");
   const [quantity, setQuantity] = useState(String(cost?.quantity ?? 1));
@@ -49,16 +51,16 @@ function CostForm({
   const beverages = category === "BEVERAGES";
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg bg-zinc-50 p-4 ring-1 ring-zinc-200">
-      <p className="text-sm font-medium text-zinc-900">{cost ? "Edit cost" : "Add a cost"}</p>
+      <p className="text-sm font-medium text-zinc-900">{cost ? t("Edit cost") : t("Add a cost")}</p>
       <input type="hidden" name="customerId" value={customerId} />
       {cost && <input type="hidden" name="costId" value={cost.id} />}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="block text-sm font-medium text-zinc-700">
-          Date
+          {t("Date")}
           <input type="date" name="date" required defaultValue={cost?.date.slice(0, 10) ?? today} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Category
+          {t("Category")}
           <select
             name="category"
             value={category}
@@ -67,24 +69,24 @@ function CostForm({
           >
             {STAY_COST_CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {STAY_COST_LABELS[c]}
+                {t(STAY_COST_LABELS[c])}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700 lg:col-span-3">
-          Description{beverages && " (optional)"}
+          {beverages ? t("Description (optional)") : t("Description")}
           <input
             name="description"
             required={!beverages}
             maxLength={200}
             defaultValue={cost && cost.description !== STAY_COST_LABELS[cost.category] ? cost.description : ""}
-            placeholder={beverages ? "e.g. Water, soda, beer" : "e.g. Dive insurance, T-shirt"}
+            placeholder={beverages ? t("e.g. Water, soda, beer") : t("e.g. Dive insurance, T-shirt")}
             className={control}
           />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Quantity
+          {t("Quantity")}
           <input
             name="quantity"
             type="number"
@@ -98,7 +100,7 @@ function CostForm({
           />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Unit price ({currency}, before {taxName})
+          {t("Unit price ({currency}, before {tax})", { currency, tax: taxName })}
           <input
             name="unitPrice"
             required
@@ -110,20 +112,20 @@ function CostForm({
           />
         </label>
         <div className="text-sm font-medium text-zinc-700">
-          Total
+          {t("Total")}
           <p className="mt-1 py-2 text-zinc-900">{Number.isFinite(total) ? money(total, currency) : "—"}</p>
         </div>
         <label className="block text-sm font-medium text-zinc-700 sm:col-span-2">
-          Notes (optional)
+          {t("Notes (optional)")}
           <input name="notes" maxLength={1000} defaultValue={cost?.notes ?? ""} className={control} />
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : cost ? "Update cost" : "Add cost"}
+          {pending ? t("Saving…") : cost ? t("Update cost") : t("Add cost")}
         </Button>
         <Button type="button" variant="outline" onClick={onDone}>
-          Cancel
+          {t("Cancel")}
         </Button>
         <ErrorText state={state} />
       </div>
@@ -132,11 +134,12 @@ function CostForm({
 }
 
 function DeleteCostButton({ cost, currency }: { cost: StayCost; currency: string }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<StayFormState>(deleteCostAction, null);
   return (
     <form
       onSubmit={(e) => {
-        if (!confirm(`Delete "${cost.description}" (${money(cost.total, currency)})?`)) {
+        if (!confirm(t('Delete "{description}" ({amount})?', { description: cost.description, amount: money(cost.total, currency) }))) {
           e.preventDefault();
           return;
         }
@@ -145,7 +148,7 @@ function DeleteCostButton({ cost, currency }: { cost: StayCost; currency: string
     >
       <input type="hidden" name="costId" value={cost.id} />
       <Button type="submit" size="sm" variant="ghost" disabled={pending} className="text-red-700 hover:text-red-800">
-        {pending ? "Deleting…" : "Delete"}
+        {pending ? t("Deleting…") : t("Delete")}
       </Button>
       <ErrorText state={state} />
     </form>
@@ -169,6 +172,7 @@ export function StayCosts({
   currency: string;
 }) {
   // "new", a cost id being edited, or null.
+  const t = useT();
   const [editing, setEditing] = useState<string | null>(null);
   const close = () => setEditing(null);
   const th = "px-3 py-2 font-medium";
@@ -176,18 +180,18 @@ export function StayCosts({
   return (
     <div className="space-y-3">
       {costs.length === 0 ? (
-        <p className="text-sm italic text-zinc-500">No extra costs recorded yet.</p>
+        <p className="text-sm italic text-zinc-500">{t("No extra costs recorded yet.")}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500">
               <tr>
-                <th className={th}>Date</th>
-                <th className={th}>Category</th>
-                <th className={th}>Description</th>
-                <th className={`${th} text-right`}>Qty</th>
-                <th className={`${th} text-right`}>Unit price</th>
-                <th className={`${th} text-right`}>Total</th>
+                <th className={th}>{t("Date")}</th>
+                <th className={th}>{t("Category")}</th>
+                <th className={th}>{t("Description")}</th>
+                <th className={`${th} text-right`}>{t("Qty")}</th>
+                <th className={`${th} text-right`}>{t("Unit price")}</th>
+                <th className={`${th} text-right`}>{t("Total")}</th>
                 <th className={th} />
               </tr>
             </thead>
@@ -207,7 +211,7 @@ export function StayCosts({
                       )}
                     </td>
                     <td className={td}>
-                      <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{STAY_COST_LABELS[c.category]}</span>
+                      <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{t(STAY_COST_LABELS[c.category])}</span>
                     </td>
                     <td className={td}>
                       {c.description}
@@ -219,7 +223,7 @@ export function StayCosts({
                     <td className={`${td} text-right`}>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setEditing(c.id)} disabled={editing !== null}>
-                          Edit
+                          {t("Edit")}
                         </Button>
                         <DeleteCostButton cost={c} currency={currency} />
                       </div>
@@ -236,9 +240,9 @@ export function StayCosts({
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button size="sm" variant="outline" onClick={() => setEditing("new")} disabled={editing !== null}>
-            Add cost
+            {t("Add cost")}
           </Button>
-          {costs.length > 0 && <p className="text-sm font-semibold text-zinc-900">Total extra costs: {money(total, currency)}</p>}
+          {costs.length > 0 && <p className="text-sm font-semibold text-zinc-900">{t("Total extra costs: {amount}", { amount: money(total, currency) })}</p>}
         </div>
       )}
     </div>
@@ -251,18 +255,26 @@ export function BillStayButton({
   total,
   disabledReason,
   currency,
+  pack,
 }: {
   customerId: string;
   name: string;
   total: string;
   disabledReason?: string;
   currency: string;
+  // Bill with this dive pack instead of the stay rate.
+  pack?: { diveCount: number };
 }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<StayFormState>(billStayAction, null);
   return (
     <form
       onSubmit={(e) => {
-        if (!confirm(`End ${name}'s stay and create an invoice for ${money(total, currency)}?`)) {
+        const amount = money(total, currency);
+        const question = pack
+          ? t("End {name}'s stay and create an invoice with the {count}-dive pack for {amount}?", { name, count: pack.diveCount, amount })
+          : t("End {name}'s stay and create an invoice for {amount}?", { name, amount });
+        if (!confirm(question)) {
           e.preventDefault();
           return;
         }
@@ -271,13 +283,23 @@ export function BillStayButton({
       className="flex flex-col items-end gap-1"
     >
       <input type="hidden" name="customerId" value={customerId} />
+      {pack && <input type="hidden" name="usePack" value="1" />}
       <Button
         type="submit"
         disabled={pending || Boolean(disabledReason)}
         title={disabledReason}
-        className="bg-green-700 text-white hover:bg-green-800 disabled:pointer-events-auto disabled:cursor-not-allowed"
+        variant={pack ? "outline" : "default"}
+        className={
+          pack
+            ? "border-green-700 text-green-800 disabled:pointer-events-auto disabled:cursor-not-allowed"
+            : "bg-green-700 text-white hover:bg-green-800 disabled:pointer-events-auto disabled:cursor-not-allowed"
+        }
       >
-        {pending ? "Creating invoice…" : "End stay & generate bill"}
+        {pending
+          ? t("Creating invoice…")
+          : pack
+            ? t("Bill with {count}-dive pack · {amount}", { count: pack.diveCount, amount: money(total, currency) })
+            : t("End stay & generate bill")}
       </Button>
       {disabledReason && <p className="text-xs text-zinc-500">{disabledReason}</p>}
       <ErrorText state={state} />

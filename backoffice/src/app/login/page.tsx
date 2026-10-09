@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CenterList } from "@/components/dashboard/center-list";
 import { beginLogin, type CenterChoiceState } from "@/lib/centers";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const NOT_STAFF = "This account is not a staff account. Customers use the public website.";
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<CenterChoiceState>(beginLogin, null);
   // The proxy sends a non-staff session here with ?error=not_staff.
   const [notStaff, setNotStaff] = useState(false);
@@ -28,15 +30,15 @@ export default function LoginPage() {
     }
   }, [state?.done, router]);
 
-  const error = state?.error ?? (notStaff && !state ? NOT_STAFF : null);
+  const error = state?.error ?? (notStaff && !state ? t(NOT_STAFF) : null);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
       <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
-        <h1 className="text-xl font-semibold text-zinc-900">Dive Center Backoffice</h1>
+        <h1 className="text-xl font-semibold text-zinc-900">{t("Dive Center Backoffice")}</h1>
         {state?.choose ? (
           <>
-            <p className="mt-1 text-sm text-zinc-500">Which center?</p>
+            <p className="mt-1 text-sm text-zinc-500">{t("Which center?")}</p>
             <CenterList
               mode="login"
               selectionToken={state.choose.selectionToken}
@@ -46,12 +48,12 @@ export default function LoginPage() {
           </>
         ) : (
           <>
-            <p className="mt-1 text-sm text-zinc-500">Sign in with your staff account.</p>
+            <p className="mt-1 text-sm text-zinc-500">{t("Sign in with your staff account.")}</p>
 
             {/* method="post" so a native fallback submit never puts credentials in the URL. */}
             <form method="post" onSubmit={onSubmit} className="mt-6 space-y-4">
               <label className="block text-sm font-medium text-zinc-700">
-                Email
+                {t("Email")}
                 <input
                   name="email"
                   type="email"
@@ -61,7 +63,7 @@ export default function LoginPage() {
                 />
               </label>
               <label className="block text-sm font-medium text-zinc-700">
-                Password
+                {t("Password")}
                 <input
                   name="password"
                   type="password"
@@ -82,7 +84,7 @@ export default function LoginPage() {
                 disabled={!hydrated || pending || !!state?.done}
                 className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60"
               >
-                {pending || state?.done ? "Signing in…" : "Sign in"}
+                {pending || state?.done ? t("Signing in…") : t("Sign in")}
               </button>
             </form>
           </>

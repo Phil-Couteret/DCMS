@@ -8,12 +8,14 @@ import { ApiError, getPartnerInvoice, getSettings } from "@/lib/api";
 import { formatDateTime } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function PartnerInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { timeZone, currency } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
@@ -54,14 +56,14 @@ export default async function PartnerInvoicePage({ params }: { params: Promise<{
 
       {open && (
         <section className="space-y-3 rounded-xl bg-white p-5 ring-1 ring-zinc-200 print:hidden">
-          <h2 className="text-lg font-semibold text-zinc-900">Payment</h2>
-          {invoice.paidAt && <p className="text-sm text-green-700">Paid in full on {formatDateTime(timeZone, invoice.paidAt)}.</p>}
+          <h2 className="text-lg font-semibold text-zinc-900">{t("Payment")}</h2>
+          {invoice.paidAt && <p className="text-sm text-green-700">{t("Paid in full on {date}.", { date: formatDateTime(timeZone, invoice.paidAt) })}</p>}
           <PartnerPaymentForm invoiceId={invoice.id} paidAmount={invoice.paidAmount} total={invoice.total} currency={currency} />
         </section>
       )}
       <p className="text-xs text-zinc-500 print:hidden">
-        Created by {invoice.createdBy ?? "unknown"} on {formatDateTime(timeZone, invoice.createdAt)}.
-        {open && Number(invoice.paidAmount) > 0 && " To cancel it, set the amount paid back to 0 first."}
+        {t("Created by {name} on {date}.", { name: invoice.createdBy ?? t("unknown"), date: formatDateTime(timeZone, invoice.createdAt) })}
+        {open && Number(invoice.paidAmount) > 0 && ` ${t("To cancel it, set the amount paid back to 0 first.")}`}
       </p>
     </main>
   );

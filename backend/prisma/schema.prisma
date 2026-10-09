@@ -99,6 +99,8 @@ model Tenant {
   governmentBonos        GovernmentBono[]
   tanks                  Tank[]
   customerDocuments      CustomerDocument[]
+  addOnPrices            AddOnPrice[]
+  divePacks              DivePack[]
   invitations            Invitation[]
 }
 
@@ -470,6 +472,36 @@ model FunDiveTier {
   @@id([tenantId, minDives])
 }
 
+// Extras booked with an activity, priced in Settings → Pricing (AddOnPrice).
+enum BookingAddOn {
+  NIGHT_DIVE
+  PERSONAL_INSTRUCTOR
+}
+
+// The price of each add-on: the night dive surcharge (per diver) and the
+// personal instructor fee (per booking).
+model AddOnPrice {
+  tenantId  String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  addOn     BookingAddOn
+  price     Decimal      @db.Decimal(8, 2)
+  updatedAt DateTime     @updatedAt
+
+  @@id([tenantId, addOn])
+}
+
+// A fixed price for a number of fun dives (per diver), offered when a stay's
+// fun dives come to exactly that many.
+model DivePack {
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  diveCount Int
+  price     Decimal  @db.Decimal(8, 2)
+  updatedAt DateTime @updatedAt
+
+  @@id([tenantId, diveCount])
+}
+
 model Boat {
   id                 String    @id @default(uuid())
   tenantId           String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
@@ -700,6 +732,8 @@ model Booking {
   // The bono's use has been counted (when the booking was invoiced); a
   // cancelled invoice gives it back.
   bonoUsed         Boolean         @default(false)
+  // Night dive, personal instructor: billed on top of the activity.
+  addOns           BookingAddOn[]  @default([])
   bookingSource    BookingSource   @default(DIRECT)
   notes            String?
   diveLog          DiveLog?

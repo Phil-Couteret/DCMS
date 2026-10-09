@@ -11,6 +11,7 @@ import { ApiError, getStaffMember } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
 import { formatDay, nextDays, TYPE_LABELS } from "@/lib/staff";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function StaffMemberPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { timeZone } = await centerLocale();
+  const t = await getT();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   // Profiles and qualifications are edited by admins.
@@ -55,7 +57,7 @@ export default async function StaffMemberPage({
   return (
     <main className="space-y-6 p-6 md:p-8">
       <Link href="/dashboard/staff" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← All staff
+        {t("← All staff")}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -64,13 +66,13 @@ export default async function StaffMemberPage({
             {member.firstName} {member.lastName}
           </h1>
           <div className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
-            {TYPE_LABELS[member.type]} <StaffStatusBadge status={member.status} />
+            {t(TYPE_LABELS[member.type])} <StaffStatusBadge status={member.status} />
           </div>
         </div>
         <div className="flex items-start gap-2">
           {isAdmin && (
             <Button variant="outline" nativeButton={false} render={<Link href={`/dashboard/staff/${member.id}/edit`} prefetch={false} />}>
-              Edit
+              {t("Edit")}
             </Button>
           )}
           <StatusToggle staffId={member.id} status={member.status} />
@@ -80,13 +82,13 @@ export default async function StaffMemberPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Profile</CardTitle>
+            <CardTitle>{t("Profile")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="divide-y divide-zinc-100">
-              <Row label="First name">{member.firstName}</Row>
-              <Row label="Last name">{member.lastName}</Row>
-              <Row label="Phone">
+              <Row label={t("First name")}>{member.firstName}</Row>
+              <Row label={t("Last name")}>{member.lastName}</Row>
+              <Row label={t("Phone")}>
                 {member.phone ? (
                   <a href={`tel:${member.phone.replace(/\s+/g, "")}`} className="hover:underline">
                     {member.phone}
@@ -95,24 +97,24 @@ export default async function StaffMemberPage({
                   "—"
                 )}
               </Row>
-              <Row label="Type">{TYPE_LABELS[member.type]}</Row>
-              <Row label="Status">
+              <Row label={t("Type")}>{t(TYPE_LABELS[member.type])}</Row>
+              <Row label={t("Status")}>
                 <StaffStatusBadge status={member.status} />
               </Row>
-              <Row label="Hire date">{formatDay(member.hireDate)}</Row>
-              <Row label="User account">
+              <Row label={t("Hire date")}>{formatDay(member.hireDate)}</Row>
+              <Row label={t("User account")}>
                 <span className="break-all font-mono text-xs">{member.userId}</span>
               </Row>
-              <Row label="Last updated">{formatDay(member.updatedAt)}</Row>
+              <Row label={t("Last updated")}>{formatDay(member.updatedAt)}</Row>
             </dl>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Next 7 days</CardTitle>
+            <CardTitle>{t("Next 7 days")}</CardTitle>
             <CardDescription>
-              Availability as entered. Bookings are not assigned to staff, so no trips are shown.
+              {t("Availability as entered. Bookings are not assigned to staff, so no trips are shown.")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -123,17 +125,17 @@ export default async function StaffMemberPage({
                   <li key={day} className="flex items-start justify-between gap-4 py-2.5 text-sm">
                     <span className="text-zinc-900">
                       {formatDay(`${day}T00:00:00Z`, "weekday")}
-                      {day === today && <span className="ml-1 text-xs text-zinc-500">(today)</span>}
+                      {day === today && <span className="ml-1 text-xs text-zinc-500">{t("(today)")}</span>}
                     </span>
                     {entry ? (
                       <span className="text-right">
                         <span className={entry.available ? "font-medium text-green-700" : "font-medium text-red-700"}>
-                          {entry.available ? "Available" : "Unavailable"}
+                          {entry.available ? t("Available") : t("Unavailable")}
                         </span>
                         {entry.reason && <span className="block text-xs text-zinc-500">{entry.reason}</span>}
                       </span>
                     ) : (
-                      <span className="text-zinc-400">Not set</span>
+                      <span className="text-zinc-400">{t("Not set")}</span>
                     )}
                   </li>
                 );
@@ -145,7 +147,7 @@ export default async function StaffMemberPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Set availability</CardTitle>
+          <CardTitle>{t("Set availability")}</CardTitle>
         </CardHeader>
         <CardContent>
           <AvailabilityForm staffId={member.id} today={today} />
@@ -154,30 +156,30 @@ export default async function StaffMemberPage({
 
       <section aria-labelledby="qualifications" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="qualifications" className="text-lg font-semibold text-zinc-900">Qualifications</h2>
+          <h2 id="qualifications" className="text-lg font-semibold text-zinc-900">{t("Qualifications")}</h2>
           {isAdmin && (
             <Button
               size="sm"
               nativeButton={false}
               render={<Link href={`/dashboard/staff/${member.id}?qualification=new`} prefetch={false} scroll={false} />}
             >
-              Add qualification
+              {t("Add qualification")}
             </Button>
           )}
         </div>
         {member.qualifications.length === 0 ? (
-          <p className="text-sm text-zinc-500">No qualifications recorded.</p>
+          <p className="text-sm text-zinc-500">{t("No qualifications recorded.")}</p>
         ) : (
           <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-zinc-200">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Agency</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Issued</TableHead>
-                  <TableHead>Expires</TableHead>
-                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead>{t("Type")}</TableHead>
+                  <TableHead>{t("Agency")}</TableHead>
+                  <TableHead>{t("Number")}</TableHead>
+                  <TableHead>{t("Issued")}</TableHead>
+                  <TableHead>{t("Expires")}</TableHead>
+                  {isAdmin && <TableHead className="text-right">{t("Actions")}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -190,8 +192,8 @@ export default async function StaffMemberPage({
                       <TableCell className="font-mono text-xs">{q.number}</TableCell>
                       <TableCell>{formatDay(q.issueDate)}</TableCell>
                       <TableCell className={expired ? "font-semibold text-red-700" : undefined}>
-                        {q.expiryDate ? formatDay(q.expiryDate) : "No expiry"}
-                        {expired && <span className="ml-1 text-xs">(expired)</span>}
+                        {q.expiryDate ? formatDay(q.expiryDate) : t("No expiry")}
+                        {expired && <span className="ml-1 text-xs">{t("(expired)")}</span>}
                       </TableCell>
                       {isAdmin && (
                         <TableCell>
@@ -202,7 +204,7 @@ export default async function StaffMemberPage({
                               nativeButton={false}
                               render={<Link href={`/dashboard/staff/${member.id}?qualification=${q.id}`} prefetch={false} scroll={false} />}
                             >
-                              Edit
+                              {t("Edit")}
                             </Button>
                             <DeleteQualificationButton staffId={member.id} qualification={q} />
                           </div>
@@ -219,7 +221,7 @@ export default async function StaffMemberPage({
       {editing && (editing === "new" || member.qualifications.some((q) => q.id === editing)) && (
         <RoutedDialog
           closeHref={`/dashboard/staff/${member.id}`}
-          title={editing === "new" ? "Add qualification" : "Edit qualification"}
+          title={editing === "new" ? t("Add qualification") : t("Edit qualification")}
         >
           <QualificationForm
             staffId={member.id}

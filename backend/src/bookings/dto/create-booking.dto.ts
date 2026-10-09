@@ -1,4 +1,6 @@
 import {
+  ArrayUnique,
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -11,6 +13,7 @@ import {
 } from 'class-validator';
 import {
   ActivityType,
+  BookingAddOn,
   BookingSource,
   BookingStatus,
   TimeSlot,
@@ -65,6 +68,13 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // Extras billed with the activity (prices in Settings → Pricing).
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsEnum(BookingAddOn, { each: true })
+  addOns?: BookingAddOn[];
 
   // A government bono's code; its discount is applied when the booking is
   // invoiced. null or "" removes it on update.

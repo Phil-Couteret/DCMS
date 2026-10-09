@@ -16,6 +16,7 @@ import {
   type TripDetail,
 } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
+import type { T } from "@/lib/i18n/core";
 import {
   addDays,
   formatDayLabel,
@@ -31,6 +32,7 @@ import {
   type ScheduleView,
 } from "@/lib/trips";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -47,8 +49,8 @@ function isoOrUndefined(value: string | undefined) {
   return value && ISO_DATE.test(value) && !Number.isNaN(Date.parse(value)) ? value : undefined;
 }
 
-function errorMessage(e: unknown) {
-  return e instanceof Error ? e.message : "Unknown error";
+function errorMessage(e: unknown, t: T) {
+  return e instanceof Error ? e.message : t("Unknown error");
 }
 
 // Bookings the trip panel offers to link: same day, slot and (if the trip has
@@ -77,6 +79,7 @@ export default async function SchedulePage({
 }) {
   const { timeZone } = await centerLocale();
   const params = await searchParams;
+  const tr = await getT();
   const today = centerNow(timeZone).isoDate;
   const view = SCHEDULE_VIEWS.find((v) => v === one(params.view)) ?? "month";
   const anchor = isoOrUndefined(one(params.date)) ?? today;
@@ -115,18 +118,18 @@ export default async function SchedulePage({
   return (
     <main className="space-y-6 p-6 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-zinc-900">Schedule</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">{tr("Schedule")}</h1>
         <Button
           nativeButton={false}
           render={<Link href={scheduleHref({ ...base, new: day ?? (view === "month" ? today : anchor) })} prefetch={false} scroll={false} />}
         >
-          New Trip
+          {tr("New Trip")}
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 ring-1 ring-zinc-200">
         {locations.length > 0 && <LocationFilter locations={locations} value={location} />}
-        <div className="flex gap-1" role="group" aria-label="View">
+        <div className="flex gap-1" role="group" aria-label={tr("Calendar view")}>
           {SCHEDULE_VIEWS.map((v) => (
             <Button
               key={v}
@@ -135,18 +138,18 @@ export default async function SchedulePage({
               nativeButton={false}
               render={<Link href={scheduleHref({ view: v, date: anchor, location })} prefetch={false} aria-current={v === view ? "page" : undefined} />}
             >
-              {VIEW_LABELS[v]}
+              {tr(VIEW_LABELS[v])}
             </Button>
           ))}
         </div>
         <div className="flex gap-1">
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, -1), location })} prefetch={false} aria-label="Previous" />}>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, -1), location })} prefetch={false} aria-label={tr("Previous")} />}>
             ‹
           </Button>
           <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: today, location })} prefetch={false} />}>
-            Today
+            {tr("Today")}
           </Button>
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, 1), location })} prefetch={false} aria-label="Next" />}>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view, date: shiftAnchor(view, anchor, 1), location })} prefetch={false} aria-label={tr("Next")} />}>
             ›
           </Button>
         </div>
@@ -155,7 +158,7 @@ export default async function SchedulePage({
           {TRIP_SLOTS.map((s) => (
             <span key={s} className="flex items-center gap-1.5">
               <span className={`size-2.5 rounded-full ${SLOT_DOT[s]}`} />
-              {SLOT_NAMES[s]}
+              {tr(SLOT_NAMES[s])}
             </span>
           ))}
         </div>
@@ -163,7 +166,7 @@ export default async function SchedulePage({
 
       {tripsResult.status === "rejected" ? (
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-          Trips could not be loaded: {errorMessage(tripsResult.reason)}
+          {tr("Trips could not be loaded: {error}", { error: errorMessage(tripsResult.reason, tr) })}
         </p>
       ) : view === "month" ? (
         <MonthView anchor={anchor} today={today} trips={tripsResult.value.trips} href={href} />
@@ -179,14 +182,14 @@ export default async function SchedulePage({
       )}
 
       {day && view === "month" && !tripId && (
-        <RoutedSheet closeHref={closeHref} title={formatDayLabel(day, "long")} description={`${dayTrips.length} trip${dayTrips.length === 1 ? "" : "s"}`}>
+        <RoutedSheet closeHref={closeHref} title={formatDayLabel(day, "long")} description={dayTrips.length === 1 ? tr("1 trip") : tr("{count} trips", { count: dayTrips.length })}>
           <DaySummary trips={dayTrips} href={href} />
           <div className="flex gap-2">
             <Button size="sm" nativeButton={false} render={<Link href={scheduleHref({ ...base, new: day })} prefetch={false} scroll={false} />}>
-              New trip on this day
+              {tr("New trip on this day")}
             </Button>
             <Button size="sm" variant="outline" nativeButton={false} render={<Link href={scheduleHref({ view: "day", date: day, location })} prefetch={false} />}>
-              Open day view
+              {tr("Open day view")}
             </Button>
           </div>
         </RoutedSheet>
@@ -194,16 +197,16 @@ export default async function SchedulePage({
 
       {tripId &&
         (panelResult.status === "rejected" ? (
-          <RoutedSheet closeHref={closeHref} title="Trip">
+          <RoutedSheet closeHref={closeHref} title={tr("Trip")}>
             <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-              The trip could not be loaded: {errorMessage(panelResult.reason)}
+              {tr("The trip could not be loaded: {error}", { error: errorMessage(panelResult.reason, tr) })}
             </p>
           </RoutedSheet>
         ) : (
           panelResult.value && (
             <RoutedSheet
               closeHref={closeHref}
-              title={`${SLOT_NAMES[panelResult.value.trip.timeSlot]} · ${panelResult.value.trip.boat?.name ?? "Shore dive"}`}
+              title={`${tr(SLOT_NAMES[panelResult.value.trip.timeSlot])} · ${panelResult.value.trip.boat?.name ?? tr("Shore dive")}`}
               description={formatDayLabel(tripDay(panelResult.value.trip.date), "long")}
             >
               <TripDetailBody
@@ -218,10 +221,10 @@ export default async function SchedulePage({
         ))}
 
       {newTripDate && (
-        <RoutedDialog closeHref={closeHref} title="New trip" description="One trip per boat and time slot; leave the boat empty for a shore dive.">
+        <RoutedDialog closeHref={closeHref} title={tr("New trip")} description={tr("One trip per boat and time slot; leave the boat empty for a shore dive.")}>
           {formResult.status === "rejected" ? (
             <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-              Boats and dive sites could not be loaded: {errorMessage(formResult.reason)}
+              {tr("Boats and dive sites could not be loaded: {error}", { error: errorMessage(formResult.reason, tr) })}
             </p>
           ) : (
             formResult.value && (

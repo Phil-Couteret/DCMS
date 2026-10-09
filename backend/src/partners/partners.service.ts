@@ -109,6 +109,11 @@ export class PartnersService {
 
   // --- Partner accounts ---
 
+  // Partners to choose from on a booking: names only.
+  options() {
+    return this.prisma.partner.findMany({ select: { id: true, name: true, isActive: true }, orderBy: { name: 'asc' } });
+  }
+
   async findAll() {
     const partners = await this.prisma.partner.findMany({
       select: { ...PARTNER_SELECT, _count: { select: { bookings: true, customers: true } } },

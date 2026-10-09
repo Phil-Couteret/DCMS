@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 
 export function SignOutButton() {
   const [pending, setPending] = useState(false);
+  const t = useT();
   return (
     <Button
       variant="outline"
@@ -17,7 +19,7 @@ export function SignOutButton() {
         signOut({ redirectTo: "/login" });
       }}
     >
-      {pending ? "Signing out…" : "Sign out"}
+      {pending ? t("Signing out…") : t("Sign out")}
     </Button>
   );
 }

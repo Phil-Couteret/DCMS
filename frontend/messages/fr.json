@@ -51,10 +51,14 @@
       "computer": "Ordinateur de plongée",
       "fullPackage": "Pack complet",
       "fullPackageNote": "Tout le matériel ci-dessus",
-      "fiveDives": "Forfait 5 plongées",
-      "tenDives": "Forfait 10 plongées"
+      "divePack": "Forfait {count} plongées",
+      "nightDive": "Supplément plongée de nuit",
+      "personalInstructor": "Moniteur privé"
     },
-    "unavailable": "Les tarifs sont indisponibles pour le moment. Veuillez réessayer plus tard."
+    "unavailable": "Les tarifs sont indisponibles pour le moment. Veuillez réessayer plus tard.",
+    "extras": "Suppléments",
+    "perDiver": "par plongeur",
+    "perBooking": "par réservation"
   },
   "booking": {
     "title": "Réservez votre plongée",

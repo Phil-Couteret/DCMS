@@ -4,6 +4,7 @@ import { BookingForm } from "@/components/bookings/booking-form";
 import { ApiError, getBoats, getBooking, getCustomers, getDiveSites, getPartners } from "@/lib/api";
 import { parseGuestNotes } from "@/lib/bookings";
 import { customerOption } from "@/lib/customers";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function EditBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await getT();
   if (!UUID.test(id)) notFound();
 
   let booking;
@@ -29,12 +31,12 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
   return (
     <main className="max-w-4xl space-y-6 p-6 md:p-8">
       <Link href={detailHref} prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← Back to booking
+        ← {t("Back to booking")}
       </Link>
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Edit booking</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">{t("Edit booking")}</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Status is changed from the booking page. A guest&apos;s declared certification and quoted price are kept.
+          {t("Status is changed from the booking page. A guest's declared certification and quoted price are kept.")}
         </p>
       </div>
       <BookingForm
@@ -50,6 +52,7 @@ export default async function EditBookingPage({ params }: { params: Promise<{ id
           numberOfDives: booking.numberOfDives,
           bonoCode: booking.bono?.code ?? "",
           bonoLocked: booking.bonoUsed,
+          addOns: booking.addOns,
           bookingSource: booking.bookingSource,
           partnerId: booking.partnerId ?? "",
           status: booking.status,

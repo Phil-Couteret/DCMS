@@ -5,8 +5,10 @@ import { changeEquipmentStatus, type FormState } from "@/app/dashboard/equipment
 import { Button } from "@/components/ui/button";
 import type { EquipmentStatus } from "@/lib/api";
 import { STATUS_ACTIONS } from "@/lib/equipment";
+import { useT } from "@/lib/i18n/client";
 
 export function EquipmentStatusActions({ equipmentId, status }: { equipmentId: string; status: EquipmentStatus }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(changeEquipmentStatus, null);
   const actions = STATUS_ACTIONS[status];
   if (actions.length === 0) return <span className="text-xs text-zinc-400">—</span>;
@@ -26,12 +28,12 @@ export function EquipmentStatusActions({ equipmentId, status }: { equipmentId: s
             disabled={pending}
             onClick={(e) => {
               // Decommissioning takes the item out of service for good.
-              if (a.to === "DECOMMISSIONED" && !window.confirm("Decommission this item? It will be taken out of service.")) {
+              if (a.to === "DECOMMISSIONED" && !window.confirm(t("Decommission this item? It will be taken out of service."))) {
                 e.preventDefault();
               }
             }}
           >
-            {a.label}
+            {t(a.label)}
           </Button>
         ))}
       </div>

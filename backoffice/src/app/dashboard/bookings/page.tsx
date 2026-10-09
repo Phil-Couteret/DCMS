@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getBoats, getBookings, type Booking } from "@/lib/api";
 import { ACTIVITY_LABELS, formatBookingDate, SLOT_LABELS, STATUS_LABELS, STATUSES } from "@/lib/bookings";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function BookingsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const t = await getT();
   // Invalid values are dropped rather than sent: the API would reject them.
   const date = ISO_DATE.test(one(params.date) ?? "") ? one(params.date) : undefined;
   const status = STATUSES.find((s) => s === one(params.status));
@@ -40,32 +42,32 @@ export default async function BookingsPage({
   return (
     <main className="space-y-6 p-6 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-zinc-900">Bookings</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">{t("Bookings")}</h1>
         <Button nativeButton={false} render={<Link href="/dashboard/bookings/new" prefetch={false} />}>
-          New Booking
+          {t("New Booking")}
         </Button>
       </div>
 
       <form method="get" className="grid grid-cols-1 gap-4 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
         <label className="block text-sm font-medium text-zinc-700">
-          Date
+          {t("Date")}
           <input type="date" name="date" defaultValue={date ?? ""} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Status
+          {t("Status")}
           <select name="status" defaultValue={status ?? ""} className={control}>
-            <option value="">All</option>
+            <option value="">{t("All")}</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
-                {STATUS_LABELS[s]}
+                {t(STATUS_LABELS[s])}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Boat
+          {t("Boat")}
           <select name="boatId" defaultValue={boatId ?? ""} className={control}>
-            <option value="">All boats</option>
+            <option value="">{t("All boats")}</option>
             {boats.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -74,10 +76,10 @@ export default async function BookingsPage({
           </select>
         </label>
         <div className="flex items-end gap-2">
-          <Button type="submit">Filter</Button>
+          <Button type="submit">{t("Filter")}</Button>
           {filtered && (
             <Link href="/dashboard/bookings" prefetch={false} className="px-2 py-2 text-sm text-zinc-600 hover:text-zinc-900">
-              Clear
+              {t("Clear")}
             </Link>
           )}
         </div>
@@ -85,13 +87,13 @@ export default async function BookingsPage({
 
       {bookingsResult.status === "rejected" ? (
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-          Bookings could not be loaded: {String((bookingsResult.reason as Error).message)}
+          {t("Bookings could not be loaded: {error}", { error: String((bookingsResult.reason as Error).message) })}
         </p>
       ) : bookingsResult.value.length === 0 ? (
         <div className="rounded-xl bg-white p-10 text-center ring-1 ring-zinc-200">
-          <p className="font-medium text-zinc-900">No bookings found</p>
+          <p className="font-medium text-zinc-900">{t("No bookings found")}</p>
           <p className="mt-1 text-sm text-zinc-500">
-            {filtered ? "No booking matches these filters." : "There are no bookings yet."}
+            {filtered ? t("No booking matches these filters.") : t("There are no bookings yet.")}
           </p>
         </div>
       ) : (
@@ -99,13 +101,13 @@ export default async function BookingsPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Time Slot</TableHead>
-                <TableHead>Activity</TableHead>
-                <TableHead className="text-right">Participants</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("Date")}</TableHead>
+                <TableHead>{t("Time Slot")}</TableHead>
+                <TableHead>{t("Activity")}</TableHead>
+                <TableHead className="text-right">{t("Participants")}</TableHead>
+                <TableHead>{t("Customer")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -117,8 +119,8 @@ export default async function BookingsPage({
                       {formatBookingDate(b.date)}
                     </Link>
                   </TableCell>
-                  <TableCell>{SLOT_LABELS[b.timeSlot] ?? b.timeSlot}</TableCell>
-                  <TableCell>{ACTIVITY_LABELS[b.activityType] ?? b.activityType}</TableCell>
+                  <TableCell>{SLOT_LABELS[b.timeSlot] ? t(SLOT_LABELS[b.timeSlot]) : b.timeSlot}</TableCell>
+                  <TableCell>{ACTIVITY_LABELS[b.activityType] ? t(ACTIVITY_LABELS[b.activityType]) : b.activityType}</TableCell>
                   <TableCell className="text-right tabular-nums">{b.participantCount}</TableCell>
                   <TableCell>
                     {b.customer.firstName} {b.customer.lastName}

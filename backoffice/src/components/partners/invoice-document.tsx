@@ -1,6 +1,7 @@
 import { centerLocale } from "@/lib/center";
 import type { PartnerInvoiceDetail } from "@/lib/api";
 import { money, formatDay } from "@/lib/billing";
+import { getT } from "@/lib/i18n/server";
 import { outstanding, percent } from "@/lib/partners";
 
 const th = "px-3 py-2 font-medium";
@@ -8,6 +9,7 @@ const td = "px-3 py-2";
 
 // A partner invoice as both staff and the partner see it.
 export async function PartnerInvoiceDocument({ invoice, centerName }: { invoice: PartnerInvoiceDetail; centerName?: string }) {
+  const t = await getT();
   const { currency } = await centerLocale();
   const due = outstanding(invoice);
   return (
@@ -15,18 +17,18 @@ export async function PartnerInvoiceDocument({ invoice, centerName }: { invoice:
       <div className="flex flex-wrap justify-between gap-4 text-sm">
         <div>
           {centerName && <p className="font-semibold text-zinc-900">{centerName}</p>}
-          <p className="text-zinc-500">Billed to</p>
+          <p className="text-zinc-500">{t("Billed to")}</p>
           <p className="font-medium text-zinc-900">{invoice.partner.companyName}</p>
           <p className="text-zinc-600">{invoice.partner.contactEmail}</p>
         </div>
         <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5 text-right">
-          <dt className="text-zinc-500">Invoice</dt>
+          <dt className="text-zinc-500">{t("Invoice")}</dt>
           <dd className="font-mono font-medium">{invoice.invoiceNumber}</dd>
-          <dt className="text-zinc-500">Issued</dt>
+          <dt className="text-zinc-500">{t("Issued")}</dt>
           <dd>{formatDay(invoice.createdAt)}</dd>
-          <dt className="text-zinc-500">Due</dt>
+          <dt className="text-zinc-500">{t("Due")}</dt>
           <dd>{formatDay(invoice.dueDate)}</dd>
-          <dt className="text-zinc-500">Bookings</dt>
+          <dt className="text-zinc-500">{t("Bookings")}</dt>
           <dd>
             {formatDay(invoice.periodFrom)} – {formatDay(invoice.periodTo)}
           </dd>
@@ -37,10 +39,10 @@ export async function PartnerInvoiceDocument({ invoice, centerName }: { invoice:
         <table className="w-full text-left text-sm">
           <thead className="border-b border-zinc-200 text-xs text-zinc-500">
             <tr>
-              <th className={th}>Booking</th>
-              <th className={`${th} text-right`}>Divers</th>
-              <th className={`${th} text-right`}>Price</th>
-              <th className={`${th} text-right`}>Value</th>
+              <th className={th}>{t("Booking")}</th>
+              <th className={`${th} text-right`}>{t("Divers")}</th>
+              <th className={`${th} text-right`}>{t("Price")}</th>
+              <th className={`${th} text-right`}>{t("Value")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -57,29 +59,29 @@ export async function PartnerInvoiceDocument({ invoice, centerName }: { invoice:
       </div>
 
       <dl className="ml-auto grid max-w-sm grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
-        <dt className="text-zinc-500">Catalogue value</dt>
+        <dt className="text-zinc-500">{t("Catalogue value")}</dt>
         <dd className="text-right">{money(invoice.gross, currency)}</dd>
-        <dt className="text-zinc-500">Your commission ({percent(invoice.commissionRate)})</dt>
+        <dt className="text-zinc-500">{t("Your commission ({rate})", { rate: percent(invoice.commissionRate) })}</dt>
         <dd className="text-right">−{money(invoice.commission, currency)}</dd>
-        <dt className="text-zinc-500">Due before {invoice.taxName}</dt>
+        <dt className="text-zinc-500">{t("Due before {tax}", { tax: invoice.taxName })}</dt>
         <dd className="text-right">{money(invoice.subtotal, currency)}</dd>
         <dt className="text-zinc-500">
           {invoice.taxName} ({percent(invoice.taxRate)})
         </dt>
         <dd className="text-right">{money(invoice.tax, currency)}</dd>
-        <dt className="border-t border-zinc-200 pt-1 font-semibold text-zinc-900">Total due</dt>
+        <dt className="border-t border-zinc-200 pt-1 font-semibold text-zinc-900">{t("Total due")}</dt>
         <dd className="border-t border-zinc-200 pt-1 text-right font-semibold text-zinc-900">{money(invoice.total, currency)}</dd>
         {invoice.status !== "CANCELLED" && (
           <>
-            <dt className="text-zinc-500">Paid</dt>
+            <dt className="text-zinc-500">{t("Paid")}</dt>
             <dd className="text-right">{money(invoice.paidAmount, currency)}</dd>
-            <dt className="font-medium text-zinc-900">Outstanding</dt>
+            <dt className="font-medium text-zinc-900">{t("Outstanding")}</dt>
             <dd className={`text-right font-medium ${due > 0 ? "text-red-700" : "text-zinc-900"}`}>{money(due, currency)}</dd>
           </>
         )}
       </dl>
       <p className="text-xs text-zinc-500">
-        The amount you pay the center: the bookings at catalogue price, less your commission, plus {invoice.taxName}.
+        {t("The amount you pay the center: the bookings at catalogue price, less your commission, plus {tax}.", { tax: invoice.taxName })}
       </p>
     </div>
   );

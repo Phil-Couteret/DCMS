@@ -1,4 +1,5 @@
 import { API_URL, forwardedFor } from "@/lib/forwarded";
+import { getT } from "@/lib/i18n/server";
 import type { InvitationPreview } from "@/lib/platform";
 
 // The public invitation API: no session, the token is the credential.
@@ -10,7 +11,7 @@ export async function previewInvitation(token: string): Promise<InvitationPrevie
     cache: "no-store",
   });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`The invitation could not be read (${res.status})`);
+  if (!res.ok) throw new Error((await getT())("The invitation could not be read ({status})", { status: res.status }));
   return res.json() as Promise<InvitationPreview>;
 }
 
@@ -24,11 +25,12 @@ export async function acceptInvitation(
     body: JSON.stringify(body),
     cache: "no-store",
   }).catch(() => null);
-  if (!res) return { ok: false, error: "The server could not be reached" };
+  const t = await getT();
+  if (!res) return { ok: false, error: t("The server could not be reached") };
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const message = Array.isArray(data?.message) ? data.message.join(", ") : data?.message;
-    return { ok: false, error: message ?? "The invitation could not be accepted" };
+    return { ok: false, error: message ?? t("The invitation could not be accepted") };
   }
   return { ok: true, signInUrl: data.signInUrl };
 }

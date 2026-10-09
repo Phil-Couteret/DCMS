@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getLocations, getSettings, getTanks, type LocationRef, type Tank, type TankTestState } from "@/lib/api";
 import { formatDay } from "@/lib/equipment";
+import type { T } from "@/lib/i18n/core";
+import { getT } from "@/lib/i18n/server";
 import {
   interval,
   matchesTestFilter,
@@ -24,15 +26,27 @@ const control =
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function TestCell({ last, next, state, retired }: { last: string | null; next: string | null; state: TankTestState; retired: boolean }) {
+function TestCell({
+  last,
+  next,
+  state,
+  retired,
+  t,
+}: {
+  last: string | null;
+  next: string | null;
+  state: TankTestState;
+  retired: boolean;
+  t: T;
+}) {
   return (
     <TableCell className="whitespace-nowrap">
       <span className="block">{last ? formatDay(last) : <span className="text-zinc-400">—</span>}</span>
       <span className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500">
-        {next && <>next {formatDay(next)}</>}
+        {next && <>{t("next {date}", { date: formatDay(next) })}</>}
         {!retired && (
           <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ring-1 ${TEST_STATE_STYLES[state]}`}>
-            {TEST_STATE_LABELS[state]}
+            {t(TEST_STATE_LABELS[state])}
           </span>
         )}
       </span>
@@ -40,25 +54,27 @@ function TestCell({ last, next, state, retired }: { last: string | null; next: s
   );
 }
 
-function TankList({ title, tanks, className }: { title: string; tanks: Tank[]; className: string }) {
+function TankList({ title, tanks, className, t }: { title: string; tanks: Tank[]; className: string; t: T }) {
   return (
     <Alert className={className}>
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription className="text-inherit">
         <ul className="mt-1 space-y-0.5">
-          {tanks.slice(0, 8).map((t) => (
-            <li key={t.id}>
-              {t.serialNumber} ({TANK_SIZE_LABELS[t.size]}):{" "}
-              {[
-                ["Visual inspection", t.visualState, t.nextVisualInspection],
-                ["Hydrostatic test", t.hydrostaticState, t.nextHydrostaticTest],
-              ]
-                .filter(([, s]) => s !== "OK")
-                .map(([name, s, due]) => (s === "NO_RECORD" ? `${name} date not recorded` : `${name} due ${formatDay(due as string)}`))
+          {tanks.slice(0, 8).map((tank) => (
+            <li key={tank.id}>
+              {tank.serialNumber} ({TANK_SIZE_LABELS[tank.size]}):{" "}
+              {(
+                [
+                  [tank.visualState, tank.nextVisualInspection, "Visual inspection date not recorded", "Visual inspection due {date}"],
+                  [tank.hydrostaticState, tank.nextHydrostaticTest, "Hydrostatic test date not recorded", "Hydrostatic test due {date}"],
+                ] as const
+              )
+                .filter(([s]) => s !== "OK")
+                .map(([s, due, missing, dueText]) => (s === "NO_RECORD" ? t(missing) : t(dueText, { date: formatDay(due) })))
                 .join(" · ")}
             </li>
           ))}
-          {tanks.length > 8 && <li>…and {tanks.length - 8} more (use the test filter below)</li>}
+          {tanks.length > 8 && <li>{t("…and {count} more (use the test filter below)", { count: tanks.length - 8 })}</li>}
         </ul>
       </AlertDescription>
     </Alert>
@@ -68,6 +84,7 @@ function TankList({ title, tanks, className }: { title: string; tanks: Tank[]; c
 export async function TanksPanel({ params }: { params: Record<string, string | undefined> }) {
   const size = TANK_SIZES.find((s) => s === params.size);
   const test = TEST_FILTERS.find((f) => f.key === params.test)?.key;
+  const t = await getT();
   const show = params.show === "retired" || params.show === "all" ? params.show : "active";
   const location = params.location && UUID.test(params.location) ? params.location : undefined;
   // ?tank=new, =import, or a tank's id: the dialog.
@@ -94,7 +111,7 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
   } catch (e) {
     return (
       <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-        Tanks could not be loaded: {e instanceof Error ? e.message : "unknown error"}
+        {t("Tanks could not be loaded: {reason}", { reason: e instanceof Error ? e.message : t("unknown error") })}
       </p>
     );
   }
@@ -115,30 +132,42 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-zinc-600">
-          Cylinder tests: a visual inspection every {interval(intervals.visual)} and a hydrostatic test every{" "}
-          {interval(intervals.hydrostatic)}, counted from the last one (Settings → General).
+          {t(
+            "Cylinder tests: a visual inspection every {visual} and a hydrostatic test every {hydrostatic}, counted from the last one (Settings → General).",
+            { visual: interval(intervals.visual, t), hydrostatic: interval(intervals.hydrostatic, t) },
+          )}
         </p>
         <div className="flex gap-2">
           <Button variant="outline" nativeButton={false} render={<Link href={withDialog("import")} prefetch={false} scroll={false} />}>
-            Import CSV
+            {t("Import CSV")}
           </Button>
           <Button nativeButton={false} render={<Link href={withDialog("new")} prefetch={false} scroll={false} />}>
-            Add tank
+            {t("Add tank")}
           </Button>
         </div>
       </div>
 
       {overdue.length > 0 && (
         <TankList
-          title={`${overdue.length} tank${overdue.length === 1 ? " is" : "s are"} overdue for testing, or ha${overdue.length === 1 ? "s" : "ve"} no test date on record`}
+          title={
+            overdue.length === 1
+              ? t("1 tank is overdue for testing, or has no test date on record")
+              : t("{count} tanks are overdue for testing, or have no test date on record", { count: overdue.length })
+          }
           tanks={overdue}
+          t={t}
           className="border-red-300 bg-red-50 text-red-900"
         />
       )}
       {dueSoon.length > 0 && (
         <TankList
-          title={`${dueSoon.length} tank${dueSoon.length === 1 ? " needs" : "s need"} testing within 30 days`}
+          title={
+            dueSoon.length === 1
+              ? t("1 tank needs testing within 30 days")
+              : t("{count} tanks need testing within 30 days", { count: dueSoon.length })
+          }
           tanks={dueSoon}
+          t={t}
           className="border-amber-300 bg-amber-50 text-amber-900"
         />
       )}
@@ -146,9 +175,9 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
       <form method="get" action="/dashboard/equipment" className="grid grid-cols-1 gap-3 rounded-xl bg-white p-4 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-5">
         <input type="hidden" name="tab" value="tanks" />
         <label className="text-sm font-medium text-zinc-700">
-          Size
+          {t("Size")}
           <select name="size" defaultValue={size ?? ""} className={control}>
-            <option value="">All sizes</option>
+            <option value="">{t("All sizes")}</option>
             {TANK_SIZES.map((s) => (
               <option key={s} value={s}>
                 {TANK_SIZE_LABELS[s]}
@@ -157,20 +186,20 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
           </select>
         </label>
         <label className="text-sm font-medium text-zinc-700">
-          Tests
+          {t("Tests")}
           <select name="test" defaultValue={test ?? ""} className={control}>
-            <option value="">All tanks</option>
+            <option value="">{t("All tanks")}</option>
             {TEST_FILTERS.map((f) => (
               <option key={f.key} value={f.key}>
-                {f.label}
+                {t(f.label)}
               </option>
             ))}
           </select>
         </label>
         <label className="text-sm font-medium text-zinc-700">
-          Location
+          {t("Location")}
           <select name="location" defaultValue={location ?? ""} className={control}>
-            <option value="">All locations</option>
+            <option value="">{t("All locations")}</option>
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -179,18 +208,18 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
           </select>
         </label>
         <label className="text-sm font-medium text-zinc-700">
-          Show
+          {t("Show")}
           <select name="show" defaultValue={show} className={control}>
-            <option value="active">In use</option>
-            <option value="retired">Retired</option>
-            <option value="all">All</option>
+            <option value="active">{t("In use")}</option>
+            <option value="retired">{t("Retired")}</option>
+            <option value="all">{t("All")}</option>
           </select>
         </label>
         <div className="flex items-end gap-2">
-          <Button type="submit">Filter</Button>
+          <Button type="submit">{t("Filter")}</Button>
           {filtered && (
             <Button variant="outline" nativeButton={false} render={<Link href="/dashboard/equipment?tab=tanks" prefetch={false} />}>
-              Clear
+              {t("Clear")}
             </Button>
           )}
         </div>
@@ -198,44 +227,44 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
 
       {tanks.length === 0 ? (
         <p className="rounded-xl bg-white p-6 text-center text-sm text-zinc-500 ring-1 ring-zinc-200">
-          {all.length === 0 ? "No tanks yet. Add one, or import a CSV file." : "No tanks match these filters."}
+          {all.length === 0 ? t("No tanks yet. Add one, or import a CSV file.") : t("No tanks match these filters.")}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-zinc-200">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Serial number</TableHead>
-                <TableHead>Size</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Visual inspection</TableHead>
-                <TableHead>Hydrostatic test</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("Serial number")}</TableHead>
+                <TableHead>{t("Size")}</TableHead>
+                <TableHead>{t("Location")}</TableHead>
+                <TableHead>{t("Visual inspection")}</TableHead>
+                <TableHead>{t("Hydrostatic test")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead>{t("Notes")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tanks.map((t) => {
-                const retired = t.status === "RETIRED";
-                const rowTone = retired ? "" : needsTest(t) ? "bg-red-50/60" : testDueSoon(t) ? "bg-amber-50/60" : "";
+              {tanks.map((tank) => {
+                const retired = tank.status === "RETIRED";
+                const rowTone = retired ? "" : needsTest(tank) ? "bg-red-50/60" : testDueSoon(tank) ? "bg-amber-50/60" : "";
                 return (
-                  <TableRow key={t.id} className={rowTone}>
-                    <TableCell className="font-medium">{t.serialNumber}</TableCell>
-                    <TableCell className="whitespace-nowrap">{TANK_SIZE_LABELS[t.size]}</TableCell>
-                    <TableCell>{t.location?.name ?? <span className="text-zinc-400">—</span>}</TableCell>
-                    <TestCell last={t.visualInspectionDate} next={t.nextVisualInspection} state={t.visualState} retired={retired} />
-                    <TestCell last={t.hydrostaticTestDate} next={t.nextHydrostaticTest} state={t.hydrostaticState} retired={retired} />
-                    <TableCell className={retired ? "text-zinc-500" : ""}>{TANK_STATUS_LABELS[t.status]}</TableCell>
-                    <TableCell className="max-w-56 truncate text-zinc-600" title={t.notes ?? undefined}>
-                      {t.notes ?? ""}
+                  <TableRow key={tank.id} className={rowTone}>
+                    <TableCell className="font-medium">{tank.serialNumber}</TableCell>
+                    <TableCell className="whitespace-nowrap">{TANK_SIZE_LABELS[tank.size]}</TableCell>
+                    <TableCell>{tank.location?.name ?? <span className="text-zinc-400">—</span>}</TableCell>
+                    <TestCell last={tank.visualInspectionDate} next={tank.nextVisualInspection} state={tank.visualState} retired={retired} t={t} />
+                    <TestCell last={tank.hydrostaticTestDate} next={tank.nextHydrostaticTest} state={tank.hydrostaticState} retired={retired} t={t} />
+                    <TableCell className={retired ? "text-zinc-500" : ""}>{t(TANK_STATUS_LABELS[tank.status])}</TableCell>
+                    <TableCell className="max-w-56 truncate text-zinc-600" title={tank.notes ?? undefined}>
+                      {tank.notes ?? ""}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-start justify-end gap-1">
-                        <Button size="sm" variant="outline" nativeButton={false} render={<Link href={withDialog(t.id)} prefetch={false} scroll={false} />}>
-                          Edit
+                        <Button size="sm" variant="outline" nativeButton={false} render={<Link href={withDialog(tank.id)} prefetch={false} scroll={false} />}>
+                          {t("Edit")}
                         </Button>
-                        <DeleteTankButton id={t.id} serialNumber={t.serialNumber} />
+                        <DeleteTankButton id={tank.id} serialNumber={tank.serialNumber} />
                       </div>
                     </TableCell>
                   </TableRow>
@@ -247,12 +276,12 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
       )}
 
       {(open === "new" || editing) && (
-        <RoutedDialog wide closeHref={listHref} title={editing ? `Edit tank ${editing.serialNumber}` : "Add tank"}>
+        <RoutedDialog wide closeHref={listHref} title={editing ? t("Edit tank {serial}", { serial: editing.serialNumber }) : t("Add tank")}>
           <TankForm tank={editing ?? null} locations={locations} cancelHref={listHref} intervals={intervals} />
         </RoutedDialog>
       )}
       {open === "import" && (
-        <RoutedDialog wide closeHref={listHref} title="Import tanks from CSV">
+        <RoutedDialog wide closeHref={listHref} title={t("Import tanks from CSV")}>
           <ImportTanksForm locations={locations} closeHref={listHref} />
         </RoutedDialog>
       )}

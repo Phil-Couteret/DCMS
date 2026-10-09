@@ -10,6 +10,7 @@ import {
 } from "@/app/dashboard/financial/actions";
 import { Button } from "@/components/ui/button";
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/financial";
+import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -57,8 +58,9 @@ export function AddExpenseForm({
   taxRate: string;
   currency: string;
 }) {
+  const t = useT();
   return (
-    <AddPanel label="Add expense">
+    <AddPanel label={t("Add expense")}>
       {(close) => <ExpenseFields date={date} taxName={taxName} taxRate={taxRate} currency={currency} close={close} />}
     </AddPanel>
   );
@@ -77,102 +79,106 @@ function ExpenseFields({
   currency: string;
   close: () => void;
 }) {
+  const t = useT();
   const { state, onSubmit, pending, form } = useResettingForm(addExpenseAction);
   return (
     <form ref={form} onSubmit={onSubmit} className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-sm font-medium text-zinc-700">
-          Date
+          {t("Date")}
           <input type="date" name="date" required defaultValue={date} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Category
+          {t("Category")}
           <select name="category" required defaultValue="GASOLINE" className={control}>
             {EXPENSE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {EXPENSE_CATEGORY_LABELS[c]}
+                {t(EXPENSE_CATEGORY_LABELS[c])}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Amount ({currency}, {taxName} included)
+          {t("Amount ({currency}, {tax} included)", { currency, tax: taxName })}
           <input name="amount" required inputMode="decimal" placeholder="0.00" className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          {taxName} in the amount ({currency})
-          <input name="tax" inputMode="decimal" placeholder={`${Number(taxRate)}% if empty`} className={control} />
+          {t("{tax} in the amount ({currency})", { tax: taxName, currency })}
+          <input name="tax" inputMode="decimal" placeholder={t("{rate}% if empty", { rate: Number(taxRate) })} className={control} />
         </label>
       </div>
       <label className="block text-sm font-medium text-zinc-700">
-        Description
-        <input name="description" required maxLength={200} placeholder="e.g. Fuel for White Magic" className={control} />
+        {t("Description")}
+        <input name="description" required maxLength={200} placeholder={t("e.g. Fuel for White Magic")} className={control} />
       </label>
       <label className="block text-sm font-medium text-zinc-700">
-        Notes (optional)
+        {t("Notes (optional)")}
         <textarea name="notes" rows={2} maxLength={1000} className={control} />
       </label>
       <p className="text-xs text-zinc-500">
-        Copy the {taxName} from the supplier&apos;s receipt. Left empty, it is worked out at {Number(taxRate)}%.
+        {t("Copy the {tax} from the supplier's receipt. Left empty, it is worked out at {rate}%.", { tax: taxName, rate: Number(taxRate) })}
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save expense"}
+          {pending ? t("Saving…") : t("Save expense")}
         </Button>
         <Button type="button" variant="outline" onClick={close}>
-          Close
+          {t("Close")}
         </Button>
-        <Feedback state={state} success="Expense saved." />
+        <Feedback state={state} success={t("Expense saved.")} />
       </div>
     </form>
   );
 }
 
 export function AddIncomeForm({ date, currency }: { date: string; currency: string }) {
-  return <AddPanel label="Add income">{(close) => <IncomeFields date={date} currency={currency} close={close} />}</AddPanel>;
+  const t = useT();
+  return <AddPanel label={t("Add income")}>{(close) => <IncomeFields date={date} currency={currency} close={close} />}</AddPanel>;
 }
 
 function IncomeFields({ date, currency, close }: { date: string; currency: string; close: () => void }) {
+  const t = useT();
   const { state, onSubmit, pending, form } = useResettingForm(addIncomeAction);
   return (
     <form ref={form} onSubmit={onSubmit} className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr_10rem]">
         <label className="block text-sm font-medium text-zinc-700">
-          Date
+          {t("Date")}
           <input type="date" name="date" required defaultValue={date} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Description
-          <input name="description" required maxLength={200} placeholder="e.g. Equipment sale, service fee" className={control} />
+          {t("Description")}
+          <input name="description" required maxLength={200} placeholder={t("e.g. Equipment sale, service fee")} className={control} />
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Amount ({currency})
+          {t("Amount ({currency})", { currency })}
           <input name="amount" required inputMode="decimal" placeholder="0.00" className={control} />
         </label>
       </div>
       <label className="block text-sm font-medium text-zinc-700">
-        Notes (optional)
+        {t("Notes (optional)")}
         <textarea name="notes" rows={2} maxLength={1000} className={control} />
       </label>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save income"}
+          {pending ? t("Saving…") : t("Save income")}
         </Button>
         <Button type="button" variant="outline" onClick={close}>
-          Close
+          {t("Close")}
         </Button>
-        <Feedback state={state} success="Income saved." />
+        <Feedback state={state} success={t("Income saved.")} />
       </div>
     </form>
   );
 }
 
 export function DeleteEntryButton({ id, kind, label }: { id: string; kind: "expense" | "income"; label: string }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<FinancialFormState>(deleteEntryAction, null);
   return (
     <form
       onSubmit={(e) => {
-        if (!confirm(`Delete this ${kind === "expense" ? "expense" : "income entry"}: ${label}?`)) {
+        if (!confirm(kind === "expense" ? t("Delete this expense: {label}?", { label }) : t("Delete this income entry: {label}?", { label }))) {
           e.preventDefault();
           return;
         }
@@ -183,7 +189,7 @@ export function DeleteEntryButton({ id, kind, label }: { id: string; kind: "expe
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="kind" value={kind} />
       <Button type="submit" size="sm" variant="ghost" disabled={pending} className="text-red-700 hover:text-red-800">
-        {pending ? "Deleting…" : "Delete"}
+        {pending ? t("Deleting…") : t("Delete")}
       </Button>
       <Feedback state={state} />
     </form>
@@ -191,13 +197,14 @@ export function DeleteEntryButton({ id, kind, label }: { id: string; kind: "expe
 }
 
 export function CloseDayButton({ date, closed }: { date: string; closed: boolean }) {
+  const t = useT();
   const [state, onSubmit, pending] = useFormAction<FinancialFormState>(closeDayAction, null);
   return (
     <form
       onSubmit={(e) => {
         const message = closed
-          ? "This day is already closed. Close it again and replace the stored report with today's figures?"
-          : "Close the day and store its report?";
+          ? t("This day is already closed. Close it again and replace the stored report with today's figures?")
+          : t("Close the day and store its report?");
         if (!confirm(message)) {
           e.preventDefault();
           return;
@@ -208,17 +215,18 @@ export function CloseDayButton({ date, closed }: { date: string; closed: boolean
     >
       <input type="hidden" name="date" value={date} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Closing…" : closed ? "Close again" : "Close the day"}
+        {pending ? t("Closing…") : closed ? t("Close again") : t("Close the day")}
       </Button>
       <Feedback state={state} />
     </form>
   );
 }
 
-export function PrintButton({ label = "Print" }: { label?: string }) {
+export function PrintButton({ label }: { label?: string }) {
+  const t = useT();
   return (
     <Button variant="outline" onClick={() => window.print()} className="print:hidden">
-      {label}
+      {label ?? t("Print")}
     </Button>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import { PAYMENT_METHODS } from "@/lib/billing";
 import { centerLocale } from "@/lib/center";
+import { getT } from "@/lib/i18n/server";
 import { invoiceFilename, renderInvoicePdf } from "@/lib/invoice-pdf";
 
 export type FormState = { error?: string; ok?: boolean } | null;
@@ -43,67 +44,72 @@ function money(raw: string) {
 }
 
 export async function createFromBooking(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getT();
   const bookingId = text(formData, "bookingId");
-  if (!UUID.test(bookingId)) return { error: "Enter a booking ID (the booking reference)" };
+  if (!UUID.test(bookingId)) return { error: t("Enter a booking ID (the booking reference)") };
   let id: string;
   try {
     id = (await createInvoiceFromBooking(bookingId)).id;
   } catch (e) {
-    return fail(e, "Could not create the invoice");
+    return fail(e, t("Could not create the invoice"));
   }
   revalidatePath("/dashboard/billing");
   redirect(`/dashboard/billing/${id}`);
 }
 
 export async function markSent(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getT();
   const id = text(formData, "invoiceId");
   try {
     await markInvoiceSent(id);
   } catch (e) {
-    return fail(e, "Could not mark as sent");
+    return fail(e, t("Could not mark as sent"));
   }
   refresh(id);
   return { ok: true };
 }
 
 export async function cancel(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getT();
   const id = text(formData, "invoiceId");
   try {
     await cancelInvoice(id);
   } catch (e) {
-    return fail(e, "Could not cancel the invoice");
+    return fail(e, t("Could not cancel the invoice"));
   }
   refresh(id);
   return { ok: true };
 }
 
 export async function recordPayment(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getT();
   const id = text(formData, "invoiceId");
   const amount = money(text(formData, "amount"));
   const method = text(formData, "method") as PaymentMethod;
   const stripePaymentId = text(formData, "stripePaymentId");
-  if (amount === null) return { error: "Enter an amount above zero, with at most two decimals" };
-  if (!PAYMENT_METHODS.includes(method)) return { error: "Choose a method" };
+  if (amount === null) return { error: t("Enter an amount above zero, with at most two decimals") };
+  if (!PAYMENT_METHODS.includes(method)) return { error: t("Choose a method") };
   try {
     await addPayment(id, { amount, method, ...(stripePaymentId && { stripePaymentId }) });
   } catch (e) {
-    return fail(e, "Could not record the payment");
+    return fail(e, t("Could not record the payment"));
   }
   refresh(id);
   return { ok: true };
 }
 
 export async function recordRefund(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = await getT();
   const id = text(formData, "invoiceId");
   const paymentId = text(formData, "paymentId");
   const amount = money(text(formData, "amount"));
   const reason = text(formData, "reason");
-  if (amount === null) return { error: "Enter an amount above zero, with at most two decimals" };
-  if (!reason) return { error: "Enter a reason" };
+  if (amount === null) return { error: t("Enter an amount above zero, with at most two decimals") };
+  if (!reason) return { error: t("Enter a reason") };
   try {
     await addRefund(id, paymentId, { amount, reason });
   } catch (e) {
-    return fail(e, "Could not record the refund");
+    return fail(e, t("Could not record the refund"));
   }
   refresh(id);
   return { ok: true };
@@ -113,15 +119,16 @@ export async function recordRefund(_prev: FormState, formData: FormData): Promis
 export type EmailState = { error?: string; message?: string } | null;
 
 export async function emailInvoice(_prev: EmailState, formData: FormData): Promise<EmailState> {
+  const t = await getT();
   const id = text(formData, "invoiceId");
-  if (!UUID.test(id)) return { error: "Unknown invoice" };
+  if (!UUID.test(id)) return { error: t("Unknown invoice") };
   try {
     const [invoice, center, { timeZone }] = await Promise.all([getInvoice(id), getSettings(), centerLocale()]);
-    if (!invoice.customer.user?.email) return { error: "This customer has no email address" };
+    if (!invoice.customer.user?.email) return { error: t("This customer has no email address") };
     const pdf = await renderInvoicePdf({ invoice, center, timeZone });
     const { to } = await emailInvoicePdf(id, pdf, invoiceFilename(invoice.invoiceNumber));
-    return { message: `Sent to ${to}` };
+    return { message: t("Sent to {email}", { email: to }) };
   } catch (e) {
-    return { error: e instanceof ApiError ? e.message : "The invoice could not be emailed" };
+    return { error: e instanceof ApiError ? e.message : t("The invoice could not be emailed") };
   }
 }

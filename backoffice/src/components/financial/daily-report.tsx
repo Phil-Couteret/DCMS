@@ -5,6 +5,7 @@ import type { DailyFinancial } from "@/lib/api";
 import { money, METHOD_LABELS, PAYMENT_METHODS } from "@/lib/billing";
 import { centerClock } from "@/lib/center-time";
 import { EXPENSE_CATEGORY_LABELS, signClass } from "@/lib/financial";
+import { getT } from "@/lib/i18n/server";
 
 type Summary = Omit<DailyFinancial, "closed">;
 
@@ -57,6 +58,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 // editable: the Daily tab, where entries can be added and deleted. A stored
 // closed-day report is read-only.
 export async function DailyReport({ data, editable }: { data: Summary; editable?: { taxRate: string } }) {
+  const t = await getT();
   const { timeZone, currency } = await centerLocale();
   const { totals, taxName } = data;
   const movements = [
@@ -67,37 +69,37 @@ export async function DailyReport({ data, editable }: { data: Summary; editable?
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Card label="Total income" value={totals.income} tone="text-zinc-900" />
-        <Card label="Total expenses" value={totals.expenses} tone="text-red-700" />
-        <Card label="Net" value={totals.net} tone={signClass(totals.net, "text-green-700")} />
-        <Card label="Invoice payments" value={totals.payments} hint="Less refunds made this day" tone={signClass(totals.payments)} />
+        <Card label={t("Total income")} value={totals.income} tone="text-zinc-900" />
+        <Card label={t("Total expenses")} value={totals.expenses} tone="text-red-700" />
+        <Card label={t("Net")} value={totals.net} tone={signClass(totals.net, "text-green-700")} />
+        <Card label={t("Invoice payments")} value={totals.payments} hint={t("Less refunds made this day")} tone={signClass(totals.payments)} />
       </div>
 
-      <Section title="Income from invoices" total={{ label: "Total", value: totals.payments }}>
+      <Section title={t("Income from invoices")} total={{ label: t("Total"), value: totals.payments }}>
         <p className="text-xs text-zinc-500">
-          Payments received and refunds made on this day, whenever the dives took place.
+          {t("Payments received and refunds made on this day, whenever the dives took place.")}
         </p>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
-            <h3 className="text-sm font-medium text-zinc-700">By payment method</h3>
+            <h3 className="text-sm font-medium text-zinc-700">{t("By payment method")}</h3>
             <dl className="mt-1 divide-y divide-zinc-100 text-sm">
               {PAYMENT_METHODS.map((m) => (
                 <div key={m} className="flex justify-between py-1">
-                  <dt className="text-zinc-600">{METHOD_LABELS[m]}</dt>
+                  <dt className="text-zinc-600">{t(METHOD_LABELS[m])}</dt>
                   <dd className={signClass(data.byMethod[m])}>{money(data.byMethod[m], currency)}</dd>
                 </div>
               ))}
             </dl>
           </div>
           <div>
-            <h3 className="text-sm font-medium text-zinc-700">By activity</h3>
+            <h3 className="text-sm font-medium text-zinc-700">{t("By activity")}</h3>
             {data.byActivity.length === 0 ? (
-              <Empty>No invoice payments on this day.</Empty>
+              <Empty>{t("No invoice payments on this day.")}</Empty>
             ) : (
               <dl className="mt-1 divide-y divide-zinc-100 text-sm">
                 {data.byActivity.map((a) => (
                   <div key={a.activityType} className="flex justify-between py-1">
-                    <dt className="text-zinc-600">{a.label}</dt>
+                    <dt className="text-zinc-600">{t(a.label)}</dt>
                     <dd className={signClass(a.amount)}>{money(a.amount, currency)}</dd>
                   </div>
                 ))}
@@ -110,12 +112,12 @@ export async function DailyReport({ data, editable }: { data: Summary; editable?
             <table className="w-full text-left text-sm">
               <thead className="border-b border-zinc-200 text-xs text-zinc-500">
                 <tr>
-                  <th className={th}>Time</th>
-                  <th className={th}>Invoice</th>
-                  <th className={th}>Customer</th>
-                  <th className={th}>Type</th>
-                  <th className={th}>Method</th>
-                  <th className={`${th} text-right`}>Amount</th>
+                  <th className={th}>{t("Time")}</th>
+                  <th className={th}>{t("Invoice")}</th>
+                  <th className={th}>{t("Customer")}</th>
+                  <th className={th}>{t("Type")}</th>
+                  <th className={th}>{t("Method")}</th>
+                  <th className={`${th} text-right`}>{t("Amount")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -128,8 +130,8 @@ export async function DailyReport({ data, editable }: { data: Summary; editable?
                       </Link>
                     </td>
                     <td className={td}>{m.customerName}</td>
-                    <td className={td}>{m.kind === "Refund" ? `Refund${"reason" in m ? ` (${m.reason})` : ""}` : "Payment"}</td>
-                    <td className={td}>{METHOD_LABELS[m.method]}</td>
+                    <td className={td}>{m.kind === "Refund" ? ("reason" in m ? t("Refund ({reason})", { reason: m.reason }) : t("Refund")) : t("Payment")}</td>
+                    <td className={td}>{t(METHOD_LABELS[m.method])}</td>
                     <td className={`${td} text-right ${signClass(m.signed)}`}>{money(m.signed, currency)}</td>
                   </tr>
                 ))}
@@ -140,20 +142,20 @@ export async function DailyReport({ data, editable }: { data: Summary; editable?
       </Section>
 
       <Section
-        title="Other income"
-        total={{ label: "Total", value: totals.manualIncome, tone: "text-green-700" }}
+        title={t("Other income")}
+        total={{ label: t("Total"), value: totals.manualIncome, tone: "text-green-700" }}
         action={editable && <AddIncomeForm date={data.date} currency={currency} />}
       >
         {data.manualIncome.length === 0 ? (
-          <Empty>No other income recorded for this day.</Empty>
+          <Empty>{t("No other income recorded for this day.")}</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-zinc-200 text-xs text-zinc-500">
                 <tr>
-                  <th className={th}>Description</th>
-                  <th className={th}>Notes</th>
-                  <th className={`${th} text-right`}>Amount</th>
+                  <th className={th}>{t("Description")}</th>
+                  <th className={th}>{t("Notes")}</th>
+                  <th className={`${th} text-right`}>{t("Amount")}</th>
                   {editable && <th className={`${th} print:hidden`} />}
                 </tr>
               </thead>
@@ -177,22 +179,22 @@ export async function DailyReport({ data, editable }: { data: Summary; editable?
       </Section>
 
       <Section
-        title="Expenses"
-        total={{ label: "Total", value: totals.expenses, tone: "text-red-700" }}
+        title={t("Expenses")}
+        total={{ label: t("Total"), value: totals.expenses, tone: "text-red-700" }}
         action={editable && <AddExpenseForm date={data.date} taxName={taxName} taxRate={editable.taxRate} currency={currency} />}
       >
         {data.expenses.length === 0 ? (
-          <Empty>No expenses recorded for this day.</Empty>
+          <Empty>{t("No expenses recorded for this day.")}</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-zinc-200 text-xs text-zinc-500">
                 <tr>
-                  <th className={th}>Category</th>
-                  <th className={th}>Description</th>
-                  <th className={th}>Notes</th>
+                  <th className={th}>{t("Category")}</th>
+                  <th className={th}>{t("Description")}</th>
+                  <th className={th}>{t("Notes")}</th>
                   <th className={`${th} text-right`}>{taxName}</th>
-                  <th className={`${th} text-right`}>Amount</th>
+                  <th className={`${th} text-right`}>{t("Amount")}</th>
                   {editable && <th className={`${th} print:hidden`} />}
                 </tr>
               </thead>
@@ -201,7 +203,7 @@ export async function DailyReport({ data, editable }: { data: Summary; editable?
                   <tr key={e.id}>
                     <td className={td}>
                       <span className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-800">
-                        {EXPENSE_CATEGORY_LABELS[e.category] ?? e.category}
+                        {EXPENSE_CATEGORY_LABELS[e.category] ? t(EXPENSE_CATEGORY_LABELS[e.category]) : e.category}
                       </span>
                     </td>
                     <td className={td}>{e.description}</td>

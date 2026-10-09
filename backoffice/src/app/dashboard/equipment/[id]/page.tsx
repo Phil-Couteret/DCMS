@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, getEquipmentItem, getMaintenanceLogs } from "@/lib/api";
 import { centerNow } from "@/lib/center-time";
-import { formatDay, formatCost, isOverdue, typeLabel } from "@/lib/equipment";
+import { formatDay, formatCost, isOverdue, MAINTENANCE_TYPE_LABELS, typeLabel } from "@/lib/equipment";
+import { getT } from "@/lib/i18n/server";
 import { centerLocale } from "@/lib/center";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
   const { timeZone, currency } = await centerLocale();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
+  const t = await getT();
 
   let item;
   try {
@@ -45,13 +47,13 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
   return (
     <main className="space-y-6 p-6 md:p-8">
       <Link href="/dashboard/equipment" prefetch={false} className="text-sm text-zinc-600 hover:text-zinc-900">
-        ← All equipment
+        ← {t("All equipment")}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">
-            {typeLabel(item.type)} · {item.brand}
+            {t(typeLabel(item.type))} · {item.brand}
             {item.model ? ` ${item.model}` : ""}
           </h1>
           <div className="mt-2 flex gap-2">
@@ -65,25 +67,25 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Details</CardTitle>
+            <CardTitle>{t("Details")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="divide-y divide-zinc-100">
-              <Row label="Type">{typeLabel(item.type)}</Row>
-              <Row label="Brand">{item.brand}</Row>
-              <Row label="Model">{item.model ?? "—"}</Row>
-              <Row label="Size">{item.size ?? "—"}</Row>
-              <Row label="Serial number">
+              <Row label={t("Type")}>{t(typeLabel(item.type))}</Row>
+              <Row label={t("Brand")}>{item.brand}</Row>
+              <Row label={t("Model")}>{item.model ?? "—"}</Row>
+              <Row label={t("Size")}>{item.size ?? "—"}</Row>
+              <Row label={t("Serial number")}>
                 <span className="font-mono text-xs">{item.serialNumber ?? "—"}</span>
               </Row>
-              <Row label="Purchased">
+              <Row label={t("Purchased")}>
                 {formatDay(item.purchaseDate)} · {formatCost(item.purchaseCost, currency)}
               </Row>
-              <Row label="Last maintenance">{formatDay(item.lastMaintenance)}</Row>
-              <Row label="Next maintenance">
+              <Row label={t("Last maintenance")}>{formatDay(item.lastMaintenance)}</Row>
+              <Row label={t("Next maintenance")}>
                 <span className={overdue ? "font-semibold text-red-700" : undefined}>
-                  {item.nextMaintenance ? formatDay(item.nextMaintenance) : "Not scheduled"}
-                  {overdue && " (overdue)"}
+                  {item.nextMaintenance ? formatDay(item.nextMaintenance) : t("Not scheduled")}
+                  {overdue && ` ${t("(overdue)")}`}
                 </span>
               </Row>
             </dl>
@@ -93,7 +95,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Schedule next maintenance</CardTitle>
+              <CardTitle>{t("Schedule next maintenance")}</CardTitle>
             </CardHeader>
             <CardContent>
               <ScheduleForm equipmentId={item.id} current={item.nextMaintenance} />
@@ -101,7 +103,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Log maintenance</CardTitle>
+              <CardTitle>{t("Log maintenance")}</CardTitle>
             </CardHeader>
             <CardContent>
               <LogMaintenanceForm equipmentId={item.id} today={today} currency={currency} />
@@ -111,28 +113,28 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
       </div>
 
       <section aria-labelledby="history" className="space-y-3">
-        <h2 id="history" className="text-lg font-semibold text-zinc-900">Maintenance history</h2>
+        <h2 id="history" className="text-lg font-semibold text-zinc-900">{t("Maintenance history")}</h2>
         {!logs.ok ? (
-          <p role="alert" className="text-sm text-red-700">History could not be loaded: {logs.error}</p>
+          <p role="alert" className="text-sm text-red-700">{t("History could not be loaded: {reason}", { reason: logs.error })}</p>
         ) : logs.value.length === 0 ? (
-          <p className="text-sm text-zinc-500">No maintenance logged yet.</p>
+          <p className="text-sm text-zinc-500">{t("No maintenance logged yet.")}</p>
         ) : (
           <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-zinc-200">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Technician</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead>{t("Date")}</TableHead>
+                  <TableHead>{t("Type")}</TableHead>
+                  <TableHead>{t("Technician")}</TableHead>
+                  <TableHead>{t("Notes")}</TableHead>
+                  <TableHead className="text-right">{t("Cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {logs.value.map((l) => (
                   <TableRow key={l.id}>
                     <TableCell className="whitespace-nowrap">{formatDay(l.date)}</TableCell>
-                    <TableCell className="capitalize">{l.type}</TableCell>
+                    <TableCell className="capitalize">{MAINTENANCE_TYPE_LABELS[l.type] ? t(MAINTENANCE_TYPE_LABELS[l.type]) : l.type}</TableCell>
                     <TableCell>{l.technician}</TableCell>
                     <TableCell className="max-w-md whitespace-pre-wrap">{l.notes ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCost(l.cost, currency)}</TableCell>

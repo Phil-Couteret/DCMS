@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   ACTIVITY_KEYS,
+  ADD_ON_KEYS,
   EQUIPMENT_ITEMS,
   FULL_PACKAGE_KEY,
   type ActivityKey,
   type EquipmentKey,
   type PriceList,
 } from '../config/catalogue.js';
-import { ActivityType } from '../generated/prisma/enums.js';
+import { ActivityType, BookingAddOn } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
 import { UpdatePricingDto } from './dto/update-pricing.dto.js';
@@ -25,11 +26,14 @@ export class PricingService {
   ) {}
 
   async current(): Promise<PriceList> {
-    const [activities, equipment, tiers] = await this.prisma.$transaction([
+    const [activities, equipment, tiers, addOns, packs] = await this.prisma.$transaction([
       this.prisma.activityPrice.findMany(),
       this.prisma.equipmentPrice.findMany(),
       this.prisma.funDiveTier.findMany({ orderBy: { minDives: 'asc' } }),
+      this.prisma.addOnPrice.findMany(),
+      this.prisma.divePack.findMany({ orderBy: { diveCount: 'asc' } }),
     ]);
+    const addOnPrice = new Map(addOns.map((a) => [a.addOn, a.price.toNumber()]));
     const activityPrice = new Map(activities.map((a) => [a.activityType, a.price.toNumber()]));
     const equipmentPrice = new Map(equipment.map((e) => [e.key, e.price.toNumber()]));
     // The migration fills every row and saves replace them all, so a gap is
@@ -52,6 +56,14 @@ export class PricingService {
         local: t.local.toNumber(),
         recurrent: t.recurrent.toNumber(),
       })),
+      addOns: Object.fromEntries(
+        Object.values(BookingAddOn).map((a) => {
+          const price = addOnPrice.get(a);
+          if (price === undefined) throw new Error(`AddOnPrice ${a} is missing`);
+          return [a, price];
+        }),
+      ) as PriceList['addOns'],
+      divePacks: packs.map((p) => ({ diveCount: p.diveCount, price: p.price.toNumber() })),
     };
   }
 
@@ -65,6 +77,11 @@ export class PricingService {
       >,
       equipment: { ...prices.equipment, fullPackage: prices.fullPackage },
       funDiveTiers: prices.funDiveTiers,
+      addOns: Object.fromEntries(Object.entries(ADD_ON_KEYS).map(([key, a]) => [key, prices.addOns[a]])) as Record<
+        keyof typeof ADD_ON_KEYS,
+        number
+      >,
+      divePacks: prices.divePacks,
     };
   }
 
@@ -74,6 +91,10 @@ export class PricingService {
     if (tiers[0].minDives !== 1) throw new BadRequestException('The first fun dive tier must start at 1 dive');
     if (new Set(tiers.map((t) => t.minDives)).size !== tiers.length) {
       throw new BadRequestException('Two fun dive tiers start at the same number of dives');
+    }
+    const packs = dto.divePacks && [...dto.divePacks].sort((a, b) => a.diveCount - b.diveCount);
+    if (packs && new Set(packs.map((p) => p.diveCount)).size !== packs.length) {
+      throw new BadRequestException('Two dive packs have the same number of dives');
     }
     const priced = ACTIVITY_ENTRIES.filter(([key]) => dto.activities[key] !== null);
     const equipment = [...EQUIPMENT_KEYS, FULL_PACKAGE_KEY] as (keyof typeof dto.equipment)[];
@@ -105,6 +126,28 @@ export class PricingService {
           update: { tourist, local, recurrent },
         }),
       ),
+      // Left out, add-on prices and packs stay as they are.
+      ...(dto.addOns
+        ? (Object.entries(ADD_ON_KEYS) as [keyof typeof ADD_ON_KEYS, BookingAddOn][]).map(([key, addOn]) =>
+            this.prisma.addOnPrice.upsert({
+              where: { tenantId_addOn: { tenantId, addOn } },
+              create: { addOn, price: dto.addOns![key] },
+              update: { price: dto.addOns![key] },
+            }),
+          )
+        : []),
+      ...(packs
+        ? [
+            this.prisma.divePack.deleteMany({ where: { diveCount: { notIn: packs.map((p) => p.diveCount) } } }),
+            ...packs.map(({ diveCount, price }) =>
+              this.prisma.divePack.upsert({
+                where: { tenantId_diveCount: { tenantId, diveCount } },
+                create: { diveCount, price },
+                update: { price },
+              }),
+            ),
+          ]
+        : []),
     ]);
     return this.view();
   }

@@ -28,6 +28,7 @@ import {
   updatePricing,
   updateUser,
   type ActivityPriceKey,
+  type DivePack,
   type BoatData,
   type EquipmentPriceKey,
   type FunDiveTier,
@@ -43,6 +44,7 @@ import {
   newPasswordError,
   USER_ROLES,
 } from "@/lib/settings";
+import { getT } from "@/lib/i18n/server";
 
 export type SettingsFormState = { error?: string; ok?: boolean } | null;
 
@@ -62,14 +64,15 @@ function int(formData: FormData, name: string) {
 }
 
 export async function saveGeneral(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const name = text(formData, "name");
   const taxName = text(formData, "taxName");
   const taxRateRaw = text(formData, "taxRate");
   const taxRate = Number(taxRateRaw);
-  if (!name) return { error: "Enter the center's name" };
-  if (!taxName) return { error: "Enter the tax name" };
+  if (!name) return { error: t("Enter the center's name") };
+  if (!taxName) return { error: t("Enter the tax name") };
   if (!/^\d{1,3}(\.\d{1,2})?$/.test(taxRateRaw) || taxRate > 100) {
-    return { error: "Tax rate must be a percentage between 0 and 100, with at most 2 decimals" };
+    return { error: t("Tax rate must be a percentage between 0 and 100, with at most 2 decimals") };
   }
   const data: SettingsData = {
     name,
@@ -86,17 +89,17 @@ export async function saveGeneral(_prev: SettingsFormState, formData: FormData):
     const invoicePrefix = text(formData, "invoicePrefix").toUpperCase();
     const partnerInvoicePrefix = text(formData, "partnerInvoicePrefix").toUpperCase();
     if (![invoicePrefix, partnerInvoicePrefix].every((p) => /^[A-Z0-9]{1,10}$/.test(p))) {
-      return { error: "Invoice prefixes take 1 to 10 capital letters or digits" };
+      return { error: t("Invoice prefixes take 1 to 10 capital letters or digits") };
     }
     const visualInspectionIntervalMonths = int(formData, "visualInspectionIntervalMonths");
     const hydrostaticTestIntervalMonths = int(formData, "hydrostaticTestIntervalMonths");
     for (const months of [visualInspectionIntervalMonths, hydrostaticTestIntervalMonths]) {
       if (months === null || !Number.isInteger(months) || months < 1 || months > 120) {
-        return { error: "Tank test intervals are whole numbers of months, from 1 to 120" };
+        return { error: t("Tank test intervals are whole numbers of months, from 1 to 120") };
       }
     }
     const logoUrl = text(formData, "logoUrl");
-    if (logoUrl && !logoUrl.startsWith("https://")) return { error: "The logo URL must start with https://" };
+    if (logoUrl && !logoUrl.startsWith("https://")) return { error: t("The logo URL must start with https://") };
     // An unticked colour switch clears the colour.
     const colour = (name: string) => (formData.has(`${name}On`) ? text(formData, name).toLowerCase() : null);
     Object.assign(data, {
@@ -115,7 +118,7 @@ export async function saveGeneral(_prev: SettingsFormState, formData: FormData):
   try {
     await updateSettings(data);
   } catch (e) {
-    return fail(e, "Settings could not be saved");
+    return fail(e, t("Settings could not be saved"));
   }
   // Every page shows dates and amounts in the session's time zone and
   // currency: refresh this session now (others within 5 minutes).
@@ -125,6 +128,7 @@ export async function saveGeneral(_prev: SettingsFormState, formData: FormData):
 }
 
 export async function saveBoat(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const id = text(formData, "boatId");
   const name = text(formData, "name");
   const registrationNumber = text(formData, "registrationNumber");
@@ -134,18 +138,18 @@ export async function saveBoat(_prev: SettingsFormState, formData: FormData): Pr
   const length = lengthRaw === "" ? null : Number(lengthRaw);
   const dates = ["insuranceExpiry", "lastServiceDate", "nextServiceDate"] as const;
 
-  if (!name) return { error: "Enter the boat's name" };
-  if (!registrationNumber) return { error: "Enter the registration number" };
-  if (capacity === null || !Number.isInteger(capacity) || capacity < 1) return { error: "Capacity must be at least 1" };
+  if (!name) return { error: t("Enter the boat's name") };
+  if (!registrationNumber) return { error: t("Enter the registration number") };
+  if (capacity === null || !Number.isInteger(capacity) || capacity < 1) return { error: t("Capacity must be at least 1") };
   if (!BOAT_STATUSES.includes(status) && status !== text(formData, "status_initial")) {
-    return { error: "Choose a status" };
+    return { error: t("Choose a status") };
   }
   if (length !== null && (!Number.isFinite(length) || length < 0 || length > 999.99)) {
-    return { error: "Length must be between 0 and 999.99 m" };
+    return { error: t("Length must be between 0 and 999.99 m") };
   }
   for (const d of dates) {
     const v = text(formData, d);
-    if (v && !ISO_DATE.test(v)) return { error: "Enter valid dates" };
+    if (v && !ISO_DATE.test(v)) return { error: t("Enter valid dates") };
   }
 
   const data: BoatData = {
@@ -166,17 +170,18 @@ export async function saveBoat(_prev: SettingsFormState, formData: FormData): Pr
     if (id) await updateBoat(id, payload);
     else await createBoat(payload);
   } catch (e) {
-    return fail(e, "The boat could not be saved");
+    return fail(e, t("The boat could not be saved"));
   }
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?tab=boats");
 }
 
 export async function removeBoat(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   try {
     await deleteBoat(text(formData, "id"));
   } catch (e) {
-    return fail(e, "The boat could not be deleted");
+    return fail(e, t("The boat could not be deleted"));
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };
@@ -191,6 +196,7 @@ function list(value: string) {
 }
 
 export async function saveSite(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const id = text(formData, "siteId");
   const nameEn = text(formData, "nameEn");
   const descriptionEn = text(formData, "descriptionEn");
@@ -206,23 +212,23 @@ export async function saveSite(_prev: SettingsFormState, formData: FormData): Pr
   const tempMin = int(formData, "tempMin");
   const tempMax = int(formData, "tempMax");
 
-  if (!nameEn) return { error: "Enter the site's English name" };
-  if (!descriptionEn) return { error: "Enter the English description" };
+  if (!nameEn) return { error: t("Enter the site's English name") };
+  if (!descriptionEn) return { error: t("Enter the English description") };
   if (text(formData, "latitude") === "" || !Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-    return { error: "Latitude must be between -90 and 90" };
+    return { error: t("Latitude must be between -90 and 90") };
   }
   if (text(formData, "longitude") === "" || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-    return { error: "Longitude must be between -180 and 180" };
+    return { error: t("Longitude must be between -180 and 180") };
   }
   if (depthMin === null || depthMax === null || depthMin < 0 || depthMax < depthMin) {
-    return { error: "Depths must be whole metres, with the maximum at least the minimum" };
+    return { error: t("Depths must be whole metres, with the maximum at least the minimum") };
   }
-  if (requiredCertLevel === null || requiredCertLevel < 0 || requiredCertLevel > 4) return { error: "Choose a certification level" };
-  if (difficultyLevel === null || difficultyLevel < 1 || difficultyLevel > 5) return { error: "Choose a difficulty" };
-  if (travelTimeMinutes === null || travelTimeMinutes < 0) return { error: "Enter the travel time in minutes" };
-  if (maxDiversPerTrip === null || maxDiversPerTrip < 1) return { error: "Max divers must be at least 1" };
+  if (requiredCertLevel === null || requiredCertLevel < 0 || requiredCertLevel > 4) return { error: t("Choose a certification level") };
+  if (difficultyLevel === null || difficultyLevel < 1 || difficultyLevel > 5) return { error: t("Choose a difficulty") };
+  if (travelTimeMinutes === null || travelTimeMinutes < 0) return { error: t("Enter the travel time in minutes") };
+  if (maxDiversPerTrip === null || maxDiversPerTrip < 1) return { error: t("Max divers must be at least 1") };
   if ((tempMin === null) !== (tempMax === null) || (tempMin !== null && tempMax! < tempMin)) {
-    return { error: "Give both water temperatures, with the maximum at least the minimum" };
+    return { error: t("Give both water temperatures, with the maximum at least the minimum") };
   }
 
   // Translations left empty take the English text.
@@ -274,27 +280,29 @@ export async function saveSite(_prev: SettingsFormState, formData: FormData): Pr
     if (id) await updateDiveSite(id, data as DiveSiteData);
     else await createDiveSite(data as DiveSiteData);
   } catch (e) {
-    return fail(e, "The dive site could not be saved");
+    return fail(e, t("The dive site could not be saved"));
   }
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?tab=sites");
 }
 
 export async function removeSite(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   try {
     await deleteDiveSite(text(formData, "id"));
   } catch (e) {
-    return fail(e, "The dive site could not be deleted");
+    return fail(e, t("The dive site could not be deleted"));
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };
 }
 
 export async function saveUser(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const id = text(formData, "userId");
   const name = text(formData, "name") || null;
   const role = text(formData, "role") as UserRole;
-  if (!USER_ROLES.includes(role)) return { error: "Choose a role" };
+  if (!USER_ROLES.includes(role)) return { error: t("Choose a role") };
   try {
     if (id) {
       // Only sent for staff, when the checkbox is shown (not for yourself).
@@ -304,36 +312,38 @@ export async function saveUser(_prev: SettingsFormState, formData: FormData): Pr
       const email = text(formData, "email");
       // Passwords are not trimmed: spaces are allowed in them.
       const password = String(formData.get("password") ?? "");
-      if (!email) return { error: "Enter the email address" };
-      const invalid = newPasswordError(password, String(formData.get("confirmPassword") ?? ""));
+      if (!email) return { error: t("Enter the email address") };
+      const invalid = newPasswordError(password, String(formData.get("confirmPassword") ?? ""), t);
       if (invalid) return { error: invalid };
       await createUser({ email, password, name, role });
     }
   } catch (e) {
-    return fail(e, "The user could not be saved");
+    return fail(e, t("The user could not be saved"));
   }
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?tab=users");
 }
 
 export async function removeUser(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   try {
     await deleteUser(text(formData, "id"));
   } catch (e) {
-    return fail(e, "The user could not be deleted");
+    return fail(e, t("The user could not be deleted"));
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };
 }
 
 export async function resetUserPassword(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const password = String(formData.get("password") ?? "");
-  const invalid = newPasswordError(password, String(formData.get("confirmPassword") ?? ""));
+  const invalid = newPasswordError(password, String(formData.get("confirmPassword") ?? ""), t);
   if (invalid) return { error: invalid };
   try {
     await setUserPassword(text(formData, "userId"), password);
   } catch (e) {
-    return fail(e, "The password could not be changed");
+    return fail(e, t("The password could not be changed"));
   }
   return { ok: true };
 }
@@ -348,10 +358,11 @@ function price(raw: string) {
 
 // The whole price list; the API replaces it in one go.
 export async function savePricing(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const activities = {} as Record<ActivityPriceKey, number | null>;
   for (const [key, label] of Object.entries(ACTIVITY_PRICE_LABELS) as [ActivityPriceKey, string][]) {
     const value = price(text(formData, `activity_${key}`));
-    if (value === undefined) return { error: `${label}: enter a price such as 45 or 45.50, or leave it empty` };
+    if (value === undefined) return { error: t("{item}: enter a price such as 45 or 45.50, or leave it empty", { item: t(label) }) };
     activities[key] = value;
   }
 
@@ -359,33 +370,58 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
   const equipmentLabels = { ...EQUIPMENT_PRICE_LABELS, fullPackage: "Full package" };
   for (const [key, label] of Object.entries(equipmentLabels) as [EquipmentPriceKey, string][]) {
     const value = price(text(formData, `equipment_${key}`));
-    if (value === undefined || value === null) return { error: `${label}: enter a price such as 8 or 8.50` };
+    if (value === undefined || value === null) return { error: t("{item}: enter a price such as 8 or 8.50", { item: t(label) }) };
     equipment[key] = value;
   }
 
   const column = (name: string) => formData.getAll(name).map((v) => String(v).trim());
   const [mins, tourist, local, recurrent] = ["tierMin", "tierTourist", "tierLocal", "tierRecurrent"].map(column);
-  if (mins.length === 0) return { error: "Keep at least one fun dive tier" };
+  if (mins.length === 0) return { error: t("Keep at least one fun dive tier") };
   const funDiveTiers: FunDiveTier[] = [];
   for (let i = 0; i < mins.length; i++) {
     const minDives = Number(mins[i]);
-    if (!/^\d{1,3}$/.test(mins[i]) || minDives < 1) return { error: `Tier ${i + 1}: "from dives" must be a whole number from 1` };
+    if (!/^\d{1,3}$/.test(mins[i]) || minDives < 1) return { error: t('Tier {n}: "from dives" must be a whole number from 1', { n: i + 1 }) };
     const rates = [tourist[i], local[i], recurrent[i]].map((r) => price(r ?? ""));
     if (rates.some((r) => r === undefined || r === null)) {
-      return { error: `Tier from ${minDives} dives: enter all three rates` };
+      return { error: t("Tier from {count} dives: enter all three rates", { count: minDives }) };
     }
     funDiveTiers.push({ minDives, tourist: rates[0]!, local: rates[1]!, recurrent: rates[2]! });
   }
   funDiveTiers.sort((a, b) => a.minDives - b.minDives);
-  if (funDiveTiers[0].minDives !== 1) return { error: "The first tier must start at 1 dive" };
+  if (funDiveTiers[0].minDives !== 1) return { error: t("The first tier must start at 1 dive") };
   if (new Set(funDiveTiers.map((t) => t.minDives)).size !== funDiveTiers.length) {
-    return { error: "Two tiers start at the same number of dives" };
+    return { error: t("Two tiers start at the same number of dives") };
+  }
+
+  const addOns = { nightDive: price(text(formData, "addOn_nightDive")), personalInstructor: price(text(formData, "addOn_personalInstructor")) };
+  if (addOns.nightDive == null) return { error: t("Night dive surcharge: enter a price such as 20") };
+  if (addOns.personalInstructor == null) return { error: t("Personal instructor fee: enter a price such as 100") };
+
+  const [packDives, packPrices] = ["packDives", "packPrice"].map(column);
+  const divePacks: DivePack[] = [];
+  for (let i = 0; i < packDives.length; i++) {
+    const diveCount = Number(packDives[i]);
+    if (!/^\d{1,3}$/.test(packDives[i]) || diveCount < 2 || diveCount > 100) {
+      return { error: t("Pack {n}: the number of dives must be a whole number from 2 to 100", { n: i + 1 }) };
+    }
+    const packPrice = price(packPrices[i] ?? "");
+    if (packPrice == null) return { error: t("{count}-dive pack: enter its price", { count: diveCount }) };
+    divePacks.push({ diveCount, price: packPrice });
+  }
+  if (new Set(divePacks.map((p) => p.diveCount)).size !== divePacks.length) {
+    return { error: t("Two packs have the same number of dives") };
   }
 
   try {
-    await updatePricing({ activities, equipment, funDiveTiers });
+    await updatePricing({
+      activities,
+      equipment,
+      funDiveTiers,
+      addOns: { nightDive: addOns.nightDive, personalInstructor: addOns.personalInstructor },
+      divePacks: divePacks.sort((a, b) => a.diveCount - b.diveCount),
+    });
   } catch (e) {
-    return fail(e, "The prices could not be saved");
+    return fail(e, t("The prices could not be saved"));
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };
@@ -396,13 +432,14 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
 const LOCATION_TYPE_VALUES: LocationType[] = ["DIVING", "BIKE", "SURF", "KITE"];
 
 export async function saveLocation(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const id = text(formData, "locationId");
   const name = text(formData, "name");
   const type = text(formData, "type") as LocationType;
-  if (!name) return { error: "Location name is required" };
-  if (!LOCATION_TYPE_VALUES.includes(type)) return { error: "Choose an activity type" };
+  if (!name) return { error: t("Location name is required") };
+  if (!LOCATION_TYPE_VALUES.includes(type)) return { error: t("Choose an activity type") };
   const website = text(formData, "website");
-  if (website && !/^https?:\/\//.test(website)) return { error: "The website must start with http:// or https://" };
+  if (website && !/^https?:\/\//.test(website)) return { error: t("The website must start with http:// or https://") };
   const data: LocationData = {
     name,
     type,
@@ -424,17 +461,18 @@ export async function saveLocation(_prev: SettingsFormState, formData: FormData)
     if (id) await updateLocation(id, data);
     else await createLocation(data);
   } catch (e) {
-    return fail(e, "The location could not be saved");
+    return fail(e, t("The location could not be saved"));
   }
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?tab=locations");
 }
 
 export async function removeLocation(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   try {
     await deleteLocation(text(formData, "id"));
   } catch (e) {
-    return fail(e, "The location could not be deleted");
+    return fail(e, t("The location could not be deleted"));
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };
@@ -442,12 +480,13 @@ export async function removeLocation(_prev: SettingsFormState, formData: FormDat
 
 // The location selector on each boat and dive site row.
 export async function assignLocation(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const kind = text(formData, "kind");
-  if (kind !== "boat" && kind !== "site") return { error: "Unknown item" };
+  if (kind !== "boat" && kind !== "site") return { error: t("Unknown item") };
   try {
     await setResourceLocation(kind, text(formData, "id"), text(formData, "locationId") || null);
   } catch (e) {
-    return fail(e, "The location could not be changed");
+    return fail(e, t("The location could not be changed"));
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };
@@ -455,6 +494,7 @@ export async function assignLocation(_prev: SettingsFormState, formData: FormDat
 
 // A government bono (Settings → Bonos). The code is stored upper case.
 export async function saveBono(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   const id = text(formData, "bonoId");
   const code = text(formData, "code").toUpperCase();
   const type = text(formData, "type");
@@ -463,18 +503,18 @@ export async function saveBono(_prev: SettingsFormState, formData: FormData): Pr
   const validFrom = text(formData, "validFrom");
   const validTo = text(formData, "validTo");
   const usageLimit = int(formData, "usageLimit");
-  if (!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(code)) return { error: "The code must be 2 to 40 letters, digits or dashes" };
-  if (type !== "PERCENTAGE" && type !== "FIXED") return { error: "Choose the kind of discount" };
+  if (!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(code)) return { error: t("The code must be 2 to 40 letters, digits or dashes") };
+  if (type !== "PERCENTAGE" && type !== "FIXED") return { error: t("Choose the kind of discount") };
   if (!Number.isFinite(value) || value <= 0 || Math.round(value * 100) !== value * 100) {
-    return { error: "Enter the discount as a positive number with at most 2 decimals" };
+    return { error: t("Enter the discount as a positive number with at most 2 decimals") };
   }
-  if (type === "PERCENTAGE" && value > 100) return { error: "A percentage discount cannot be over 100" };
-  if (!description) return { error: "Enter a description" };
-  if (!ISO_DATE.test(validFrom)) return { error: "Enter the date the bono is valid from" };
-  if (validTo && !ISO_DATE.test(validTo)) return { error: "Enter a valid end date, or leave it empty" };
-  if (validTo && validTo < validFrom) return { error: "The end date cannot be before the start date" };
+  if (type === "PERCENTAGE" && value > 100) return { error: t("A percentage discount cannot be over 100") };
+  if (!description) return { error: t("Enter a description") };
+  if (!ISO_DATE.test(validFrom)) return { error: t("Enter the date the bono is valid from") };
+  if (validTo && !ISO_DATE.test(validTo)) return { error: t("Enter a valid end date, or leave it empty") };
+  if (validTo && validTo < validFrom) return { error: t("The end date cannot be before the start date") };
   if (usageLimit !== null && (!Number.isInteger(usageLimit) || usageLimit < 1)) {
-    return { error: "The usage limit is a whole number of at least 1, or empty for no limit" };
+    return { error: t("The usage limit is a whole number of at least 1, or empty for no limit") };
   }
   const data: BonoData = {
     code,
@@ -490,17 +530,18 @@ export async function saveBono(_prev: SettingsFormState, formData: FormData): Pr
     if (id) await updateBono(id, data);
     else await createBono(data);
   } catch (e) {
-    return fail(e, "The bono could not be saved");
+    return fail(e, t("The bono could not be saved"));
   }
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?tab=bonos");
 }
 
 export async function removeBono(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
   try {
     await deleteBono(text(formData, "id"));
   } catch (e) {
-    return fail(e, "The bono could not be deleted");
+    return fail(e, t("The bono could not be deleted"));
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };

@@ -6,6 +6,8 @@ import { money, formatDay } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { displayStatus, outstanding, PARTNER_INVOICE_LABELS, PARTNER_INVOICE_STATUSES, percent } from "@/lib/partners";
 import { centerLocale } from "@/lib/center";
+import type { T } from "@/lib/i18n/core";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +26,11 @@ function one(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function LoadError({ what, reason }: { what: string; reason: unknown }) {
+// message: a translated sentence with an {error} placeholder.
+function LoadError({ message, reason, t }: { message: string; reason: unknown; t: T }) {
   return (
     <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
-      {what} could not be loaded: {reason instanceof Error ? reason.message : "unknown error"}
+      {message.replace("{error}", reason instanceof Error ? reason.message : t("unknown error"))}
     </p>
   );
 }
@@ -42,12 +45,13 @@ function Stat({ label, value, tone = "text-zinc-900" }: { label: string; value: 
 }
 
 async function PartnersTab() {
+  const t = await getT();
   const { currency } = await centerLocale();
   let partners;
   try {
     partners = await getPartners();
   } catch (e) {
-    return <LoadError what="Partners" reason={e} />;
+    return <LoadError message={t("Partners could not be loaded: {error}")} reason={e} t={t} />;
   }
   const active = partners.filter((p) => p.isActive);
   const avg = partners.length > 0 ? partners.reduce((s, p) => s + Number(p.commissionRate), 0) / partners.length : 0;
@@ -55,27 +59,27 @@ async function PartnersTab() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Partners" value={String(partners.length)} />
-        <Stat label="Active" value={String(active.length)} />
-        <Stat label="Average commission" value={`${avg.toFixed(1)}%`} />
-        <Stat label="Owed by partners" value={money(owed, currency)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
+        <Stat label={t("Partners")} value={String(partners.length)} />
+        <Stat label={t("Active")} value={String(active.length)} />
+        <Stat label={t("Average commission")} value={`${avg.toFixed(1)}%`} />
+        <Stat label={t("Owed by partners")} value={money(owed, currency)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
       </div>
       {partners.length === 0 ? (
         <div className="rounded-xl bg-white p-10 text-center ring-1 ring-zinc-200">
-          <p className="font-medium text-zinc-900">No partners yet</p>
-          <p className="mt-1 text-sm text-zinc-500">Add the agencies and resellers that sell your activities.</p>
+          <p className="font-medium text-zinc-900">{t("No partners yet")}</p>
+          <p className="mt-1 text-sm text-zinc-500">{t("Add the agencies and resellers that sell your activities.")}</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-zinc-200">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500">
               <tr>
-                <th className={th}>Partner</th>
-                <th className={th}>Contact</th>
-                <th className={`${th} text-right`}>Commission</th>
-                <th className={`${th} text-right`}>Bookings</th>
-                <th className={`${th} text-right`}>Owed</th>
-                <th className={th}>Status</th>
+                <th className={th}>{t("Partner")}</th>
+                <th className={th}>{t("Contact")}</th>
+                <th className={`${th} text-right`}>{t("Commission")}</th>
+                <th className={`${th} text-right`}>{t("Bookings")}</th>
+                <th className={`${th} text-right`}>{t("Owed")}</th>
+                <th className={th}>{t("Status")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -98,7 +102,7 @@ async function PartnersTab() {
                     <span
                       className={`rounded px-2 py-0.5 text-xs font-semibold ${p.isActive ? "bg-green-100 text-green-900" : "bg-zinc-200 text-zinc-700"}`}
                     >
-                      {p.isActive ? "Active" : "Inactive"}
+                      {p.isActive ? t("Active") : t("Inactive")}
                     </span>
                   </td>
                 </tr>
@@ -112,6 +116,7 @@ async function PartnersTab() {
 }
 
 async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?: string }) {
+  const t = await getT();
   const { timeZone, currency } = await centerLocale();
   const today = centerNow(timeZone).isoDate;
   let invoices, partners;
@@ -122,7 +127,7 @@ async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?:
       getPartners(),
     ]);
   } catch (e) {
-    return <LoadError what="Partner invoices" reason={e} />;
+    return <LoadError message={t("Partner invoices could not be loaded: {error}")} reason={e} t={t} />;
   }
   if (status === "OVERDUE") invoices = invoices.filter((i) => displayStatus(i, today) === "OVERDUE");
   const live = invoices.filter((i) => i.status !== "CANCELLED");
@@ -130,17 +135,17 @@ async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?:
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Invoices" value={String(live.length)} />
-        <Stat label="Unpaid" value={String(live.filter((i) => i.status !== "PAID").length)} tone="text-amber-700" />
-        <Stat label="Invoiced" value={money(live.reduce((s, i) => s + Number(i.total), 0), currency)} />
-        <Stat label="Outstanding" value={money(owed, currency)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
+        <Stat label={t("Invoices")} value={String(live.length)} />
+        <Stat label={t("Unpaid")} value={String(live.filter((i) => i.status !== "PAID").length)} tone="text-amber-700" />
+        <Stat label={t("Invoiced")} value={money(live.reduce((s, i) => s + Number(i.total), 0), currency)} />
+        <Stat label={t("Outstanding")} value={money(owed, currency)} tone={owed > 0 ? "text-red-700" : "text-zinc-900"} />
       </div>
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-zinc-200">
         <input type="hidden" name="tab" value="invoices" />
         <label className="block text-sm font-medium text-zinc-700">
-          Partner
+          {t("Partner")}
           <select name="partnerId" defaultValue={partnerId ?? ""} className={`${control} w-56`}>
-            <option value="">All partners</option>
+            <option value="">{t("All partners")}</option>
             {partners.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -149,23 +154,23 @@ async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?:
           </select>
         </label>
         <label className="block text-sm font-medium text-zinc-700">
-          Status
+          {t("Status")}
           <select name="status" defaultValue={status ?? ""} className={`${control} w-48`}>
-            <option value="">All statuses</option>
+            <option value="">{t("All statuses")}</option>
             {[...PARTNER_INVOICE_STATUSES, "OVERDUE" as const].map((s) => (
               <option key={s} value={s}>
-                {PARTNER_INVOICE_LABELS[s]}
+                {t(PARTNER_INVOICE_LABELS[s])}
               </option>
             ))}
           </select>
         </label>
-        <Button type="submit">Filter</Button>
+        <Button type="submit">{t("Filter")}</Button>
       </form>
       {invoices.length === 0 ? (
         <div className="rounded-xl bg-white p-10 text-center ring-1 ring-zinc-200">
-          <p className="font-medium text-zinc-900">No partner invoices</p>
+          <p className="font-medium text-zinc-900">{t("No partner invoices")}</p>
           <p className="mt-1 text-sm text-zinc-500">
-            {partnerId || status ? "None match these filters." : "Create one from a partner's page for a period of their bookings."}
+            {partnerId || status ? t("None match these filters.") : t("Create one from a partner's page for a period of their bookings.")}
           </p>
         </div>
       ) : (
@@ -173,14 +178,14 @@ async function InvoicesTab({ partnerId, status }: { partnerId?: string; status?:
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500">
               <tr>
-                <th className={th}>Invoice</th>
-                <th className={th}>Partner</th>
-                <th className={th}>Period</th>
-                <th className={th}>Due</th>
-                <th className={`${th} text-right`}>Total</th>
-                <th className={`${th} text-right`}>Paid</th>
-                <th className={`${th} text-right`}>Outstanding</th>
-                <th className={th}>Status</th>
+                <th className={th}>{t("Invoice")}</th>
+                <th className={th}>{t("Partner")}</th>
+                <th className={th}>{t("Period")}</th>
+                <th className={th}>{t("Due")}</th>
+                <th className={`${th} text-right`}>{t("Total")}</th>
+                <th className={`${th} text-right`}>{t("Paid")}</th>
+                <th className={`${th} text-right`}>{t("Outstanding")}</th>
+                <th className={th}>{t("Status")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -221,33 +226,34 @@ export default async function PartnersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getT();
   const params = await searchParams;
-  const tab = TABS.find((t) => t.key === one(params.tab))?.key ?? "partners";
+  const tab = TABS.find((x) => x.key === one(params.tab))?.key ?? "partners";
   const partnerId = one(params.partnerId);
   const status = one(params.status);
   return (
     <main className="space-y-6 p-6 md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Partners</h1>
-          <p className="mt-1 text-sm text-zinc-500">Agencies selling your activities, their portal access and what they owe.</p>
+          <h1 className="text-2xl font-semibold text-zinc-900">{t("Partners")}</h1>
+          <p className="mt-1 text-sm text-zinc-500">{t("Agencies selling your activities, their portal access and what they owe.")}</p>
         </div>
         <Button nativeButton={false} render={<Link href="/dashboard/partners/new" prefetch={false} />}>
-          Add partner
+          {t("Add partner")}
         </Button>
       </div>
-      <nav aria-label="Partner sections" className="flex gap-1 overflow-x-auto border-b border-zinc-200">
-        {TABS.map((t) => (
+      <nav aria-label={t("Partner sections")} className="flex gap-1 overflow-x-auto border-b border-zinc-200">
+        {TABS.map((x) => (
           <Link
-            key={t.key}
-            href={`/dashboard/partners?tab=${t.key}`}
+            key={x.key}
+            href={`/dashboard/partners?tab=${x.key}`}
             prefetch={false}
-            aria-current={t.key === tab ? "page" : undefined}
+            aria-current={x.key === tab ? "page" : undefined}
             className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-              t.key === tab ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
+              x.key === tab ? "border-[#0096c7] text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-900"
             }`}
           >
-            {t.label}
+            {t(x.label)}
           </Link>
         ))}
       </nav>

@@ -3,10 +3,12 @@
 import { useActionState, useRef, useState } from "react";
 import { emailInvoice } from "@/app/dashboard/billing/actions";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 
 // Print, Download PDF and Email for one invoice. All three use the same PDF
 // (/dashboard/billing/{id}/pdf), so what is printed is what is sent.
 export function InvoiceActions({ invoiceId, customerEmail }: { invoiceId: string; customerEmail: string | null }) {
+  const t = useT();
   const pdfUrl = `/dashboard/billing/${invoiceId}/pdf`;
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [printing, setPrinting] = useState(false);
@@ -40,15 +42,15 @@ export function InvoiceActions({ invoiceId, customerEmail }: { invoiceId: string
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="outline" onClick={print} disabled={printing}>
-          {printing ? "Preparing…" : "Print"}
+          {printing ? t("Preparing…") : t("Print")}
         </Button>
         <Button variant="outline" nativeButton={false} render={<a href={`${pdfUrl}?download=1`} />}>
-          Download PDF
+          {t("Download PDF")}
         </Button>
         <form
           action={action}
           onSubmit={(e) => {
-            if (!window.confirm(`Email this invoice to ${customerEmail}?`)) e.preventDefault();
+            if (!window.confirm(t("Email this invoice to {email}?", { email: customerEmail ?? "" }))) e.preventDefault();
           }}
         >
           <input type="hidden" name="invoiceId" value={invoiceId} />
@@ -56,9 +58,9 @@ export function InvoiceActions({ invoiceId, customerEmail }: { invoiceId: string
             type="submit"
             variant="outline"
             disabled={pending || !customerEmail}
-            title={customerEmail ? `Send the PDF to ${customerEmail}` : "This customer has no email address"}
+            title={customerEmail ? t("Send the PDF to {email}", { email: customerEmail }) : t("This customer has no email address")}
           >
-            {pending ? "Sending…" : "Email"}
+            {pending ? t("Sending…") : t("Email")}
           </Button>
         </form>
       </div>

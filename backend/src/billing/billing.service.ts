@@ -6,9 +6,19 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { ACTIVITY_NAMES, billedUnits, EQUIPMENT_ITEMS, withDives, type EquipmentKey, type PriceList } from '../config/catalogue.js';
+import {
+  ACTIVITY_NAMES,
+  ADD_ON_NAMES,
+  billedUnits,
+  EQUIPMENT_ITEMS,
+  PER_DIVER_ADD_ONS,
+  withDives,
+  type EquipmentKey,
+  type PriceList,
+} from '../config/catalogue.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
+  BookingAddOn,
   BookingStatus,
   InvoiceStatus,
   NumberSeries,
@@ -104,6 +114,7 @@ export class BillingService {
         notes: true,
         bonoId: true,
         bono: { select: { code: true, type: true, discountValue: true } },
+        addOns: true,
         invoice: { select: { id: true, invoiceNumber: true } },
         stayId: true,
         partner: { select: { name: true } },
@@ -142,6 +153,7 @@ export class BillingService {
         type: 'activity',
       },
       ...equipmentLines(booking.notes, prices),
+      ...addOnLines(booking, prices),
     ];
     const subtotal = sum(items.map((i) => i.total));
     // A government bono takes its discount off the activity; tax is on what
@@ -498,6 +510,26 @@ async function assertBookingCustomer(tx: Tx, bookingId: string, customerId: stri
   if (booking.customerId !== customerId) {
     throw new BadRequestException("customerId must be the booking's customer");
   }
+}
+
+// A booking's add-ons: the night dive surcharge for each diver, the personal
+// instructor once. Not discounted by a bono, and paid by the customer even
+// when a partner pays the activity.
+export function addOnLines(
+  booking: { addOns: BookingAddOn[]; participantCount: number },
+  prices: PriceList,
+): InvoiceItemDto[] {
+  return booking.addOns.map((addOn) => {
+    const quantity = PER_DIVER_ADD_ONS.includes(addOn) ? booking.participantCount : 1;
+    const unitPrice = prices.addOns[addOn];
+    return {
+      description: ADD_ON_NAMES[addOn],
+      quantity,
+      unitPrice,
+      total: new D(unitPrice).times(quantity).toNumber(),
+      type: 'addon',
+    };
+  });
 }
 
 // Equipment from a guest booking's notes: {"selectedEquipment": ["wetsuit:M", ...]}.

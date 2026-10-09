@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth, PARTNER_ROLE, STAFF_ROLES, SUPERADMIN_ROLE } from "@/auth";
+import { adminOnlySection } from "@/lib/sections";
 import { backofficeOrigin, hostKind, requestHost } from "@/lib/tenant-host";
 
 // Next.js 16 renamed the middleware file convention to proxy. Staff pages need
@@ -55,6 +56,8 @@ export default auth((req) => {
   if (path === "/select-center") return staff || platform ? undefined : to("/login");
   if (platform) return to("/superadmin");
   if (!staff) return to(req.auth ? "/login?error=not_staff" : "/login");
+  // Financial, partners and data breaches: admins only.
+  if (role !== "ADMIN" && adminOnlySection(path)) return to("/dashboard");
 });
 
 export const config = {

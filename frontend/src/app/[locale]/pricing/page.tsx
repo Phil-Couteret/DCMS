@@ -4,13 +4,6 @@ import { Link } from "@/i18n/navigation";
 import { getPrices } from "@/lib/server-api";
 import { activityPrice, EQUIPMENT, pricedActivities, type Prices } from "@/lib/booking-catalog";
 
-// Dive packages: a fixed price for so many fun dives. The saving is against
-// the fun dive's current price.
-const PACKAGES = [
-  { key: "fiveDives", dives: 5, price: 200 },
-  { key: "tenDives", dives: 10, price: 380 },
-] as const;
-
 // Prices are read on every request, so a change in the backoffice shows at once.
 export const dynamic = "force-dynamic";
 
@@ -54,11 +47,13 @@ export default async function PricingPage({
   const fullPackage = prices.equipment.fullPackage;
   const itemsTotal = EQUIPMENT.reduce((sum, e) => sum + prices.equipment[e.priceKey], 0);
   const funDive = prices.activities.funDive;
-  // Only packages that cost less than their dives one by one.
-  const packages =
-    funDive === null
-      ? []
-      : PACKAGES.map((p) => ({ ...p, save: p.dives * funDive - p.price })).filter((p) => p.save > 0);
+  // The center's dive packs (Settings → Pricing in the backoffice), with the
+  // saving against the fun dive's single price when there is one.
+  const packages = (prices.divePacks ?? []).map((p) => ({
+    ...p,
+    save: funDive === null ? 0 : p.diveCount * funDive - p.price,
+  }));
+  const addOns = prices.addOns;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -139,18 +134,20 @@ export default async function PricingPage({
             <ul className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 md:max-w-3xl">
               {packages.map((p) => (
                 <li
-                  key={p.key}
+                  key={p.diveCount}
                   className="flex flex-col rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-lg font-semibold text-slate-900">{t(`items.${p.key}`)}</h3>
-                    <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                      {t("save", { amount: money(p.save) })}
-                    </span>
+                    <h3 className="text-lg font-semibold text-slate-900">{t("items.divePack", { count: p.diveCount })}</h3>
+                    {p.save > 0 && (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                        {t("save", { amount: money(p.save) })}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-2 text-3xl font-bold text-brand">{money(p.price)}</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {t("perDive", { amount: money(p.price / p.dives) })}
+                    {t("perDive", { amount: money(p.price / p.diveCount) })}
                   </p>
                   <Link
                     href="/booking"
@@ -161,6 +158,41 @@ export default async function PricingPage({
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {addOns && (
+          <section aria-labelledby="extras" className="mt-16">
+            <h2 id="extras" className={sectionTitle}>
+              {t("extras")}
+            </h2>
+            <div className="mt-6 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 md:max-w-2xl">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-100 text-slate-600">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 font-medium">{t("item")}</th>
+                    <th scope="col" className="px-4 py-3 text-right font-medium">{t("price")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {(
+                    [
+                      ["nightDive", addOns.nightDive, "perDiver"],
+                      ["personalInstructor", addOns.personalInstructor, "perBooking"],
+                    ] as const
+                  ).map(([key, amount, unit]) => (
+                    <tr key={key}>
+                      <th scope="row" className="px-4 py-3 font-normal text-slate-900">
+                        {t(`items.${key}`)}
+                      </th>
+                      <td className="px-4 py-3 text-right font-medium text-slate-900">
+                        {money(amount)} <span className="text-xs font-normal text-slate-500">{t(unit)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
       </div>

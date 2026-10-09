@@ -20,4 +20,9 @@ export const SEEDED_PRICES: PriceList = {
     { minDives: 9, tourist: 40, local: 35, recurrent: 32 },
     { minDives: 13, tourist: 38, local: 35, recurrent: 32 },
   ],
+  addOns: { NIGHT_DIVE: 20, PERSONAL_INSTRUCTOR: 100 },
+  divePacks: [
+    { diveCount: 5, price: 200 },
+    { diveCount: 10, price: 380 },
+  ],
 };

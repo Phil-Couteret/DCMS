@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useT } from "@/lib/i18n/client";
+import { ADMIN_ONLY_SECTIONS } from "@/lib/sections";
+
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/schedule", label: "Schedule" },
@@ -20,6 +23,7 @@ const LINKS = [
 
 function NavLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
+  const t = useT();
   // Sections stay highlighted on their sub-pages, e.g. /dashboard/dive-logs/new.
   const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
   return (
@@ -38,15 +42,18 @@ function NavLink({ href, label }: { href: string; label: string }) {
           : "text-white hover:bg-white/20"
       }`}
     >
-      {label}
+      {t(label)}
     </Link>
   );
 }
 
-export function SidebarNav() {
+// The sections the session's role may open; admin-only ones are left out
+// for instructors (the proxy and the API refuse them too).
+export function SidebarNav({ isAdmin }: { isAdmin: boolean }) {
+  const links = isAdmin ? LINKS : LINKS.filter((l) => !ADMIN_ONLY_SECTIONS.includes(l.href));
   return (
     <nav className="flex gap-1 overflow-x-auto md:flex-col">
-      {LINKS.map(({ href, label }) => (
+      {links.map(({ href, label }) => (
         <NavLink key={href} href={href} label={label} />
       ))}
     </nav>
