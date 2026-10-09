@@ -8,6 +8,7 @@ import {
 import bcrypt from 'bcrypt';
 import { Prisma } from '../generated/prisma/client.js';
 import { MembershipRole, Role } from '../generated/prisma/enums.js';
+import { MailerService } from '../mail/mailer.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usedByOtherTenants } from '../tenant/shared-accounts.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
@@ -72,6 +73,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantContext,
+    private readonly mailer: MailerService,
   ) {}
 
   // The global (staff or platform) account with this email.
@@ -89,6 +91,17 @@ export class UsersService {
       where: { id },
       select: { id: true, email: true, name: true, role: true, isSuperadmin: true, createdAt: true },
     });
+  }
+
+  // A customer login of this center (customer accounts are per tenant).
+  private async createCustomerAccount(email: string, dto: CreateUserDto) {
+    const tenantId = this.tenant.tenantId;
+    if (await this.findCustomerAccount(tenantId, email)) throw new ConflictException('A user with this email already exists');
+    const user = await this.prisma.user.create({
+      data: { email, passwordHash: await bcrypt.hash(dto.password, BCRYPT_ROUNDS), name: dto.name?.trim() || null, role: Role.CUSTOMER, tenantId },
+      select: listSelect(tenantId),
+    });
+    return { ...toView(user), existingAccount: false };
   }
 
   // tenantId: a customer account of that tenant; without, a global account.
@@ -130,6 +143,12 @@ export class UsersService {
     const email = dto.email.trim().toLowerCase();
     const tenantId = this.tenant.tenantId;
     const staff = isMembershipRole(dto.role);
+    // With email set up, staff are invited (they set their own password);
+    // creating them with a password typed by an admin is only the fallback.
+    if (staff && this.mailer.configured) {
+      throw new ConflictException('Invite staff instead (Settings → Users → Invite): they set their own password');
+    }
+    if (!staff) return this.createCustomerAccount(email, dto);
     // Staff logins are global accounts; customer accounts (per tenant) with
     // the same email are separate.
     const existing = await this.prisma.user.findFirst({

@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
+import { InvitationsModule } from '../invitations/invitations.module.js';
+import { StaffInvitationsService } from './staff-invitations.service.js';
 import { UsersController } from './users.controller.js';
 import { UsersService } from './users.service.js';
 
 @Module({
+  imports: [InvitationsModule],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, StaffInvitationsService],
   exports: [UsersService],
 })
 export class UsersModule {}

@@ -334,6 +334,39 @@ export function getUsers() {
   return apiFetch<User[]>("/users");
 }
 
+// Staff invitations (Settings → Users). The link goes by email only.
+export type StaffRole = "ADMIN" | "INSTRUCTOR";
+
+export interface StaffInvitation {
+  id: string;
+  email: string;
+  name: string | null;
+  role: StaffRole;
+  createdAt: string; // sent
+  expiresAt: string; // 7 days after
+  status: "PENDING" | "EXPIRED";
+  invitedBy: { email: string; name: string | null } | null;
+}
+
+export function getStaffInvitations() {
+  return apiFetch<{ emailConfigured: boolean; invitations: StaffInvitation[] }>("/users/invitations");
+}
+
+// emailed false: the mail server refused it; it stays listed, to resend.
+export function inviteStaff(data: { email: string; role: StaffRole }) {
+  return apiFetch<{ id: string; email: string; emailed: boolean }>("/users/invite", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function resendStaffInvitation(id: string) {
+  return apiFetch<{ id: string; email: string; emailed: boolean }>(`/users/invitations/${id}/resend`, { method: "POST" });
+}
+
+export function cancelStaffInvitation(id: string) {
+  return apiFetch<{ id: string }>(`/users/invitations/${id}`, { method: "DELETE" });
+}
+
+// The fallback when email is not set up: an account with a password the
+// admin chooses (the API refuses it for staff once email works).
 export function createUser(data: { email: string; password: string; name: string | null; role: UserRole }) {
   return apiFetch<User>("/users", { method: "POST", body: JSON.stringify(data) });
 }

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { RoutedDialog } from "@/components/routed-panel";
+import { ActionButton } from "@/components/action-button";
+import { cancelInvitationAction, resendInvitationAction } from "@/app/dashboard/settings/actions";
 import {
+  InviteForm,
   BonoForm,
   BoatForm,
   DeleteButton,
@@ -16,9 +19,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getBonos, getBoats, getDiveSites, getLocations, getPricing, getSettings, getStaff, getUsers, type LocationRef } from "@/lib/api";
+import { getStaffInvitations, getBonos, getBoats, getDiveSites, getLocations, getPricing, getSettings, getStaff, getUsers, type LocationRef } from "@/lib/api";
 import { formatBookingDate } from "@/lib/bookings";
-import { money } from "@/lib/billing";
+import { formatDateTime, money } from "@/lib/billing";
 import { centerLocale } from "@/lib/center";
 import { LOCATION_TYPE_LABELS, shortAddress } from "@/lib/locations";
 import { BOAT_STATUS_LABELS, SETTINGS_TABS, SITE_CERT_LEVELS, USER_ROLE_LABELS, type SettingsTab } from "@/lib/settings";
@@ -467,14 +470,29 @@ async function PricingTab({ canEdit }: { canEdit: boolean }) {
   return <PricingForm pricing={pricing} canEdit={canEdit} />;
 }
 
-async function UsersTab({ open, password, selfId }: { open?: string; password?: string; selfId: string }) {
+async function UsersTab({
+  open,
+  password,
+  selfId,
+  invited,
+}: {
+  open?: string;
+  password?: string;
+  selfId: string;
+  invited?: { email: string; failed: boolean };
+}) {
   const t = await getT();
   let users;
+  let invites;
   try {
-    users = await getUsers();
+    [users, invites] = await Promise.all([getUsers(), getStaffInvitations()]);
   } catch (e) {
     return <LoadError message={t("Users could not be loaded: {reason}")} reason={e} t={t} />;
   }
+  // With email set up, staff are invited (they choose their own password);
+  // adding a user with a password is the fallback without email.
+  const canInvite = invites.emailConfigured;
+  const { timeZone } = await centerLocale();
   const editing = open && open !== "new" ? users.find((u) => u.id === open) : undefined;
   const resetting = password ? users.find((u) => u.id === password) : undefined;
   const closeHref = tabHref("users");
@@ -485,11 +503,34 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
         "Login accounts. Admins and instructors sign in here; customers on the public site. A user with a staff or customer profile cannot be deleted.",
       )}
       action={
-        <Button nativeButton={false} render={<Link href={tabHref("users", { user: "new" })} prefetch={false} scroll={false} />}>
-          {t("Add user")}
-        </Button>
+        canInvite ? (
+          <Button nativeButton={false} render={<Link href={tabHref("users", { user: "invite" })} prefetch={false} scroll={false} />}>
+            {t("Invite")}
+          </Button>
+        ) : (
+          <Button nativeButton={false} render={<Link href={tabHref("users", { user: "new" })} prefetch={false} scroll={false} />}>
+            {t("Add user")}
+          </Button>
+        )
       }
     >
+      {invited && (
+        <p
+          role="status"
+          className={`rounded-lg p-3 text-sm ring-1 ${invited.failed ? "bg-amber-50 text-amber-900 ring-amber-200" : "bg-emerald-50 text-emerald-900 ring-emerald-200"}`}
+        >
+          {invited.failed
+            ? t("The invitation to {email} could not be emailed. It is listed below: try Resend later.", { email: invited.email })
+            : t("Invitation sent to {email}. They have 7 days to accept it.", { email: invited.email })}
+        </p>
+      )}
+      {!canInvite && (
+        <p className="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700 ring-1 ring-zinc-200">
+          {t(
+            "Email is not set up on this server (SMTP_URL), so staff cannot be invited. Add them with a password and ask them to change it after signing in.",
+          )}
+        </p>
+      )}
       <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
         <Table>
           <TableHeader>
@@ -563,7 +604,70 @@ async function UsersTab({ open, password, selfId }: { open?: string; password?: 
           </TableBody>
         </Table>
       </div>
-      {open && (open === "new" || editing) && (
+      {invites.invitations.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-zinc-900">{t("Pending invitations")}</h3>
+          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("Email")}</TableHead>
+                  <TableHead>{t("Role")}</TableHead>
+                  <TableHead>{t("Sent")}</TableHead>
+                  <TableHead>{t("Expires")}</TableHead>
+                  <TableHead className="text-right">{t("Actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invites.invitations.map((i) => (
+                  <TableRow key={i.id}>
+                    <TableCell className="font-medium">
+                      {i.email}
+                      {i.invitedBy && <span className="block text-xs font-normal text-zinc-500">{t("by {name}", { name: i.invitedBy.name ?? i.invitedBy.email })}</span>}
+                    </TableCell>
+                    <TableCell>{t(USER_ROLE_LABELS[i.role] ?? i.role)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDateTime(timeZone, i.createdAt)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {i.status === "EXPIRED" ? (
+                        <Badge variant="outline" className="border-red-300 text-red-800">
+                          {t("Expired")}
+                        </Badge>
+                      ) : (
+                        formatDateTime(timeZone, i.expiresAt)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-start justify-end gap-1">
+                        {canInvite && (
+                          <ActionButton action={resendInvitationAction} fields={{ id: i.id }} pendingLabel={t("Sending…")}>
+                            {t("Resend")}
+                          </ActionButton>
+                        )}
+                        <ActionButton
+                          action={cancelInvitationAction}
+                          fields={{ id: i.id }}
+                          pendingLabel={t("Cancelling…")}
+                          variant="ghost"
+                          className="text-destructive"
+                          confirm={t("Cancel the invitation to {email}? The link will stop working.", { email: i.email })}
+                        >
+                          {t("Cancel")}
+                        </ActionButton>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+      {open === "invite" && canInvite && (
+        <RoutedDialog closeHref={closeHref} title={t("Invite to the staff")}>
+          <InviteForm cancelHref={closeHref} />
+        </RoutedDialog>
+      )}
+      {open && ((open === "new" && !canInvite) || editing) && (
         <RoutedDialog closeHref={closeHref} title={editing ? t("Edit {name}", { name: editing.name ?? editing.email }) : t("Add user")}>
           <UserForm user={editing ?? null} isSelf={editing?.id === selfId} cancelHref={closeHref} />
         </RoutedDialog>
@@ -620,7 +724,12 @@ export default async function SettingsPage({
       {tab === "pricing" && <PricingTab canEdit={isAdmin} />}
       {tab === "bonos" && <BonosTab open={target(one(params.bono))} />}
       {tab === "users" && (
-        <UsersTab open={target(one(params.user))} password={target(one(params.password))} selfId={session!.user.id} />
+        <UsersTab
+          open={one(params.user) === "invite" ? "invite" : target(one(params.user))}
+          password={target(one(params.password))}
+          selfId={session!.user.id}
+          invited={one(params.invited) ? { email: one(params.invited)!, failed: one(params.failed) === "1" } : undefined}
+        />
       )}
     </main>
   );

@@ -6,6 +6,7 @@ import {
   removeBoat,
   removeBono,
   saveBono,
+  inviteStaffAction,
   removeLocation,
   saveLocation,
   assignLocation,
@@ -358,12 +359,24 @@ export function DeleteButton({
   );
 }
 
-function FormActions({ pending, state, cancelHref, create }: { pending: boolean; state: SettingsFormState; cancelHref: string; create: boolean }) {
+function FormActions({
+  pending,
+  state,
+  cancelHref,
+  create,
+  submitLabel,
+}: {
+  pending: boolean;
+  state: SettingsFormState;
+  cancelHref: string;
+  create: boolean;
+  submitLabel?: string;
+}) {
   const t = useT();
   return (
     <div className="flex flex-wrap items-center gap-3 pt-2">
       <Button type="submit" disabled={pending}>
-        {pending ? t("Saving…") : create ? t("Create") : t("Save changes")}
+        {pending ? t("Saving…") : (submitLabel ?? (create ? t("Create") : t("Save changes")))}
       </Button>
       <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} scroll={false} />}>
         {t("Cancel")}
@@ -1316,6 +1329,35 @@ export function BonoForm({ bono, currency, cancelHref }: { bono: Bono | null; cu
         </label>
       </div>
       <FormActions pending={pending} state={state} cancelHref={cancelHref} create={!bono} />
+    </form>
+  );
+}
+
+// Invite someone to this center's staff: they get a one-time link by email
+// and set their own password (or confirm with the one of their staff login
+// at another center).
+export function InviteForm({ cancelHref }: { cancelHref: string }) {
+  const t = useT();
+  const [state, onSubmit, pending] = useFormAction<SettingsFormState>(inviteStaffAction, null);
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <label className={label}>
+        {t("Email")}
+        <input type="email" name="email" required maxLength={254} autoComplete="off" className={control} />
+      </label>
+      <label className={label}>
+        {t("Role")}
+        <select name="role" defaultValue="INSTRUCTOR" className={control}>
+          <option value="INSTRUCTOR">{t("Instructor")}</option>
+          <option value="ADMIN">{t("Admin")}</option>
+        </select>
+      </label>
+      <p className="text-sm text-zinc-600">
+        {t(
+          "They get an email with a link, valid for 7 days, to choose their own name and password. Someone who already has a staff login at another center confirms with that password instead.",
+        )}
+      </p>
+      <FormActions pending={pending} state={state} cancelHref={cancelHref} create submitLabel={t("Send invitation")} />
     </form>
   );
 }

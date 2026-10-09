@@ -18,6 +18,10 @@ import {
   type LocationData,
   type LocationType,
   createUser,
+  cancelStaffInvitation,
+  inviteStaff,
+  resendStaffInvitation,
+  type StaffRole,
   deleteBoat,
   deleteDiveSite,
   deleteUser,
@@ -543,6 +547,59 @@ export async function removeBono(_prev: SettingsFormState, formData: FormData): 
     await deleteBono(text(formData, "id"));
   } catch (e) {
     return fail(e, t("The bono could not be deleted"));
+  }
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+// --- Staff invitations ---
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function inviteStaffAction(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
+  const t = await getT();
+  const email = text(formData, "email").toLowerCase();
+  const role = text(formData, "role") as StaffRole;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: t("Enter a valid email address") };
+  if (role !== "ADMIN" && role !== "INSTRUCTOR") return { error: t("Choose a role") };
+  let emailed: boolean;
+  try {
+    emailed = (await inviteStaff({ email, role })).emailed;
+  } catch (e) {
+    return fail(e, t("The invitation could not be sent"));
+  }
+  revalidatePath("/dashboard/settings");
+  redirect(`/dashboard/settings?${new URLSearchParams({ tab: "users", invited: email, ...(!emailed && { failed: "1" }) })}`);
+}
+
+// For ActionButton: { ok, message } or { error }.
+export async function resendInvitationAction(
+  _prev: { error?: string; ok?: boolean; message?: string } | null,
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean; message?: string }> {
+  const t = await getT();
+  const id = text(formData, "id");
+  if (!UUID_RE.test(id)) return { error: t("Unknown invitation") };
+  try {
+    const sent = await resendStaffInvitation(id);
+    revalidatePath("/dashboard/settings");
+    return sent.emailed ? { ok: true, message: t("Sent again") } : { error: t("The email could not be sent; try again later") };
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : t("The invitation could not be sent") };
+  }
+}
+
+export async function cancelInvitationAction(
+  _prev: { error?: string; ok?: boolean; message?: string } | null,
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean; message?: string }> {
+  const t = await getT();
+  const id = text(formData, "id");
+  if (!UUID_RE.test(id)) return { error: t("Unknown invitation") };
+  try {
+    await cancelStaffInvitation(id);
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : t("The invitation could not be cancelled") };
   }
   revalidatePath("/dashboard/settings");
   return { ok: true };

@@ -225,7 +225,9 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 - **Quotas** (`Tenant.quotas`): the original's limits (locations 20, dive sites 15, boats 10, users 20, customers 500, storage 5 GB, price per GB per month 0) as defaults, editable per center. Storage is the size of the center's rows. Not enforced (step 7).
 - **Tests:** `test/onboarding.e2e-spec.ts`.
 
-**Not yet:** a center admin inviting staff from Settings → Users (they still create accounts with a password); custom domains (step 7).
+- **Staff invitations from Settings → Users** (added 2026-10-09): a center admin invites by email and role (Admin or Instructor). The link goes by email only, so the admin never sees it or the password: a new person sets their own name and password, and someone with a staff login at another center confirms with its password and gets access here. Pending (and expired) invitations are listed with their role, sent date and expiry, with Resend (a new link valid 7 days; the old one stops working) and Cancel. API: `GET /users/invitations`, `POST /users/invite`, `POST /users/invitations/:id/resend`, `DELETE /users/invitations/:id` (admins; sending is rate limited per center). Creating staff with a password chosen by the admin (`POST /users`) is only the fallback when email is not set up (`SMTP_URL`); with email set up the API refuses it. Tests: `test/staff-invitations.e2e-spec.ts`.
+
+**Not yet:** custom domains (step 7).
 
 ### Step 6: Row-level security backstop (M)
 
