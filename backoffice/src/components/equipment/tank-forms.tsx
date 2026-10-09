@@ -7,7 +7,7 @@ import { ImportResultView } from "@/components/import-result";
 import { Button } from "@/components/ui/button";
 import type { LocationRef, Tank } from "@/lib/api";
 import { locationOptions } from "@/lib/locations";
-import { TANK_SIZE_LABELS, TANK_SIZES, TANK_STATUS_LABELS } from "@/lib/tanks";
+import { interval, TANK_SIZE_LABELS, TANK_SIZES, TANK_STATUS_LABELS } from "@/lib/tanks";
 import { useFormAction } from "@/lib/use-form-action";
 
 const label = "block text-sm font-medium text-zinc-700";
@@ -19,7 +19,17 @@ const day = (iso: string | null | undefined) => iso?.slice(0, 10) ?? "";
 
 // Add (tank null) or edit a tank. The dates are when each test was last
 // done; the next ones are worked out from them.
-export function TankForm({ tank, locations, cancelHref }: { tank: Tank | null; locations: LocationRef[]; cancelHref: string }) {
+export function TankForm({
+  tank,
+  locations,
+  cancelHref,
+  intervals,
+}: {
+  tank: Tank | null;
+  locations: LocationRef[];
+  cancelHref: string;
+  intervals: { visual: number; hydrostatic: number }; // months
+}) {
   const [state, onSubmit, pending] = useFormAction<TankFormState>(saveTank, null);
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -43,12 +53,12 @@ export function TankForm({ tank, locations, cancelHref }: { tank: Tank | null; l
         <label className={label}>
           Last visual inspection
           <input type="date" name="visualInspectionDate" defaultValue={day(tank?.visualInspectionDate)} className={control} />
-          <span className={hint}>Next one due a year later.</span>
+          <span className={hint}>Next one due {interval(intervals.visual)} later.</span>
         </label>
         <label className={label}>
           Last hydrostatic test
           <input type="date" name="hydrostaticTestDate" defaultValue={day(tank?.hydrostaticTestDate)} className={control} />
-          <span className={hint}>Next one due five years later.</span>
+          <span className={hint}>Next one due {interval(intervals.hydrostatic)} later.</span>
         </label>
         <label className={label}>
           Location

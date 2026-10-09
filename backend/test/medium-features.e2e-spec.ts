@@ -258,6 +258,18 @@ describe('tanks', () => {
     const edited = await ok('PATCH', `/tanks/${tank.id}`, instructor, { hydrostaticTestDate: isoDay(-10), visualInspectionDate: null, status: 'RETIRED' });
     expect(edited).toMatchObject({ hydrostaticState: 'OK', visualState: 'NO_RECORD', status: 'RETIRED' });
     expect((await ok('GET', '/tanks?status=RETIRED', admin)).map((t: { id: string }) => t.id)).toEqual([tank.id]);
+
+    // The center's own intervals: hydrostatic tests every 3 years, set by an admin only.
+    await ok('PATCH', `/tanks/${tank.id}`, admin, { hydrostaticTestDate: '2020-06-15', visualInspectionDate: '2026-01-10' });
+    expect(await ok('GET', `/tanks/${tank.id}`, admin)).toMatchObject({ nextHydrostaticTest: '2025-06-15', nextVisualInspection: '2027-01-10' });
+    const settings = await ok('GET', '/settings', admin);
+    const base = { name: settings.name, taxName: settings.taxName, taxRate: Number(settings.taxRate) };
+    expect((await call('PUT', '/settings', instructor, { ...base, hydrostaticTestIntervalMonths: 36 })).status).toBe(403);
+    expect((await call('PUT', '/settings', admin, { ...base, hydrostaticTestIntervalMonths: 0 })).status).toBe(400);
+    const saved = await ok('PUT', '/settings', admin, { ...base, hydrostaticTestIntervalMonths: 36, visualInspectionIntervalMonths: 6 });
+    expect(saved).toMatchObject({ hydrostaticTestIntervalMonths: 36, visualInspectionIntervalMonths: 6 });
+    expect(await ok('GET', `/tanks/${tank.id}`, admin)).toMatchObject({ nextHydrostaticTest: '2023-06-15', nextVisualInspection: '2026-07-10' });
+    await ok('PUT', '/settings', admin, { ...base, hydrostaticTestIntervalMonths: 60, visualInspectionIntervalMonths: 12 });
     await ok('DELETE', `/tanks/${tank.id}`, admin);
     expect((await call('GET', `/tanks/${tank.id}`, admin)).status).toBe(404);
   });
@@ -347,14 +359,13 @@ describe('customer CSV import', () => {
       `Known,Diver,${known},,,ES,,,,,`,
       `Bad,Row,not-an-email,,31/02/1990,,,,EXPERT,,PADI`,
       `Dup,InFile,mid-i1-${run}@example.test,,,DE,,,,,`,
-      `Long,Country,mid-i3-${run}@example.test,,,Germany,,,,,`,
+      `Free,Text,mid-i3-${run}@example.test,,,German,,,,,`,
     ].join('\n');
     expect((await call('POST', '/customers/import', instructor, upload({}, { name: 'c.csv', data: csv }))).status).toBe(403);
     const res = await ok('POST', '/customers/import', admin, upload({}, { name: 'c.csv', data: csv, type: 'text/csv' }));
-    expect(res.imported).toBe(2);
+    expect(res.imported).toBe(3);
     expect(res.skipped.map((s: { line: number }) => s.line)).toEqual([4, 6]);
-    expect(res.errors.map((e: { line: number }) => e.line)).toEqual([5, 7]);
-    expect(res.errors[1].message).toMatch(/"Germany" is not a two-letter country code/);
+    expect(res.errors.map((e: { line: number }) => e.line)).toEqual([5]);
     for (const problem of [/email "not-an-email"/, /dob "31\/02\/1990"/, /nationality is missing/, /certificationLevel and certificationAgency/]) {
       expect(res.errors[0].message).toMatch(problem);
     }
@@ -365,7 +376,9 @@ describe('customer CSV import', () => {
     const certs = await ok('GET', `/customers/${lena.id}/certifications`, admin);
     expect(certs).toMatchObject([{ agency: 'PADI', level: 'Advanced Open Water' }]);
     const sean = all.find((c: { email: string }) => c.email === `mid-i2-${run}@example.test`);
-    expect(sean).toMatchObject({ firstName: "O'Brien, Jr", customerType: 'LOCAL', country: 'IE' });
+    expect(sean).toMatchObject({ firstName: "O'Brien, Jr", customerType: 'LOCAL', country: 'ie' });
+    // Nationality is free text, kept as written.
+    expect(all.find((c: { email: string }) => c.email === `mid-i3-${run}@example.test`)).toMatchObject({ country: 'German' });
 
     expect((await call('POST', '/customers/import', admin, upload({}, { name: 'c.csv', data: 'firstName,email\nA,a@b.c' }))).data.message).toMatch(/lastName, nationality/);
     expect((await call('POST', '/customers/import', admin)).status).toBe(400);

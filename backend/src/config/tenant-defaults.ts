@@ -12,6 +12,8 @@ export const DEFAULT_SETTINGS = {
   taxName: 'IGIC',
   invoicePrefix: 'INV',
   partnerInvoicePrefix: 'PINV',
+  visualInspectionIntervalMonths: 12,
+  hydrostaticTestIntervalMonths: 60,
 };
 
 // The price list a new tenant starts from, net of tax, in its currency.

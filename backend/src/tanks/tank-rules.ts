@@ -1,13 +1,15 @@
 // When a tank's tests fall due. The tank records the date each test was last
-// done; the next is due a fixed interval later. Intervals for scuba
-// cylinders: a visual inspection every year, a hydrostatic test every five
-// years. Check them against the rules where the center operates.
+// done; the next is due the center's interval later (CenterSettings
+// visualInspectionIntervalMonths and hydrostaticTestIntervalMonths, set in
+// Settings → General, as the rules differ between countries).
 
 export const TANK_SIZES = ['10L', '12L', '15L', 'Nitrox12L', 'Nitrox15L'] as const;
 export type TankSize = (typeof TANK_SIZES)[number];
 
-export const VISUAL_INTERVAL_MONTHS = 12;
-export const HYDROSTATIC_INTERVAL_MONTHS = 60;
+export interface TestIntervals {
+  visualInspectionIntervalMonths: number;
+  hydrostaticTestIntervalMonths: number;
+}
 // "Due soon": within this many days.
 export const DUE_SOON_DAYS = 30;
 
@@ -26,6 +28,18 @@ function addDays(isoDate: string, days: number) {
   const d = new Date(`${isoDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+// A tank's two tests, due on the center's intervals.
+export function tankTests(
+  tank: { visualInspectionDate: Date | null; hydrostaticTestDate: Date | null },
+  intervals: TestIntervals,
+  today: string,
+) {
+  return {
+    visual: testDue(tank.visualInspectionDate, intervals.visualInspectionIntervalMonths, today),
+    hydrostatic: testDue(tank.hydrostaticTestDate, intervals.hydrostaticTestIntervalMonths, today),
+  };
 }
 
 // A test's next due date and state on `today` (the center's date). No date

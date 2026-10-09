@@ -1207,6 +1207,8 @@ export interface CenterSettings {
   accentColor: string | null;
   invoicePrefix: string; // PREFIX-YYYY-0001
   partnerInvoicePrefix: string;
+  visualInspectionIntervalMonths: number; // tank tests: months after the last one
+  hydrostaticTestIntervalMonths: number;
   updatedAt: string | null; // null until first saved
 }
 
@@ -1223,6 +1225,8 @@ export type SettingsData = Pick<CenterSettings, "name" | "legalName" | "address"
       | "primaryColor"
       | "accentColor"
       | "invoicePrefix"
+      | "visualInspectionIntervalMonths"
+      | "hydrostaticTestIntervalMonths"
       | "partnerInvoicePrefix"
     >
   >;

@@ -1,7 +1,13 @@
 import type { Tank, TankSize, TankStatus, TankTestState } from "@/lib/api";
 
-// Tanks (Equipment → Tanks). The API works out when each test is next due:
-// a visual inspection every year, a hydrostatic test every five years.
+// Tanks (Equipment → Tanks). The API works out when each test is next due,
+// from the center's intervals (Settings → General).
+
+// "year", "5 years", "18 months".
+export function interval(months: number) {
+  if (months % 12 === 0) return months === 12 ? "year" : `${months / 12} years`;
+  return months === 1 ? "month" : `${months} months`;
+}
 
 export const TANK_SIZES: TankSize[] = ["10L", "12L", "15L", "Nitrox12L", "Nitrox15L"];
 

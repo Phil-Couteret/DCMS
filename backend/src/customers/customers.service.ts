@@ -211,11 +211,8 @@ export async function importCustomers(
     };
     const firstName = text('firstName', 100, true);
     const lastName = text('lastName', 100, true);
-    // A two-letter country code, as the customer forms store it.
-    const nationality = r.get('nationality');
-    if (!nationality) problems.push('nationality is missing');
-    else if (!/^[A-Za-z]{2}$/.test(nationality)) problems.push(`nationality "${nationality}" is not a two-letter country code (DE, ES, GB…)`);
-    const country = nationality?.toUpperCase();
+    // Free text ("Spanish", "DE"…), kept as written in the customer's country.
+    const country = text('nationality', 60, true);
     const phone = text('phone', 40);
     const gender = text('gender', 30);
     const email = r.get('email')?.toLowerCase();

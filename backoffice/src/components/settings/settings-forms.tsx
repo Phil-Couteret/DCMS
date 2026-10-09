@@ -38,6 +38,7 @@ import {
   USER_ROLE_LABELS,
   USER_ROLES,
 } from "@/lib/settings";
+import { interval } from "@/lib/tanks";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -142,6 +143,10 @@ export function GeneralForm({
           <ReadOnly label="Currency" value={settings.currency} />
           <ReadOnly label="Default language" value={LANGUAGE_LABELS[settings.defaultLanguage] ?? settings.defaultLanguage} />
           <ReadOnly label="Invoice numbers" value={`${settings.invoicePrefix}-YYYY-0001 · partners ${settings.partnerInvoicePrefix}-YYYY-0001`} />
+          <ReadOnly
+            label="Tank tests"
+            value={`visual every ${interval(settings.visualInspectionIntervalMonths)} · hydrostatic every ${interval(settings.hydrostaticTestIntervalMonths)}`}
+          />
           <p className="text-xs text-zinc-500 sm:col-span-2">Only an admin can change these, and the branding.</p>
         </dl>
       )}
@@ -257,6 +262,40 @@ function CenterAdminFields({
           <label className={label}>
             Partner invoices
             <input name="partnerInvoicePrefix" required maxLength={10} pattern="[A-Za-z0-9]{1,10}" defaultValue={settings.partnerInvoicePrefix} className={`${control} uppercase`} />
+          </label>
+        </div>
+      </fieldset>
+      <fieldset className="space-y-3 border-t border-zinc-200 pt-4">
+        <legend className="pt-4 text-sm font-semibold text-zinc-900">Tank tests</legend>
+        <p className="text-xs text-zinc-500">
+          How long after its last test each cylinder test falls due (Equipment → Tanks). Follow the rules where the center operates.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className={label}>
+            Visual inspection every (months)
+            <input
+              type="number"
+              name="visualInspectionIntervalMonths"
+              required
+              min={1}
+              max={120}
+              step={1}
+              defaultValue={settings.visualInspectionIntervalMonths}
+              className={control}
+            />
+          </label>
+          <label className={label}>
+            Hydrostatic test every (months)
+            <input
+              type="number"
+              name="hydrostaticTestIntervalMonths"
+              required
+              min={1}
+              max={120}
+              step={1}
+              defaultValue={settings.hydrostaticTestIntervalMonths}
+              className={control}
+            />
           </label>
         </div>
       </fieldset>

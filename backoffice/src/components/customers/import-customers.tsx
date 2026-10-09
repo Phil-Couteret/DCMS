@@ -31,7 +31,7 @@ export function ImportCustomersForm({ closeHref }: { closeHref: string }) {
         <ul className="list-disc space-y-1 pl-5 text-zinc-600">
           <li>
             Required: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong> and <strong>nationality</strong>{" "}
-            (a two-letter country code: DE, ES, GB…).
+            (as you write it: Spanish, German, ES…; it is kept as the customer&apos;s country).
           </li>
           <li>dob: DD/MM/YYYY or YYYY-MM-DD. customerType: TOURIST, LOCAL or RECURRENT. centerSkillLevel: BEGINNER, INTERMEDIATE, ADVANCED or EXPERT.</li>
           <li>A certification is added when both its level and agency are given.</li>

@@ -1,4 +1,5 @@
 import {
+  IsInt,
   IsEmail,
   IsEnum,
   IsHexColor,
@@ -102,4 +103,17 @@ export class UpdateSettingsDto {
   @IsOptional()
   @Matches(PREFIX, { message: 'partnerInvoicePrefix: 1 to 10 capital letters or digits' })
   partnerInvoicePrefix?: string;
+
+  // Tank tests: months from the last test to the next (1 to 120).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  visualInspectionIntervalMonths?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  hydrostaticTestIntervalMonths?: number;
 }

@@ -24,6 +24,8 @@ const ADMIN_FIELDS = [
   'accentColor',
   'invoicePrefix',
   'partnerInvoicePrefix',
+  'visualInspectionIntervalMonths',
+  'hydrostaticTestIntervalMonths',
 ] as const;
 
 @Injectable()
@@ -59,6 +61,8 @@ export class SettingsService {
         accentColor: null,
         invoicePrefix: DEFAULT_SETTINGS.invoicePrefix,
         partnerInvoicePrefix: DEFAULT_SETTINGS.partnerInvoicePrefix,
+        visualInspectionIntervalMonths: DEFAULT_SETTINGS.visualInspectionIntervalMonths,
+        hydrostaticTestIntervalMonths: DEFAULT_SETTINGS.hydrostaticTestIntervalMonths,
         updatedAt: null,
       }
     );
@@ -91,6 +95,8 @@ export class SettingsService {
       ...(dto.accentColor !== undefined && { accentColor: dto.accentColor?.toLowerCase() ?? null }),
       ...(dto.invoicePrefix !== undefined && { invoicePrefix: dto.invoicePrefix }),
       ...(dto.partnerInvoicePrefix !== undefined && { partnerInvoicePrefix: dto.partnerInvoicePrefix }),
+      ...(dto.visualInspectionIntervalMonths !== undefined && { visualInspectionIntervalMonths: dto.visualInspectionIntervalMonths }),
+      ...(dto.hydrostaticTestIntervalMonths !== undefined && { hydrostaticTestIntervalMonths: dto.hydrostaticTestIntervalMonths }),
     };
     const tenantId = this.tenant.tenantId;
     const row = await this.prisma.centerSettings.upsert({ where: { tenantId }, create: data, update: data });

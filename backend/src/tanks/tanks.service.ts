@@ -7,7 +7,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { CreateTankDto } from './dto/create-tank.dto.js';
 import { UpdateTankDto } from './dto/update-tank.dto.js';
-import { HYDROSTATIC_INTERVAL_MONTHS, tankSize, testDue, VISUAL_INTERVAL_MONTHS } from './tank-rules.js';
+import { DEFAULT_SETTINGS } from '../config/tenant-defaults.js';
+import { tankSize, tankTests, type TestIntervals } from './tank-rules.js';
 
 type TankRow = Prisma.TankGetPayload<{ include: { location: { select: { id: true; name: true } } } }>;
 
@@ -20,7 +21,7 @@ export class TanksService {
 
   // Each tank with its next test dates and their state on the center's date.
   async findAll(filters: { locationId?: string; status?: TankStatus } = {}) {
-    const [tanks, today] = await Promise.all([
+    const [tanks, { today, intervals }] = await Promise.all([
       this.prisma.tank.findMany({
         where: {
           ...(filters.locationId && { locationId: filters.locationId }),
@@ -29,15 +30,16 @@ export class TanksService {
         include: { location: { select: { id: true, name: true } } },
         orderBy: [{ status: 'asc' }, { size: 'asc' }, { serialNumber: 'asc' }],
       }),
-      this.today(),
+      this.schedule(),
     ]);
-    return tanks.map((t) => withDue(t, today));
+    return tanks.map((t) => withDue(t, intervals, today));
   }
 
   async findOne(id: string) {
     const tank = await this.prisma.tank.findUnique({ where: { id }, include: { location: { select: { id: true, name: true } } } });
     if (!tank) throw new NotFoundException(`Tank ${id} not found`);
-    return withDue(tank, await this.today());
+    const { today, intervals } = await this.schedule();
+    return withDue(tank, intervals, today);
   }
 
   async create(dto: CreateTankDto) {
@@ -134,8 +136,21 @@ export class TanksService {
     return result;
   }
 
-  private async today() {
-    return centerToday(await this.config.timeZone());
+  // The center's date and its test intervals.
+  private async schedule(): Promise<{ today: string; intervals: TestIntervals }> {
+    const [timeZone, settings] = await Promise.all([
+      this.config.timeZone(),
+      this.prisma.centerSettings.findFirst({
+        select: { visualInspectionIntervalMonths: true, hydrostaticTestIntervalMonths: true },
+      }),
+    ]);
+    return {
+      today: centerToday(timeZone),
+      intervals: settings ?? {
+        visualInspectionIntervalMonths: DEFAULT_SETTINGS.visualInspectionIntervalMonths,
+        hydrostaticTestIntervalMonths: DEFAULT_SETTINGS.hydrostaticTestIntervalMonths,
+      },
+    };
   }
 }
 
@@ -155,9 +170,8 @@ const REQUIRED = {
   'size': ['size', 'sizelitres', 'sizeliters', 'sizel'],
 };
 
-function withDue(tank: TankRow, today: string) {
-  const visual = testDue(tank.visualInspectionDate, VISUAL_INTERVAL_MONTHS, today);
-  const hydrostatic = testDue(tank.hydrostaticTestDate, HYDROSTATIC_INTERVAL_MONTHS, today);
+function withDue(tank: TankRow, intervals: TestIntervals, today: string) {
+  const { visual, hydrostatic } = tankTests(tank, intervals, today);
   return {
     ...tank,
     nextVisualInspection: visual.due,

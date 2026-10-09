@@ -4,9 +4,10 @@ import { RoutedDialog } from "@/components/routed-panel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getLocations, getTanks, type LocationRef, type Tank, type TankTestState } from "@/lib/api";
+import { getLocations, getSettings, getTanks, type LocationRef, type Tank, type TankTestState } from "@/lib/api";
 import { formatDay } from "@/lib/equipment";
 import {
+  interval,
   matchesTestFilter,
   needsTest,
   TANK_SIZE_LABELS,
@@ -85,8 +86,11 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
 
   let all: Tank[];
   let locations: LocationRef[];
+  let intervals: { visual: number; hydrostatic: number };
   try {
-    [all, locations] = await Promise.all([getTanks(), getLocations(true)]);
+    let settings;
+    [all, locations, settings] = await Promise.all([getTanks(), getLocations(true), getSettings()]);
+    intervals = { visual: settings.visualInspectionIntervalMonths, hydrostatic: settings.hydrostaticTestIntervalMonths };
   } catch (e) {
     return (
       <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">
@@ -111,7 +115,8 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-zinc-600">
-          Cylinder tests: a visual inspection every year and a hydrostatic test every five years, counted from the last one.
+          Cylinder tests: a visual inspection every {interval(intervals.visual)} and a hydrostatic test every{" "}
+          {interval(intervals.hydrostatic)}, counted from the last one (Settings → General).
         </p>
         <div className="flex gap-2">
           <Button variant="outline" nativeButton={false} render={<Link href={withDialog("import")} prefetch={false} scroll={false} />}>
@@ -243,7 +248,7 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
 
       {(open === "new" || editing) && (
         <RoutedDialog wide closeHref={listHref} title={editing ? `Edit tank ${editing.serialNumber}` : "Add tank"}>
-          <TankForm tank={editing ?? null} locations={locations} cancelHref={listHref} />
+          <TankForm tank={editing ?? null} locations={locations} cancelHref={listHref} intervals={intervals} />
         </RoutedDialog>
       )}
       {open === "import" && (

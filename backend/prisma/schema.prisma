@@ -379,32 +379,36 @@ model CustomerCertification {
 // The dive center's own details, shown on invoices and in the backoffice.
 model CenterSettings {
   // One row per tenant.
-  tenantId             String   @id @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
-  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  name                 String
-  legalName            String?
-  address              String?
-  phone                String?
-  email                String?
-  website              String?
+  tenantId                       String   @id @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant                         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name                           String
+  legalName                      String?
+  address                        String?
+  phone                          String?
+  email                          String?
+  website                        String?
   // Percentage added to net prices on invoices, e.g. 7.00 for 7%.
-  taxRate              Decimal  @default(7.00) @db.Decimal(5, 2)
-  taxName              String   @default("IGIC")
+  taxRate                        Decimal  @default(7.00) @db.Decimal(5, 2)
+  taxName                        String   @default("IGIC")
   // IANA time zone of the center: its days (closing, "today", invoice years)
   // and the wall-clock times staff enter and read.
-  timeZone             String   @default("Atlantic/Canary")
+  timeZone                       String   @default("Atlantic/Canary")
   // ISO 4217 code of prices, invoices and payments.
-  currency             String   @default("EUR")
+  currency                       String   @default("EUR")
   // New customers' language when none is given; the public site's default.
-  defaultLanguage      Language @default(EN)
+  defaultLanguage                Language @default(EN)
   // Public site branding: an https URL and #rrggbb colours.
-  logoUrl              String?
-  primaryColor         String?
-  accentColor          String?
+  logoUrl                        String?
+  primaryColor                   String?
+  accentColor                    String?
   // Invoice numbers are PREFIX-YYYY-0001, one series per tenant and year.
-  invoicePrefix        String   @default("INV")
-  partnerInvoicePrefix String   @default("PINV")
-  updatedAt            DateTime @updatedAt
+  invoicePrefix                  String   @default("INV")
+  partnerInvoicePrefix           String   @default("PINV")
+  // How often each tank test is due, in months after the last one
+  // (Equipment → Tanks). Set by admins; rules vary by country.
+  visualInspectionIntervalMonths Int      @default(12)
+  hydrostaticTestIntervalMonths  Int      @default(60)
+  updatedAt                      DateTime @updatedAt
 }
 
 enum NumberSeries {

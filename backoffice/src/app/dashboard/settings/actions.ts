@@ -88,6 +88,13 @@ export async function saveGeneral(_prev: SettingsFormState, formData: FormData):
     if (![invoicePrefix, partnerInvoicePrefix].every((p) => /^[A-Z0-9]{1,10}$/.test(p))) {
       return { error: "Invoice prefixes take 1 to 10 capital letters or digits" };
     }
+    const visualInspectionIntervalMonths = int(formData, "visualInspectionIntervalMonths");
+    const hydrostaticTestIntervalMonths = int(formData, "hydrostaticTestIntervalMonths");
+    for (const months of [visualInspectionIntervalMonths, hydrostaticTestIntervalMonths]) {
+      if (months === null || !Number.isInteger(months) || months < 1 || months > 120) {
+        return { error: "Tank test intervals are whole numbers of months, from 1 to 120" };
+      }
+    }
     const logoUrl = text(formData, "logoUrl");
     if (logoUrl && !logoUrl.startsWith("https://")) return { error: "The logo URL must start with https://" };
     // An unticked colour switch clears the colour.
@@ -101,6 +108,8 @@ export async function saveGeneral(_prev: SettingsFormState, formData: FormData):
       accentColor: colour("accentColor"),
       invoicePrefix,
       partnerInvoicePrefix,
+      visualInspectionIntervalMonths,
+      hydrostaticTestIntervalMonths,
     });
   }
   try {
