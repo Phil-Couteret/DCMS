@@ -61,9 +61,13 @@ export function InsuranceOfferForm({
       <Button type="submit" size="sm" disabled={pending || !chosen}>
         {pending ? t("Adding…") : chosen ? t("Add insurance ({price})", { price: money(chosen.price, currency) }) : t("Add insurance")}
       </Button>
-      {chosen && chosen.days < offer.days && (
+      {chosen && chosen.days < Math.max(offer.days, offer.declaredDays ?? 0) && (
         <p className="basis-full text-xs text-amber-900">
-          {t("{name} covers {count} days; the stay's diving spans {days}.", { name: t(chosen.name), count: chosen.days, days: offer.days })}
+          {t("{name} covers {count} days, less than the stay ({days} days).", {
+            name: t(chosen.name),
+            count: chosen.days,
+            days: Math.max(offer.days, offer.declaredDays ?? 0),
+          })}
         </p>
       )}
       <div className="basis-full">

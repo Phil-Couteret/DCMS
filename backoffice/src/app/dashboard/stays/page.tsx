@@ -103,6 +103,7 @@ function InsuranceNote({ t, insurance, customerId, currency }: { t: T; insurance
             {insurance.insuranceExpiry
               ? t("Their insurance expires on {date}, before the stay's last dive.", { date: formatBookingDate(insurance.insuranceExpiry) })
               : t("Every diver needs insurance or a signed waiver.")}{" "}
+            {offer.declaredDays !== null && `${t("Declared stay: {days} days.", { days: offer.declaredDays })} `}
             {offer.days === 1
               ? t("The stay has 1 diving day.")
               : t("The stay's diving spans {days} days.", { days: offer.days })}

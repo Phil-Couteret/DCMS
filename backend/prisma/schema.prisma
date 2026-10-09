@@ -742,6 +742,9 @@ model Booking {
   id               String          @id @default(uuid())
   tenantId         String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  // How many days the customer said they are staying (asked at the
+  // first-dive insurance check), to suggest the insurance that covers it.
+  plannedStayDays  Int?
   // Where the booking takes place. Set from its boat when not given
   // (trigger booking_location, migration add_location_to_resources).
   locationId       String?

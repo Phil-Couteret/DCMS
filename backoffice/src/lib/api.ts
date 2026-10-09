@@ -42,6 +42,7 @@ export interface Booking {
   bono: { id: string; code: string; type: BonoType; discountValue: string; description: string } | null;
   bonoUsed: boolean; // the bono's discount is on the booking's invoice
   addOns: BookingAddOn[];
+  plannedStayDays: number | null; // the stay length the customer declared at the insurance check
 }
 
 export type Language = "EN" | "ES" | "DE" | "FR";
@@ -218,6 +219,7 @@ export interface BookingQuoteInput {
   notes?: string;
   addOns: BookingAddOn[];
   bonoCode?: string;
+  plannedStayDays?: number;
 }
 
 export interface BookingQuote {
@@ -237,7 +239,13 @@ export interface BookingQuote {
   currency: string;
   stayDives: number | null; // fun dives: every fun dive in the stay, this one included
   stayChange: string | null; // what the stay's total changes by, when not this booking's own total
-  insurance: { check: boolean; insuranceExpiry: string | null; waiverSignedAt: string | null };
+  insurance: {
+    check: boolean;
+    insuranceExpiry: string | null;
+    waiverSignedAt: string | null;
+    // The insurance period covering the declared stay length.
+    suggestion: { id: string; name: string; days: number; price: string } | null;
+  };
 }
 
 export function quoteBooking(data: BookingQuoteInput) {
@@ -451,6 +459,7 @@ export interface BookingData {
   status?: BookingStatus; // create only; later changes go through the status actions
   bonoCode: string | null; // a government bono's code; "" removes it
   addOns: BookingAddOn[];
+  plannedStayDays?: number | null;
 }
 
 export function createBooking(data: BookingData) {
@@ -1621,7 +1630,8 @@ export interface StayInsurance {
   waiverSignedAt: string | null;
   offer: {
     days: number; // the stay's diving days, first to last
-    suggestedId: string | null; // null: no period is set
+    declaredDays: number | null; // the stay length the customer declared, if asked
+    suggestedId: string | null; // covers the longer of the two; null: no period is set
     options: (Omit<InsuranceOption, "price"> & { price: string })[];
   } | null;
 }

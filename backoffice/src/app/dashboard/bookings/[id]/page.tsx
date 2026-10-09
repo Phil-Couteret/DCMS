@@ -95,6 +95,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               </Row>
               <Row label={t("Participants")}>{booking.participantCount}</Row>
               <Row label={t("Dives")}>{booking.numberOfDives}</Row>
+              {booking.plannedStayDays !== null && (
+                <Row label={t("Planned stay")}>{t("{days} days, as declared", { days: booking.plannedStayDays })}</Row>
+              )}
               {booking.addOns.length > 0 && <Row label={t("Add-ons")}>{booking.addOns.map((a) => t(ADD_ON_LABELS[a])).join(", ")}</Row>}
               {booking.bono && (
                 <Row label={t("Government bono")}>

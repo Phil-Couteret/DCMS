@@ -617,6 +617,32 @@ export function BookingForm({
               <span className="block text-xs text-amber-900">{t("The customer has signed the liability waiver. Saved on their profile with today's date.")}</span>
             </span>
           </label>
+          {!waiverSigned && (
+            <div className="space-y-1">
+              <label className="block font-medium">
+                {t("Planned stay length (days)")}
+                <input
+                  type="number"
+                  name="plannedStayDays"
+                  min={1}
+                  max={3660}
+                  step={1}
+                  placeholder={t("e.g. 10")}
+                  className="mt-1 block w-32 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900"
+                />
+                <span className="mt-1 block text-xs font-normal text-amber-900">{t("As the customer tells you, to suggest the insurance that covers their stay.")}</span>
+              </label>
+              {insurance?.suggestion && quote && "quote" in quote && (
+                <p className="rounded-md bg-white/70 px-3 py-2 ring-1 ring-amber-200">
+                  {t("Suggested insurance: {name}, {price} (covers {days} days). Add it on the Stays page.", {
+                    name: t(insurance.suggestion.name),
+                    price: money(insurance.suggestion.price, quote.quote.currency),
+                    days: insurance.suggestion.days,
+                  })}
+                </p>
+              )}
+            </div>
+          )}
           <label className="flex items-start gap-2">
             <input
               type="checkbox"

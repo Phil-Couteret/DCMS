@@ -83,6 +83,7 @@ const BOOKING_SELECT = {
   boat: { select: { name: true } },
   shoreTime: true,
   locationId: true,
+  plannedStayDays: true,
   bonoId: true,
   bono: { select: { code: true, type: true, discountValue: true } },
   addOns: true,
@@ -119,7 +120,8 @@ function diveCover(customer: { insuranceExpiry: Date | null; waiverSignedAt: Dat
 
 // Dive insurance for a stay: how the customer is covered, or what to sell
 // them: every period the center offers, suggesting the shortest that covers
-// the stay's diving days. null when the stay has no diving.
+// the stay as the customer declared it (plannedStayDays on its bookings), or
+// its diving days if they run longer. null when the stay has no diving.
 function stayInsurance(
   customer: StayCustomer,
   bookings: StayBookingRow[],
@@ -132,6 +134,7 @@ function stayInsurance(
   const to = isoDay(diving[diving.length - 1].date);
   const cover = costs.some((c) => c.category === StayCostCategory.INSURANCE) ? ('added' as const) : diveCover(customer, to);
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
+  const declared = Math.max(0, ...bookings.map((b) => b.plannedStayDays ?? 0)) || null;
   return {
     cover, // insured, waiver, added (an insurance cost in the stay), or null
     insuranceExpiry: customer.insuranceExpiry ? isoDay(customer.insuranceExpiry) : null,
@@ -140,7 +143,8 @@ function stayInsurance(
       cover === null
         ? {
             days, // the stay's diving days, first to last
-            suggestedId: suggestedInsurance(prices.insurance, days)?.id ?? null,
+            declaredDays: declared, // the stay length the customer declared, if asked
+            suggestedId: suggestedInsurance(prices.insurance, Math.max(days, declared ?? 0))?.id ?? null,
             options: prices.insurance.map((o) => ({ ...o, price: money(o.price) })),
           }
         : null,
@@ -504,6 +508,7 @@ export class StaysService {
       boat: null,
       shoreTime: null,
       locationId: null,
+      plannedStayDays: dto.plannedStayDays ?? null,
       bonoId: null,
       bono,
       addOns: dto.addOns ?? [],
@@ -578,6 +583,11 @@ export class StaysService {
         check: insuranceCheck,
         insuranceExpiry: customer?.insuranceExpiry ? isoDay(customer.insuranceExpiry) : null,
         waiverSignedAt: customer?.waiverSignedAt ? isoDay(customer.waiverSignedAt) : null,
+        // The insurance that covers the declared stay, to sell with it.
+        suggestion: (() => {
+          const s = insuranceCheck && dto.plannedStayDays ? suggestedInsurance(prices.insurance, dto.plannedStayDays) : null;
+          return s && { ...s, price: money(s.price) };
+        })(),
       },
     };
   }

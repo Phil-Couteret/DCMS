@@ -276,7 +276,7 @@ describe('dive insurance on the stay bill', () => {
       expect(stay.insurance.offer.suggestedId).toBe(stay.insurance.offer.options[0].id);
       // With no period at all, nothing to add.
       await ok('PUT', '/settings/pricing', { ...p, insurance: [] });
-      expect((await ok('GET', `/stays/customer/${long}`)).insurance.offer).toEqual({ days: 6, suggestedId: null, options: [] });
+      expect((await ok('GET', `/stays/customer/${long}`)).insurance.offer).toEqual({ days: 6, declaredDays: null, suggestedId: null, options: [] });
       expect((await call('POST', `/stays/customer/${long}/insurance`, {})).status).toBe(400);
     } finally {
       await ok('PUT', '/settings/pricing', p);
@@ -297,6 +297,60 @@ describe('dive insurance on the stay bill', () => {
     await booking(snorkel, { date: isoDay(2), activityType: 'SNORKELING' });
     expect((await ok('GET', `/stays/customer/${snorkel}`)).insurance).toBeNull();
     expect((await call('POST', `/stays/customer/${snorkel}/insurance`, {})).status).toBe(400);
+  });
+});
+
+describe('declared stay length', () => {
+  const withTwoWeeks = async () => {
+    const p = await priceList();
+    const insurance = [
+      ...p.insurance,
+      { name: '2 weeks', days: 14, price: 30 },
+    ];
+    await ok('PUT', '/settings/pricing', { ...p, insurance });
+    return p;
+  };
+
+  it('the insurance check suggests the period covering the declared stay', async () => {
+    const p = await withTwoWeeks();
+    try {
+      const c = await customer();
+      // 10 days: 2 weeks, the shortest period that covers them.
+      const q = await quote({ customerId: c, plannedStayDays: 10 });
+      expect(q.insurance).toMatchObject({ check: true, suggestion: { name: '2 weeks', days: 14, price: '30.00' } });
+      // 20 days: no 2-week cover is enough, so the next period up.
+      expect((await quote({ customerId: c, plannedStayDays: 20 })).insurance.suggestion).toMatchObject({ name: '1 month' });
+      // Nothing declared yet: no suggestion.
+      expect((await quote({ customerId: c })).insurance.suggestion).toBeNull();
+      // No check (insured), no suggestion.
+      const insured = await customer({ insuranceProvider: 'DAN', insuranceExpiry: isoDay(90) });
+      expect((await quote({ customerId: insured, plannedStayDays: 10 })).insurance).toMatchObject({ check: false, suggestion: null });
+      expect((await call('POST', '/stays/quote', { activityType: 'FUN_DIVE', date: isoDay(3), timeSlot: 'MORNING', participantCount: 1, plannedStayDays: 0 })).status).toBe(400);
+    } finally {
+      await ok('PUT', '/settings/pricing', p);
+    }
+  });
+
+  it('the booking keeps it, and the Stays page pre-selects the period covering it (or the diving days if longer)', async () => {
+    const p = await withTwoWeeks();
+    try {
+      const { insurance: options } = await priceList();
+      const id = (name: string) => options.find((o: { name: string }) => o.name === name).id;
+      const c = await customer();
+      const b = await booking(c, { date: isoDay(1), plannedStayDays: 10 });
+      expect(b.plannedStayDays).toBe(10);
+      const stay = await ok('GET', `/stays/customer/${c}`);
+      expect(stay.insurance.offer).toMatchObject({ days: 1, declaredDays: 10, suggestedId: id('2 weeks') });
+      // Diving runs past the declared stay: the diving days decide.
+      await booking(c, { date: isoDay(20) });
+      expect((await ok('GET', `/stays/customer/${c}`)).insurance.offer).toMatchObject({ days: 20, declaredDays: 10, suggestedId: id('1 month') });
+      // Staff can still choose another period.
+      expect(await ok('POST', `/stays/customer/${c}/insurance`, { periodId: id('2 weeks') })).toMatchObject({ description: 'Dive insurance (2 weeks)' });
+      // Corrected on the booking.
+      expect((await ok('PATCH', `/bookings/${b.id}`, { plannedStayDays: 12 })).plannedStayDays).toBe(12);
+    } finally {
+      await ok('PUT', '/settings/pricing', p);
+    }
   });
 });
 

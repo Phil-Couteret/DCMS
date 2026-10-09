@@ -98,6 +98,15 @@ function chosenAddOns(formData: FormData): BookingAddOn[] {
   return ADD_ONS.map((a) => a.key).filter((k) => formData.getAll("addOns").includes(k));
 }
 
+// The declared stay length (days): a number, null when left empty, or
+// undefined when it is not a whole number from 1 to 3660.
+function stayDays(formData: FormData) {
+  const raw = text(formData, "plannedStayDays");
+  if (!raw) return null;
+  const days = Number(raw);
+  return /^\d{1,4}$/.test(raw) && days >= 1 && days <= 3660 ? days : undefined;
+}
+
 export type QuoteState = { quote: BookingQuote } | { error: string } | null;
 
 // The booking form's live price: the form as it is, priced by the API as its
@@ -117,6 +126,7 @@ export async function quoteBookingForm(formData: FormData): Promise<QuoteState> 
   if (!Number.isInteger(participantCount) || participantCount < 1) return null;
   if (!Number.isInteger(numberOfDives) || numberOfDives < 1 || numberOfDives > 20) return null;
   const source = text(formData, "bookingSource");
+  const plannedStayDays = stayDays(formData);
   try {
     const quote = await quoteBooking({
       ...(UUID.test(customerId) && { customerId }),
@@ -131,6 +141,7 @@ export async function quoteBookingForm(formData: FormData): Promise<QuoteState> 
       notes: buildNotes(null, chosenEquipment(formData), "") ?? undefined,
       addOns: chosenAddOns(formData),
       ...(/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(bonoCode) && { bonoCode }),
+      ...(typeof plannedStayDays === "number" && { plannedStayDays }),
     });
     return { quote };
   } catch (e) {
@@ -200,6 +211,8 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     }
   }
   const today = waiverSigned ? centerNow((await centerLocale()).timeZone).isoDate : null;
+  const plannedStayDays = stayDays(formData);
+  if (plannedStayDays === undefined) return { error: t("The planned stay length is a number of days, from 1 to 3660") };
 
   let customerId = text(formData, "customerId");
   let createdCustomer: { id: string; label: string } | undefined;
@@ -259,6 +272,8 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     ...(!bookingId && { status }),
     bonoCode: bonoCode || (bookingId ? "" : null),
     addOns: chosenAddOns(formData),
+    // Only asked at the insurance check of a new booking.
+    ...(plannedStayDays !== null && { plannedStayDays }),
   };
 
   let savedId: string;

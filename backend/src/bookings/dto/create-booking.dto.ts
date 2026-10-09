@@ -86,6 +86,14 @@ export class CreateBookingDto {
   @IsEnum(BookingAddOn, { each: true })
   addOns?: BookingAddOn[];
 
+  // The days the customer says they are staying, asked at the first-dive
+  // insurance check; suggests the insurance period on the Stays page.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(3660)
+  plannedStayDays?: number | null;
+
   // A government bono's code; its discount is applied when the booking is
   // invoiced. null or "" removes it on update.
   @IsOptional()

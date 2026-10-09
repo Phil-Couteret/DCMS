@@ -31,6 +31,7 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     addOns: [],
     shoreTime: null,
     locationId: null,
+    plannedStayDays: null,
     pricePerDiver: null,
     equipmentPrice: null,
     addOnPrices: null,

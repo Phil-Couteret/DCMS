@@ -1,6 +1,17 @@
 // Spanish and French for the backoffice's customers screens, keyed by the
 // English text (see ../core.ts). Keep keys sorted within each language.
 export const es: Record<string, string> = {
+  "Planned stay length (days)": "Duración prevista de la estancia (días)",
+  "e.g. 10": "p. ej. 10",
+  "As the customer tells you, to suggest the insurance that covers their stay.": "Según lo que indique el cliente, para sugerir el seguro que cubra su estancia.",
+  "Suggested insurance: {name}, {price} (covers {days} days). Add it on the Stays page.": "Seguro sugerido: {name}, {price} (cubre {days} días). Añádalo en la página Estancias.",
+  "The planned stay length is a number of days, from 1 to 3660": "La duración prevista de la estancia es un número de días, de 1 a 3660",
+  "{name} covers {count} days, less than the stay ({days} days).": "{name} cubre {count} días, menos que la estancia ({days} días).",
+  "Declared stay: {days} days.": "Estancia declarada: {days} días.",
+  "Planned stay": "Estancia prevista",
+  "{days} days, as declared": "{days} días, según lo declarado",
+  "2 weeks": "2 semanas",
+  "Dive insurance (2 weeks)": "Seguro de buceo (2 semanas)",
   "Add insurance": "Añadir seguro",
   "Add period": "Añadir periodo",
   "Choose an insurance period": "Elija un periodo de seguro",
@@ -19,7 +30,6 @@ export const es: Record<string, string> = {
   "Two insurance periods have the same name": "Dos periodos de seguro tienen el mismo nombre",
   "e.g. 2 weeks": "p. ej. 2 semanas",
   "suggested": "sugerido",
-  "{name} covers {count} days; the stay's diving spans {days}.": "{name} cubre {count} días; el buceo de la estancia abarca {days}.",
   "{name}: enter its price": "{name}: introduzca su precio",
   "{name}: the days covered must be a whole number from 1 to 3660": "{name}: los días cubiertos deben ser un número entero de 1 a 3660",
   "1 day": "1 día",
@@ -481,6 +491,17 @@ export const es: Record<string, string> = {
 };
 
 export const fr: Record<string, string> = {
+  "Planned stay length (days)": "Durée prévue du séjour (jours)",
+  "e.g. 10": "par ex. 10",
+  "As the customer tells you, to suggest the insurance that covers their stay.": "Selon ce que le client vous indique, pour suggérer l’assurance qui couvre son séjour.",
+  "Suggested insurance: {name}, {price} (covers {days} days). Add it on the Stays page.": "Assurance suggérée : {name}, {price} (couvre {days} jours). Ajoutez-la sur la page Séjours.",
+  "The planned stay length is a number of days, from 1 to 3660": "La durée prévue du séjour est un nombre de jours, de 1 à 3660",
+  "{name} covers {count} days, less than the stay ({days} days).": "{name} couvre {count} jours, moins que le séjour ({days} jours).",
+  "Declared stay: {days} days.": "Séjour déclaré : {days} jours.",
+  "Planned stay": "Séjour prévu",
+  "{days} days, as declared": "{days} jours, selon la déclaration",
+  "2 weeks": "2 semaines",
+  "Dive insurance (2 weeks)": "Assurance plongée (2 semaines)",
   "Add insurance": "Ajouter l’assurance",
   "Add period": "Ajouter une période",
   "Choose an insurance period": "Choisissez une période d’assurance",
@@ -499,7 +520,6 @@ export const fr: Record<string, string> = {
   "Two insurance periods have the same name": "Deux périodes d’assurance ont le même nom",
   "e.g. 2 weeks": "par ex. 2 semaines",
   "suggested": "suggérée",
-  "{name} covers {count} days; the stay's diving spans {days}.": "{name} couvre {count} jours ; les plongées du séjour s’étendent sur {days}.",
   "{name}: enter its price": "{name} : saisissez son prix",
   "{name}: the days covered must be a whole number from 1 to 3660": "{name} : les jours couverts doivent être un nombre entier de 1 à 3660",
   "1 day": "1 jour",
