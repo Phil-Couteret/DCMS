@@ -1,5 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import { ActivityType, Language, BookingAddOn } from '../generated/prisma/enums.js';
+import { ActivityType, Language, BookingAddOn, InsurancePeriod } from '../generated/prisma/enums.js';
 
 // What a new tenant starts with, and what is assumed for a tenant whose
 // settings row is missing. The values are the first center's (Canary
@@ -50,6 +50,13 @@ export const DEFAULT_PRICE_LIST = {
     { diveCount: 5, price: 200 },
     { diveCount: 10, price: 380 },
   ],
+  // The original system's dive insurance prices.
+  insurance: [
+    [InsurancePeriod.DAY, 7],
+    [InsurancePeriod.WEEK, 18],
+    [InsurancePeriod.MONTH, 25],
+    [InsurancePeriod.YEAR, 45],
+  ] as [InsurancePeriod, number][],
 };
 
 export interface TenantSetup {
@@ -63,7 +70,7 @@ export interface TenantSetup {
 
 type Db = Pick<
   Prisma.TransactionClient,
-  'centerSettings' | 'activityPrice' | 'equipmentPrice' | 'funDiveTier' | 'addOnPrice' | 'divePack'
+  'centerSettings' | 'activityPrice' | 'equipmentPrice' | 'funDiveTier' | 'addOnPrice' | 'divePack' | 'insurancePrice'
 >;
 
 // A new tenant's settings row and price list, so it can price and invoice
@@ -87,6 +94,7 @@ export async function seedTenantDefaults(db: Db, setup: TenantSetup) {
   await db.funDiveTier.createMany({ data: DEFAULT_PRICE_LIST.funDiveTiers });
   await db.addOnPrice.createMany({ data: DEFAULT_PRICE_LIST.addOns.map(([addOn, price]) => ({ addOn, price })) });
   await db.divePack.createMany({ data: DEFAULT_PRICE_LIST.divePacks });
+  await db.insurancePrice.createMany({ data: DEFAULT_PRICE_LIST.insurance.map(([period, price]) => ({ period, price })) });
 }
 
 // Valid IANA time zones and ISO 4217 currencies, as this runtime knows them.

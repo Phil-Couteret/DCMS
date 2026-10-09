@@ -22,6 +22,6 @@ export class DivePrepController {
 
   @Get('compliance')
   compliance(@Query() q: DivePrepDateDto) {
-    return this.prep.compliance(q.date);
+    return this.prep.compliance(q.date, q.locationId);
   }
 }

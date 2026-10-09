@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDiveLogs, getDiveSites, getStaff } from "@/lib/api";
 import { formatDay } from "@/lib/dive-logs";
+import { chosenLocation } from "@/lib/current-location";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -28,11 +29,13 @@ export default async function DiveLogsPage({
   const date = ISO_DATE.test(one(params.date) ?? "") ? one(params.date) : undefined;
   const siteId = UUID.test(one(params.siteId) ?? "") ? one(params.siteId) : undefined;
   const guideId = UUID.test(one(params.guideId) ?? "") ? one(params.guideId) : undefined;
-  const filtered = Boolean(date || siteId || guideId);
+  // Dives at the sites of the location chosen at the top.
+  const location = await chosenLocation();
+  const filtered = Boolean(date || siteId || guideId || location);
 
   const [logsResult, sitesResult, guidesResult] = await Promise.allSettled([
-    getDiveLogs({ date, siteId, guideId }),
-    getDiveSites(),
+    getDiveLogs({ date, siteId, guideId, locationId: location }),
+    getDiveSites(location),
     getStaff({ type: "GUIDE" }),
   ]);
   const sites = sitesResult.status === "fulfilled" ? sitesResult.value : [];

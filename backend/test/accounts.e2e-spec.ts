@@ -97,7 +97,7 @@ afterAll(() =>
     await prisma.platformAuditLog.deleteMany({ where: { tenantId: { in: created } } });
     // A tenant created through the API comes with its settings, prices and
     // first location.
-    for (const table of ['CenterSettings', 'ActivityPrice', 'EquipmentPrice', 'FunDiveTier', 'AddOnPrice', 'DivePack', 'Location']) {
+    for (const table of ['CenterSettings', 'ActivityPrice', 'EquipmentPrice', 'FunDiveTier', 'AddOnPrice', 'DivePack', 'InsurancePrice', 'Location']) {
       await prisma.$executeRawUnsafe(`DELETE FROM "${table}" WHERE "tenantId" = ANY($1::text[])`, created);
     }
     await prisma.tenant.deleteMany({ where: { id: { in: created } } });

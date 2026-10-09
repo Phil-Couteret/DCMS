@@ -62,6 +62,7 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
           insuranceProvider: customer.insuranceProvider ?? "",
           insurancePolicyNumber: customer.insurancePolicyNumber ?? "",
           insuranceExpiry: customer.insuranceExpiry?.slice(0, 10) ?? "",
+          waiverSignedAt: customer.waiverSignedAt?.slice(0, 10) ?? "",
           ownEquipment: customer.ownEquipment,
           tankSize: customer.tankSize ?? "",
           bcdSize: customer.bcdSize ?? "",

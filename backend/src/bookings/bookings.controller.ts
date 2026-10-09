@@ -30,8 +30,9 @@ export class BookingsController {
     @Query('date', ParseDatePipe) date?: string,
     @Query('boatId', new ParseUUIDPipe({ optional: true })) boatId?: string,
     @Query('customerId', new ParseUUIDPipe({ optional: true })) customerId?: string,
+    @Query('locationId', new ParseUUIDPipe({ optional: true })) locationId?: string,
   ) {
-    return this.bookings.findAll({ status, date, boatId, customerId });
+    return this.bookings.findAll({ status, date, boatId, customerId, locationId });
   }
 
   @Get(':id')

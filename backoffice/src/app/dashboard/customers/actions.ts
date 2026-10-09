@@ -86,6 +86,7 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
   const loyaltyPoints = count(formData, "loyaltyPoints");
   const medicalCertExpiry = text(formData, "medicalCertExpiry");
   const insuranceExpiry = text(formData, "insuranceExpiry");
+  const waiverSignedAt = text(formData, "waiverSignedAt");
   const ownEquipment = formData.get("ownEquipment") === "on";
 
   if (!firstName || !lastName) return { error: t("Enter a first and last name") };
@@ -102,6 +103,7 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
   if (loyaltyPoints === null) return { error: t("Loyalty points must be a whole number, 0 or more") };
   if (medicalCertExpiry && !ISO_DATE.test(medicalCertExpiry)) return { error: t("Enter a valid medical certificate expiry") };
   if (insuranceExpiry && !ISO_DATE.test(insuranceExpiry)) return { error: t("Enter a valid insurance expiry") };
+  if (waiverSignedAt && !ISO_DATE.test(waiverSignedAt)) return { error: t("Enter a valid waiver date") };
 
   // With their own equipment, the rental size fields are disabled and not
   // sent: the sizes on record are kept.
@@ -154,6 +156,7 @@ export async function saveCustomer(_prev: CustomerFormState, formData: FormData)
     insuranceProvider: text(formData, "insuranceProvider") || null,
     insurancePolicyNumber: text(formData, "insurancePolicyNumber") || null,
     insuranceExpiry: insuranceExpiry || null,
+    waiverSignedAt: waiverSignedAt || null,
     ownEquipment,
     tankSize: tank.value,
     ...sizes,

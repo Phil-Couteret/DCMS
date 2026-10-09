@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getLocations, getSettings, getTanks, type LocationRef, type Tank, type TankTestState } from "@/lib/api";
 import { formatDay } from "@/lib/equipment";
 import type { T } from "@/lib/i18n/core";
+import { pageLocation } from "@/lib/current-location";
 import { getT } from "@/lib/i18n/server";
 import {
   interval,
@@ -86,7 +87,9 @@ export async function TanksPanel({ params }: { params: Record<string, string | u
   const test = TEST_FILTERS.find((f) => f.key === params.test)?.key;
   const t = await getT();
   const show = params.show === "retired" || params.show === "all" ? params.show : "active";
-  const location = params.location && UUID.test(params.location) ? params.location : undefined;
+  // The filter's location, else the one chosen at the top ("" in the
+  // filter: all of them).
+  const location = await pageLocation(params.location);
   // ?tank=new, =import, or a tank's id: the dialog.
   const open = params.tank;
 

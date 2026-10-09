@@ -296,6 +296,7 @@ const DATE_FIELDS = [
   'medicalCertVerifiedAt',
   'insuranceExpiry',
   'insuranceVerifiedAt',
+  'waiverSignedAt',
 ] as const;
 
 function toData(dto: Omit<UpdateCustomerDto, 'email'>): Prisma.CustomerUncheckedUpdateInput {

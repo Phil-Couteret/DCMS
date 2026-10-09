@@ -43,6 +43,7 @@ export interface CustomerFormValues {
   insuranceProvider: string;
   insurancePolicyNumber: string;
   insuranceExpiry: string;
+  waiverSignedAt: string; // YYYY-MM-DD, or "" when not signed
   ownEquipment: boolean;
   tankSize: string;
   bcdSize: string;
@@ -237,6 +238,11 @@ export function CustomerForm({
           <label className={label}>
             {t("Expiry date")}
             <input type="date" name="insuranceExpiry" defaultValue={initial.insuranceExpiry} className={control} />
+          </label>
+          <label className={label}>
+            {t("Waiver signed on")}
+            <input type="date" name="waiverSignedAt" defaultValue={initial.waiverSignedAt} className={control} />
+            <span className="mt-1 block text-xs font-normal text-zinc-500">{t("A signed liability waiver is accepted instead of dive insurance.")}</span>
           </label>
         </div>
         {customerId && (

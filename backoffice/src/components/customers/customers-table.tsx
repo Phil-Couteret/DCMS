@@ -11,24 +11,29 @@ import { countryName } from "@/lib/countries";
 import { CUSTOMER_TYPE_LABELS, LANGUAGE_LABELS, SKILL_LEVEL_LABELS } from "@/lib/customers";
 import { useT } from "@/lib/i18n/client";
 
-// Name search runs in the browser over the customers already loaded.
+// Search runs in the browser over the customers already loaded: by name or
+// email, or by phone number whatever its spacing and punctuation.
+function matches(c: Customer, q: string) {
+  if (`${c.firstName} ${c.lastName}`.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)) return true;
+  const digits = q.replace(/\D/g, "");
+  return digits.length >= 3 && (c.phone ?? "").replace(/\D/g, "").includes(digits);
+}
+
 export function CustomersTable({ customers, filtered }: { customers: Customer[]; filtered: boolean }) {
   const t = useT();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-  const rows = q
-    ? customers.filter((c) => `${c.firstName} ${c.lastName}`.toLowerCase().includes(q))
-    : customers;
+  const rows = q ? customers.filter((c) => matches(c, q)) : customers;
 
   return (
     <div className="space-y-4">
       <label className="block max-w-sm text-sm font-medium text-zinc-700">
-        {t("Search by name")}
+        {t("Search by name, email or phone")}
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("e.g. Ana Diaz")}
+          placeholder={t("e.g. Ana Diaz, ana@example.com, 612 345 678")}
           className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
         />
       </label>

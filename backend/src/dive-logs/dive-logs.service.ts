@@ -38,12 +38,14 @@ const DETAIL_INCLUDE = {
 export class DiveLogsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(filters: { date?: string; siteId?: string; guideId?: string } = {}) {
+  // locationId: dives at that location's sites.
+  findAll(filters: { date?: string; siteId?: string; guideId?: string; locationId?: string } = {}) {
     return this.prisma.diveLog.findMany({
       where: {
         ...(filters.date && { date: startOfUtcDay(filters.date) }),
         ...(filters.siteId && { siteId: filters.siteId }),
         ...(filters.guideId && { guideId: filters.guideId }),
+        ...(filters.locationId && { site: { locationId: filters.locationId } }),
       },
       include: LIST_INCLUDE,
       orderBy: [{ date: 'desc' }, { entryTime: 'desc' }],

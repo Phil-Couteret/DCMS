@@ -67,6 +67,13 @@ export class AddOnPricesDto {
   @Price() personalInstructor: number; // per booking
 }
 
+export class InsurancePricesDto {
+  @Price() day: number;
+  @Price() week: number;
+  @Price() month: number;
+  @Price() year: number;
+}
+
 export class DivePackDto {
   @IsInt()
   @Min(2)
@@ -101,6 +108,12 @@ export class UpdatePricingDto {
   @ValidateNested()
   @Type(() => AddOnPricesDto)
   addOns?: AddOnPricesDto;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => InsurancePricesDto)
+  insurance?: InsurancePricesDto;
 
   // An empty list removes every pack.
   @IsOptional()

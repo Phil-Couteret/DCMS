@@ -255,10 +255,10 @@ export class DivePrepService {
   // Completed trips of a day with what Spanish dive regulations (RD 933/2021)
   // ask to be recorded: site, times, crew and each diver's gender,
   // certification and nationality.
-  async compliance(dateIso: string) {
+  async compliance(dateIso: string, locationId?: string) {
     const date = startOfUtcDay(dateIso);
     const trips = await this.prisma.trip.findMany({
-      where: { date, status: TripStatus.COMPLETED },
+      where: { date, status: TripStatus.COMPLETED, ...tripAtLocation(locationId) },
       include: PREP_TRIP,
       orderBy: [{ timeSlot: 'asc' }, { isShore: 'asc' }, { boat: { name: 'asc' } }, { startTime: 'asc' }],
     });

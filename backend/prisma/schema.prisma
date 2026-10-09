@@ -103,6 +103,7 @@ model Tenant {
   addOnPrices            AddOnPrice[]
   customerAccounts       User[]                  @relation("CustomerAccounts")
   divePacks              DivePack[]
+  insurancePrices        InsurancePrice[]
   invitations            Invitation[]
 }
 
@@ -350,6 +351,8 @@ model Customer {
   insurancePolicyNumber String?
   insuranceExpiry       DateTime?
   insuranceVerifiedAt   DateTime?
+  // A signed liability waiver: accepted instead of dive insurance.
+  waiverSignedAt        DateTime?
   // ownEquipment: brings a full set; the tank is always the center's.
   ownEquipment          Boolean                 @default(false)
   tankSize              String?
@@ -504,6 +507,24 @@ model AddOnPrice {
   updatedAt DateTime     @updatedAt
 
   @@id([tenantId, addOn])
+}
+
+// Dive insurance sold with a stay, for the period that covers it.
+enum InsurancePeriod {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+model InsurancePrice {
+  tenantId  String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  period    InsurancePeriod
+  price     Decimal         @db.Decimal(8, 2)
+  updatedAt DateTime        @updatedAt
+
+  @@id([tenantId, period])
 }
 
 // A fixed price for a number of fun dives (per diver), offered when a stay's

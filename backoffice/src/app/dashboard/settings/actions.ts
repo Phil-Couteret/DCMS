@@ -36,6 +36,7 @@ import {
   type BoatData,
   type EquipmentPriceKey,
   type FunDiveTier,
+  type InsurancePrices,
   type Language,
   type SettingsData,
   type DiveSiteData,
@@ -402,6 +403,13 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
   if (addOns.nightDive == null) return { error: t("Night dive surcharge: enter a price such as 20") };
   if (addOns.personalInstructor == null) return { error: t("Personal instructor fee: enter a price such as 100") };
 
+  const insurance = {} as InsurancePrices;
+  for (const [key, period] of [["day", "1 day"], ["week", "1 week"], ["month", "1 month"], ["year", "1 year"]] as const) {
+    const value = price(text(formData, `insurance_${key}`));
+    if (value == null) return { error: t("Dive insurance, {period}: enter a price such as 18", { period: t(period) }) };
+    insurance[key] = value;
+  }
+
   const [packDives, packPrices] = ["packDives", "packPrice"].map(column);
   const divePacks: DivePack[] = [];
   for (let i = 0; i < packDives.length; i++) {
@@ -424,6 +432,7 @@ export async function savePricing(_prev: SettingsFormState, formData: FormData):
       funDiveTiers,
       addOns: { nightDive: addOns.nightDive, personalInstructor: addOns.personalInstructor },
       divePacks: divePacks.sort((a, b) => a.diveCount - b.diveCount),
+      insurance,
     });
   } catch (e) {
     return fail(e, t("The prices could not be saved"));

@@ -16,13 +16,11 @@ import {
   getComplianceReport,
   getDivePrep,
   getDiveSites,
-  getLocations,
   getTrips,
   type DivePrep,
   type PrepBooking,
   type PrepTrip,
   type TimeSlot,
-  type LocationRef,
 } from "@/lib/api";
 import { ACTIVITY_LABELS } from "@/lib/bookings";
 import { centerNow } from "@/lib/center-time";
@@ -37,11 +35,11 @@ import {
 } from "@/lib/dive-prep";
 import { tripPlace, formatDayLabel, ROLE_LABELS, SLOT_NAMES, TRIP_SLOTS } from "@/lib/trips";
 import { centerLocale } from "@/lib/center";
+import { pageLocation } from "@/lib/current-location";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const control =
@@ -92,31 +90,17 @@ async function PrepControls({
   date,
   slot,
   location,
-  locations,
 }: {
   tab: PrepTab;
   date: string;
   slot: TimeSlot;
   location?: string;
-  locations: LocationRef[];
 }) {
   const t = await getT();
   return (
     <form method="get" className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-zinc-200">
       {tab !== "prep" && <input type="hidden" name="tab" value={tab} />}
-      {locations.length > 0 && (
-        <label className="block text-sm font-medium text-zinc-700">
-          {t("Location")}
-          <select name="location" defaultValue={location ?? ""} className={control}>
-            <option value="">{t("All locations")}</option>
-            {locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      {location && <input type="hidden" name="location" value={location} />}
       <label className="block text-sm font-medium text-zinc-700">
         {t("Date")}
         <input type="date" name="date" defaultValue={date} className={control} />
@@ -438,11 +422,11 @@ async function ReportTab({ date, location }: { date: string; location?: string }
   );
 }
 
-async function ComplianceTab({ date }: { date: string }) {
+async function ComplianceTab({ date, location }: { date: string; location?: string }) {
   const t = await getT();
   let report;
   try {
-    report = await getComplianceReport(date);
+    report = await getComplianceReport(date, location);
   } catch (e) {
     return <LoadError what="The compliance report could not be loaded: {error}" reason={e} />;
   }
@@ -460,7 +444,7 @@ async function ComplianceTab({ date }: { date: string }) {
             <Button
               variant="outline"
               nativeButton={false}
-              render={<a href={`/dashboard/dive-prep/compliance-csv?date=${date}`} download />}
+              render={<a href={`/dashboard/dive-prep/compliance-csv?${new URLSearchParams({ date, ...(location && { location }) })}`} download />}
             >
               {t("Download CSV")}
             </Button>
@@ -555,9 +539,9 @@ export default async function DivePrepPage({
   const rawDate = one(params.date);
   const date = rawDate && ISO_DATE.test(rawDate) ? rawDate : centerNow(timeZone).isoDate;
   const slot = TRIP_SLOTS.find((s) => s === one(params.slot)) ?? "MORNING";
-  // Only one location's trips, bookings, boats and sites; kept in every link.
-  const location = UUID.test(one(params.location) ?? "") ? one(params.location) : undefined;
-  const locations = await getLocations(true).catch(() => []);
+  // Only one location's trips, bookings, boats and sites (the switcher at
+  // the top, or a link's ?location=); kept in every link.
+  const location = await pageLocation(params.location);
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -581,11 +565,11 @@ export default async function DivePrepPage({
         ))}
       </nav>
       <div className="print:hidden">
-        <PrepControls tab={tab} date={date} slot={slot} location={location} locations={locations} />
+        <PrepControls tab={tab} date={date} slot={slot} location={location} />
       </div>
       {tab === "prep" && <PreparationTab date={date} slot={slot} location={location} />}
       {tab === "report" && <ReportTab date={date} location={location} />}
-      {tab === "compliance" && <ComplianceTab date={date} />}
+      {tab === "compliance" && <ComplianceTab date={date} location={location} />}
     </main>
   );
 }

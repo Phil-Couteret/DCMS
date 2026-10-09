@@ -1,15 +1,18 @@
 import Link from "next/link";
+import { ActionButton } from "@/components/action-button";
 import { BillStayButton, StayCosts } from "@/components/stays/stay-forms";
+import { addInsuranceAction } from "./actions";
 import { Button } from "@/components/ui/button";
-import { getPricing, getStays, type FunDiveTier, type Stay } from "@/lib/api";
+import { getPricing, getStays, type FunDiveTier, type Stay, type StayInsurance } from "@/lib/api";
 import { money } from "@/lib/billing";
 import { centerNow } from "@/lib/center-time";
 import { volumeBadge } from "@/lib/stays";
 import { SLOT_NAMES } from "@/lib/trips";
-import { ACTIVITY_LABELS } from "@/lib/bookings";
+import { ACTIVITY_LABELS, formatBookingDate } from "@/lib/bookings";
 import { ADD_ON_LABELS } from "@/lib/add-ons";
 import { centerLocale } from "@/lib/center";
 import type { T } from "@/lib/i18n/core";
+import { chosenLocation } from "@/lib/current-location";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +90,37 @@ function PriceChanges({ t, changes, currency }: { t: T; changes: Stay["priceChan
       </ul>
     </div>
   );
+}
+
+// Dive insurance for the stay's diving: how the customer is covered, or the
+// insurance to add to the bill.
+function InsuranceNote({ t, insurance, customerId, currency }: { t: T; insurance: StayInsurance; customerId: string; currency: string }) {
+  if (insurance.offer) {
+    const { offer } = insurance;
+    return (
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-amber-300">
+        <div>
+          <p className="font-medium">{t("No dive insurance and no signed waiver")}</p>
+          <p className="mt-0.5">
+            {insurance.insuranceExpiry
+              ? t("Their insurance expires on {date}, before the stay's last dive.", { date: formatBookingDate(insurance.insuranceExpiry) })
+              : t("Every diver needs insurance or a signed waiver.")}{" "}
+            {t("Add {item} to the bill for {price}?", { item: t(offer.description), price: money(offer.price, currency) })}
+          </p>
+        </div>
+        <ActionButton action={addInsuranceAction} fields={{ customerId }} pendingLabel={t("Adding…")}>
+          {t("Add insurance ({price})", { price: money(offer.price, currency) })}
+        </ActionButton>
+      </div>
+    );
+  }
+  const text =
+    insurance.cover === "insured"
+      ? t("Dive insurance valid until {date}.", { date: formatBookingDate(insurance.insuranceExpiry!) })
+      : insurance.cover === "waiver"
+        ? t("Liability waiver signed on {date}.", { date: formatBookingDate(insurance.waiverSignedAt!) })
+        : t("Dive insurance is in the extra costs.");
+  return <p className="text-sm text-zinc-600">✓ {text}</p>;
 }
 
 async function StayCard({
@@ -261,6 +295,7 @@ async function StayCard({
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-zinc-900">{t("Extra costs")}</h3>
+          {stay.insurance && <InsuranceNote t={t} insurance={stay.insurance} customerId={customer.id} currency={currency} />}
           <StayCosts customerId={customer.id} costs={stay.costs} total={stay.totals.costs} today={today} taxName={taxName} currency={currency} />
         </section>
 
@@ -300,8 +335,9 @@ export default async function StaysPage() {
   let taxName: string;
   let tiers: FunDiveTier[];
   try {
-    const [list, pricing] = await Promise.all([getStays(), getPricing()]);
-    stays = list;
+    const [list, pricing, location] = await Promise.all([getStays(), getPricing(), chosenLocation()]);
+    // With a location chosen at the top: the stays with a booking there.
+    stays = location ? list.filter((s) => s.bookings.some((b) => b.locationId === location)) : list;
     taxName = pricing.taxName;
     tiers = pricing.funDiveTiers;
   } catch (e) {

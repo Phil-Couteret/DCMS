@@ -123,6 +123,12 @@ export class CreateCustomerDto {
   @IsDateString()
   insuranceVerifiedAt?: string | null;
 
+  // When the customer signed the liability waiver, accepted instead of dive
+  // insurance; null: not signed.
+  @IsOptional()
+  @IsDateString()
+  waiverSignedAt?: string | null;
+
   // Equipment: ownEquipment means a full set of their own; the tank is always
   // the center's. Sizes are free text (the backoffice offers XS-XXL, and
   // 10L/12L/15L/Nitrox for tanks); null clears one.

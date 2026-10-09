@@ -1,4 +1,3 @@
-import { LocationFilter } from "@/components/location-filter";
 import Link from "next/link";
 import { RoutedDialog, RoutedSheet } from "@/components/routed-panel";
 import { NewTripForm } from "@/components/schedule/trip-forms";
@@ -8,7 +7,6 @@ import {
   getBoats,
   getBookings,
   getDiveSites,
-  getLocations,
   getStaff,
   getTrip,
   getTrips,
@@ -32,6 +30,7 @@ import {
   type ScheduleView,
 } from "@/lib/trips";
 import { centerLocale } from "@/lib/center";
+import { pageLocation } from "@/lib/current-location";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -86,8 +85,9 @@ export default async function SchedulePage({
   const day = isoOrUndefined(one(params.day));
   const tripId = UUID.test(one(params.trip) ?? "") ? one(params.trip) : undefined;
   const newTripDate = isoOrUndefined(one(params.new));
-  // Only one location's trips, boats and sites; kept in every link.
-  const location = UUID.test(one(params.location) ?? "") ? one(params.location) : undefined;
+  // Only one location's trips, boats and sites (the switcher at the top, or
+  // a link's ?location=); kept in every link.
+  const location = await pageLocation(params.location);
 
   const base = { view, date: anchor, location };
   const href = {
@@ -108,7 +108,6 @@ export default async function SchedulePage({
     tripId ? loadTripPanel(tripId) : Promise.resolve(null),
     newTripDate ? Promise.all([getBoats(location), getDiveSites(location)]) : Promise.resolve(null),
   ]);
-  const locations = await getLocations(true).catch(() => []);
 
   const dayTrips =
     day && view === "month" && tripsResult.status === "fulfilled"
@@ -128,7 +127,6 @@ export default async function SchedulePage({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 ring-1 ring-zinc-200">
-        {locations.length > 0 && <LocationFilter locations={locations} value={location} />}
         <div className="flex gap-1" role="group" aria-label={tr("Calendar view")}>
           {SCHEDULE_VIEWS.map((v) => (
             <Button

@@ -101,7 +101,7 @@ afterAll(async () => {
       const ids = Object.values(center).map((c) => c.id);
       await prisma.invitation.deleteMany({ where: { tenantId: { in: ids } } });
       await prisma.membership.deleteMany({ where: { tenantId: { in: ids } } });
-      for (const table of ['CenterSettings', 'ActivityPrice', 'EquipmentPrice', 'FunDiveTier', 'AddOnPrice', 'DivePack']) {
+      for (const table of ['CenterSettings', 'ActivityPrice', 'EquipmentPrice', 'FunDiveTier', 'AddOnPrice', 'DivePack', 'InsurancePrice']) {
         await prisma.$executeRawUnsafe(`DELETE FROM "${table}" WHERE "tenantId" = ANY($1::text[])`, ids);
       }
       await prisma.user.deleteMany({ where: { email: { endsWith: `${run}@example.test` } } });

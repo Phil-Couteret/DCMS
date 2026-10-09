@@ -1108,6 +1108,46 @@ export function PricingForm({ pricing, canEdit }: { pricing: Pricing; canEdit: b
             </table>
           </div>
         </Card>
+
+        <Card
+          title={t("Dive insurance")}
+          description={t(
+            "Offered on the Stays page to a diver with no insurance and no signed waiver: the shortest cover for the stay's diving days.",
+          )}
+        >
+          <div className="overflow-x-auto rounded-lg ring-1 ring-zinc-200">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50">
+                <tr>
+                  <th className={th}>{t("Cover")}</th>
+                  <th className={thRight}>{t("Net price")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200">
+                {(
+                  [
+                    ["day", t("1 day")],
+                    ["week", t("1 week")],
+                    ["month", t("1 month")],
+                    ["year", t("1 year")],
+                  ] as const
+                ).map(([key, text]) => (
+                  <tr key={key}>
+                    <td className={`${td} font-medium text-zinc-900`}>{text}</td>
+                    <td className={td}>
+                      <PriceField
+                        currency={pricing.currency}
+                        name={`insurance_${key}`}
+                        value={pricing.insurance[key]}
+                        label={t("Dive insurance, {period}", { period: text })}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </fieldset>
       {canEdit && (
         <div className="flex flex-wrap items-center gap-3">

@@ -11,6 +11,7 @@ import { money } from "@/lib/billing";
 import { SLOT_LABELS, STATUS_LABELS } from "@/lib/bookings";
 import { centerNow, greeting, pendingAlert, SLOT_START, type SlotKey, zoneLabel } from "@/lib/center-time";
 import { centerLocale } from "@/lib/center";
+import { chosenLocation } from "@/lib/current-location";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -44,11 +45,13 @@ export default async function DashboardPage() {
   const isAdmin = (await auth())?.user.role === "ADMIN";
   const t = await getT();
   const activity = (a: string) => (ACTIVITY_LABELS[a] ? t(ACTIVITY_LABELS[a]) : a);
+  // Today's bookings and boats at the location chosen at the top.
+  const location = await chosenLocation();
   const [bookingsResult, boatsResult, staffResult, overviewResult] = await Promise.allSettled([
-    getTodayBookings(),
-    getBoats(),
+    getTodayBookings(location),
+    getBoats(location),
     getStaff(),
-    getDashboardOverview(),
+    getDashboardOverview(location),
   ]);
   const overview: DashboardOverview | null = overviewResult.status === "fulfilled" ? overviewResult.value : null;
 

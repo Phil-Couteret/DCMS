@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addStayCost, ApiError, billStay, deleteStayCost, updateStayCost, type StayCostCategory } from "@/lib/api";
+import { addStayCost, addStayInsurance, ApiError, billStay, deleteStayCost, updateStayCost, type StayCostCategory } from "@/lib/api";
 import { getT } from "@/lib/i18n/server";
 import { STAY_COST_CATEGORIES } from "@/lib/stays";
 
@@ -64,6 +64,20 @@ export async function deleteCostAction(_prev: StayFormState, formData: FormData)
     await deleteStayCost(costId);
   } catch (e) {
     return fail(e, t("Could not delete the cost"));
+  }
+  revalidatePath("/dashboard/stays");
+  return { ok: true };
+}
+
+// Adds the dive insurance the stay needs, at the price for its period.
+export async function addInsuranceAction(_prev: StayFormState, formData: FormData): Promise<StayFormState> {
+  const t = await getT();
+  const customerId = text(formData, "customerId");
+  if (!UUID.test(customerId)) return { error: t("Unknown stay") };
+  try {
+    await addStayInsurance(customerId);
+  } catch (e) {
+    return fail(e, t("Could not add the insurance"));
   }
   revalidatePath("/dashboard/stays");
   return { ok: true };

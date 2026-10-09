@@ -8,9 +8,13 @@ import {
   createBooking,
   createCustomer,
   getBooking,
+  quoteBooking,
   updateBooking,
+  updateCustomer,
   updateBookingStatus,
+  type BookingAddOn,
   type BookingData,
+  type BookingQuote,
   type BookingStatus,
   type Language,
   type TimeSlot,
@@ -25,6 +29,8 @@ import {
   STATUSES,
 } from "@/lib/bookings";
 import { LANGUAGES } from "@/lib/customers";
+import { centerLocale } from "@/lib/center";
+import { centerNow } from "@/lib/center-time";
 import { getT } from "@/lib/i18n/server";
 import { SHORE_START_TIMES, TRIP_SLOTS } from "@/lib/trips";
 
@@ -79,6 +85,60 @@ function message(e: unknown, fallback: string) {
   return e instanceof ApiError ? e.message : fallback;
 }
 
+// The rental items ticked on the form, with their sizes ("key:size").
+function chosenEquipment(formData: FormData) {
+  const chosen = new Set(formData.getAll("equipment").map(String));
+  return EQUIPMENT_ITEMS.filter((item) => chosen.has(item.key)).map((item) => {
+    const size = text(formData, `size_${item.key}`);
+    return item.sizes && item.sizes.includes(size) ? `${item.key}:${size}` : item.key;
+  });
+}
+
+function chosenAddOns(formData: FormData): BookingAddOn[] {
+  return ADD_ONS.map((a) => a.key).filter((k) => formData.getAll("addOns").includes(k));
+}
+
+export type QuoteState = { quote: BookingQuote } | { error: string } | null;
+
+// The booking form's live price: the form as it is, priced by the API as its
+// stay would bill it. Nothing is saved. A form that cannot be priced yet
+// (no activity or date, no participants) gives null.
+export async function quoteBookingForm(formData: FormData): Promise<QuoteState> {
+  const activityType = text(formData, "activityType");
+  const date = text(formData, "date");
+  const timeSlot = text(formData, "timeSlot") as TimeSlot;
+  const participantCount = Number(text(formData, "participantCount"));
+  const numberOfDives = Number(text(formData, "numberOfDives"));
+  const customerId = text(formData, "customerMode") === "existing" ? text(formData, "customerId") : "";
+  const bookingId = text(formData, "bookingId");
+  const partnerId = text(formData, "partnerId");
+  const bonoCode = text(formData, "bonoCode").toUpperCase();
+  if (!(activityType in ACTIVITY_LABELS) || !ISO_DATE.test(date) || !TRIP_SLOTS.includes(timeSlot)) return null;
+  if (!Number.isInteger(participantCount) || participantCount < 1) return null;
+  if (!Number.isInteger(numberOfDives) || numberOfDives < 1 || numberOfDives > 20) return null;
+  const source = text(formData, "bookingSource");
+  try {
+    const quote = await quoteBooking({
+      ...(UUID.test(customerId) && { customerId }),
+      ...(UUID.test(bookingId) && { bookingId }),
+      activityType,
+      date,
+      timeSlot,
+      participantCount,
+      numberOfDives,
+      ...(SOURCES.includes(source as (typeof SOURCES)[number]) && { bookingSource: source }),
+      ...(UUID.test(partnerId) && { partnerId }),
+      notes: buildNotes(null, chosenEquipment(formData), "") ?? undefined,
+      addOns: chosenAddOns(formData),
+      ...(/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(bonoCode) && { bonoCode }),
+    });
+    return { quote };
+  } catch (e) {
+    const t = await getT();
+    return { error: message(e, t("The price could not be worked out")) };
+  }
+}
+
 // Creates or updates a booking; with customerMode "new", creates the customer
 // first. Redirects to the booking on success.
 export async function saveBooking(_prev: BookingFormState, formData: FormData): Promise<BookingFormState> {
@@ -114,11 +174,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   if (bookingSource !== "PARTNER" && partnerId) return { error: t("Set the source to Partner, or choose no partner") };
   if (!bookingId && status !== "PENDING" && status !== "CONFIRMED") return { error: t("Choose a status") };
 
-  const chosen = new Set(formData.getAll("equipment").map(String));
-  const equipment = EQUIPMENT_ITEMS.filter((item) => chosen.has(item.key)).map((item) => {
-    const size = text(formData, `size_${item.key}`);
-    return item.sizes && item.sizes.includes(size) ? `${item.key}:${size}` : item.key;
-  });
+  const equipment = chosenEquipment(formData);
 
   const bonoCode = text(formData, "bonoCode").toUpperCase();
   if (bonoCode && !/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(bonoCode)) return { error: t("A bono code is letters, digits and dashes") };
@@ -131,6 +187,19 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
       return { error: message(e, t("The booking could not be loaded")) };
     }
   }
+
+  // The first-dive insurance check (new bookings): a diver with neither
+  // valid insurance nor a signed waiver must be acknowledged, or the waiver
+  // ticked. Checked here, whatever the page showed.
+  const waiverSigned = formData.get("waiverSigned") === "on";
+  const insuranceAcknowledged = formData.get("insuranceAcknowledged") === "on";
+  if (!bookingId && !waiverSigned && !insuranceAcknowledged) {
+    const checked = await quoteBookingForm(formData);
+    if (checked && "quote" in checked && checked.quote.insurance.check) {
+      return { error: t("This is the customer's first dive and they have no valid dive insurance: tick “Waiver signed” or acknowledge the warning.") };
+    }
+  }
+  const today = waiverSigned ? centerNow((await centerLocale()).timeZone).isoDate : null;
 
   let customerId = text(formData, "customerId");
   let createdCustomer: { id: string; label: string } | undefined;
@@ -154,6 +223,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
         language,
         birthdate: null,
         emergencyContact: null,
+        ...(today && { waiverSignedAt: today }),
       });
       customerId = customer.id;
       createdCustomer = { id: customer.id, label: `${customer.firstName} ${customer.lastName} · ${customer.email}` };
@@ -163,6 +233,13 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     }
   } else if (!UUID.test(customerId)) {
     return { error: t("Choose a customer") };
+  } else if (today) {
+    try {
+      await updateCustomer(customerId, { waiverSignedAt: today });
+      revalidatePath(`/dashboard/customers/${customerId}`);
+    } catch (e) {
+      return { error: message(e, t("The signed waiver could not be saved")) };
+    }
   }
 
   const data: BookingData = {
@@ -181,7 +258,7 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
     notes: buildNotes(previousNotes, equipment, text(formData, "notes")),
     ...(!bookingId && { status }),
     bonoCode: bonoCode || (bookingId ? "" : null),
-    addOns: ADD_ONS.map((a) => a.key).filter((k) => formData.getAll("addOns").includes(k)),
+    addOns: chosenAddOns(formData),
   };
 
   let savedId: string;

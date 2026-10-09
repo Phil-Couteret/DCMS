@@ -21,7 +21,8 @@ export class DashboardService {
     private readonly config: TenantConfig,
   ) {}
 
-  async overview(includeRevenue: boolean) {
+  // locationId: the bookings of that location only (revenue is the center's).
+  async overview(includeRevenue: boolean, locationId?: string) {
     const { timeZone, currency } = await this.config.get();
     const today = centerToday(timeZone);
     const trendFrom = addDays(today, -(TREND_DAYS - 1));
@@ -29,11 +30,15 @@ export class DashboardService {
     const [bookingsByActivity, upcoming, revenue] = await Promise.all([
       this.prisma.booking.groupBy({
         by: ['activityType'],
-        where: { date: { gte: dateOnly(trendFrom), lte: dateOnly(today) }, status: HAPPENING },
+        where: { date: { gte: dateOnly(trendFrom), lte: dateOnly(today) }, status: HAPPENING, ...(locationId && { locationId }) },
         _count: { _all: true },
       }),
       this.prisma.booking.findMany({
-        where: { date: { gte: dateOnly(today), lte: dateOnly(addDays(today, UPCOMING_DAYS - 1)) }, status: HAPPENING },
+        where: {
+          date: { gte: dateOnly(today), lte: dateOnly(addDays(today, UPCOMING_DAYS - 1)) },
+          status: HAPPENING,
+          ...(locationId && { locationId }),
+        },
         select: {
           id: true,
           date: true,

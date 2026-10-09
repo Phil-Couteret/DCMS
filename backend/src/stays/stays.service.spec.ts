@@ -9,6 +9,8 @@ const customer = (customerType: CustomerType) => ({
   id: 'c1',
   firstName: 'Ana',
   lastName: 'Diaz',
+  insuranceExpiry: null,
+  waiverSignedAt: null,
   customerType,
   user: { email: 'ana@example.com' },
 });
@@ -28,6 +30,7 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     bono: null,
     addOns: [],
     shoreTime: null,
+    locationId: null,
     pricePerDiver: null,
     equipmentPrice: null,
     addOnPrices: null,

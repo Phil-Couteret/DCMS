@@ -71,6 +71,7 @@ export interface Customer {
   insurancePolicyNumber: string | null;
   insuranceExpiry: string | null;
   insuranceVerifiedAt: string | null;
+  waiverSignedAt: string | null; // a signed liability waiver, accepted instead of insurance
   ownEquipment: boolean; // a full set of their own; the tank is always the center's
   tankSize: string | null;
   bcdSize: string | null;
@@ -188,7 +189,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 }
 
 export function getBookings(
-  filters: { status?: string; date?: string; boatId?: string; customerId?: string } = {},
+  filters: { status?: string; date?: string; boatId?: string; customerId?: string; locationId?: string } = {},
 ) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
@@ -196,9 +197,51 @@ export function getBookings(
   return apiFetch<Booking[]>(`/bookings${query}`);
 }
 
-export async function getTodayBookings() {
+export async function getTodayBookings(locationId?: string) {
   const { timeZone } = await centerLocale();
-  return getBookings({ date: centerNow(timeZone).isoDate });
+  return getBookings({ date: centerNow(timeZone).isoDate, locationId });
+}
+
+// A booking priced before it is saved, as its stay would bill it (the
+// booking form's live price), and whether it needs the first-dive insurance
+// check.
+export interface BookingQuoteInput {
+  customerId?: string;
+  bookingId?: string;
+  activityType: string;
+  date: string;
+  timeSlot: TimeSlot;
+  participantCount: number;
+  numberOfDives: number;
+  bookingSource?: string;
+  partnerId?: string;
+  notes?: string;
+  addOns: BookingAddOn[];
+  bonoCode?: string;
+}
+
+export interface BookingQuote {
+  activity: { name: string; unitPrice: string | null; units: number; total: string };
+  partnerPaid: boolean; // the activity is the partner's to pay
+  unpriced: boolean; // no price set for the activity
+  equipment: { description: string; total: string }[];
+  addOns: { description: string; total: string }[];
+  bono: { code: string; discount: string } | null;
+  bonoError: string | null; // why the bono code cannot be used
+  subtotal: string;
+  discount: string;
+  tax: string;
+  total: string;
+  taxName: string;
+  taxRate: number; // a percentage
+  currency: string;
+  stayDives: number | null; // fun dives: every fun dive in the stay, this one included
+  stayChange: string | null; // what the stay's total changes by, when not this booking's own total
+  insurance: { check: boolean; insuranceExpiry: string | null; waiverSignedAt: string | null };
+}
+
+export function quoteBooking(data: BookingQuoteInput) {
+  return apiFetch<BookingQuote>("/stays/quote", { method: "POST", body: JSON.stringify(data) });
 }
 
 export function getBooking(id: string) {
@@ -440,8 +483,8 @@ export interface DashboardOverview {
   revenue: { month: string; monthStart: string; trend: { date: string; amount: string }[] } | null;
 }
 
-export function getDashboardOverview() {
-  return apiFetch<DashboardOverview>("/dashboard/overview");
+export function getDashboardOverview(locationId?: string) {
+  return apiFetch<DashboardOverview>(`/dashboard/overview${locationId ? `?${new URLSearchParams({ locationId })}` : ""}`);
 }
 
 export function getStaff(filters: { type?: string; status?: string } = {}) {
@@ -553,6 +596,7 @@ export interface CustomerData {
   insurancePolicyNumber?: string | null;
   insuranceExpiry?: string | null;
   insuranceVerifiedAt?: string | null;
+  waiverSignedAt?: string | null;
   ownEquipment?: boolean;
   tankSize?: string | null;
   bcdSize?: string | null;
@@ -841,7 +885,7 @@ export function deleteDiveSite(id: string) {
   return apiFetch<DiveSite>(`/dive-sites/${id}`, { method: "DELETE" });
 }
 
-export function getDiveLogs(filters: { date?: string; siteId?: string; guideId?: string } = {}) {
+export function getDiveLogs(filters: { date?: string; siteId?: string; guideId?: string; locationId?: string } = {}) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   const query = params.size > 0 ? `?${params}` : "";
@@ -1228,8 +1272,9 @@ export interface ComplianceTrip {
   totals: { divers: number; male: number; female: number; unspecified: number };
 }
 
-export function getComplianceReport(date: string) {
-  return apiFetch<{ date: string; trips: ComplianceTrip[] }>(`/dive-prep/compliance?${new URLSearchParams({ date })}`);
+export function getComplianceReport(date: string, locationId?: string) {
+  const params = new URLSearchParams({ date, ...(locationId && { locationId }) });
+  return apiFetch<{ date: string; trips: ComplianceTrip[] }>(`/dive-prep/compliance?${params}`);
 }
 
 export interface CenterSettings {
@@ -1302,6 +1347,15 @@ export interface PriceList {
   funDiveTiers: FunDiveTier[]; // ascending, the first at 1
   addOns: { nightDive: number; personalInstructor: number }; // per diver; per booking
   divePacks: DivePack[]; // ascending diveCount
+  insurance: InsurancePrices;
+}
+
+// Dive insurance sold with a stay, per period of cover.
+export interface InsurancePrices {
+  day: number;
+  week: number;
+  month: number;
+  year: number;
 }
 
 export interface DivePack {
@@ -1519,6 +1573,7 @@ export interface StayBooking {
   status: BookingStatus;
   boatName: string | null; // null: a shore booking
   shoreTime: string | null;
+  locationId: string | null;
   partner: boolean; // the activity is the partner's to pay
   partnerName: string | null;
   unitPrice: string | null; // null: no price set for this activity
@@ -1544,12 +1599,23 @@ export interface Stay {
   priceChanges: StayPriceChange[];
   funDiveTiers: FunDiveTier[]; // the volume rates of the stay's earliest booking
   unpriced: string[];
+  insurance: StayInsurance | null; // null: no diving in the stay
   bookings: StayBooking[];
   costs: StayCost[];
   totals: StayTotals;
   // The dive pack that matches the stay's own fun dives, and the stay's
   // totals when billed with it; null when none matches.
   pack: { diveCount: number; price: string; divers: number; total: string; totals: StayTotals } | null;
+}
+
+// How the customer is covered for the stay's diving: insurance valid to its
+// last diving day, a signed waiver, or insurance added to the stay. Without
+// any, offer: the shortest insurance that covers its diving days.
+export interface StayInsurance {
+  cover: "insured" | "waiver" | "added" | null;
+  insuranceExpiry: string | null;
+  waiverSignedAt: string | null;
+  offer: { period: "DAY" | "WEEK" | "MONTH" | "YEAR"; description: string; price: string } | null;
 }
 
 export type StayPriceChange =
@@ -1582,6 +1648,10 @@ export function getStays() {
 
 export function addStayCost(customerId: string, data: StayCostData) {
   return apiFetch<StayCost>(`/stays/customer/${customerId}/costs`, { method: "POST", body: JSON.stringify(data) });
+}
+
+export function addStayInsurance(customerId: string) {
+  return apiFetch<StayCost>(`/stays/customer/${customerId}/insurance`, { method: "POST" });
 }
 
 export function updateStayCost(id: string, data: StayCostData) {

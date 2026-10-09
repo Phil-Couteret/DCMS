@@ -19,4 +19,8 @@ export class DivePrepSlotQueryDto extends DivePrepSlotDto {
 export class DivePrepDateDto {
   @IsDateString()
   date: string;
+
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
 }

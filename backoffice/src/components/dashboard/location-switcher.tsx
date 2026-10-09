@@ -3,12 +3,13 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { LocationRef } from "@/lib/api";
 import { useT } from "@/lib/i18n/client";
+import { LOCATION_COOKIE } from "@/lib/location-cookie";
 
-// "All locations" or one of them, kept in the page's ?location= parameter:
-// changing it reloads the page with the other parameters as they were. The
-// open panels (a trip, the new-trip form) close, since they may belong to
-// another location.
-export function LocationFilter({ locations, value }: { locations: LocationRef[]; value?: string }) {
+// The location the whole backoffice is narrowed to, at the top of every page.
+// Kept in a cookie the server reads; changing it reloads the page without
+// its own ?location= (which would override it) and without open panels,
+// which may belong to another location.
+export function LocationSwitcher({ locations, value }: { locations: LocationRef[]; value?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -19,11 +20,14 @@ export function LocationFilter({ locations, value }: { locations: LocationRef[];
       <select
         value={value ?? ""}
         onChange={(e) => {
+          const id = e.target.value;
+          document.cookie = id
+            ? `${LOCATION_COOKIE}=${id}; path=/; max-age=31536000; samesite=lax`
+            : `${LOCATION_COOKIE}=; path=/; max-age=0; samesite=lax`;
           const next = new URLSearchParams(params);
-          for (const panel of ["trip", "new", "day"]) next.delete(panel);
-          if (e.target.value) next.set("location", e.target.value);
-          else next.delete("location");
-          router.push(`${pathname}?${next}`);
+          for (const name of ["location", "trip", "new", "day"]) next.delete(name);
+          router.replace(next.size > 0 ? `${pathname}?${next}` : pathname);
+          router.refresh();
         }}
         className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-900"
       >

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getBoats, getBookings, type Booking } from "@/lib/api";
 import { ACTIVITY_LABELS, formatBookingDate, SLOT_LABELS, STATUS_LABELS, STATUSES } from "@/lib/bookings";
+import { chosenLocation } from "@/lib/current-location";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -31,11 +32,13 @@ export default async function BookingsPage({
   const date = ISO_DATE.test(one(params.date) ?? "") ? one(params.date) : undefined;
   const status = STATUSES.find((s) => s === one(params.status));
   const boatId = UUID.test(one(params.boatId) ?? "") ? one(params.boatId) : undefined;
-  const filtered = Boolean(date || status || boatId);
+  // The location chosen at the top.
+  const location = await chosenLocation();
+  const filtered = Boolean(date || status || boatId || location);
 
   const [bookingsResult, boatsResult] = await Promise.allSettled([
-    getBookings({ date, status, boatId }),
-    getBoats(),
+    getBookings({ date, status, boatId, locationId: location }),
+    getBoats(location),
   ]);
   const boats = boatsResult.status === "fulfilled" ? boatsResult.value : [];
 

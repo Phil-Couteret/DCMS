@@ -3,12 +3,13 @@ import {
   ACTIVITY_KEYS,
   ADD_ON_KEYS,
   EQUIPMENT_ITEMS,
+  INSURANCE_KEYS,
   FULL_PACKAGE_KEY,
   type ActivityKey,
   type EquipmentKey,
   type PriceList,
 } from '../config/catalogue.js';
-import { ActivityType, BookingAddOn } from '../generated/prisma/enums.js';
+import { ActivityType, BookingAddOn, InsurancePeriod } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
 import { UpdatePricingDto } from './dto/update-pricing.dto.js';
@@ -26,13 +27,15 @@ export class PricingService {
   ) {}
 
   async current(): Promise<PriceList> {
-    const [activities, equipment, tiers, addOns, packs] = await this.prisma.$transaction([
+    const [activities, equipment, tiers, addOns, packs, insurance] = await this.prisma.$transaction([
       this.prisma.activityPrice.findMany(),
       this.prisma.equipmentPrice.findMany(),
       this.prisma.funDiveTier.findMany({ orderBy: { minDives: 'asc' } }),
       this.prisma.addOnPrice.findMany(),
       this.prisma.divePack.findMany({ orderBy: { diveCount: 'asc' } }),
+      this.prisma.insurancePrice.findMany(),
     ]);
+    const insurancePrice = new Map(insurance.map((i) => [i.period, i.price.toNumber()]));
     const addOnPrice = new Map(addOns.map((a) => [a.addOn, a.price.toNumber()]));
     const activityPrice = new Map(activities.map((a) => [a.activityType, a.price.toNumber()]));
     const equipmentPrice = new Map(equipment.map((e) => [e.key, e.price.toNumber()]));
@@ -64,6 +67,13 @@ export class PricingService {
         }),
       ) as PriceList['addOns'],
       divePacks: packs.map((p) => ({ diveCount: p.diveCount, price: p.price.toNumber() })),
+      insurance: Object.fromEntries(
+        Object.values(InsurancePeriod).map((p) => {
+          const price = insurancePrice.get(p);
+          if (price === undefined) throw new Error(`InsurancePrice ${p} is missing`);
+          return [p, price];
+        }),
+      ) as PriceList['insurance'],
     };
   }
 
@@ -82,6 +92,10 @@ export class PricingService {
         number
       >,
       divePacks: prices.divePacks,
+      insurance: Object.fromEntries(Object.entries(INSURANCE_KEYS).map(([key, p]) => [key, prices.insurance[p]])) as Record<
+        keyof typeof INSURANCE_KEYS,
+        number
+      >,
     };
   }
 
@@ -126,7 +140,16 @@ export class PricingService {
           update: { tourist, local, recurrent },
         }),
       ),
-      // Left out, add-on prices and packs stay as they are.
+      // Left out, add-on prices, insurance prices and packs stay as they are.
+      ...(dto.insurance
+        ? (Object.entries(INSURANCE_KEYS) as [keyof typeof INSURANCE_KEYS, InsurancePeriod][]).map(([key, period]) =>
+            this.prisma.insurancePrice.upsert({
+              where: { tenantId_period: { tenantId, period } },
+              create: { period, price: dto.insurance![key] },
+              update: { price: dto.insurance![key] },
+            }),
+          )
+        : []),
       ...(dto.addOns
         ? (Object.entries(ADD_ON_KEYS) as [keyof typeof ADD_ON_KEYS, BookingAddOn][]).map(([key, addOn]) =>
             this.prisma.addOnPrice.upsert({

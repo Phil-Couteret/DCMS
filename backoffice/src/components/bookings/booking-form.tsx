@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { saveBooking, type BookingFormState } from "@/app/dashboard/bookings/actions";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { quoteBookingForm, saveBooking, type BookingFormState, type QuoteState } from "@/app/dashboard/bookings/actions";
 import { Button } from "@/components/ui/button";
-import type { Boat, BookingAddOn, BookingStatus, DiveSiteOption, Language, TimeSlot } from "@/lib/api";
+import type { Boat, BookingAddOn, BookingQuote, BookingStatus, DiveSiteOption, Language, TimeSlot } from "@/lib/api";
 import { ADD_ONS } from "@/lib/add-ons";
+import { money } from "@/lib/billing";
 import { ACTIVITY_LABELS, EQUIPMENT_ITEMS, SLOT_LABELS, SOURCE_LABELS, SOURCES } from "@/lib/bookings";
 import { LANGUAGES } from "@/lib/customers";
 import { useT } from "@/lib/i18n/client";
@@ -110,6 +111,84 @@ function CustomerPicker({
   );
 }
 
+// The booking's price as it is filled in: what its stay would bill for it.
+function LivePrice({ state, updating }: { state: QuoteState; updating: boolean }) {
+  const t = useT();
+  if (!state) {
+    return <p className="text-sm text-zinc-500">{t("Fill in the activity, date and participants to see the price.")}</p>;
+  }
+  if ("error" in state) {
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        {state.error}
+      </p>
+    );
+  }
+  const q: BookingQuote = state.quote;
+  const m = (v: string) => money(v, q.currency);
+  const row = "flex items-baseline justify-between gap-4 py-1";
+  return (
+    <div className={`text-sm transition-opacity${updating ? " opacity-60" : ""}`} aria-busy={updating}>
+      <dl className="divide-y divide-zinc-100">
+        <div className={row}>
+          <dt className="text-zinc-700">
+            {t(q.activity.name)}
+            {q.activity.unitPrice !== null && !q.partnerPaid && (
+              <span className="text-zinc-500"> · {q.activity.units} × {m(q.activity.unitPrice)}</span>
+            )}
+            {q.stayDives !== null && !q.partnerPaid && (
+              <span className="block text-xs text-zinc-500">
+                {q.stayDives === 1
+                  ? t("The rate for 1 fun dive in the stay.")
+                  : t("The rate for {count} fun dives in the stay, this booking included.", { count: q.stayDives })}
+              </span>
+            )}
+            {q.partnerPaid && <span className="block text-xs text-zinc-500">{t("Paid by the partner.")}</span>}
+            {q.unpriced && (
+              <span className="block text-xs text-red-700">{t("No price is set for this activity (Settings → Pricing).")}</span>
+            )}
+          </dt>
+          <dd className="tabular-nums text-zinc-900">{m(q.activity.total)}</dd>
+        </div>
+        {[...q.equipment, ...q.addOns].map((l) => (
+          <div key={l.description} className={row}>
+            <dt className="text-zinc-700">{t(l.description)}</dt>
+            <dd className="tabular-nums text-zinc-900">{m(l.total)}</dd>
+          </div>
+        ))}
+        {q.bono && (
+          <div className={row}>
+            <dt className="text-zinc-700">{t("Bono {code}", { code: q.bono.code })}</dt>
+            <dd className="tabular-nums text-zinc-900">−{m(q.bono.discount)}</dd>
+          </div>
+        )}
+        <div className={row}>
+          <dt className="text-zinc-500">{t("{tax} ({rate}%)", { tax: q.taxName, rate: q.taxRate })}</dt>
+          <dd className="tabular-nums text-zinc-500">{m(q.tax)}</dd>
+        </div>
+        <div className={`${row} font-semibold`}>
+          <dt className="text-zinc-900">{t("Total")}</dt>
+          <dd className="tabular-nums text-zinc-900">{m(q.total)}</dd>
+        </div>
+      </dl>
+      {q.bonoError && (
+        <p role="alert" className="mt-2 text-xs text-red-700">
+          {q.bonoError}
+        </p>
+      )}
+      {q.stayChange !== null && (
+        <p className="mt-2 text-xs text-zinc-500">
+          {t("With this booking, the stay's total before tax changes by {amount}: its other fun dives move to the new rate too.", {
+            amount: m(q.stayChange),
+          })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const QUOTE_DELAY_MS = 300;
+
 export function BookingForm({
   bookingId,
   initial,
@@ -153,6 +232,34 @@ export function BookingForm({
 
   const options = created && !customers.some((c) => c.id === created.id) ? [created, ...customers] : customers;
 
+  // The live price: re-quoted a moment after the form last changed. A reply
+  // to an older request is ignored.
+  const formRef = useRef<HTMLFormElement>(null);
+  const [quote, setQuote] = useState<QuoteState>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [edits, setEdits] = useState(0);
+  const latest = useRef(0);
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const request = ++latest.current;
+    setQuoting(true);
+    const timer = setTimeout(async () => {
+      const result = await quoteBookingForm(new FormData(form)).catch(() => null);
+      if (request !== latest.current) return;
+      setQuote(result);
+      setQuoting(false);
+    }, QUOTE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [edits, customerId, mode, place, timeSlot, equipment]);
+
+  // The first-dive insurance check: acknowledged, or the waiver ticked.
+  const insurance = quote && "quote" in quote ? quote.quote.insurance : null;
+  const [waiverSigned, setWaiverSigned] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const needsCheck = !bookingId && insurance?.check === true;
+  const checkPassed = !needsCheck || waiverSigned || acknowledged;
+
   const toggle = (key: string, on: boolean) =>
     setEquipment((prev) => {
       const next = new Set(prev);
@@ -162,7 +269,7 @@ export function BookingForm({
     });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={onSubmit} onChange={() => setEdits((n) => n + 1)} className="space-y-6">
       {bookingId && <input type="hidden" name="bookingId" value={bookingId} />}
       <input type="hidden" name="customerMode" value={mode} />
       <input type="hidden" name="customerId" value={mode === "existing" ? customerId : ""} />
@@ -479,14 +586,62 @@ export function BookingForm({
         </label>
       </section>
 
+      <section className={section} aria-live="polite">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-semibold text-zinc-900">{t("Price")}</h2>
+          {quoting && <span className="text-xs text-zinc-500">{t("Updating…")}</span>}
+        </div>
+        <LivePrice state={quote} updating={quoting} />
+        <p className="text-xs text-zinc-500">{t("Worked out as the stay bill will charge it. Nothing is saved until you create the booking.")}</p>
+      </section>
+
+      {needsCheck && (
+        <section role="alert" className="space-y-3 rounded-xl bg-amber-50 p-5 text-sm text-amber-950 ring-1 ring-amber-300">
+          <h2 className="font-semibold">{t("Insurance check")}</h2>
+          <p>
+            {insurance?.insuranceExpiry
+              ? t("This is the customer's first dive with us, and their dive insurance expired on {date}.", { date: insurance.insuranceExpiry })
+              : t("This is the customer's first dive with us, and there is no dive insurance on file.")}{" "}
+            {t("Every diver needs insurance or a signed waiver.")}
+          </p>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              name="waiverSigned"
+              checked={waiverSigned}
+              onChange={(e) => setWaiverSigned(e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span>
+              <span className="font-medium">{t("Waiver signed")}</span>
+              <span className="block text-xs text-amber-900">{t("The customer has signed the liability waiver. Saved on their profile with today's date.")}</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              name="insuranceAcknowledged"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span>
+              <span className="font-medium">{t("I understand: dive insurance must be added to the stay before they dive")}</span>
+              <span className="block text-xs text-amber-900">{t("The Stays page offers it when the stay is billed.")}</span>
+            </span>
+          </label>
+        </section>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={pending || (mode === "existing" && !customerId)}>
+        <Button type="submit" disabled={pending || (mode === "existing" && !customerId) || !checkPassed}>
           {pending ? t("Saving…") : bookingId ? t("Save changes") : t("Create booking")}
         </Button>
         <Button variant="outline" nativeButton={false} render={<Link href={cancelHref} prefetch={false} />}>
           {t("Cancel")}
         </Button>
         {mode === "existing" && !customerId && <p className="text-sm text-zinc-500">{t("Choose a customer first.")}</p>}
+        {!checkPassed && <p className="text-sm text-zinc-500">{t("Answer the insurance check first.")}</p>}
         {state?.error && (
           <p role="alert" className="text-sm text-destructive">
             {state.error}

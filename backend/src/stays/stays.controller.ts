@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import { BillStayDto } from './dto/bill-stay.dto.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
+import { QuoteBookingDto } from './dto/quote-booking.dto.js';
 import { UpdateStayCostDto } from './dto/update-stay-cost.dto.js';
 import { StaysService } from './stays.service.js';
 
@@ -29,6 +30,19 @@ export class StaysController {
     @CurrentUser() user: { email: string },
   ) {
     return this.stays.addCost(customerId, dto, user.email);
+  }
+
+  // The dive insurance the stay needs, added to it as an extra cost.
+  @Post('customer/:customerId/insurance')
+  addInsurance(@Param('customerId', ParseUUIDPipe) customerId: string, @CurrentUser() user: { email: string }) {
+    return this.stays.addInsurance(customerId, user.email);
+  }
+
+  // A booking priced before it is saved (the booking form's live price).
+  @Post('quote')
+  @HttpCode(200)
+  quote(@Body() dto: QuoteBookingDto) {
+    return this.stays.quote(dto);
   }
 
   @Post('customer/:customerId/bill')

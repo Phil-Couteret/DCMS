@@ -463,6 +463,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             ) : (
               <p className="text-sm text-zinc-500">{t("Not recorded. Add it with Edit.")}</p>
             )}
+            <p className="mt-3 border-t border-zinc-100 pt-3 text-sm text-zinc-700">
+              {customer.waiverSignedAt
+                ? t("Liability waiver signed on {date}: accepted instead of insurance.", { date: formatBookingDate(customer.waiverSignedAt) })
+                : t("No signed liability waiver.")}
+            </p>
           </CardContent>
         </Card>
       </div>

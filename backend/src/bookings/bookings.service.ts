@@ -10,7 +10,7 @@ import { ActivityType, BookingSource, BookingStatus, TimeSlot } from '../generat
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usableBono } from '../bonos/bono-rules.js';
 import { accountForCustomer } from '../users/accounts.js';
-import { equipmentSelection, lockPrices } from '../billing/price-lines.js';
+import { equipmentSelection, lockPrices, relockedPrices } from '../billing/price-lines.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { assertShoreStart, placeOnShoreTrip, shoreSite } from '../trips/shore.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
@@ -53,7 +53,7 @@ export class BookingsService {
   ) {}
 
   findAll(
-    filters: { status?: BookingStatus; date?: string; boatId?: string; customerId?: string } = {},
+    filters: { status?: BookingStatus; date?: string; boatId?: string; customerId?: string; locationId?: string } = {},
   ) {
     return this.prisma.booking.findMany({
       where: {
@@ -61,6 +61,7 @@ export class BookingsService {
         ...(filters.date && { date: startOfUtcDay(filters.date) }),
         ...(filters.boatId && { boatId: filters.boatId }),
         ...(filters.customerId && { customerId: filters.customerId }),
+        ...(filters.locationId && { locationId: filters.locationId }),
       },
       include: INCLUDE,
       orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }, { createdAt: 'asc' }],
@@ -188,26 +189,19 @@ export class BookingsService {
   }
 
   // An edit that changes what is booked takes the current prices for that
-  // part: a new activity its price, a different equipment set its price.
-  // The rest keeps the prices locked when it was booked. A booking from
-  // before prices were locked stays unlocked (it uses the current list).
+  // part (relockedPrices).
   private async relock(
     current: { activityType: ActivityType; notes: string | null; pricePerDiver: unknown },
     dto: UpdateBookingDto,
   ): Promise<Prisma.BookingUncheckedUpdateInput> {
-    if (current.pricePerDiver === null) return {};
-    const activityChanged = dto.activityType !== undefined && dto.activityType !== current.activityType;
-    const equipmentChanged = dto.notes !== undefined && equipmentSelection(dto.notes ?? null) !== equipmentSelection(current.notes);
-    if (!activityChanged && !equipmentChanged) return {};
-    const now = await this.lockedNow({
+    const next = {
       activityType: dto.activityType ?? current.activityType,
       notes: dto.notes !== undefined ? (dto.notes ?? null) : current.notes,
-    });
-    if (!now) return {};
-    return {
-      ...(activityChanged && { pricePerDiver: now.pricePerDiver }),
-      ...(equipmentChanged && { equipmentPrice: now.equipmentPrice }),
     };
+    if (current.pricePerDiver === null) return {};
+    if (next.activityType === current.activityType && equipmentSelection(next.notes) === equipmentSelection(current.notes)) return {};
+    const now = await this.lockedNow(next);
+    return now ? relockedPrices(current, next, now) : {};
   }
 
   // Public booking without an account. Finds or creates the user and customer

@@ -25,4 +25,5 @@ export const SEEDED_PRICES: PriceList = {
     { diveCount: 5, price: 200 },
     { diveCount: 10, price: 380 },
   ],
+  insurance: { DAY: 7, WEEK: 18, MONTH: 25, YEAR: 45 },
 };

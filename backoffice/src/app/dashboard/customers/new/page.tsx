@@ -36,6 +36,7 @@ export default async function NewCustomerPage() {
           insuranceProvider: "",
           insurancePolicyNumber: "",
           insuranceExpiry: "",
+          waiverSignedAt: "",
           ownEquipment: false,
           tankSize: "",
           bcdSize: "",

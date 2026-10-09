@@ -214,7 +214,8 @@ export function StayCosts({
                       <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{t(STAY_COST_LABELS[c.category])}</span>
                     </td>
                     <td className={td}>
-                      {c.description}
+                      {/* Descriptions the system writes (dive insurance) are translated; staff's own text is shown as typed. */}
+                      {t(c.description)}
                       {c.notes && <span className="block text-xs text-zinc-500">{c.notes}</span>}
                     </td>
                     <td className={`${td} text-right`}>{c.quantity}</td>

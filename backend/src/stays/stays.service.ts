@@ -6,16 +6,36 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { BillingService, lockCustomerStays, type Tx } from '../billing/billing.service.js';
-import { addOnLines, bookingEquipmentLines, bookingUnitPrice, equipmentLines, lockedTiers, pricesFor, sumLines } from '../billing/price-lines.js';
+import {
+  addOnLines,
+  bookingEquipmentLines,
+  bookingUnitPrice,
+  equipmentLines,
+  lockPrices,
+  lockedTiers,
+  pricesFor,
+  relockedPrices,
+  sumLines,
+} from '../billing/price-lines.js';
 import { InvoiceItemDto } from '../billing/dto/invoice-item.dto.js';
-import { bonoDiscount, useBonos } from '../bonos/bono-rules.js';
-import { ACTIVITY_NAMES, billedUnits, stayDivePrice, withDives, type PriceList } from '../config/catalogue.js';
+import { bonoDiscount, usableBono, useBonos } from '../bonos/bono-rules.js';
+import {
+  ACTIVITY_NAMES,
+  billedUnits,
+  INSURANCE_NAMES,
+  insurancePeriodFor,
+  isDiving,
+  stayDivePrice,
+  withDives,
+  type PriceList,
+} from '../config/catalogue.js';
 import { addDays, centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
 import {
   ActivityType,
   BookingSource,
   BookingStatus,
+  CustomerType,
   StayCostCategory,
   StayStatus,
 } from '../generated/prisma/enums.js';
@@ -24,6 +44,7 @@ import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CreateStayCostDto } from './dto/create-stay-cost.dto.js';
+import { QuoteBookingDto } from './dto/quote-booking.dto.js';
 import { UpdateStayCostDto } from './dto/update-stay-cost.dto.js';
 
 // All money arithmetic uses Decimal, never JavaScript floats.
@@ -62,6 +83,7 @@ const BOOKING_SELECT = {
   partner: { select: { name: true } },
   boat: { select: { name: true } },
   shoreTime: true,
+  locationId: true,
   bonoId: true,
   bono: { select: { code: true, type: true, discountValue: true } },
   addOns: true,
@@ -78,6 +100,8 @@ const CUSTOMER_SELECT = {
   firstName: true,
   lastName: true,
   customerType: true,
+  insuranceExpiry: true,
+  waiverSignedAt: true,
   user: { select: { email: true } },
 } satisfies Prisma.CustomerSelect;
 
@@ -85,6 +109,38 @@ type StayCustomer = Prisma.CustomerGetPayload<{ select: typeof CUSTOMER_SELECT }
 type StayCostRow = Prisma.StayCostGetPayload<object>;
 
 const money = (v: Decimal | number) => new D(v).toFixed(2);
+
+// How a customer is covered for diving until a day: dive insurance valid
+// that day, or a signed waiver. null: neither.
+function diveCover(customer: { insuranceExpiry: Date | null; waiverSignedAt: Date | null }, until: string) {
+  if (customer.insuranceExpiry && isoDay(customer.insuranceExpiry) >= until) return 'insured' as const;
+  if (customer.waiverSignedAt) return 'waiver' as const;
+  return null;
+}
+
+// Dive insurance for a stay: how the customer is covered, or what to sell
+// them (the shortest period covering the stay's diving days). null when the
+// stay has no diving.
+function stayInsurance(
+  customer: StayCustomer,
+  bookings: StayBookingRow[],
+  costs: StayCostRow[],
+  prices: PriceList,
+) {
+  const diving = bookings.filter((b) => isDiving(b.activityType));
+  if (diving.length === 0) return null;
+  const from = isoDay(diving[0].date);
+  const to = isoDay(diving[diving.length - 1].date);
+  const cover = costs.some((c) => c.category === StayCostCategory.INSURANCE) ? ('added' as const) : diveCover(customer, to);
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
+  const period = insurancePeriodFor(days);
+  return {
+    cover, // insured, waiver, added (an insurance cost in the stay), or null
+    insuranceExpiry: customer.insuranceExpiry ? isoDay(customer.insuranceExpiry) : null,
+    waiverSignedAt: customer.waiverSignedAt ? isoDay(customer.waiverSignedAt) : null,
+    offer: cover === null ? { period, description: `Dive insurance (${INSURANCE_NAMES[period]})`, price: money(prices.insurance[period]) } : null,
+  };
+}
 const sum = (values: (Decimal | number)[]) => values.reduce<Decimal>((acc, v) => acc.plus(v), new D(0));
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -357,6 +413,162 @@ export class StaysService {
     });
   }
 
+  // Adds the dive insurance the stay needs to it, as an extra cost, at the
+  // price for the period that covers its diving days.
+  async addInsurance(customerId: string, createdBy: string) {
+    const [stay, prices] = await Promise.all([this.openStay(this.prisma, customerId), this.pricing.current()]);
+    if (!stay) throw new NotFoundException('This customer has no open stay');
+    const insurance = stayInsurance(stay.customer, stay.bookings, stay.costs, prices);
+    if (!insurance) throw new BadRequestException('There is no diving in this stay');
+    if (!insurance.offer) {
+      const why = { insured: 'has dive insurance for it', waiver: 'has signed a waiver', added: 'already has insurance added' };
+      throw new ConflictException(`This customer ${why[insurance.cover!]}`);
+    }
+    return this.addCost(
+      customerId,
+      {
+        date: isoDay(stay.bookings.find((b) => isDiving(b.activityType))!.date),
+        category: StayCostCategory.INSURANCE,
+        description: insurance.offer.description,
+        quantity: 1,
+        unitPrice: Number(insurance.offer.price),
+      },
+      createdBy,
+    );
+  }
+
+  // Prices a booking before it is saved, as its stay would bill it: the
+  // customer's open stay with this booking in it (fun dives at the tier for
+  // all the stay's dives), the prices it would lock (an edit keeps those it
+  // locked, except for what changed), its bono and add-ons. Also says whether
+  // a new diving booking needs the insurance check.
+  async quote(dto: QuoteBookingDto) {
+    const date = dto.date.slice(0, 10);
+    const [prices, { taxRate, taxName }, currency, customer, current, stay] = await Promise.all([
+      this.pricing.current(),
+      this.settings.tax(),
+      this.config.currency(),
+      dto.customerId
+        ? this.prisma.customer.findUnique({ where: { id: dto.customerId }, select: CUSTOMER_SELECT })
+        : Promise.resolve(null),
+      dto.bookingId ? this.prisma.booking.findUnique({ where: { id: dto.bookingId }, select: BOOKING_SELECT }) : Promise.resolve(null),
+      dto.customerId ? this.openStay(this.prisma, dto.customerId) : Promise.resolve(null),
+    ]);
+    if (dto.customerId && !customer) throw new NotFoundException(`Customer ${dto.customerId} not found`);
+    if (dto.bookingId && !current) throw new NotFoundException(`Booking ${dto.bookingId} not found`);
+
+    const notes = dto.notes ?? null;
+    const now = lockPrices(prices, { activityType: dto.activityType, notes });
+    const locked = current ? { ...current, ...relockedPrices(current, { activityType: dto.activityType, notes }, now) } : now;
+    let bono: StayBookingRow['bono'] = null;
+    let bonoError: string | null = null;
+    const code = dto.bonoCode?.trim().toUpperCase();
+    if (code) {
+      if (current?.bono?.code === code) bono = current.bono;
+      else {
+        try {
+          const found = await usableBono(this.prisma, code, dateOnly(date));
+          bono = { code: found.code, type: found.type, discountValue: found.discountValue };
+        } catch (e) {
+          bonoError = (e as Error).message;
+        }
+      }
+    }
+    const draft: StayBookingRow = {
+      id: dto.bookingId ?? 'draft',
+      customerId: dto.customerId ?? '',
+      date: dateOnly(date),
+      timeSlot: dto.timeSlot,
+      activityType: dto.activityType,
+      participantCount: dto.participantCount,
+      numberOfDives: dto.numberOfDives ?? 1,
+      status: BookingStatus.CONFIRMED,
+      bookingSource: dto.partnerId ? BookingSource.PARTNER : (dto.bookingSource ?? BookingSource.WALK_IN),
+      notes,
+      stayId: current?.stayId ?? null,
+      partnerId: dto.partnerId ?? null,
+      partner: null,
+      boat: null,
+      shoreTime: null,
+      locationId: null,
+      bonoId: null,
+      bono,
+      addOns: dto.addOns ?? [],
+      pricePerDiver: locked.pricePerDiver === null ? null : new D(locked.pricePerDiver),
+      equipmentPrice: locked.equipmentPrice === null ? null : new D(locked.equipmentPrice),
+      addOnPrices: (locked.addOnPrices ?? null) as Prisma.JsonValue,
+      funDiveTiers: (locked.funDiveTiers ?? null) as Prisma.JsonValue,
+    };
+
+    // The stay this booking falls in: the customer's open one if the date is
+    // within STAY_DAYS of its start, else a stay of its own.
+    const others = (stay?.bookings ?? []).filter((b) => b.id !== dto.bookingId);
+    const together = [...others, draft].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const last = addDays(isoDay(together[0].date), STAY_DAYS);
+    const inStay = (stay?.row && draft.stayId === stay.row.id) || date <= last;
+    const stayBookings = inStay ? together.filter((b) => b === draft || isoDay(b.date) <= last || (stay?.row && b.stayId === stay.row.id)) : [draft];
+    const fallback = { id: '', firstName: '', lastName: '', customerType: CustomerType.TOURIST, insuranceExpiry: null, waiverSignedAt: null, user: { email: '' } };
+    const who = customer ?? fallback;
+    const priced = priceStay(who, stayBookings, [], prices);
+    const line = priced.lines.find((l) => l.booking === draft)!;
+    const net = line.total.minus(line.discount);
+    const tax = net.times(taxRate).dividedBy(100).toDecimalPlaces(2, D.ROUND_HALF_UP);
+    // With other bookings in the stay, more fun dives can lower their rate
+    // too: what the stay's bookings total changes by.
+    const rest = stayBookings.filter((b) => b !== draft);
+    const before = rest.length > 0 ? priceStay(who, rest, [], prices) : null;
+    const stayChange = before
+      ? priced.bookingsTotal.minus(priced.discount).minus(before.bookingsTotal.minus(before.discount))
+      : null;
+
+    // The first-dive insurance check: a new diving booking, for a customer
+    // with no other diving booking, who has neither insurance valid on the
+    // day nor a signed waiver.
+    let insuranceCheck = false;
+    if (!dto.bookingId && isDiving(dto.activityType)) {
+      const earlier = customer
+        ? await this.prisma.booking.count({
+            where: {
+              customerId: customer.id,
+              status: { not: BookingStatus.CANCELLED },
+              activityType: { not: ActivityType.SNORKELING },
+            },
+          })
+        : 0;
+      insuranceCheck = earlier === 0 && (!customer || diveCover(customer, date) === null);
+    }
+
+    return {
+      activity: {
+        name: ACTIVITY_NAMES[dto.activityType],
+        unitPrice: line.unit === null ? null : money(line.unit),
+        units: billedUnits(draft),
+        total: money(line.activityTotal),
+      },
+      partnerPaid: line.partner,
+      unpriced: line.unit === null && !line.partner,
+      equipment: line.equipment.map((e) => ({ description: e.description, total: money(e.total) })),
+      addOns: line.addOns.map((e) => ({ description: e.description, total: money(e.total) })),
+      bono: bono && { code: bono.code, discount: money(line.discount) },
+      bonoError,
+      subtotal: money(line.total),
+      discount: money(line.discount),
+      tax: money(tax),
+      total: money(net.plus(tax)),
+      taxName,
+      taxRate: new D(taxRate).toNumber(),
+      currency,
+      // Fun dives: the tier is for every fun dive in the stay.
+      stayDives: dto.activityType === ActivityType.FUN_DIVE ? priced.totalDives : null,
+      stayChange: stayChange && !stayChange.equals(net) ? money(stayChange) : null,
+      insurance: {
+        check: insuranceCheck,
+        insuranceExpiry: customer?.insuranceExpiry ? isoDay(customer.insuranceExpiry) : null,
+        waiverSignedAt: customer?.waiverSignedAt ? isoDay(customer.waiverSignedAt) : null,
+      },
+    };
+  }
+
   private async openCost(id: string) {
     const cost = await this.prisma.stayCost.findUnique({ where: { id }, include: { stay: { select: { status: true } } } });
     if (!cost) throw new NotFoundException(`Cost ${id} not found`);
@@ -441,6 +653,7 @@ export class StaysService {
       // The volume rates of the stay's earliest booking, for the rate note.
       funDiveTiers: priced.stayTiers,
       unpriced: priced.unpriced,
+      insurance: stayInsurance(stay.customer, stay.bookings, stay.costs, prices),
       bookings: priced.lines.map((l) => ({
         id: l.booking.id,
         date: isoDay(l.booking.date),
@@ -451,6 +664,7 @@ export class StaysService {
         status: l.booking.status,
         boatName: l.booking.boat?.name ?? null, // null: a shore booking
         shoreTime: l.booking.shoreTime,
+        locationId: l.booking.locationId,
         partner: l.partner,
         partnerName: l.booking.partner?.name ?? null,
         unitPrice: l.unit === null ? null : money(l.unit),

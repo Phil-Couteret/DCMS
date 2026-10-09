@@ -187,3 +187,19 @@ const ZERO_PRICES = {
   equipment: Object.fromEntries(Object.keys(EQUIPMENT_ITEMS).map((k) => [k, 0])),
   fullPackage: 0,
 } as unknown as PriceList;
+
+// What an edit re-prices: a new activity takes today's price, a different
+// equipment set today's price for it; the rest keeps the prices locked when
+// the booking was made. A booking from before prices were locked stays
+// unlocked (it uses the current list).
+export function relockedPrices(
+  current: { activityType: ActivityType; notes: string | null; pricePerDiver: unknown },
+  next: { activityType: ActivityType; notes: string | null },
+  now: ReturnType<typeof lockPrices>,
+): { pricePerDiver?: Prisma.Decimal | null; equipmentPrice?: Prisma.Decimal } {
+  if (current.pricePerDiver === null) return {};
+  return {
+    ...(next.activityType !== current.activityType && { pricePerDiver: now.pricePerDiver }),
+    ...(equipmentSelection(next.notes) !== equipmentSelection(current.notes) && { equipmentPrice: now.equipmentPrice }),
+  };
+}

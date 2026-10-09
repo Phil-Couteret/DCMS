@@ -28,8 +28,9 @@ export class DiveLogsController {
     @Query('date', ParseDatePipe) date?: string,
     @Query('siteId', new ParseUUIDPipe({ optional: true })) siteId?: string,
     @Query('guideId', new ParseUUIDPipe({ optional: true })) guideId?: string,
+    @Query('locationId', new ParseUUIDPipe({ optional: true })) locationId?: string,
   ) {
-    return this.diveLogs.findAll({ date, siteId, guideId });
+    return this.diveLogs.findAll({ date, siteId, guideId, locationId });
   }
 
   @Get(':id')
