@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { setApproval } from "@/app/dashboard/customers/actions";
 import { ActionButton } from "@/components/customers/profile-actions";
 import type { Customer } from "@/lib/api";
-import { countryLabel, CUSTOMER_TYPE_LABELS, LANGUAGE_LABELS, SKILL_LEVEL_LABELS } from "@/lib/customers";
+import { countryName } from "@/lib/countries";
+import { CUSTOMER_TYPE_LABELS, LANGUAGE_LABELS, SKILL_LEVEL_LABELS } from "@/lib/customers";
 
 // Name search runs in the browser over the customers already loaded.
 export function CustomersTable({ customers, filtered }: { customers: Customer[]; filtered: boolean }) {
@@ -58,7 +59,7 @@ export function CustomersTable({ customers, filtered }: { customers: Customer[];
                   <TableCell className="font-medium">
                     {c.firstName} {c.lastName}
                   </TableCell>
-                  <TableCell>{countryLabel(c.country)}</TableCell>
+                  <TableCell>{countryName(c.country)}</TableCell>
                   <TableCell>{LANGUAGE_LABELS[c.language] ?? c.language}</TableCell>
                   <TableCell>{CUSTOMER_TYPE_LABELS[c.customerType] ?? c.customerType}</TableCell>
                   <TableCell>

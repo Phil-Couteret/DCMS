@@ -5,7 +5,8 @@ import { ImportCustomersForm } from "@/components/customers/import-customers";
 import { RoutedDialog } from "@/components/routed-panel";
 import { Button } from "@/components/ui/button";
 import { getCustomers, type Customer } from "@/lib/api";
-import { countryLabel, LANGUAGES } from "@/lib/customers";
+import { countryName } from "@/lib/countries";
+import { LANGUAGES } from "@/lib/customers";
 
 export const dynamic = "force-dynamic";
 
@@ -34,19 +35,25 @@ export default async function CustomersPage({
   const listHref = `/dashboard/customers${listParams.size > 0 ? `?${listParams}` : ""}`;
   const withImport = `/dashboard/customers?${new URLSearchParams([...listParams, ["import", "1"]])}`;
 
-  // Country and language filter on the API. The country list comes from the
-  // unfiltered set, so choosing one country does not empty the selector.
-  const [result, all] = await Promise.allSettled([
-    getCustomers({ country, language }),
+  // Language filters on the API. Country filters here, by country name:
+  // the stored value may be a code ("DE") or free text ("German") for the
+  // same country. The country list comes from the unfiltered set, so
+  // choosing one country does not empty the selector.
+  const [loaded, all] = await Promise.allSettled([
+    getCustomers({ language }),
     filtered ? getCustomers() : Promise.resolve(null),
   ]);
+  const result =
+    loaded.status === "fulfilled" && country
+      ? { ...loaded, value: loaded.value.filter((c) => countryName(c.country) === country) }
+      : loaded;
   const everyone: Customer[] =
     all.status === "fulfilled" && all.value
       ? all.value
       : result.status === "fulfilled"
         ? result.value
         : [];
-  const countries = [...new Set(everyone.map((c) => c.country))].sort();
+  const countries = [...new Set(everyone.map((c) => countryName(c.country)))].filter(Boolean).sort((a, b) => a.localeCompare(b));
 
   return (
     <main className="space-y-6 p-6 md:p-8">
@@ -76,7 +83,7 @@ export default async function CustomersPage({
             <option value="">All countries</option>
             {countries.map((c) => (
               <option key={c} value={c}>
-                {countryLabel(c)}
+                {c}
               </option>
             ))}
           </select>
