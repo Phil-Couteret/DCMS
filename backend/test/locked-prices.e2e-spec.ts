@@ -111,7 +111,7 @@ describe('prices locked at booking time', () => {
   let stayCustomer = '';
   let soloBooking = '';
 
-  it('a stay across a price change: each booking at its own prices, fun dives at the first rates', async () => {
+  it('a stay across a price change: each booking at its own prices, fun dives at the tier of the whole stay', async () => {
     stayCustomer = await customer();
     const solo = await customer();
     // "December" (the seeded list): fun dives 46/44/42…, snorkeling 25, regulator 10, night dive 20.
@@ -128,7 +128,9 @@ describe('prices locked at booking time', () => {
 
     const stay = await ok('GET', `/stays/customer/${stayCustomer}`);
     expect(stay.totalDives).toBe(4);
-    expect(stay.pricePerDive).toBe('44.00'); // December's 3+ tier; January's would be 48
+    // The 3+ tier for all four dives: December's at 44, January's at 48.
+    expect(stay.pricePerDive).toBe('44.00');
+    expect(stay.funDiveRates).toEqual(['44.00', '48.00']);
     const lines = stay.bookings.map((b: { activityType: string; activityTotal: string; equipment: { total: string }[]; addOns: { total: string }[] }) => [
       b.activityType,
       b.activityTotal,
@@ -138,10 +140,10 @@ describe('prices locked at booking time', () => {
     expect(lines).toEqual([
       ['FUN_DIVE', '88.00', ['10.00'], ['20.00']],
       ['SNORKELING', '25.00', [], []],
-      ['FUN_DIVE', '88.00', ['14.00'], ['25.00']],
+      ['FUN_DIVE', '96.00', ['14.00'], ['25.00']],
       ['SNORKELING', '30.00', [], []],
     ]);
-    expect(stay.totals.bookings).toBe('300.00');
+    expect(stay.totals.bookings).toBe('308.00');
     expect(stay.priceChanges).toEqual(
       expect.arrayContaining([
         { kind: 'stayRate', locked: 44, current: 48 },
@@ -153,7 +155,7 @@ describe('prices locked at booking time', () => {
 
     const billed = await ok('POST', `/stays/customer/${stayCustomer}/bill`, {});
     const invoice = await ok('GET', `/billing/${billed.invoiceId}`);
-    expect(invoice.subtotal).toBe('300');
+    expect(invoice.subtotal).toBe('308');
     expect(Number(invoice.total)).toBe(Number(stay.totals.total));
   });
 

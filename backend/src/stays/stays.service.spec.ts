@@ -255,15 +255,17 @@ describe('prices locked at booking time', () => {
   });
   const hire = JSON.stringify({ selectedEquipment: ['regulator'] });
 
-  it('bills each booking at its own prices, and fun dives at the stay\'s first rates', () => {
+  it('bills each booking at its own prices; fun dives at their own rates, at the tier of the whole stay', () => {
     const dec = booking(ActivityType.FUN_DIVE, { date: new Date('2026-12-28T00:00:00Z'), numberOfDives: 2, notes: hire, addOns: ['NIGHT_DIVE'], ...lockedAt(DEC, { equipmentTotal: 10 }) });
     const decSnorkel = booking(ActivityType.SNORKELING, { date: new Date('2026-12-29T00:00:00Z'), ...lockedAt(DEC, { activityType: ActivityType.SNORKELING }) });
     const jan = booking(ActivityType.FUN_DIVE, { date: new Date('2027-01-03T00:00:00Z'), numberOfDives: 2, notes: hire, addOns: ['NIGHT_DIVE'], ...lockedAt(JAN, { equipmentTotal: 14 }) });
     const janSnorkel = booking(ActivityType.SNORKELING, { date: new Date('2027-01-04T00:00:00Z'), ...lockedAt(JAN, { activityType: ActivityType.SNORKELING }) });
     // Billed in January, with January's list current.
     const priced = priceStay(customer(CustomerType.TOURIST), [jan, janSnorkel, dec, decSnorkel], [], JAN);
-    // 4 fun dives: December's 3+ tier (44), not January's (48).
-    expect(priced.pricePerDive).toBe(44);
+    // 4 fun dives in the stay: the 3+ tier for both, December's at 44,
+    // January's at 48.
+    expect(priced.pricePerDive).toBe(44); // the earliest fun dive booking's
+    expect(priced.funDiveRates).toEqual([44, 48]);
     const byId = new Map(priced.lines.map((l) => [l.booking.id, l]));
     expect(byId.get(decSnorkel.id)!.activityTotal.toFixed(2)).toBe('25.00'); // December price
     expect(byId.get(janSnorkel.id)!.activityTotal.toFixed(2)).toBe('30.00'); // January price
@@ -271,8 +273,10 @@ describe('prices locked at booking time', () => {
     expect(byId.get(jan.id)!.equipment.map((e) => e.total)).toEqual([14]);
     expect(byId.get(dec.id)!.addOns.map((a) => a.total)).toEqual([20]);
     expect(byId.get(jan.id)!.addOns.map((a) => a.total)).toEqual([25]);
-    // Fun dives 4 × 44, snorkeling 25 + 30, equipment 10 + 14, night 20 + 25.
-    expect(priced.bookingsTotal.toFixed(2)).toBe('300.00');
+    expect(byId.get(dec.id)!.activityTotal.toFixed(2)).toBe('88.00');
+    expect(byId.get(jan.id)!.activityTotal.toFixed(2)).toBe('96.00');
+    // Fun dives 2 × 44 + 2 × 48, snorkeling 25 + 30, equipment 10 + 14, night 20 + 25.
+    expect(priced.bookingsTotal.toFixed(2)).toBe('308.00');
     expect(priced.priceChanges).toEqual(
       expect.arrayContaining([
         { kind: 'stayRate', locked: 44, current: 48 },
@@ -297,6 +301,28 @@ describe('prices locked at booking time', () => {
     expect(lines).toEqual([{ description: 'Equipment: BCD (L), Regulator', quantity: 1, unitPrice: 20, total: 20, type: 'equipment' }]);
     // Unchanged prices keep the item lines.
     expect(priceStay(customer(CustomerType.TOURIST), [b], [], DEC).lines[0].equipment).toHaveLength(2);
+  });
+
+  it('counts every dive of the stay toward the tier, across a price change (5 + 9 = 14 dives)', () => {
+    // 2026: 13+ dives at 38 (the seeded list). 2027: 13+ dives at 40.
+    const y2026 = SEEDED_PRICES;
+    const y2027 = {
+      ...SEEDED_PRICES,
+      funDiveTiers: SEEDED_PRICES.funDiveTiers.map((t) => (t.minDives === 13 ? { ...t, tourist: 40 } : { ...t, tourist: t.tourist + 2 })),
+    };
+    const lockedTo = (p: typeof y2026) => ({ funDiveTiers: p.funDiveTiers, pricePerDiver: new Prisma.Decimal(45), addOnPrices: { ...p.addOns } });
+    const stay = [
+      ...Array.from({ length: 5 }, (_, i) => booking(ActivityType.FUN_DIVE, { date: new Date(`2026-12-${27 + i}T00:00:00Z`), ...lockedTo(y2026) })),
+      booking(ActivityType.FUN_DIVE, { date: new Date('2027-01-02T00:00:00Z'), numberOfDives: 4, ...lockedTo(y2027) }),
+      booking(ActivityType.FUN_DIVE, { date: new Date('2027-01-03T00:00:00Z'), numberOfDives: 5, ...lockedTo(y2027) }),
+    ];
+    const priced = priceStay(customer(CustomerType.TOURIST), stay, [], y2027);
+    expect(priced.totalDives).toBe(14);
+    expect(priced.lines.map((l) => l.unit)).toEqual([38, 38, 38, 38, 38, 40, 40]);
+    // 5 × 38 + 9 × 40 = 190 + 360.
+    expect(priced.bookingsTotal.toFixed(2)).toBe('550.00');
+    expect(priced.funDiveRates).toEqual([38, 40]);
+    expect(priced.priceChanges).toEqual([{ kind: 'stayRate', locked: 38, current: 40 }]);
   });
 });
 

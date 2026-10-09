@@ -1535,11 +1535,14 @@ export interface Stay {
   startDate: string | null; // null when it only has extra costs
   endDate: string | null;
   totalDives: number; // fun dives, per diver
-  pricePerDive: string; // the volume rate locked on the stay's earliest booking
+  pricePerDive: string; // the fun dive rate of the stay's earliest booking
+  // Every fun dive rate in the stay: the tier for all its dives, from each
+  // booking's own price list (several after a price change), lowest first.
+  funDiveRates: string[];
   // Prices the stay is billed at (locked when each booking was made) that the
   // price list has since changed.
   priceChanges: StayPriceChange[];
-  funDiveTiers: FunDiveTier[]; // the volume rates the stay is billed at
+  funDiveTiers: FunDiveTier[]; // the volume rates of the stay's earliest booking
   unpriced: string[];
   bookings: StayBooking[];
   costs: StayCost[];

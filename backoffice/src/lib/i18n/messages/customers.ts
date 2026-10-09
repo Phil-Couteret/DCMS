@@ -1,9 +1,10 @@
 // Spanish and French for the backoffice's customers screens, keyed by the
 // English text (see ../core.ts). Keep keys sorted within each language.
 export const es: Record<string, string> = {
+  "Every fun dive in this stay is priced at the rate for {count} dives, from the price list of the day it was booked: {rates}.": "Cada inmersión recreativa de esta estancia se cobra a la tarifa de {count} inmersiones, según la lista de precios del día en que se reservó: {rates}.",
   "Equipment hire: 1 booking at the prices when it was booked": "Alquiler de equipo: 1 reserva a los precios de cuando se reservó",
   "Equipment hire: {count} bookings at the prices when they were booked": "Alquiler de equipo: {count} reservas a los precios de cuando se reservaron",
-  "Fun dive rate: {locked} when the stay began, {current} today": "Tarifa de inmersión recreativa: {locked} al empezar la estancia, {current} hoy",
+  "Fun dive rate: {locked} when booked, {current} today": "Tarifa de inmersión recreativa: {locked} al reservar, {current} hoy",
   "Prices have changed since some of these bookings were made.": "Los precios han cambiado desde que se hicieron algunas de estas reservas.",
   "This stay is billed at the prices locked when each booking was made:": "Esta estancia se factura a los precios fijados al hacer cada reserva:",
   "{activity}: {locked} per diver when booked, no price today": "{activity}: {locked} por buceador al reservar, hoy sin precio",
@@ -415,9 +416,10 @@ export const es: Record<string, string> = {
 };
 
 export const fr: Record<string, string> = {
+  "Every fun dive in this stay is priced at the rate for {count} dives, from the price list of the day it was booked: {rates}.": "Chaque plongée loisir de ce séjour est facturée au tarif de {count} plongées, selon la grille de prix du jour de sa réservation : {rates}.",
   "Equipment hire: 1 booking at the prices when it was booked": "Location de matériel : 1 réservation aux prix du moment de la réservation",
   "Equipment hire: {count} bookings at the prices when they were booked": "Location de matériel : {count} réservations aux prix du moment de leur réservation",
-  "Fun dive rate: {locked} when the stay began, {current} today": "Tarif plongée loisir : {locked} au début du séjour, {current} aujourd’hui",
+  "Fun dive rate: {locked} when booked, {current} today": "Tarif plongée loisir : {locked} à la réservation, {current} aujourd’hui",
   "Prices have changed since some of these bookings were made.": "Les prix ont changé depuis certaines de ces réservations.",
   "This stay is billed at the prices locked when each booking was made:": "Ce séjour est facturé aux prix fixés lors de chaque réservation :",
   "{activity}: {locked} per diver when booked, no price today": "{activity} : {locked} par plongeur à la réservation, sans prix aujourd’hui",

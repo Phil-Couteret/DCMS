@@ -29,9 +29,17 @@ function day(iso: string) {
 function rateNote(t: T, stay: Stay, currency: string, tiers: FunDiveTier[]) {
   const { customerType } = stay.customer;
   const price = money(stay.pricePerDive, currency);
+  // After a price change the stay's dives have different rates: each at the
+  // tier for all of them, from its own booking's price list.
+  if ((stay.funDiveRates?.length ?? 0) > 1) {
+    return t(
+      "Every fun dive in this stay is priced at the rate for {count} dives, from the price list of the day it was booked: {rates}.",
+      { count: stay.totalDives, rates: stay.funDiveRates.map((r) => money(r, currency)).join(" / ") },
+    );
+  }
   if (customerType === "LOCAL") return t("Local customers pay a flat {price} per fun dive.", { price });
   if (customerType === "RECURRENT") return t("Recurrent customers pay a flat {price} per fun dive.", { price });
-  // The rates this stay is billed at (locked on its first booking).
+  // The rates this stay is billed at (locked on its bookings).
   const lower = (stay.funDiveTiers?.length ? stay.funDiveTiers : tiers)
     .filter((tier) => tier.minDives > 1)
     .map((tier) => t("{count} dives {price}", { count: tier.minDives, price: money(tier.tourist, currency) }))
@@ -51,7 +59,7 @@ function PriceChanges({ t, changes, currency }: { t: T; changes: Stay["priceChan
   const line = (c: Stay["priceChanges"][number]) => {
     switch (c.kind) {
       case "stayRate":
-        return t("Fun dive rate: {locked} when the stay began, {current} today", { locked: m(c.locked), current: m(c.current) });
+        return t("Fun dive rate: {locked} when booked, {current} today", { locked: m(c.locked), current: m(c.current) });
       case "activity":
         return c.current === null
           ? t("{activity}: {locked} per diver when booked, no price today", { activity: t(ACTIVITY_LABELS[c.activityType] ?? c.activityType), locked: m(c.locked) })
@@ -133,7 +141,10 @@ async function StayCard({
             <p className="text-sm text-zinc-500">
               {stay.totalDives === 1
                 ? t("1 fun dive @ {price}", { price: money(stay.pricePerDive, currency) })
-                : t("{count} fun dives @ {price}", { count: stay.totalDives, price: money(stay.pricePerDive, currency) })}
+                : t("{count} fun dives @ {price}", {
+                    count: stay.totalDives,
+                    price: (stay.funDiveRates?.length ? stay.funDiveRates : [stay.pricePerDive]).map((r) => money(r, currency)).join(" / "),
+                  })}
             </p>
           )}
           {Number(stay.totals.discount) > 0 && (

@@ -128,21 +128,28 @@ export function priceStay(
   const pack = packOffer(bookings, prices);
   if (usePack && !pack) throw new BadRequestException('No dive pack matches the fun dives in this stay');
   const packShares = usePack && pack ? packShareByBooking(bookings, pack) : null;
-  // The volume rates in force when the stay began: those locked on its
-  // earliest booking (the current ones for a booking from before locking).
-  const first = [...bookings].sort((a, b) => a.date.getTime() - b.date.getTime() || SLOTS.indexOf(a.timeSlot) - SLOTS.indexOf(b.timeSlot))[0];
-  const stayTiers = (first && lockedTiers(first)) ?? prices.funDiveTiers;
+  // The volume tier is set by the whole stay's fun dives, whatever their
+  // dates; each booking's rate at that tier comes from the volume rates
+  // locked on it when it was made (the current ones for a booking from before
+  // locking). So a stay across a price change gives every dive the tier for
+  // the full count, each at its own booking's price list.
   const totalDives = bookings
     .filter((b) => b.activityType === ActivityType.FUN_DIVE)
     .reduce((n, b) => n + b.numberOfDives, 0);
-  const pricePerDive = stayDivePrice({ ...prices, funDiveTiers: stayTiers }, customer.customerType, totalDives);
+  const rateFor = (b: StayBookingRow) =>
+    stayDivePrice({ ...prices, funDiveTiers: lockedTiers(b) ?? prices.funDiveTiers }, customer.customerType, totalDives);
+  // The rate of the stay's earliest fun dive booking, for display.
+  const first = [...bookings]
+    .filter((b) => b.activityType === ActivityType.FUN_DIVE)
+    .sort((a, b) => a.date.getTime() - b.date.getTime() || SLOTS.indexOf(a.timeSlot) - SLOTS.indexOf(b.timeSlot))[0];
+  const pricePerDive = first ? rateFor(first) : stayDivePrice(prices, customer.customerType, totalDives);
   const unpriced = new Set<string>();
 
   const lines = bookings.map((b) => {
     const partner = partnerPaid(b);
     // Each booking at the prices locked when it was made.
     const own = pricesFor(prices, b);
-    const unit = b.activityType === ActivityType.FUN_DIVE ? pricePerDive : bookingUnitPrice(own, b);
+    const unit = b.activityType === ActivityType.FUN_DIVE ? rateFor(b) : bookingUnitPrice(own, b);
     const share = packShares?.get(b.id);
     if (unit === null && !partner && share === undefined) unpriced.add(ACTIVITY_NAMES[b.activityType]);
     const activityTotal =
@@ -162,8 +169,11 @@ export function priceStay(
     totalDives,
     pricePerDive,
     // Where locked prices differ from the current price list.
-    priceChanges: priceChanges(customer, bookings, prices, stayTiers, totalDives),
-    stayTiers,
+    priceChanges: priceChanges(customer, bookings, prices, totalDives),
+    // Every fun dive rate in the stay (one per price list its bookings were
+    // made under), lowest first.
+    funDiveRates: [...new Set(bookings.filter((b) => b.activityType === ActivityType.FUN_DIVE).map(rateFor))].sort((a, b) => a - b),
+    stayTiers: (first && lockedTiers(first)) ?? prices.funDiveTiers,
     lines,
     unpriced: [...unpriced],
     bookingsTotal,
@@ -183,20 +193,21 @@ export type PriceChange =
   | { kind: 'addOn'; addOn: string; locked: number; current: number };
 
 // The prices this stay is billed at that are no longer the price list's: the
-// stay's fun dive rate, activity prices, equipment sets and add-ons, each
+// stay's fun dive rates, activity prices, equipment sets and add-ons, each
 // once. Staff see them on the Stays page.
 function priceChanges(
   customer: StayCustomer,
   bookings: StayBookingRow[],
   prices: PriceList,
-  stayTiers: PriceList['funDiveTiers'],
   totalDives: number,
 ): PriceChange[] {
   const changes = new Map<string, PriceChange>();
-  if (bookings.some((b) => b.activityType === ActivityType.FUN_DIVE) && stayTiers !== prices.funDiveTiers) {
-    const locked = stayDivePrice({ ...prices, funDiveTiers: stayTiers }, customer.customerType, totalDives);
-    const current = stayDivePrice(prices, customer.customerType, totalDives);
-    if (locked !== current) changes.set('stayRate', { kind: 'stayRate', locked, current });
+  const current = stayDivePrice(prices, customer.customerType, totalDives);
+  for (const b of bookings) {
+    const tiers = b.activityType === ActivityType.FUN_DIVE ? lockedTiers(b) : null;
+    if (!tiers) continue;
+    const locked = stayDivePrice({ ...prices, funDiveTiers: tiers }, customer.customerType, totalDives);
+    if (locked !== current) changes.set(`stayRate:${locked}`, { kind: 'stayRate', locked, current });
   }
   let equipment = 0;
   for (const b of bookings) {
@@ -425,8 +436,9 @@ export class StaysService {
       endDate: stay.bookings.length > 0 ? isoDay(stay.bookings[stay.bookings.length - 1].date) : null,
       totalDives: priced.totalDives,
       pricePerDive: money(priced.pricePerDive),
+      funDiveRates: priced.funDiveRates.map(money),
       priceChanges: priced.priceChanges,
-      // The volume rates the stay is billed at (its earliest booking's).
+      // The volume rates of the stay's earliest booking, for the rate note.
       funDiveTiers: priced.stayTiers,
       unpriced: priced.unpriced,
       bookings: priced.lines.map((l) => ({
