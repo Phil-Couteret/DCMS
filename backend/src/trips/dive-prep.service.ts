@@ -121,7 +121,7 @@ export class DivePrepService {
       this.prisma.trip.findMany({
         where: { date, timeSlot, status: { not: TripStatus.CANCELLED }, ...tripAtLocation(locationId) },
         include: PREP_TRIP,
-        orderBy: [{ boat: { name: 'asc' } }, { createdAt: 'asc' }],
+        orderBy: [{ isShore: 'asc' }, { boat: { name: 'asc' } }, { startTime: 'asc' }, { createdAt: 'asc' }],
       }),
       this.prisma.booking.findMany({
         where: { date, timeSlot, tripId: null, status: BookingStatus.CONFIRMED, ...atLocation },
@@ -190,13 +190,15 @@ export class DivePrepService {
   // location, only that location's bookings and trips.
   async autoAssign(dateIso: string, timeSlot: TimeSlot, locationId?: string) {
     const date = startOfUtcDay(dateIso);
+    // Boat bookings onto boat trips. Shore bookings are put on their shore
+    // session when booked.
     const trips = await this.prisma.trip.findMany({
-      where: { date, timeSlot, status: TripStatus.PLANNED, ...tripAtLocation(locationId) },
+      where: { date, timeSlot, status: TripStatus.PLANNED, isShore: false, ...tripAtLocation(locationId) },
       include: PREP_TRIP,
-      orderBy: [{ boat: { name: 'asc' } }, { createdAt: 'asc' }],
+      orderBy: [{ isShore: 'asc' }, { boat: { name: 'asc' } }, { startTime: 'asc' }, { createdAt: 'asc' }],
     });
     const candidates = await this.prisma.booking.findMany({
-      where: { date, timeSlot, tripId: null, status: BookingStatus.CONFIRMED, ...(locationId && { locationId }) },
+      where: { date, timeSlot, tripId: null, boatId: { not: null }, status: BookingStatus.CONFIRMED, ...(locationId && { locationId }) },
       select: PREP_BOOKING,
       orderBy: { createdAt: 'asc' },
     });
@@ -258,7 +260,7 @@ export class DivePrepService {
     const trips = await this.prisma.trip.findMany({
       where: { date, status: TripStatus.COMPLETED },
       include: PREP_TRIP,
-      orderBy: [{ timeSlot: 'asc' }, { boat: { name: 'asc' } }],
+      orderBy: [{ timeSlot: 'asc' }, { isShore: 'asc' }, { boat: { name: 'asc' } }, { startTime: 'asc' }],
     });
     return {
       date: date.toISOString(),

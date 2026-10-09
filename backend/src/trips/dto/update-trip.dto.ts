@@ -8,6 +8,11 @@ export class UpdateTripDto {
   @IsEnum(TripStatus)
   status?: TripStatus;
 
+  // A shore session's start, HH:mm: its bookings move with it.
+  @IsOptional()
+  @Matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, { message: 'startTime must be HH:mm' })
+  startTime?: string;
+
   @IsOptional()
   @IsUUID()
   plannedSiteId?: string | null;

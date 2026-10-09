@@ -14,7 +14,7 @@ import {
   type TripStatus,
 } from "@/lib/api";
 import { getT } from "@/lib/i18n/server";
-import { TRIP_ROLES, TRIP_SLOTS, TRIP_STATUS_LABELS, TRIP_STATUSES, TRIP_TRANSITIONS } from "@/lib/trips";
+import { SHORE_START_TIMES, TRIP_ROLES, TRIP_SLOTS, TRIP_STATUS_LABELS, TRIP_STATUSES, TRIP_TRANSITIONS } from "@/lib/trips";
 
 export type TripFormState = { error?: string; ok?: boolean; tripId?: string } | null;
 
@@ -38,13 +38,17 @@ export async function createTripAction(_prev: TripFormState, formData: FormData)
   const t = await getT();
   const date = field(formData, "date");
   const timeSlot = field(formData, "timeSlot") as TimeSlot;
-  const boatId = field(formData, "boatId");
+  const shore = field(formData, "kind") === "shore";
+  const boatId = shore ? "" : field(formData, "boatId");
+  const startTime = shore ? field(formData, "startTime") : "";
   const plannedSiteId = field(formData, "plannedSiteId");
   const maxDivers = Number(field(formData, "maxDivers") || 10);
   const notes = field(formData, "notes");
   if (!ISO_DATE.test(date)) return { error: t("Choose a valid date") };
   if (!TRIP_SLOTS.includes(timeSlot)) return { error: t("Choose a time slot") };
   if (!Number.isInteger(maxDivers) || maxDivers < 1) return { error: t("Max divers must be at least 1") };
+  if (!shore && !boatId) return { error: t("Choose a boat") };
+  if (shore && !SHORE_START_TIMES[timeSlot].includes(startTime)) return { error: t("Choose the shore session") };
 
   let tripId: string;
   try {
@@ -53,6 +57,7 @@ export async function createTripAction(_prev: TripFormState, formData: FormData)
       timeSlot,
       maxDivers,
       ...(boatId && { boatId }),
+      ...(startTime && { startTime }),
       ...(plannedSiteId && { plannedSiteId }),
       ...(notes && { notes }),
     });

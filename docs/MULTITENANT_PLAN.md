@@ -38,7 +38,21 @@ Four decisions shape the schema. They should be settled before step 1 starts, be
 
 **Recommendation: A.** Under GDPR each center is the controller of its customers' data and the platform is a processor. A shared customer login would make the platform hold one identity that links a person's relationships with several unrelated businesses. That makes erasure requests, data exports and breach scoping cross-tenant problems, and it needs consent to share. Separate records keep every customer fully inside one tenant.
 
-Consequence for the schema: staff and platform logins stay globally unique (decision 1.1), while customer logins are unique **per tenant**. Either customer credentials move to their own per-tenant table, or `User` gets a nullable `tenantId` with two partial unique indexes (`email` where `tenantId IS NULL`, `(tenantId, email)` where it is set). The first option is cleaner in Prisma, which cannot express partial unique indexes in the schema.
+Consequence for the schema: staff and platform logins stay globally unique (decision 1.1), while customer logins are unique **per tenant**. Either customer credentials move to their own per-tenant table, or `User` gets a nullable `tenantId` with two partial unique indexes (`email` where `tenantId IS NULL`, `(tenantId, email)` where it is set). The second was built (Prisma's `partialIndexes` preview feature expresses the indexes in the schema).
+
+**Clarified by Philippe (2026-10-09): the scope is the company, not the center.** A tenant is a company; its centers are locations. One account per person, shared by all the centers of the same company: a customer of Deep Blue Caleta is automatically a customer of Deep Blue Playitas. A customer of a different company (another tenant) has a separate account. See "Customer accounts" below for how it works.
+
+#### Customer accounts: how it works (built 2026-10-09)
+
+- **One customer per company.** `Customer` rows are tenant rows, with no location: a company's customer is the same record whichever of its centers (locations) they dive at. Bookings carry the location; the customer does not. Within a company an email belongs to one customer.
+- **One login per company.** A customer's login (`User` with `role = CUSTOMER`) belongs to the tenant: `User.tenantId` is set. The same email at another company is another customer **and** another `User`, with its own password. Each company sees and controls only its own (GDPR: each company is the controller of its customers' data).
+- **Staff logins are global** (decision 1.1): `User.tenantId` is null, and a membership gives access to each company. When staff are customers of the company they work for, their customer profile uses their staff login. At another company they are a customer like anyone else, with a separate account there.
+- **Uniqueness:** `email` is unique among global accounts (`User_email_key`, where `tenantId IS NULL`) and `(tenantId, email)` among customer accounts (`User_tenantId_email_key`). One email can therefore have a staff login and one customer login per company. A CHECK keeps `tenantId` for customer accounts only, and a trigger on `Customer` (`Customer_account_tenant`) refuses a customer on another tenant's customer account.
+- **Where accounts are made** (`src/users/accounts.ts`, `accountForCustomer`): staff adding a customer, the customer CSV import, a public guest booking, a partner registering a customer, and sign-up on a company's site. Each one uses the company's existing customer for that email (guest bookings, partners), or refuses a second one (staff, import). Otherwise it takes the company's own customer account for that email if there is one, else the staff login of someone who works there, else a new customer account of the company. Guest and staff-made accounts have no usable password until one is set.
+- **Signing in** (`POST /auth/login`): the global (staff) login is tried first. Then, on a company's site, that company's customer account. With `account: "customer"` (for the public site's customer sign-in) only the customer side is tried: the company's customer account, or the staff login when it holds the person's own customer profile there. A customer of company A cannot sign in on company B's site with A's password.
+- **Changing a customer's email** changes only that company's account; it must be unused by the company's other customers. Making a company's customer account into staff (Settings → Users) turns it into a global account, unless the email already has a staff login.
+- **Migration** `customer_accounts_per_tenant`: customer-only accounts moved into the tenant of their first customer profile. A profile at any other tenant got its own account there (same email and password hash, so nobody was locked out). A staff login's customer profiles at companies the person does not work for were moved to new customer accounts of those companies in the same way.
+- **Tests:** `test/customer-accounts.e2e-spec.ts`.
 
 ### 1.3 URLs: subdomains only, or custom domains too?
 
@@ -135,7 +149,7 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 - **Center admins cannot change a superadmin's account** (password, name, account type, deletion only removes the membership).
 - **Tests:** `test/accounts.e2e-spec.ts` (15 checks) next to the isolation suite.
 
-**Not yet:** customer accounts unique per tenant (decision 1.2; customer logins are still global accounts), the invite-by-email onboarding of step 5 (a new tenant is empty: the superadmin opens it and adds its first admin), and partner logins naming a tenant (partners already belong to one, step 1).
+**Not yet:** the invite-by-email onboarding of step 5 (a new tenant is empty: the superadmin opens it and adds its first admin), and partner logins naming a tenant (partners already belong to one, step 1).
 
 ### Step 3: Per-tenant configuration (L)
 
@@ -189,7 +203,7 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 **Not yet / deployment notes:**
 - Behind a reverse proxy, the API must trust it (`trust proxy`) for rate limits to see client IPs; today it counts the proxy's.
 - Wildcard DNS and certificates (step 7).
-- Customer accounts are still global (decision 1.2 asks for per-tenant customer logins).
+- Customer accounts per tenant (decision 1.2): done 2026-10-09, see "Customer accounts: how it works" under 1.2.
 
 ### Step 5: Platform administration and onboarding (L)
 
@@ -317,6 +331,6 @@ Steps 1 to 4 are the minimum for a second center to use the system. Step 6 shoul
 | Decision | Recommendation |
 |---|---|
 | 1.1 Accounts | Global account + memberships, as already chosen for the old system; confirm it carries over |
-| 1.2 Customers | Separate per center; customer logins unique per tenant |
+| 1.2 Customers | Separate per company (tenant), shared by its centers (locations); customer logins unique per tenant (built) |
 | 1.3 URLs | Subdomains first (`{slug}.dcms…`, `{slug}.admin…`, one API host); custom domains in step 7 |
 | 1.4 Locations | Same pass if any first-year tenant has several sites (Deep Blue Diving does); rental location types out of scope |

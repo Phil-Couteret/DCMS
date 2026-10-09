@@ -9,6 +9,7 @@ import {
   IsUUID,
   Max,
   MaxLength,
+  Matches,
   Min,
 } from 'class-validator';
 import {
@@ -23,8 +24,17 @@ export class CreateBookingDto {
   @IsUUID()
   customerId: string;
 
+  // A boat booking; left out (or null on update) for a shore booking.
+  @IsOptional()
   @IsUUID()
-  boatId: string;
+  boatId?: string | null;
+
+  // A shore booking's session start, HH:mm (see SHORE_START_TIMES): no boat,
+  // and its shore trip is found or made. siteId names the shore dive site
+  // (needed when the center has several).
+  @IsOptional()
+  @Matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, { message: 'shoreTime must be HH:mm' })
+  shoreTime?: string | null;
 
   @IsOptional()
   @IsUUID()

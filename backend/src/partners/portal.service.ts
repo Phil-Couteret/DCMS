@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import { firstBoatWithRoom } from '../bookings/bookings.service.js';
 import { ACTIVITY_NAMES } from '../config/catalogue.js';
 import { PricingService } from '../settings/pricing.service.js';
 import { centerToday, dateOnly } from '../financial/center-day.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { BookingSource, BookingStatus, PartnerInvoiceStatus, Role } from '../generated/prisma/enums.js';
+import { BookingSource, BookingStatus, PartnerInvoiceStatus } from '../generated/prisma/enums.js';
+import { requireTenantId } from '../tenant/tenant-context.js';
+import { accountForCustomer } from '../users/accounts.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { PartnerBookingDto, PartnerCustomerDto } from './dto/portal.dto.js';
@@ -189,13 +190,9 @@ export class PortalService {
 
   private async newCustomer(tx: Tx, partnerId: string, dto: PartnerCustomerDto) {
     const email = dto.email.toLowerCase();
-    const user =
-      (await tx.user.findUnique({ where: { email }, select: { id: true } })) ??
-      // randomUUID is not a bcrypt hash, so no password can ever match it.
-      (await tx.user.create({ data: { email, passwordHash: randomUUID(), role: Role.CUSTOMER }, select: { id: true } }));
     return tx.customer.create({
       data: {
-        userId: user.id,
+        userId: await accountForCustomer(tx, requireTenantId(), email),
         partnerId,
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
@@ -209,9 +206,8 @@ export class PortalService {
   }
 }
 
-// The tenant's customer whose account has this email, if any. Users are
-// global; the customer lookup is filtered by the current tenant.
-async function customerByEmail(tx: Tx, email: string) {
-  const user = await tx.user.findUnique({ where: { email }, select: { id: true } });
-  return user ? tx.customer.findFirst({ where: { userId: user.id }, select: { id: true } }) : null;
+// This tenant's customer whose account has this email, if any (the lookup is
+// filtered by the current tenant; another company's customer is separate).
+function customerByEmail(tx: Tx, email: string) {
+  return tx.customer.findFirst({ where: { user: { email } }, select: { id: true } });
 }

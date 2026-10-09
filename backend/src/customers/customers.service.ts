@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -15,6 +14,7 @@ import { TenantConfig } from '../tenant/tenant-config.service.js';
 import { TenantContext } from '../tenant/tenant-context.service.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { centerToday } from '../financial/center-day.js';
+import { accountForCustomer, customerAccount } from '../users/accounts.js';
 import { deleteCustomerFolder } from './document-storage.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
@@ -112,7 +112,7 @@ export class CustomersService {
       where: { id },
       select: {
         userId: true,
-        user: { select: { email: true, role: true } },
+        user: { select: { email: true, role: true, tenantId: true } },
         ...VERIFIED_DETAILS_SELECT,
       },
     });
@@ -127,13 +127,18 @@ export class CustomersService {
           if (current.user.role !== Role.CUSTOMER) {
             throw new BadRequestException("This customer's email is also a staff login and cannot be changed here");
           }
-          if (await usedByOtherTenants(tx, current.userId, this.tenant.tenantId)) {
+          // Customer accounts are the tenant's own; a global one (from before
+          // accounts were per tenant) may be shared.
+          if (current.user.tenantId === null && (await usedByOtherTenants(tx, current.userId, this.tenant.tenantId))) {
             throw new BadRequestException(
               "This customer's account is also used by another center; its email can only be changed by them",
             );
           }
-          const taken = await tx.user.findUnique({ where: { email: newEmail }, select: { id: true } });
-          if (taken) throw new ConflictException('Another account already uses this email');
+          // Unique among this center's customers (and its customer accounts).
+          const taken =
+            (await customerAccount(tx, this.tenant.tenantId, newEmail, { id: true })) ??
+            (await tx.customer.findFirst({ where: { user: { email: newEmail } }, select: { id: true } }));
+          if (taken) throw new ConflictException('Another customer already uses this email');
           await tx.user.update({ where: { id: current.userId }, data: { email: newEmail } });
         }
         return tx.customer.update({
@@ -274,21 +279,14 @@ export async function importCustomers(
   return result;
 }
 
-// The account for a new customer: an existing one without a customer profile,
-// or a new CUSTOMER account that cannot be signed in to (as for guest
-// bookings: a random UUID never matches a bcrypt hash).
+// The account for a new customer of this tenant (see accountForCustomer).
+// The tenant must not already have a customer with this email; a customer
+// at another company is separate and does not count.
 async function accountFor(tx: Tx, email: string) {
-  const user = await tx.user.findUnique({ where: { email }, select: { id: true } });
-  // This tenant's profile only: a profile at another center is separate.
-  if (user && (await tx.customer.findFirst({ where: { userId: user.id }, select: { id: true } }))) {
+  if (await tx.customer.findFirst({ where: { user: { email } }, select: { id: true } })) {
     throw new ConflictException('A customer with this email already exists');
   }
-  if (user) return user.id;
-  const created = await tx.user.create({
-    data: { email, passwordHash: randomUUID(), role: Role.CUSTOMER },
-    select: { id: true },
-  });
-  return created.id;
+  return accountForCustomer(tx, requireTenantId(), email);
 }
 
 // Date fields arrive as ISO strings; null clears one.

@@ -16,6 +16,7 @@ import { tripAtLocation } from './location-filter.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { AssignStaffDto } from './dto/assign-staff.dto.js';
+import { assertShoreStart, lockShoreSlot, shoreSite } from './shore.js';
 import { ROLE_STAFF_TYPES, SEAT_HOLDING, tripCapacity, tripIssues } from './trip-rules.js';
 import { CreateTripDto } from './dto/create-trip.dto.js';
 import { UpdateTripDto } from './dto/update-trip.dto.js';
@@ -62,7 +63,7 @@ export class TripsService {
     return this.prisma.trip.findMany({
       where: { date: { ...(from && { gte: from }), ...(to && { lte: to }) }, ...tripAtLocation(range.locationId) },
       include: LIST_INCLUDE,
-      orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }, { isShore: 'asc' }, { startTime: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
@@ -73,25 +74,39 @@ export class TripsService {
     return { ...trip, issues: tripIssues(trip), capacity: tripCapacity(trip) };
   }
 
+  // A boat trip (boatId), or a shore trip (no boat): one per shore site and
+  // start time, its site a shore dive site (the only one when not given).
   async create(dto: CreateTripDto) {
     const date = startOfUtcDay(dto.date);
     const boatId = dto.boatId ?? null;
+    const isShore = boatId === null;
+    if (!isShore && dto.startTime) throw new BadRequestException('Only shore trips have a start time');
     try {
       const { id } = await this.prisma.$transaction(async (tx) => {
         await assertReferences(tx, { boatId, siteIds: [dto.plannedSiteId] });
-        // The unique index lets two shore trips (boatId null) share a slot, so
-        // creates for the same slot are serialised and checked here instead.
-        await lockSlot(tx, date, dto.timeSlot, boatId);
+        let plannedSiteId = dto.plannedSiteId ?? null;
+        if (isShore && dto.startTime) {
+          assertShoreStart(dto.timeSlot, dto.startTime);
+          plannedSiteId = (await shoreSite(tx, plannedSiteId)).id;
+        }
+        // The unique index lets shore trips (boatId null) share a slot, so
+        // creates are serialised and checked here instead.
+        if (isShore) await lockShoreSlot(tx, { date, timeSlot: dto.timeSlot, startTime: dto.startTime ?? null, siteId: plannedSiteId });
+        else await lockSlot(tx, date, dto.timeSlot, boatId);
         const existing = await tx.trip.findFirst({
-          where: { date, timeSlot: dto.timeSlot, boatId },
+          where: isShore
+            ? { date, timeSlot: dto.timeSlot, isShore, startTime: dto.startTime ?? null, plannedSiteId }
+            : { date, timeSlot: dto.timeSlot, boatId },
           select: { id: true },
         });
         if (existing) {
           throw new ConflictException(
-            `A trip already exists for this date, time slot and ${boatId ? 'boat' : 'shore dive'}`,
+            isShore
+              ? `A shore trip already exists at this site for this date and ${dto.startTime ? 'start time' : 'time slot'}`
+              : 'A trip already exists for this date, time slot and boat',
           );
         }
-        return tx.trip.create({ data: { ...dto, boatId, date }, select: { id: true } });
+        return tx.trip.create({ data: { ...dto, boatId, isShore, plannedSiteId, date }, select: { id: true } });
       });
       return this.findOne(id);
     } catch (e) {
@@ -110,6 +125,19 @@ export class TripsService {
         await assertReferences(tx, { siteIds: [dto.plannedSiteId, dto.actualSiteId] });
         const current = await tx.trip.findUniqueOrThrow({ where: { id }, include: DETAIL_INCLUDE });
         const data: Prisma.TripUncheckedUpdateInput = { ...dto };
+        // A shore session moved to another start: its bookings move with it.
+        if (dto.startTime !== undefined && dto.startTime !== current.startTime) {
+          if (!current.isShore) throw new BadRequestException('Only shore trips have a start time');
+          if (dto.startTime === null) throw new BadRequestException('A shore session keeps a start time');
+          assertShoreStart(current.timeSlot, dto.startTime);
+          const clash = await tx.trip.findFirst({
+            where: { id: { not: id }, date: current.date, timeSlot: current.timeSlot, isShore: true, startTime: dto.startTime, plannedSiteId: dto.plannedSiteId ?? current.plannedSiteId },
+            select: { id: true },
+          });
+          if (clash) throw new ConflictException(`There is already a ${dto.startTime} shore session at this site`);
+          await tx.booking.updateMany({ where: { tripId: id }, data: { shoreTime: dto.startTime } });
+        }
+        if (current.isShore && dto.plannedSiteId) await shoreSite(tx, dto.plannedSiteId);
         if (dto.status === TripStatus.ACTIVE && current.status !== TripStatus.ACTIVE) {
           const issues = tripIssues({
             ...current,
@@ -236,6 +264,7 @@ export class TripsService {
         select: {
           tripId: true,
           boatId: true,
+          shoreTime: true,
           date: true,
           timeSlot: true,
           status: true,
@@ -249,6 +278,13 @@ export class TripsService {
       }
       if (booking.date.getTime() !== trip.date.getTime() || booking.timeSlot !== trip.timeSlot) {
         throw new BadRequestException("Booking date and time slot do not match the trip's");
+      }
+      // Shore bookings go on shore trips, boat bookings on boat trips.
+      if (trip.isShore && booking.boatId) {
+        throw new BadRequestException('A boat booking cannot join a shore trip; make it a shore booking first');
+      }
+      if (!trip.isShore && !booking.boatId) {
+        throw new BadRequestException('A shore booking cannot join a boat trip; give it a boat first');
       }
       const moveBoat = Boolean(trip.boatId && booking.boatId !== trip.boatId);
       if (moveBoat && !opts.reassignBoat) {
@@ -270,7 +306,13 @@ export class TripsService {
       if (moveBoat) await assertBoatSeat(tx, trip.boatId!, trip, bookingId, booking.participantCount);
       await tx.booking.update({
         where: { id: bookingId },
-        data: { tripId: id, ...(moveBoat && { boatId: trip.boatId! }) },
+        data: {
+          tripId: id,
+          ...(moveBoat && { boatId: trip.boatId! }),
+          // Onto another shore session: its start time and site.
+          ...(trip.isShore && trip.startTime && { shoreTime: trip.startTime }),
+          ...(trip.isShore && trip.plannedSiteId && { siteId: trip.plannedSiteId }),
+        },
       });
     });
     return this.findOne(id);
@@ -331,10 +373,13 @@ async function lockTrip(tx: Tx, id: string) {
       date: Date;
       timeSlot: TimeSlot;
       boatId: string | null;
+      isShore: boolean;
+      startTime: string | null;
+      plannedSiteId: string | null;
       status: TripStatus;
       maxDivers: number;
     }[]
-  >`SELECT id, date, "timeSlot", "boatId", status, "maxDivers"
+  >`SELECT id, date, "timeSlot", "boatId", "isShore", "startTime", "plannedSiteId", status, "maxDivers"
     FROM "Trip" WHERE id = ${id} AND "tenantId" = ${requireTenantId()} FOR UPDATE`;
   if (rows.length === 0) throw new NotFoundException(`Trip ${id} not found`);
   return rows[0];

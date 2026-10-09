@@ -1,6 +1,7 @@
 generator client {
   provider            = "prisma-client"
   output              = "../src/generated/prisma"
+  previewFeatures     = ["partialIndexes"]
   moduleFormat        = "esm"
   importFileExtension = "js"
 }
@@ -100,6 +101,7 @@ model Tenant {
   tanks                  Tank[]
   customerDocuments      CustomerDocument[]
   addOnPrices            AddOnPrice[]
+  customerAccounts       User[]                  @relation("CustomerAccounts")
   divePacks              DivePack[]
   invitations            Invitation[]
 }
@@ -285,9 +287,20 @@ model PlatformAuditLog {
   @@index([createdAt])
 }
 
+// A login. Staff and platform accounts are global (tenantId null): one per
+// person, with a membership per center they work for. Customer accounts
+// belong to one tenant (company): a diver has one login per company, shared
+// by all its locations, and a separate one at any other company. Emails are
+// unique among global accounts, and within each tenant among its customer
+// accounts.
 model User {
   id              String             @id @default(uuid())
-  email           String             @unique
+  email           String
+  // The company a customer account belongs to; null for staff and platform
+  // accounts. (A staff member's own customer profile at their center uses
+  // their staff account.)
+  tenantId        String?
+  tenant          Tenant?            @relation("CustomerAccounts", fields: [tenantId], references: [id], onDelete: Restrict)
   passwordHash    String
   name            String?
   role            Role               @default(CUSTOMER)
@@ -295,7 +308,7 @@ model User {
   // The very first account created becomes one (trigger, migration
   // multitenancy_accounts).
   isSuperadmin    Boolean            @default(false)
-  // One account per person. Its customer and staff profiles are per tenant.
+  // Its customer and staff profiles, per tenant.
   customers       Customer[]
   staffProfiles   Staff[]
   memberships     Membership[]
@@ -304,6 +317,9 @@ model User {
   invitationsSent Invitation[]       @relation("InvitationsSent")
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+
+  @@unique([email], map: "User_email_key", where: raw("\"tenantId\" IS NULL"))
+  @@unique([tenantId, email], map: "User_tenantId_email_key", where: raw("\"tenantId\" IS NOT NULL"))
 }
 
 model Customer {
@@ -534,6 +550,8 @@ model DiveSite {
   // The location its trips leave from; null: not assigned.
   locationId        String?
   location          Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  // A shore dive site (beach, harbour, pool) where shore trips take place.
+  isShore           Boolean   @default(false)
   nameEs            String
   nameEn            String
   nameDe            String
@@ -713,8 +731,12 @@ model Booking {
   location         Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   customerId       String
   customer         Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  boatId           String
-  boat             Boat            @relation(fields: [boatId], references: [id], onDelete: Restrict)
+  // A boat booking has a boat; a shore booking (no boat) has a shoreTime and
+  // its shore trip. Exactly one of boatId and shoreTime is set.
+  boatId           String?
+  boat             Boat?           @relation(fields: [boatId], references: [id], onDelete: Restrict)
+  // HH:mm, center time: the shore session it is booked on.
+  shoreTime        String?         @db.VarChar(5)
   siteId           String?
   site             DiveSite?       @relation(fields: [siteId], references: [id], onDelete: SetNull)
   tripId           String?
@@ -784,6 +806,13 @@ model Trip {
   timeSlot      TimeSlot
   boatId        String?
   boat          Boat?       @relation(fields: [boatId], references: [id], onDelete: Restrict)
+  // A shore trip (beach, harbour or pool: discovery dives, courses, night
+  // dives) has no boat. isShore is true exactly when boatId is null.
+  isShore       Boolean     @default(false)
+  // A shore trip's start, HH:mm in center time: one of the slot's 30-minute
+  // starts (SHORE_START_TIMES). Null for boat trips, and for shore trips
+  // from before start times.
+  startTime     String?     @db.VarChar(5)
   plannedSiteId String?
   plannedSite   DiveSite?   @relation("TripPlannedSite", fields: [plannedSiteId], references: [id], onDelete: SetNull)
   actualSiteId  String?
@@ -802,7 +831,8 @@ model Trip {
   updatedAt     DateTime    @updatedAt
 
   // PostgreSQL treats NULLs as distinct, so this does not stop two shore
-  // trips (boatId null) in the same slot. TripsService checks that case.
+  // trips (boatId null) at the same time and site. TripsService and
+  // shoreTripFor check that case.
   @@unique([tenantId, date, timeSlot, boatId])
   @@index([date])
 }

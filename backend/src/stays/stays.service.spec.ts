@@ -26,6 +26,7 @@ function booking(activityType: ActivityType, extra: Record<string, unknown> = {}
     bonoId: null,
     bono: null,
     addOns: [],
+    shoreTime: null,
     status: 'CONFIRMED',
     bookingSource: BookingSource.DIRECT,
     notes: null,

@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import type { Prisma } from '../generated/prisma/client.js';
 import { MembershipRole, Role } from '../generated/prisma/enums.js';
 import { MailerService } from '../mail/mailer.service.js';
+import { globalAccount } from '../users/accounts.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto.js';
 
@@ -100,7 +101,9 @@ export class InvitationsService {
   // What the invitation page shows before it is accepted.
   async preview(token: string) {
     const invitation = await this.find(token);
-    const account = await this.prisma.user.findUnique({ where: { email: invitation.email }, select: { role: true } });
+    // Staff logins are global accounts; a customer account at some company
+    // with the same email is separate and does not count.
+    const account = await globalAccount(this.prisma, invitation.email, { role: true });
     return {
       email: invitation.email,
       name: invitation.name,
@@ -124,10 +127,7 @@ export class InvitationsService {
     if (status === 'ACCEPTED') throw new ConflictException('This invitation has already been used');
     if (status !== 'PENDING') throw new GoneException('This invitation has expired; ask for a new one');
 
-    const existing = await this.prisma.user.findUnique({
-      where: { email: invitation.email },
-      select: { id: true, role: true, passwordHash: true },
-    });
+    const existing = await globalAccount(this.prisma, invitation.email, { id: true, role: true, passwordHash: true });
     if (existing) {
       if (existing.role === Role.CUSTOMER) {
         throw new BadRequestException('This email belongs to a customer account; ask to be invited with another email');

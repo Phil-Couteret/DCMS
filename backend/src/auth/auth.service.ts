@@ -47,14 +47,22 @@ export class AuthService {
   // sign up, so the first account, which the database makes superadmin, is
   // the one created at deployment (scripts/create-superadmin.mjs), never a
   // stranger's.
+  //
+  // The account is the center's own customer account (accounts are per
+  // tenant): an email already used by another company's customer, or by a
+  // staff login, registers separately here.
   async register(dto: RegisterDto) {
     const tenantId = await this.customerTenant();
     const email = dto.email.toLowerCase();
-    if (await this.users.findByEmail(email)) {
-      throw new ConflictException('Email already registered');
-    }
+    const known =
+      (await this.users.findCustomerAccount(tenantId, email)) ??
+      (await this.prisma.customer.findFirst({ where: { tenantId, user: { email } }, select: { id: true } }));
+    if (known) throw new ConflictException('Email already registered');
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const created = await this.users.create({ email, passwordHash, name: dto.name });
+    // On a platform with no account yet, the database makes the first one a
+    // superadmin, which is a global account.
+    const first = (await this.prisma.user.count()) === 0;
+    const created = await this.users.create({ email, passwordHash, name: dto.name, ...(!first && { tenantId }) });
     const user = await this.account(created.id);
     if (user.isSuperadmin) return this.staffLogin(user);
     return this.issue(user, { tenantId, role: Role.CUSTOMER });
@@ -64,16 +72,35 @@ export class AuthService {
   // With several choices the reply is { requiresTenantSelection, tenants,
   // selectionToken } and the login finishes with selectTenant. Customers
   // get a token for the tenant of the site they sign in on.
+  //
+  // The email may have a global (staff) login and a customer login at this
+  // tenant, with their own passwords. The global one is tried first, unless
+  // the site asks for the customer account (account: 'customer'), as the
+  // public site's customer sign-in does.
   async login(dto: LoginDto) {
-    const found = await this.users.findByEmail(dto.email.toLowerCase());
-    if (!found || !(await bcrypt.compare(dto.password, found.passwordHash))) {
-      throw new UnauthorizedException('Invalid credentials');
+    const email = dto.email.toLowerCase();
+    const tenantId = currentTenantId();
+    const matches = async (row: { passwordHash: string } | null) =>
+      row !== null && (await bcrypt.compare(dto.password, row.passwordHash));
+
+    const global = await this.users.findGlobalByEmail(email);
+    if (dto.account !== 'customer' && (await matches(global))) {
+      const user = await this.account(global!.id);
+      if (!(await this.isStaffAccount(user))) {
+        return this.issue(user, { tenantId: await this.customerTenant(), role: Role.CUSTOMER });
+      }
+      return this.staffLogin(user);
     }
-    const user = await this.account(found.id);
-    if (!(await this.isStaffAccount(user))) {
-      return this.issue(user, { tenantId: await this.customerTenant(), role: Role.CUSTOMER });
+    if (tenantId) {
+      const own = await this.users.findCustomerAccount(tenantId, email);
+      if (await matches(own)) return this.issue(await this.account(own!.id), { tenantId, role: Role.CUSTOMER });
+      // A staff member's own customer profile at their center uses their staff login.
+      if (dto.account === 'customer' && (await matches(global))) {
+        const profile = await this.prisma.customer.findFirst({ where: { tenantId, userId: global!.id }, select: { id: true } });
+        if (profile) return this.issue(await this.account(global!.id), { tenantId, role: Role.CUSTOMER });
+      }
     }
-    return this.staffLogin(user);
+    throw new UnauthorizedException('Invalid credentials');
   }
 
   async selectTenant(selectionToken: string, tenantId: string | null) {

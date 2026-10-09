@@ -606,6 +606,15 @@ export function SiteForm({
           {t("Access")}
           <input name="accessibility" maxLength={100} placeholder="boat_only" defaultValue={site?.accessibility ?? ""} className={control} />
         </label>
+        <label className="flex items-start gap-2 self-center text-sm font-medium text-zinc-700">
+          <input type="checkbox" name="isShore" defaultChecked={site?.isShore ?? false} className="mt-0.5 size-4" />
+          <span>
+            {t("Shore dive site")}
+            <span className="block text-xs font-normal text-zinc-500">
+              {t("A beach, harbour or pool: shore sessions (discovery dives, courses) take place here, with no boat.")}
+            </span>
+          </span>
+        </label>
         {(
           [
             ["marineLife", "Marine life (comma-separated)"],

@@ -35,7 +35,7 @@ import {
   SKILL_PILL,
   type PrepTab,
 } from "@/lib/dive-prep";
-import { formatDayLabel, ROLE_LABELS, SLOT_NAMES, TRIP_SLOTS } from "@/lib/trips";
+import { tripPlace, formatDayLabel, ROLE_LABELS, SLOT_NAMES, TRIP_SLOTS } from "@/lib/trips";
 import { centerLocale } from "@/lib/center";
 import { getT } from "@/lib/i18n/server";
 
@@ -149,7 +149,7 @@ async function TripCard({ trip, prep }: { trip: PrepTrip; prep: DivePrep }) {
     <article className={`space-y-4 rounded-xl bg-white p-5 ring-1 ${over ? "ring-2 ring-red-400" : "ring-zinc-200"}`}>
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-lg font-semibold text-zinc-900">{trip.boat?.name ?? t("Shore dive")}</h3>
+          <h3 className="text-lg font-semibold text-zinc-900">{tripPlace(trip, t)}</h3>
           <p className="text-xs text-zinc-500">
             {trip.boat ? `${t("{count} places", { count: trip.boat.capacity })} · ` : ""}
             {t("{crew} crew · room for {count} divers", { crew, count: Math.max(0, limit) })}
@@ -353,7 +353,7 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
                 <DiverLine b={b} />
                 <div className="flex flex-wrap items-start justify-end gap-1.5">
                   {openTrips.length === 0 && <span className="text-xs text-zinc-500">{t("No open trip")}</span>}
-                  {openTrips.map((tr) => {
+                  {openTrips.filter((tr) => (b.boatId ? !tr.isShore : tr.isShore)).map((tr) => {
                     const fits = tr.capacity.available >= b.participantCount;
                     return (
                       <ActionButton
@@ -364,7 +364,7 @@ async function PreparationTab({ date, slot, location }: { date: string; slot: Ti
                         disabled={!fits}
                         size="xs"
                       >
-                        {tr.boat?.name ?? t("Shore")} (
+                        {tripPlace(tr, t)} (
                         {fits ? t("{count} left", { count: tr.capacity.available }) : t("full")})
                       </ActionButton>
                     );
@@ -408,7 +408,7 @@ async function ReportTab({ date, location }: { date: string; location?: string }
             <header className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <h3 className="font-semibold text-zinc-900">
-                  {t(SLOT_NAMES[trip.timeSlot])} · {trip.boat?.name ?? t("Shore dive")}
+                  {t(SLOT_NAMES[trip.timeSlot])} · {tripPlace(trip, t)}
                 </h3>
                 <p className="text-xs text-zinc-500">
                   {trip._count.bookings === 1
@@ -482,7 +482,7 @@ async function ComplianceTab({ date }: { date: string }) {
               {t("Dive {number}: {slot} · {boat}", {
                 number: i + 1,
                 slot: t(SLOT_NAMES[trip.timeSlot]),
-                boat: trip.boat?.name ?? t("Shore dive"),
+                boat: tripPlace(trip, t),
               })}
             </h3>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-4">

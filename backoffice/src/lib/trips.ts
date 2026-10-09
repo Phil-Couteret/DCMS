@@ -161,3 +161,40 @@ export function scheduleHref(q: ScheduleQuery) {
   if (q.location) params.set("location", q.location);
   return `/dashboard/schedule?${params}`;
 }
+
+// Shore trips (beach, harbour, pool; no boat): an hour-long session starts
+// every 30 minutes, as the API's SHORE_START_TIMES.
+function shoreStarts(from: string, last: string) {
+  const out: string[] = [];
+  const toMin = (v: string) => Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
+  for (let m = toMin(from); m <= toMin(last); m += 30) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+export const SHORE_START_TIMES: Record<TimeSlot, string[]> = {
+  MORNING: shoreStarts("09:30", "12:00"),
+  AFTERNOON: shoreStarts("14:00", "17:00"),
+  NIGHT: shoreStarts("19:00", "20:30"),
+};
+
+// "10:00–11:00"
+export function shoreSession(start: string) {
+  const m = Number(start.slice(0, 2)) * 60 + Number(start.slice(3)) + 60;
+  return `${start}–${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+// Activities that take place on shore unless staff choose a boat.
+export const SHORE_ACTIVITIES = ["DISCOVER_SCUBA", "OW_CERT"];
+
+// What a trip is called: its boat, or "Shore 10:00–11:00" (t: a translator,
+// English when left out).
+export function tripPlace(
+  trip: { boat?: { name: string } | null; startTime?: string | null },
+  t: (text: string, vars?: Record<string, string | number>) => string = (x, v) => (v ? x.replace(/\{(\w+)\}/g, (_, k) => String(v[k])) : x),
+) {
+  if (trip.boat) return trip.boat.name;
+  return trip.startTime ? t("Shore {time}", { time: shoreSession(trip.startTime) }) : t("Shore dive");
+}
+

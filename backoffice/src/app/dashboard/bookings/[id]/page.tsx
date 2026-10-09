@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { ADD_ON_LABELS } from "@/lib/add-ons";
+import { shoreSession } from "@/lib/trips";
 import { centerLocale } from "@/lib/center";
 import { money } from "@/lib/billing";
 import Link from "next/link";
@@ -110,7 +111,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </Row>
               )}
               <Row label={t("Boat")}>
-                {booking.boat ? t("{name} (capacity {capacity})", { name: booking.boat.name, capacity: booking.boat.capacity }) : "—"}
+                {booking.boat
+                  ? t("{name} (capacity {capacity})", { name: booking.boat.name, capacity: booking.boat.capacity })
+                  : t("Shore session {session}", { session: booking.shoreTime ? shoreSession(booking.shoreTime) : "" })}
               </Row>
               <Row label={t("Dive site")}>{booking.site?.nameEn ?? t("Not assigned")}</Row>
               <Row label={t("Source")}>

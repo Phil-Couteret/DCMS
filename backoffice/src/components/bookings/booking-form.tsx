@@ -9,7 +9,7 @@ import { ADD_ONS } from "@/lib/add-ons";
 import { ACTIVITY_LABELS, EQUIPMENT_ITEMS, SLOT_LABELS, SOURCE_LABELS, SOURCES } from "@/lib/bookings";
 import { LANGUAGES } from "@/lib/customers";
 import { useT } from "@/lib/i18n/client";
-import { TRIP_SLOTS } from "@/lib/trips";
+import { SHORE_ACTIVITIES, SHORE_START_TIMES, shoreSession, TRIP_SLOTS } from "@/lib/trips";
 import { useFormAction } from "@/lib/use-form-action";
 
 const control =
@@ -28,7 +28,9 @@ export interface BookingFormValues {
   activityType: string;
   date: string;
   timeSlot: TimeSlot;
+  place: "boat" | "shore";
   boatId: string;
+  shoreTime: string; // a shore booking's session start
   siteId: string;
   participantCount: number;
   numberOfDives: number;
@@ -121,7 +123,7 @@ export function BookingForm({
   initial: BookingFormValues;
   customers: CustomerOption[];
   boats: Boat[];
-  sites: DiveSiteOption[];
+  sites: (DiveSiteOption & { isShore?: boolean })[];
   partners: { id: string; name: string }[]; // active ones, plus the booking's own
   cancelHref: string;
 }) {
@@ -129,6 +131,11 @@ export function BookingForm({
   const [state, onSubmit, pending] = useFormAction<BookingFormState>(saveBooking, null);
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [customerId, setCustomerId] = useState(initial.customerId);
+  // Boat or shore: discovery dives and Open Water courses default to shore.
+  const [place, setPlace] = useState(initial.place);
+  const [timeSlot, setTimeSlot] = useState<TimeSlot>(initial.timeSlot);
+  const shoreSites = sites.filter((s) => s.isShore);
+  const shoreTimes = SHORE_START_TIMES[timeSlot];
   // A customer created by a submit whose booking then failed.
   const [created, setCreated] = useState<CustomerOption | null>(null);
   const [equipment, setEquipment] = useState(() => new Set(initial.equipment.map((e) => e.split(":")[0])));
@@ -218,7 +225,13 @@ export function BookingForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <label className={label}>
             {t("Activity")}
-            <select name="activityType" defaultValue={initial.activityType} required className={control}>
+            <select
+              name="activityType"
+              defaultValue={initial.activityType}
+              required
+              onChange={(e) => setPlace(SHORE_ACTIVITIES.includes(e.target.value) ? "shore" : "boat")}
+              className={control}
+            >
               {Object.entries(ACTIVITY_LABELS).map(([value, text]) => (
                 <option key={value} value={value}>
                   {t(text)}
@@ -232,7 +245,7 @@ export function BookingForm({
           </label>
           <label className={label}>
             {t("Time slot")}
-            <select name="timeSlot" defaultValue={initial.timeSlot} className={control}>
+            <select name="timeSlot" value={timeSlot} onChange={(e) => setTimeSlot(e.target.value as TimeSlot)} className={control}>
               {TRIP_SLOTS.map((s) => (
                 <option key={s} value={s}>
                   {t(SLOT_LABELS[s])}
@@ -240,31 +253,95 @@ export function BookingForm({
               ))}
             </select>
           </label>
-          <label className={label}>
-            {t("Boat")}
-            <select name="boatId" required defaultValue={initial.boatId} className={control}>
-              <option value="" disabled>
-                {t("Choose…")}
-              </option>
-              {boats.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {t("{name} ({capacity} places)", { name: b.name, capacity: b.capacity })}
-                  {b.status !== "active" ? ` · ${b.status}` : ""}
-                </option>
+          <fieldset className="sm:col-span-2 lg:col-span-3">
+            <legend className="text-sm font-medium text-zinc-700">{t("Where")}</legend>
+            <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1">
+              {(
+                [
+                  ["boat", t("Boat trip")],
+                  ["shore", t("Shore (beach, harbour or pool; no boat)")],
+                ] as const
+              ).map(([value, text]) => (
+                <label key={value} className="flex items-center gap-2 text-sm text-zinc-800">
+                  <input type="radio" name="place" value={value} checked={place === value} onChange={() => setPlace(value)} className="size-4" />
+                  {text}
+                </label>
               ))}
-            </select>
-          </label>
-          <label className={label}>
-            {t("Dive site")}
-            <select name="siteId" defaultValue={initial.siteId} className={control}>
-              <option value="">{t("Not assigned yet")}</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nameEn}
-                </option>
-              ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
+          {place === "boat" ? (
+            <>
+              <label className={label}>
+                {t("Boat")}
+                <select name="boatId" required defaultValue={initial.boatId} className={control}>
+                  <option value="" disabled>
+                    {t("Choose…")}
+                  </option>
+                  {boats.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {t("{name} ({capacity} places)", { name: b.name, capacity: b.capacity })}
+                      {b.status !== "active" ? ` · ${b.status}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={label}>
+                {t("Dive site")}
+                <select name="siteId" defaultValue={initial.place === "boat" ? initial.siteId : ""} className={control}>
+                  <option value="">{t("Not assigned yet")}</option>
+                  {sites.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nameEn}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : (
+            <>
+              <label className={label}>
+                {t("Shore session")}
+                <select
+                  name="shoreTime"
+                  required
+                  key={timeSlot}
+                  defaultValue={shoreTimes.includes(initial.shoreTime) ? initial.shoreTime : ""}
+                  className={control}
+                >
+                  <option value="" disabled>
+                    {t("Choose…")}
+                  </option>
+                  {shoreTimes.map((time) => (
+                    <option key={time} value={time}>
+                      {shoreSession(time)}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs font-normal text-zinc-500">{t("One hour; a session starts every 30 minutes.")}</span>
+              </label>
+              <label className={label}>
+                {t("Shore dive site")}
+                {shoreSites.length === 0 ? (
+                  <span role="alert" className="mt-1 block text-sm font-normal text-red-700">
+                    {t("No shore dive site yet: mark one as a shore site in Settings → Dive Sites.")}
+                  </span>
+                ) : (
+                  <select
+                    name="siteId"
+                    required
+                    defaultValue={shoreSites.some((s) => s.id === initial.siteId) ? initial.siteId : shoreSites[0].id}
+                    className={control}
+                  >
+                    {shoreSites.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nameEn}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+            </>
+          )}
           <label className={label}>
             {t("Participants")}
             <input

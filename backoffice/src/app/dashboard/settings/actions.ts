@@ -257,6 +257,7 @@ export async function saveSite(_prev: SettingsFormState, formData: FormData): Pr
     // Required columns: left empty, they take the database defaults.
     typicalCurrent: text(formData, "typicalCurrent") || "none",
     accessibility: text(formData, "accessibility") || "boat_only",
+    isShore: formData.get("isShore") === "on",
   };
   // The list and temperature fields are free-form JSON. On edit they are only
   // sent when changed, so values this form cannot show are not overwritten.

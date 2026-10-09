@@ -60,6 +60,7 @@ const BOOKING_SELECT = {
   partnerId: true,
   partner: { select: { name: true } },
   boat: { select: { name: true } },
+  shoreTime: true,
   bonoId: true,
   bono: { select: { code: true, type: true, discountValue: true } },
   addOns: true,
@@ -378,7 +379,8 @@ export class StaysService {
         activityName: ACTIVITY_NAMES[l.booking.activityType],
         participantCount: l.booking.participantCount,
         status: l.booking.status,
-        boatName: l.booking.boat.name,
+        boatName: l.booking.boat?.name ?? null, // null: a shore booking
+        shoreTime: l.booking.shoreTime,
         partner: l.partner,
         partnerName: l.booking.partner?.name ?? null,
         unitPrice: l.unit === null ? null : money(l.unit),

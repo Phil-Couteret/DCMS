@@ -4,11 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
-import { BookingSource, BookingStatus, Role, TimeSlot } from '../generated/prisma/enums.js';
+import { BookingSource, BookingStatus, TimeSlot } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { usableBono } from '../bonos/bono-rules.js';
+import { accountForCustomer } from '../users/accounts.js';
+import { assertShoreStart, placeOnShoreTrip, shoreSite } from '../trips/shore.js';
 import { requireTenantId } from '../tenant/tenant-context.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { GuestBookingDto } from './dto/guest-booking.dto.js';
@@ -26,6 +27,7 @@ const INCLUDE = {
   boat: { select: { id: true, name: true, capacity: true } },
   site: { select: { id: true, nameEn: true } },
   partner: { select: { id: true, name: true } },
+  trip: { select: { id: true, isShore: true, startTime: true } },
   bono: { select: { id: true, code: true, type: true, discountValue: true, description: true } },
 } satisfies Prisma.BookingInclude;
 
@@ -63,20 +65,37 @@ export class BookingsService {
     return booking;
   }
 
+  // A boat booking (boatId) holds seats on the boat; a shore booking
+  // (shoreTime, no boat) goes on the shore trip for its site, date and start
+  // time, made when needed.
   async create(dto: CreateBookingDto) {
     const date = startOfUtcDay(dto.date);
     const status = dto.status ?? BookingStatus.PENDING;
+    if (!dto.boatId === !dto.shoreTime) {
+      throw new BadRequestException('Give a boat, or a shore time for a shore booking (not both)');
+    }
     try {
       return await this.prisma.$transaction(async (tx) => {
         await assertReferences(tx, dto);
-        if (SEAT_HOLDING.includes(status)) {
-          await assertSeats(tx, { ...dto, date });
-        } else {
-          await lockBoat(tx, dto.boatId);
-        }
         const { bonoCode, ...fields } = dto;
         const bonoId = bonoCode ? (await usableBono(tx, bonoCode, date)).id : null;
-        return tx.booking.create({ data: { ...withPartnerSource(fields), date, status, bonoId }, include: INCLUDE });
+        if (dto.boatId) {
+          if (SEAT_HOLDING.includes(status)) {
+            await assertSeats(tx, { ...dto, boatId: dto.boatId, date });
+          } else {
+            await lockBoat(tx, dto.boatId);
+          }
+          return tx.booking.create({ data: { ...withPartnerSource(fields), date, status, bonoId }, include: INCLUDE });
+        }
+        const site = await shoreSite(tx, dto.siteId);
+        assertShoreStart(dto.timeSlot, dto.shoreTime!);
+        const tripId = SEAT_HOLDING.includes(status)
+          ? await placeOnShoreTrip(tx, { ...dto, date, shoreTime: dto.shoreTime!, siteId: site.id })
+          : null;
+        return tx.booking.create({
+          data: { ...withPartnerSource(fields), date, status, bonoId, siteId: site.id, locationId: site.locationId, tripId },
+          include: INCLUDE,
+        });
       });
     } catch (e) {
       throw mapError(e);
@@ -89,8 +108,15 @@ export class BookingsService {
       throw new ConflictException("This booking is on a partner invoice; cancel that invoice to change its partner");
     }
     const date = dto.date !== undefined ? startOfUtcDay(dto.date) : undefined;
+    // Giving a boat makes it a boat booking, giving a shore time a shore one.
+    const boatId = dto.boatId !== undefined ? dto.boatId : dto.shoreTime ? null : current.boatId;
+    const shoreTime = dto.shoreTime !== undefined ? dto.shoreTime : dto.boatId ? null : current.shoreTime;
+    if (!boatId === !shoreTime) {
+      throw new BadRequestException('Give a boat, or a shore time for a shore booking (not both)');
+    }
     const next = {
-      boatId: dto.boatId ?? current.boatId,
+      boatId,
+      shoreTime,
       date: date ?? current.date,
       timeSlot: dto.timeSlot ?? current.timeSlot,
       participantCount: dto.participantCount ?? current.participantCount,
@@ -99,14 +125,38 @@ export class BookingsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         await assertReferences(tx, dto);
-        if (SEAT_HOLDING.includes(next.status)) {
-          await assertSeats(tx, next, id);
-        }
         const { bonoCode, ...fields } = dto;
         const bonoId = await bonoChange(tx, current, bonoCode, date);
+        const placement: Prisma.BookingUncheckedUpdateInput = { boatId, shoreTime };
+        const onShoreTrip = current.trip?.isShore ?? false;
+        if (boatId) {
+          if (SEAT_HOLDING.includes(next.status)) await assertSeats(tx, { ...next, boatId }, id);
+          // A booking leaving the shore leaves its shore trip.
+          if (onShoreTrip) placement.tripId = null;
+        } else {
+          const siteId = dto.siteId !== undefined ? dto.siteId : current.boatId ? null : current.siteId;
+          const site = await shoreSite(tx, siteId);
+          assertShoreStart(next.timeSlot, shoreTime!);
+          placement.siteId = site.id;
+          placement.locationId = site.locationId;
+          const moved =
+            !onShoreTrip ||
+            current.shoreTime !== shoreTime ||
+            current.date.getTime() !== next.date.getTime() ||
+            current.timeSlot !== next.timeSlot ||
+            current.siteId !== site.id;
+          if (SEAT_HOLDING.includes(next.status) && (moved || next.participantCount !== current.participantCount)) {
+            placement.tripId = await placeOnShoreTrip(tx, { id, ...next, shoreTime: shoreTime!, siteId: site.id });
+          }
+        }
         return tx.booking.update({
           where: { id },
-          data: { ...withPartnerSource(fields), ...(date && { date }), ...(bonoId !== undefined && { bonoId }) },
+          data: {
+            ...withPartnerSource(fields),
+            ...(date && { date }),
+            ...(bonoId !== undefined && { bonoId }),
+            ...placement,
+          },
           include: INCLUDE,
         });
       });
@@ -126,24 +176,15 @@ export class BookingsService {
         if (!site) throw new NotFoundException(`Dive site ${dto.siteId} not found`);
       }
 
-      const user =
-        (await tx.user.findUnique({ where: { email }, select: { id: true } })) ??
-        // randomUUID is not a bcrypt hash, so no password can ever match it:
-        // the account exists for the booking and cannot be signed in to.
-        (await tx.user.create({
-          data: { email, passwordHash: randomUUID(), role: Role.CUSTOMER },
-          select: { id: true },
-        }));
-
       // An existing customer's details are left untouched: this route is
       // public, and anyone who knows an email address must not be able to
-      // rewrite that customer's name or phone.
+      // rewrite that customer's name or phone. A customer at another company
+      // is separate (accounts are per tenant).
       const customer =
-        // This tenant's profile for the account; another tenant's is separate.
-        (await tx.customer.findFirst({ where: { userId: user.id }, select: { id: true } })) ??
+        (await tx.customer.findFirst({ where: { user: { email } }, select: { id: true } })) ??
         (await tx.customer.create({
           data: {
-            userId: user.id,
+            userId: await accountForCustomer(tx, requireTenantId(), email),
             firstName: dto.firstName,
             lastName: dto.lastName,
             phone: dto.phone,

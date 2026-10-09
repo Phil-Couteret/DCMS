@@ -20,7 +20,8 @@ export type TimeSlot = "MORNING" | "AFTERNOON" | "NIGHT";
 export interface Booking {
   id: string;
   customerId: string;
-  boatId: string;
+  boatId: string | null; // null: a shore booking (see shoreTime)
+  shoreTime: string | null; // a shore booking's session start, HH:mm
   siteId: string | null;
   tripId: string | null;
   activityType: string;
@@ -33,8 +34,9 @@ export interface Booking {
   notes: string | null;
   createdAt: string;
   customer: { id: string; firstName: string; lastName: string };
-  boat: { id: string; name: string; capacity: number };
+  boat: { id: string; name: string; capacity: number } | null;
   site: { id: string; nameEn: string } | null;
+  trip: { id: string; isShore: boolean; startTime: string | null } | null;
   partnerId: string | null;
   partner: { id: string; name: string } | null;
   bono: { id: string; code: string; type: BonoType; discountValue: string; description: string } | null;
@@ -359,7 +361,8 @@ export function changeOwnPassword(currentPassword: string, newPassword: string) 
 
 export interface BookingData {
   customerId: string;
-  boatId: string;
+  boatId: string | null; // null for a shore booking
+  shoreTime: string | null; // a shore booking's session start, HH:mm
   siteId: string | null;
   activityType: string;
   date: string;
@@ -398,7 +401,8 @@ export interface DashboardOverview {
     numberOfDives: number;
     status: BookingStatus;
     customer: { id: string; firstName: string; lastName: string };
-    boat: { name: string };
+    boat: { name: string } | null; // null: a shore booking
+    shoreTime: string | null;
   }[];
   revenue: { month: string; monthStart: string; trend: { date: string; amount: string }[] } | null;
 }
@@ -776,6 +780,7 @@ export interface DiveSite extends DiveSiteOption {
   travelTimeMinutes: number;
   maxDiversPerTrip: number;
   accessibility: string | null;
+  isShore: boolean; // a shore dive site (beach, harbour, pool)
   locationId: string | null;
   location: LocationRef | null;
 }
@@ -990,7 +995,9 @@ interface TripBase {
   id: string;
   date: string; // the day at 00:00 UTC
   timeSlot: TimeSlot;
-  boatId: string | null; // null for a shore dive
+  boatId: string | null; // null for a shore trip
+  isShore: boolean; // beach, harbour or pool: no boat
+  startTime: string | null; // a shore session's start, HH:mm
   plannedSiteId: string | null;
   actualSiteId: string | null;
   status: TripStatus;
@@ -1035,7 +1042,8 @@ export interface TripDetail extends TripBase {
 export interface CreateTripData {
   date: string;
   timeSlot: TimeSlot;
-  boatId?: string;
+  boatId?: string; // left out for a shore trip
+  startTime?: string; // a shore trip's session start, HH:mm
   plannedSiteId?: string;
   maxDivers?: number;
   notes?: string;
@@ -1096,7 +1104,7 @@ export function unlinkBooking(tripId: string, bookingId: string) {
 export interface PrepBooking {
   id: string;
   tripId: string | null;
-  boatId: string;
+  boatId: string | null; // null: a shore booking
   activityType: string;
   participantCount: number;
   status: BookingStatus;
@@ -1476,7 +1484,8 @@ export interface StayBooking {
   activityName: string;
   participantCount: number;
   status: BookingStatus;
-  boatName: string;
+  boatName: string | null; // null: a shore booking
+  shoreTime: string | null;
   partner: boolean; // the activity is the partner's to pay
   partnerName: string | null;
   unitPrice: string | null; // null: no price set for this activity

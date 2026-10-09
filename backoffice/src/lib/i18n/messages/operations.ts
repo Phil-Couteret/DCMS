@@ -1,6 +1,19 @@
 // Spanish and French for the backoffice's operations screens, keyed by the
 // English text (see ../core.ts). Keep keys sorted within each language.
 export const es: Record<string, string> = {
+  "A beach, harbour or pool: shore sessions (discovery dives, courses) take place here, with no boat.": "Una playa, un puerto o una piscina: aquí se hacen las sesiones en costa (bautismos, cursos), sin barco.",
+  "Boat trip": "Salida en barco",
+  "Boat trips": "Salidas en barco",
+  "Choose the shore session": "Elige la sesión en costa",
+  "No shore dive site yet: mark one as a shore site in Settings → Dive Sites.": "Aún no hay ningún punto de inmersión en costa: marca uno como punto de costa en Ajustes → Puntos de inmersión.",
+  "One hour; a session starts every 30 minutes.": "Una hora; empieza una sesión cada 30 minutos.",
+  "Shore (beach, harbour or pool; no boat)": "Costa (playa, puerto o piscina; sin barco)",
+  "Shore dive site": "Punto de inmersión en costa",
+  "Shore session": "Sesión en costa",
+  "Shore session {session}": "Sesión en costa {session}",
+  "Shore sessions": "Sesiones en costa",
+  "Shore {time}": "Costa {time}",
+  "Where": "Dónde",
   "+{count} (not named)": "+{count} (sin nombre)",
   "1 booking assigned.": "1 reserva asignada.",
   "1 booking assigned; {skipped} not placed: {list}": "1 reserva asignada; {skipped} sin colocar: {list}",
@@ -364,6 +377,19 @@ export const es: Record<string, string> = {
 };
 
 export const fr: Record<string, string> = {
+  "A beach, harbour or pool: shore sessions (discovery dives, courses) take place here, with no boat.": "Une plage, un port ou une piscine : les séances du bord (baptêmes, cours) ont lieu ici, sans bateau.",
+  "Boat trip": "Sortie en bateau",
+  "Boat trips": "Sorties en bateau",
+  "Choose the shore session": "Choisissez la séance du bord",
+  "No shore dive site yet: mark one as a shore site in Settings → Dive Sites.": "Aucun site de plongée du bord pour l’instant : marquez-en un comme site du bord dans Paramètres → Sites de plongée.",
+  "One hour; a session starts every 30 minutes.": "Une heure ; une séance commence toutes les 30 minutes.",
+  "Shore (beach, harbour or pool; no boat)": "Du bord (plage, port ou piscine ; sans bateau)",
+  "Shore dive site": "Site de plongée du bord",
+  "Shore session": "Séance du bord",
+  "Shore session {session}": "Séance du bord {session}",
+  "Shore sessions": "Séances du bord",
+  "Shore {time}": "Bord {time}",
+  "Where": "Où",
   "+{count} (not named)": "+{count} (non nommés)",
   "1 booking assigned.": "1 réservation attribuée.",
   "1 booking assigned; {skipped} not placed: {list}": "1 réservation attribuée ; {skipped} non placées : {list}",

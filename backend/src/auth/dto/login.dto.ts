@@ -1,4 +1,4 @@
-import { IsEmail, IsString } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -6,4 +6,10 @@ export class LoginDto {
 
   @IsString()
   password: string;
+
+  // 'customer': sign in to the center's customer account for this email
+  // (the public site), never a staff login with the same email.
+  @IsOptional()
+  @IsIn(['customer'])
+  account?: 'customer';
 }

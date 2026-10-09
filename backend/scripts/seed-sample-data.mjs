@@ -5,8 +5,10 @@
 //   cd /data/dcms/app/backend && node scripts/seed-sample-data.mjs
 //
 // Records go through the API (API_URL, default http://localhost:4000), into the
-// tenant SEED_TENANT (a slug, default "default"). The only direct SQL is giving
-// staff accounts the INSTRUCTOR role, which no endpoint does.
+// tenant SEED_TENANT (a slug, default "default"). Direct SQL only reads, to
+// find existing accounts. Staff get staff logins (global accounts, POST
+// /users); customers get the tenant's own customer accounts (POST
+// /auth/register), as customer accounts are per tenant.
 // New accounts get the password SEED_PASSWORD (default DeepBlue2025!).
 
 import 'dotenv/config';
@@ -138,14 +140,32 @@ async function api(method, path, body) {
 
 const log = (what, name, created) => console.log(`${created ? 'created' : 'exists '}  ${what.padEnd(9)} ${name}`);
 
-// The account for an email, registered with PASSWORD if it does not exist.
-async function userFor(email, name) {
-  const found = (await db.query(`SELECT id, role FROM "User" WHERE email = $1`, [email])).rows[0];
+// A customer's account at this center (customer accounts are per tenant),
+// registered with PASSWORD if it does not exist.
+async function customerAccountFor(email, name) {
+  const found = (
+    await db.query(`SELECT id, role FROM "User" WHERE email = $1 AND "tenantId" = $2`, [email, tenant.id])
+  ).rows[0];
   if (found) {
     log('user', email, false);
     return found;
   }
   const { user } = await api('POST', '/auth/register', { email, password: PASSWORD, name });
+  log('user', email, true);
+  return user;
+}
+
+// A staff login (a global account) with access to this center, created with
+// PASSWORD if it does not exist. An existing login is given access here.
+async function staffAccountFor(email, name) {
+  const found = (await db.query(`SELECT id, role FROM "User" WHERE email = $1 AND "tenantId" IS NULL`, [email])).rows[0];
+  if (found) {
+    const member = (await db.query(`SELECT 1 FROM "Membership" WHERE "userId" = $1 AND "tenantId" = $2`, [found.id, tenant.id])).rows[0];
+    if (!member) await api('POST', '/users', { email, password: PASSWORD, name, role: 'INSTRUCTOR' });
+    log('user', email, false);
+    return found;
+  }
+  const user = await api('POST', '/users', { email, password: PASSWORD, name, role: 'INSTRUCTOR' });
   log('user', email, true);
   return user;
 }
@@ -166,11 +186,7 @@ for (const s of SITES) {
 
 const staff = await api('GET', '/staff');
 for (const { email, ...s } of STAFF) {
-  const user = await userFor(email, `${s.firstName} ${s.lastName}`);
-  // Staff log in to the backoffice; never downgrade an ADMIN.
-  if (user.role === 'CUSTOMER') {
-    await db.query(`UPDATE "User" SET role = 'INSTRUCTOR', "updatedAt" = now() WHERE id = $1`, [user.id]);
-  }
+  const user = await staffAccountFor(email, `${s.firstName} ${s.lastName}`);
   const exists = staff.some((x) => x.userId === user.id);
   if (!exists) await api('POST', '/staff', { ...s, userId: user.id, hireDate: '2025-10-01' });
   log('staff', `${s.firstName} ${s.lastName}`, !exists);
@@ -178,7 +194,7 @@ for (const { email, ...s } of STAFF) {
 
 const customers = await api('GET', '/customers');
 for (const { email, certifications, ...c } of CUSTOMERS) {
-  const user = await userFor(email, `${c.firstName} ${c.lastName}`);
+  const user = await customerAccountFor(email, `${c.firstName} ${c.lastName}`);
   let customer = customers.find((x) => x.userId === user.id);
   if (!customer) customer = await api('POST', '/customers', { ...c, userId: user.id });
   log('customer', `${c.firstName} ${c.lastName}`, !customers.includes(customer));

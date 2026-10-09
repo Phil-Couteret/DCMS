@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDefined,
   IsInt,
   IsNotEmpty,
@@ -56,6 +57,8 @@ export class CreateDiveSiteDto {
   @IsInt() @Min(1) maxDiversPerTrip: number;
 
   @IsOptional() @IsString() @IsNotEmpty() accessibility?: string;
+  // A shore site (beach, harbour, pool): shore trips take place there.
+  @IsOptional() @IsBoolean() isShore?: boolean;
 
   @IsOptional() @IsInt() @Min(0) totalDives?: number;
 

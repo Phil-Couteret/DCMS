@@ -74,8 +74,14 @@ export class UsersService {
     private readonly tenant: TenantContext,
   ) {}
 
-  findByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+  // The global (staff or platform) account with this email.
+  findGlobalByEmail(email: string) {
+    return this.prisma.user.findFirst({ where: { email, tenantId: null } });
+  }
+
+  // A tenant's customer account with this email.
+  findCustomerAccount(tenantId: string, email: string) {
+    return this.prisma.user.findFirst({ where: { email, tenantId } });
   }
 
   findById(id: string) {
@@ -85,7 +91,8 @@ export class UsersService {
     });
   }
 
-  create(data: { email: string; passwordHash: string; name?: string }) {
+  // tenantId: a customer account of that tenant; without, a global account.
+  create(data: { email: string; passwordHash: string; name?: string; tenantId?: string }) {
     return this.prisma.user.create({
       data,
       select: { id: true, email: true, name: true, role: true },
@@ -123,8 +130,10 @@ export class UsersService {
     const email = dto.email.trim().toLowerCase();
     const tenantId = this.tenant.tenantId;
     const staff = isMembershipRole(dto.role);
-    const existing = await this.prisma.user.findUnique({
-      where: { email },
+    // Staff logins are global accounts; customer accounts (per tenant) with
+    // the same email are separate.
+    const existing = await this.prisma.user.findFirst({
+      where: { email, tenantId: null },
       select: { id: true, role: true, isSuperadmin: true, memberships: { where: { tenantId }, select: { id: true } } },
     });
     if (existing) {
@@ -186,11 +195,20 @@ export class UsersService {
     const wasStaff = current.role !== Role.CUSTOMER;
     const toStaff = roleChange && isMembershipRole(dto.role!);
     if (roleChange && wasStaff !== toStaff) await this.assertOnlyHere(id, 'account type');
+    // A customer account of this tenant becoming staff becomes a global
+    // account: its email must not already have a staff login.
+    const account = await this.prisma.user.findUniqueOrThrow({ where: { id }, select: { email: true, tenantId: true } });
+    const toGlobal = toStaff && !wasStaff && account.tenantId !== null;
+    if (toGlobal && (await this.findGlobalByEmail(account.email))) {
+      throw new ConflictException('This email already has a staff login; give that account access instead');
+    }
     if (activeChange && !wasStaff && !toStaff) throw new BadRequestException('Only staff access can be deactivated');
 
     await this.prisma.$transaction(async (tx) => {
       if (nameChange) await tx.user.update({ where: { id }, data: { name: dto.name?.trim() || null } });
-      if (roleChange && wasStaff !== toStaff) await tx.user.update({ where: { id }, data: { role: dto.role } });
+      if (roleChange && wasStaff !== toStaff) {
+        await tx.user.update({ where: { id }, data: { role: dto.role, ...(toGlobal && { tenantId: null }) } });
+      }
       if (roleChange && !toStaff) {
         await tx.membership.deleteMany({ where: { userId: id, tenantId } });
       } else if (toStaff || (wasStaff && activeChange)) {

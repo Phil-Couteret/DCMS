@@ -72,7 +72,7 @@ describe('row-level security', () => {
              (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.table_name AND p.policyname = 'tenant_isolation') AS policies
       FROM information_schema.columns c JOIN pg_class k ON k.relname = c.table_name
       WHERE c.table_schema = 'public' AND c.column_name = 'tenantId'
-        AND c.table_name NOT IN ('Membership', 'PlatformAuditLog', 'Invitation')`;
+        AND c.table_name NOT IN ('Membership', 'PlatformAuditLog', 'Invitation', 'User')`;
     expect(tables.length).toBeGreaterThan(30);
     const missing = tables.filter((t) => !t.rls || !t.forced || Number(t.policies) !== 1).map((t) => t.table_name);
     expect(missing).toEqual([]);

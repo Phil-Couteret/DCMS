@@ -66,7 +66,7 @@ export default async function DashboardPage() {
 
   const metrics = [
     { label: t("Today's bookings"), value: bookings?.length },
-    { label: t("Boats out today"), value: bookings ? new Set(bookings.map((b) => b.boatId)).size : undefined },
+    { label: t("Boats out today"), value: bookings ? new Set(bookings.flatMap((b) => (b.boatId ? [b.boatId] : []))).size : undefined },
     { label: t("Check-ins pending"), value: bookings?.filter((b) => b.status === "PENDING").length },
     { label: t("Staff on duty"), value: staffOnDuty ?? undefined },
   ];
@@ -76,7 +76,9 @@ export default async function DashboardPage() {
     .filter((a): a is { booking: Booking; untilStart: number } => a.untilStart !== null)
     .sort((a, b) => a.untilStart - b.untilStart);
 
-  const boatName = (b: Booking) => b.boat?.name ?? boatNames.get(b.boatId) ?? t("Unknown boat");
+  // A shore booking shows its session instead of a boat.
+  const boatName = (b: Booking) =>
+    b.boatId ? (b.boat?.name ?? boatNames.get(b.boatId) ?? t("Unknown boat")) : t("Shore {time}", { time: b.shoreTime ?? "" });
 
   return (
     <main className="space-y-8 p-6 md:p-8">
@@ -286,7 +288,7 @@ export default async function DashboardPage() {
                                   </Link>
                                   <span className="block text-xs text-zinc-500">
                                     {SLOT_LABELS[b.timeSlot] ? t(SLOT_LABELS[b.timeSlot]) : b.timeSlot} · {activity(b.activityType)}
-                                    {b.numberOfDives > 1 ? ` · ${t("{count} dives", { count: b.numberOfDives })}` : ""} · {b.boat.name}
+                                    {b.numberOfDives > 1 ? ` · ${t("{count} dives", { count: b.numberOfDives })}` : ""} · {b.boat?.name ?? t("Shore {time}", { time: b.shoreTime ?? "" })}
                                     {b.participantCount > 1 ? ` · ${t("{count} divers", { count: b.participantCount })}` : ""}
                                   </span>
                                 </span>

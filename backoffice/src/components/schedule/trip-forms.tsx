@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useState, useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   assignStaffAction,
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import type { Boat, DiveSiteOption, Staff, TimeSlot, TripStatus } from "@/lib/api";
 import { useT } from "@/lib/i18n/client";
 import { useFormAction } from "@/lib/use-form-action";
-import { ROLE_LABELS, SLOT_NAMES, TRIP_ROLES, TRIP_SLOTS, TRIP_TRANSITIONS } from "@/lib/trips";
+import { SHORE_START_TIMES, shoreSession, ROLE_LABELS, SLOT_NAMES, TRIP_ROLES, TRIP_SLOTS, TRIP_TRANSITIONS } from "@/lib/trips";
 
 const control =
   "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900";
@@ -160,13 +160,16 @@ export function NewTripForm({
 }: {
   date: string;
   boats: Boat[];
-  sites: DiveSiteOption[];
+  sites: (DiveSiteOption & { isShore?: boolean })[];
   // The schedule URL the new trip's id is appended to, to open its panel.
   tripHrefPrefix: string;
 }) {
   const router = useRouter();
   const [state, onSubmit, pending] = useFormAction<TripFormState>(createTripAction, null);
   const t = useT();
+  const [kind, setKind] = useState<"boat" | "shore">("boat");
+  const [timeSlot, setTimeSlot] = useState<TimeSlot>("MORNING");
+  const shoreSites = sites.filter((s) => s.isShore);
   useEffect(() => {
     if (state?.tripId) router.push(`${tripHrefPrefix}${state.tripId}`, { scroll: false });
   }, [state, router, tripHrefPrefix]);
@@ -180,7 +183,7 @@ export function NewTripForm({
         </label>
         <label className="block text-sm font-medium text-zinc-700">
           {t("Time slot")}
-          <select name="timeSlot" defaultValue={"MORNING" satisfies TimeSlot} className={control}>
+          <select name="timeSlot" value={timeSlot} onChange={(e) => setTimeSlot(e.target.value as TimeSlot)} className={control}>
             {TRIP_SLOTS.map((s) => (
               <option key={s} value={s}>
                 {t(SLOT_NAMES[s])}
@@ -188,28 +191,82 @@ export function NewTripForm({
             ))}
           </select>
         </label>
-        <label className="block text-sm font-medium text-zinc-700">
-          {t("Boat")}
-          <select name="boatId" defaultValue="" className={control}>
-            <option value="">{t("No boat (shore dive)")}</option>
-            {boats.map((b) => (
-              <option key={b.id} value={b.id}>
-                {t("{boat} ({count} places)", { boat: b.name, count: b.capacity })}
-              </option>
+        <fieldset className="sm:col-span-2">
+          <legend className="text-sm font-medium text-zinc-700">{t("Where")}</legend>
+          <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1">
+            {(
+              [
+                ["boat", t("Boat trip")],
+                ["shore", t("Shore (beach, harbour or pool; no boat)")],
+              ] as const
+            ).map(([value, text]) => (
+              <label key={value} className="flex items-center gap-2 text-sm text-zinc-800">
+                <input type="radio" name="kind" value={value} checked={kind === value} onChange={() => setKind(value)} className="size-4" />
+                {text}
+              </label>
             ))}
-          </select>
-        </label>
-        <label className="block text-sm font-medium text-zinc-700">
-          {t("Planned site")}
-          <select name="plannedSiteId" defaultValue="" className={control}>
-            <option value="">{t("Not decided")}</option>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nameEn}
-              </option>
-            ))}
-          </select>
-        </label>
+          </div>
+        </fieldset>
+        {kind === "boat" ? (
+          <>
+            <label className="block text-sm font-medium text-zinc-700">
+              {t("Boat")}
+              <select name="boatId" required defaultValue="" className={control}>
+                <option value="" disabled>
+                  {t("Choose…")}
+                </option>
+                {boats.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {t("{boat} ({count} places)", { boat: b.name, count: b.capacity })}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-zinc-700">
+              {t("Planned site")}
+              <select name="plannedSiteId" defaultValue="" className={control}>
+                <option value="">{t("Not decided")}</option>
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nameEn}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="block text-sm font-medium text-zinc-700">
+              {t("Shore session")}
+              <select name="startTime" required key={timeSlot} defaultValue="" className={control}>
+                <option value="" disabled>
+                  {t("Choose…")}
+                </option>
+                {SHORE_START_TIMES[timeSlot].map((time) => (
+                  <option key={time} value={time}>
+                    {shoreSession(time)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-zinc-700">
+              {t("Shore dive site")}
+              {shoreSites.length === 0 ? (
+                <span role="alert" className="mt-1 block text-sm font-normal text-red-700">
+                  {t("No shore dive site yet: mark one as a shore site in Settings → Dive Sites.")}
+                </span>
+              ) : (
+                <select name="plannedSiteId" required defaultValue={shoreSites[0].id} className={control}>
+                  {shoreSites.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nameEn}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </label>
+          </>
+        )}
         <label className="block text-sm font-medium text-zinc-700">
           {t("Max divers")}
           <input type="number" name="maxDivers" min={1} step={1} required defaultValue={10} className={control} />

@@ -202,7 +202,12 @@ async function SitesTab({ open }: { open?: string }) {
             <TableBody>
               {sites.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.nameEn}</TableCell>
+                  <TableCell className="font-medium">
+                    {s.nameEn}
+                    {s.isShore && (
+                      <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">{t("Shore")}</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <LocationSelect kind="site" id={s.id} name={s.nameEn} current={s.location} locations={locations} />
                   </TableCell>

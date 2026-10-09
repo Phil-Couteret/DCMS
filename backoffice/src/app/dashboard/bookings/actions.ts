@@ -26,7 +26,7 @@ import {
 } from "@/lib/bookings";
 import { LANGUAGES } from "@/lib/customers";
 import { getT } from "@/lib/i18n/server";
-import { TRIP_SLOTS } from "@/lib/trips";
+import { SHORE_START_TIMES, TRIP_SLOTS } from "@/lib/trips";
 
 export type StatusActionState = { error: string } | null;
 
@@ -86,7 +86,9 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   const activityType = text(formData, "activityType");
   const date = text(formData, "date");
   const timeSlot = text(formData, "timeSlot") as TimeSlot;
+  const place = text(formData, "place") === "shore" ? "shore" : "boat";
   const boatId = text(formData, "boatId");
+  const shoreTime = text(formData, "shoreTime");
   const siteId = text(formData, "siteId");
   const participantCount = Number(text(formData, "participantCount"));
   const numberOfDives = Number(text(formData, "numberOfDives"));
@@ -98,7 +100,8 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
   if (!(activityType in ACTIVITY_LABELS)) return { error: t("Choose an activity") };
   if (!ISO_DATE.test(date)) return { error: t("Choose a valid date") };
   if (!TRIP_SLOTS.includes(timeSlot)) return { error: t("Choose a time slot") };
-  if (!UUID.test(boatId)) return { error: t("Choose a boat") };
+  if (place === "boat" && !UUID.test(boatId)) return { error: t("Choose a boat") };
+  if (place === "shore" && !SHORE_START_TIMES[timeSlot].includes(shoreTime)) return { error: t("Choose the shore session") };
   if (siteId && !UUID.test(siteId)) return { error: t("Choose a valid dive site") };
   if (!Number.isInteger(participantCount) || participantCount < 1) return { error: t("Participants must be at least 1") };
   if (!Number.isInteger(numberOfDives) || numberOfDives < 1 || numberOfDives > 20) {
@@ -164,7 +167,9 @@ export async function saveBooking(_prev: BookingFormState, formData: FormData): 
 
   const data: BookingData = {
     customerId,
-    boatId,
+    // A shore booking has no boat, and goes on its shore session.
+    boatId: place === "boat" ? boatId : null,
+    shoreTime: place === "shore" ? shoreTime : null,
     siteId: siteId || null,
     activityType,
     date,

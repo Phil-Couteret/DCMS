@@ -44,6 +44,7 @@ export class DashboardService {
           status: true,
           customer: { select: { id: true, firstName: true, lastName: true } },
           boat: { select: { name: true } },
+          shoreTime: true,
         },
         orderBy: [{ date: 'asc' }, { timeSlot: 'asc' }, { createdAt: 'asc' }],
       }),

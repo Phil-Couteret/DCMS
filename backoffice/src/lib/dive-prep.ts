@@ -1,7 +1,7 @@
 import type { ComplianceTrip, PrepBooking, StaffType, TimeSlot, TripRole } from "@/lib/api";
 import { CERT_LABELS } from "@/lib/customers";
 import { translator, type T } from "@/lib/i18n/core";
-import { SLOT_NAMES } from "@/lib/trips";
+import { SLOT_NAMES, tripPlace } from "@/lib/trips";
 
 export const PREP_TABS = [
   { key: "prep", label: "Preparation" },
@@ -90,7 +90,7 @@ export function complianceCsv(date: string, trips: ComplianceTrip[]) {
     ...trips.map((t) => [
       date,
       SLOT_NAMES[t.timeSlot],
-      t.boat?.name ?? "Shore dive",
+      tripPlace(t),
       t.plannedSite?.nameEn ?? "",
       t.actualSite?.nameEn ?? "",
       t.entryTime,
@@ -109,7 +109,7 @@ export function complianceCsv(date: string, trips: ComplianceTrip[]) {
       t.divers.map((d) => [
         date,
         SLOT_NAMES[t.timeSlot],
-        t.boat?.name ?? "Shore dive",
+        tripPlace(t),
         d.name,
         d.gender ?? "",
         certificationLabel(d.certification),

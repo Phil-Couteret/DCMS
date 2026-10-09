@@ -18,6 +18,7 @@ import {
   SLOT_ACCENT,
   SLOT_NAMES,
   SLOT_PILL,
+  shoreSession,
   TRIP_STATUS_LABELS,
   TRIP_STATUS_STYLES,
   tripDay,
@@ -41,9 +42,20 @@ function siteName(trip: Trip) {
   return trip.actualSite?.nameEn ?? trip.plannedSite?.nameEn ?? null;
 }
 
+// The boat, or a shore trip's session ("Shore 10:00–11:00").
 function boatName(trip: Trip, t: T) {
-  return trip.boat?.name ?? t("Shore dive");
+  if (trip.boat) return trip.boat.name;
+  return trip.startTime ? t("Shore {time}", { time: shoreSession(trip.startTime) }) : t("Shore dive");
 }
+
+// Boat trips first, then shore sessions by start time.
+function boatThenShore<X extends Trip>(trips: X[]) {
+  return [...trips.filter((x) => !x.isShore), ...trips.filter((x) => x.isShore).sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""))];
+}
+
+// A shore trip's pill and card edge: sand, to tell them from boat trips.
+const SHORE_PILL = "bg-amber-200 text-amber-950 hover:bg-amber-300";
+const SHORE_ACCENT = "border-l-amber-400";
 
 function tripCount(n: number, t: T) {
   return n === 1 ? t("1 trip") : t("{count} trips", { count: n });
@@ -118,18 +130,18 @@ export async function MonthView({
               <span className={`text-xs ${isToday ? "font-bold text-[#0096c7]" : "text-zinc-700"}`}>
                 {Number(day.slice(8))}
               </span>
-              {dayTrips.map((t) => (
+              {boatThenShore(dayTrips).map((t) => (
                 <Link
                   key={t.id}
                   href={href.trip(t.id)}
                   prefetch={false}
                   scroll={false}
-                  className={`relative truncate rounded px-1.5 py-0.5 text-[0.7rem] font-medium ${SLOT_PILL[t.timeSlot]} ${
+                  className={`relative truncate rounded px-1.5 py-0.5 text-[0.7rem] font-medium ${t.isShore ? SHORE_PILL : SLOT_PILL[t.timeSlot]} ${
                     t.status === "CANCELLED" ? "line-through opacity-50" : ""
                   }`}
                   title={`${tr(SLOT_NAMES[t.timeSlot])} · ${boatName(t, tr)}${siteName(t) ? ` · ${siteName(t)}` : ""}`}
                 >
-                  {tr(SLOT_NAMES[t.timeSlot]).slice(0, 2)} · {boatName(t, tr)} ({t._count.bookings})
+                  {t.isShore && t.startTime ? `${t.startTime} · ${tr("Shore")}` : `${tr(SLOT_NAMES[t.timeSlot]).slice(0, 2)} · ${boatName(t, tr)}`} ({t._count.bookings})
                 </Link>
               ))}
             </div>
@@ -148,7 +160,7 @@ export async function TripCard({ trip, href, compact = false }: { trip: TripList
       prefetch={false}
       scroll={false}
       className={`block rounded-lg border-l-4 bg-white p-2.5 text-left ring-1 ring-zinc-200 transition-colors hover:bg-zinc-50 ${
-        SLOT_ACCENT[trip.timeSlot]
+        trip.isShore ? SHORE_ACCENT : SLOT_ACCENT[trip.timeSlot]
       } ${trip.status === "CANCELLED" ? "opacity-60" : ""}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -210,7 +222,13 @@ export async function WeekView({
             {dayTrips.length === 0 ? (
               <p className="py-4 text-center text-xs text-zinc-400">{tr("No trips")}</p>
             ) : (
-              dayTrips.map((t) => <TripCard key={t.id} trip={t} href={href.trip(t.id)} />)
+              <>
+                {dayTrips.filter((t) => !t.isShore).map((t) => <TripCard key={t.id} trip={t} href={href.trip(t.id)} />)}
+                {dayTrips.some((t) => t.isShore) && (
+                  <p className="pt-1 text-[0.7rem] font-semibold uppercase tracking-wide text-amber-800">{tr("Shore")}</p>
+                )}
+                {boatThenShore(dayTrips.filter((t) => t.isShore)).map((t) => <TripCard key={t.id} trip={t} href={href.trip(t.id)} />)}
+              </>
             )}
           </section>
         );
@@ -223,11 +241,26 @@ export async function WeekView({
 export async function DaySummary({ trips, href }: { trips: TripListItem[]; href: HrefFor }) {
   const t = await getT();
   if (trips.length === 0) return <p className="text-sm text-zinc-500">{t("No trips scheduled for this day.")}</p>;
+  const boat = trips.filter((x) => !x.isShore);
+  const shore = boatThenShore(trips.filter((x) => x.isShore));
   return (
-    <div className="space-y-2">
-      {trips.map((t) => (
-        <TripCard key={t.id} trip={t} href={href.trip(t.id)} compact />
-      ))}
+    <div className="space-y-3">
+      {boat.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("Boat trips")}</h3>
+          {boat.map((x) => (
+            <TripCard key={x.id} trip={x} href={href.trip(x.id)} compact />
+          ))}
+        </div>
+      )}
+      {shore.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-800">{t("Shore sessions")}</h3>
+          {shore.map((x) => (
+            <TripCard key={x.id} trip={x} href={href.trip(x.id)} compact />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -246,7 +279,14 @@ async function InfoGrid({ trip }: { trip: TripDetail }) {
   const rows: [string, string][] = [
     [t("Date"), formatDayLabel(tripDay(trip.date), "long")],
     [t("Time slot"), t(SLOT_NAMES[trip.timeSlot])],
-    [t("Boat"), trip.boat ? t("{boat} ({count} places)", { boat: trip.boat.name, count: trip.boat.capacity }) : t("Shore dive")],
+    [
+      t("Boat"),
+      trip.boat
+        ? t("{boat} ({count} places)", { boat: trip.boat.name, count: trip.boat.capacity })
+        : trip.startTime
+          ? t("Shore session {session}", { session: shoreSession(trip.startTime) })
+          : t("Shore dive"),
+    ],
     [t("Planned site"), trip.plannedSite?.nameEn ?? "—"],
     [t("Actual site"), trip.actualSite?.nameEn ?? "—"],
     [
@@ -378,10 +418,10 @@ export async function DayView({ trips, href }: { trips: TripDetail[]; href: Href
   if (trips.length === 0) return <EmptyState>{tr("No trips scheduled for this day.")}</EmptyState>;
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      {trips.map((t) => (
+      {boatThenShore(trips).map((t) => (
         <article
           key={t.id}
-          className={`space-y-4 rounded-xl border-l-4 bg-white p-5 ring-1 ring-zinc-200 ${SLOT_ACCENT[t.timeSlot]}`}
+          className={`space-y-4 rounded-xl border-l-4 bg-white p-5 ring-1 ring-zinc-200 ${t.isShore ? SHORE_ACCENT : SLOT_ACCENT[t.timeSlot]}`}
         >
           <div className="flex items-start justify-between gap-2">
             <div>

@@ -131,7 +131,7 @@ async function StayCard({
                           {day(b.date)}
                         </Link>
                         <span className="block text-xs text-zinc-500">
-                          {t(SLOT_NAMES[b.timeSlot])} · {b.boatName}
+                          {t(SLOT_NAMES[b.timeSlot])} · {b.boatName ?? t("Shore {time}", { time: b.shoreTime ?? "" })}
                           {b.status === "PENDING" && ` · ${t("pending")}`}
                         </span>
                       </td>
