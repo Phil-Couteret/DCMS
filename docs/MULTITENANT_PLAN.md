@@ -12,6 +12,8 @@ This plan turns the rebuilt DCMS into a multi-tenant SaaS: one deployment servin
 
 The work below is a fresh implementation, not a port.
 
+**Current status (2026-10-09):** steps 1 to 6 are built. Production still needs the database app role created once (step 6). Step 7 (infrastructure, commercial and lifecycle) has not started. See the summary table at the end of section 2.
+
 ---
 
 ## 1. Decisions for Philippe
@@ -114,11 +116,9 @@ Complexity: **S** = about a day, **M** = a few days, **L** = one to two weeks, *
 
 Pulled forward from step 2: the `Membership` table (staff need one to get a tenant in their token), tenant-scoped `/users`, and a guard on accounts shared with another tenant (their email, password, name and role can't be changed from one center).
 
-**Transitional, to remove in step 4:** a request with no token and no `X-Tenant-ID` header uses the only active tenant, if there is exactly one. Once a second tenant is active, such requests get 400.
+**Transitional, removed in step 4:** a request with no token and no `X-Tenant-ID` header used the only active tenant, if there was exactly one.
 
-**Not yet:**
-- **Default settings and prices for a new tenant** (step 5 onboarding). Until then, pricing and invoicing fail for a tenant with no price rows.
-- **Attaching boats, sites and bookings to locations** (step 3).
+**Follow-ups, since done:** default settings and prices for a new tenant (steps 3 and 5), and boats, sites and bookings attached to locations (step 3).
 
 ### Step 2: Accounts, memberships and the token (L)
 
@@ -145,11 +145,11 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 - **Login:** one choice gives a token at once; several give `{ requiresTenantSelection, tenants, platform, selectionToken }` (a 5-minute token usable only at `POST /auth/select-tenant`). `POST /auth/switch-tenant` and `GET /auth/tenants` for signed-in accounts. A superadmin's login offers their own centers plus the platform console (`tenantId: null`, role `SUPERADMIN`); other tenants are entered from the console, as their admin. A platform token reaches no tenant data, not even with `X-Tenant-ID`, and the single-tenant fallback does not apply to it.
 - **The JWT** carries `tenantId`, `tenantSlug`, the role in that tenant and `isSuperadmin`. `StaffAuthGuard` reads the role from the active membership on every request.
 - **`/superadmin`** API (SuperadminGuard, re-checked against the database): list, create, update and (de)activate tenants, per-tenant stats (bookings, customers, invoiced and collected revenue), audit log.
-- **Backoffice:** "Which center?" on the login page, "Switch center" (`/select-center`), the session holds the tenant, and the superadmin console at `/superadmin` (center list with counts, create, activate/deactivate, open a center, stats and edit page, recent platform activity). Settings → Users shows the role in this center and can suspend an account's access here; adding an email that already has a staff account elsewhere gives it access instead of failing.
+- **Backoffice:** "Which center?" on the login page, "Switch center" (`/select-center`), the session holds the tenant, and the superadmin console at `/superadmin` (center list with counts, create, activate/deactivate, open a center, stats and edit page, recent platform activity). Settings → Users shows the role in this center and can suspend an account's access here. (Adding staff is now by invitation: see step 5.)
 - **Center admins cannot change a superadmin's account** (password, name, account type, deletion only removes the membership).
 - **Tests:** `test/accounts.e2e-spec.ts` (15 checks) next to the isolation suite.
 
-**Not yet:** the invite-by-email onboarding of step 5 (a new tenant is empty: the superadmin opens it and adds its first admin), and partner logins naming a tenant (partners already belong to one, step 1).
+**Follow-ups, since done:** invite-by-email onboarding (step 5, for a center's first admin and, from Settings → Users, for its staff), and partner sign-in in a tenant (step 4: by email in the request's center, or by an API key, which names its center).
 
 ### Step 3: Per-tenant configuration (L)
 
@@ -178,7 +178,7 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Locations (2026-10-09, migration `add_location_to_resources`):** boats, dive sites and bookings have an optional `locationId` (`onDelete: SetNull`), checked by the same-tenant triggers. A booking takes its boat's location (trigger `booking_location`, so staff, guest and partner bookings all get it). Existing boats and sites of a tenant with a single location were assigned to it. `/locations` API (staff read, admins manage), with boat and dive site counts. Backoffice: Settings → Locations (admins), a location selector on each boat and dive site (row and form), and a location filter on the Schedule and Dive Prep (trips by boat location, or planned site for shore dives; bookings, boats and sites; auto-assign stays within the location). Tests: `test/locations.e2e-spec.ts`.
 
-**Not yet:** the public site's tenant name and branding, which come with step 4, when the site knows its tenant from the host.
+**Follow-up, since done:** the public site's tenant name and branding (step 4).
 
 ### Step 4: Tenant from the host (M)
 
@@ -199,11 +199,10 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 - **Backend:** `TenantMiddleware` takes the tenant from `X-Tenant-ID`, `X-Tenant-Slug`, or a tenant subdomain in the request's `Origin` or `Host` (`{slug}.<domain>` for each domain in `TENANT_DOMAINS`). Several sources must agree (400 otherwise); an unknown or inactive tenant is 404. A token's tenant still wins, and a request naming another tenant by any of these gets 403. The transitional single-tenant fallback (step 1) is removed: a public request that names no tenant gets 400, and a customer sign-in needs one. Rate limits (guest bookings, partner sign-in) are counted per tenant and IP (`TenantThrottlerGuard`). CORS accepts every tenant subdomain over https. Tests: `test/tenant-host.e2e-spec.ts`.
 - **Public site** (`frontend/`): the proxy maps the host to a slug (`{slug}.<TENANT_DOMAIN>`) and answers 404 for a host that names no active center. Server-side calls send `X-Tenant-Slug`; the browser's guest booking sends it too (and its origin names the same center). The layout, navbar and home page show the center's name and logo, the page titles its name, and its primary and accent colours drive the site's blues (Tailwind `brand` and `accent`, from CSS variables; unset colours keep the original look). `DEFAULT_TENANT_SLUG` serves one center on hosts that are not subdomains, for development only.
 - **Backoffice:** on `{slug}.<TENANT_DOMAIN>` sign-in is for that center (staff and partners); a session for another center (or the console) is redirected to its own address. `<TENANT_DOMAIN>` itself is the platform address (any session, the superadmin console). "Switch center" on a center address opens the other center's address. Session cookies are host-only (no cookie domain is set).
+- **Behind a reverse proxy:** the API trusts the proxies listed in `TRUST_PROXY`, so rate limits see client IPs (the Docker deployment sets it).
+- **Customer accounts per tenant** (decision 1.2): see "Customer accounts: how it works" under 1.2.
 
-**Not yet / deployment notes:**
-- Behind a reverse proxy, the API must trust it (`trust proxy`) for rate limits to see client IPs; today it counts the proxy's.
-- Wildcard DNS and certificates (step 7).
-- Customer accounts per tenant (decision 1.2): done 2026-10-09, see "Customer accounts: how it works" under 1.2.
+**Left for step 7:** wildcard DNS and certificates.
 
 ### Step 5: Platform administration and onboarding (L)
 
@@ -227,7 +226,7 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 - **Staff invitations from Settings → Users** (added 2026-10-09): a center admin invites by email and role (Admin or Instructor). The link goes by email only, so the admin never sees it or the password: a new person sets their own name and password, and someone with a staff login at another center confirms with its password and gets access here. Pending (and expired) invitations are listed with their role, sent date and expiry, with Resend (a new link valid 7 days; the old one stops working) and Cancel. API: `GET /users/invitations`, `POST /users/invite`, `POST /users/invitations/:id/resend`, `DELETE /users/invitations/:id` (admins; sending is rate limited per center). Creating staff with a password chosen by the admin (`POST /users`) is only the fallback when email is not set up (`SMTP_URL`); with email set up the API refuses it. Tests: `test/staff-invitations.e2e-spec.ts`.
 
-**Not yet:** custom domains (step 7).
+**Left for step 7:** custom domains.
 
 ### Step 6: Row-level security backstop (M)
 
@@ -241,14 +240,14 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Unlocks:** a single missed filter in application code can no longer leak data. This is the hardening the old docs called "optional". Here it is recommended before a second paying tenant goes live.
 
-**Status (2026-10-09): done.** The app role (`dcms_app`) exists on the local database and the API connects as it; production needs the same script run once. What was built (migration `enable_row_level_security`):
+**Status (2026-10-09): done.** The app role (`dcms_app`) exists on the local database and the API connects as it. **Still to do in production:** run `prisma/sql/create-app-role.sql` once, then point `DATABASE_URL` at `dcms_app`. What was built (migration `enable_row_level_security`):
 
 - **Policies** on all 35 tenant tables, enabled and forced (so they bind the tables' owner too): a row is visible and writable only when its `tenantId` equals the session setting `app.tenant_id`. With no tenant set, a tenant table shows and accepts nothing.
 - **Setting the variable:** `TenantPool` (`src/prisma/tenant-pool.ts`), the pool behind Prisma, sets `app.tenant_id` from the request context before each statement (only when it changes; again after a rollback or an error). Following the context statement by statement, rather than once per transaction, covers transactions that switch tenant (onboarding seeds the new tenant inside the superadmin's transaction). Transaction-ending statements are never preceded by a setting, so a failed transaction is always rolled back.
 - **Platform reads:** `runUnscoped` also sets `app.rls_bypass = 'on'`, which the policies accept. Only the superadmin console's counts and storage, a partner's sign-in by API key, and the shared-account check use it. This is a session setting, not a role: the plan's "bypass role" would need a superuser to create.
 - **Roles:** `prisma/sql/create-app-role.sql` (to run as `postgres`) creates `dcms_app`, which owns no table and so cannot disable or un-force the policies; the API then connects as it, and migrations keep running as the owner (`MIGRATION_DATABASE_URL`, read by `prisma7.config.ts`). Wherever it has not been run, the API connects as the owner, and the forced policies still apply to it.
 - **Proof:** `npm run test:e2e:rls` runs the isolation suite and `test/rls.e2e-spec.ts` with the Prisma extension switched off (test-only `DCMS_APP_TENANT_FILTER=off`): row-level security alone keeps the tenants apart. `test/rls.e2e-spec.ts` also checks policy coverage, raw SQL across tenants, tenant switches inside a transaction, the pool after failed transactions, and concurrent requests.
-- **Migrations that change tenant data** must first `SET LOCAL app.rls_bypass = 'on'` (or set `app.tenant_id`). Plain `psql` sessions see no tenant rows without it.
+- **Migrations that change tenant data** must first set the bypass for the session, `SELECT set_config('app.rls_bypass', 'on', false);`, and clear it at the end (`SELECT set_config('app.rls_bypass', '', false);`). `SET LOCAL` does nothing there, because Prisma runs a migration script outside a transaction (found with `add_dive_packs_and_add_ons`). In `psql`, `SET app.rls_bypass = 'on';` works; without it a session sees no tenant rows.
 
 ### Step 7: Infrastructure, commercial and lifecycle (XL, splittable)
 
@@ -269,17 +268,19 @@ Pulled forward from step 2: the `Membership` table (staff need one to get a tena
 
 **Unlocks:** charging centers, custom branding domains, and a clean exit path, i.e. a sellable product.
 
+**Status (2026-10-09): not started.** Quotas are stored and shown (step 5) but not enforced.
+
 ### Summary
 
-| Step | Complexity | Unlocks |
-|---|---|---|
-| 1. Tenant foundation and isolation | XL | Everything else; a second tenant can exist safely |
-| 2. Accounts, memberships, token | L | Staff at several centers; superadmin; partners per center |
-| 3. Per-tenant configuration | L | A second center can be configured and invoice correctly |
-| 4. Tenant from the host | M | A public site and booking flow per center |
-| 5. Platform admin and onboarding | L | New centers without database access |
-| 6. Row-level security | M | One missed filter can no longer leak data |
-| 7. Infrastructure, commercial, lifecycle | XL | Billing, custom domains, export and deletion |
+| Step | Complexity | Unlocks | Status (2026-10-09) |
+|---|---|---|---|
+| 1. Tenant foundation and isolation | XL | Everything else; a second tenant can exist safely | Done |
+| 2. Accounts, memberships, token | L | Staff at several centers; superadmin; partners per center | Done (customer accounts per tenant too) |
+| 3. Per-tenant configuration | L | A second center can be configured and invoice correctly | Done, with locations |
+| 4. Tenant from the host | M | A public site and booking flow per center | Done |
+| 5. Platform admin and onboarding | L | New centers without database access | Done, plus staff invitations from Settings |
+| 6. Row-level security | M | One missed filter can no longer leak data | Done; production app role still to create |
+| 7. Infrastructure, commercial, lifecycle | XL | Billing, custom domains, export and deletion | Not started |
 
 Steps 1 to 4 are the minimum for a second center to use the system. Step 6 should come before a second **paying** center. Step 7's parts can be scheduled independently.
 
